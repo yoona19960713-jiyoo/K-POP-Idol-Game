@@ -1,0 +1,13 @@
+{
+  "name": "kpop-idol-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "K-POP Idol Game 遊戲本體",
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
