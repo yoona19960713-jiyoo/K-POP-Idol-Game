@@ -215,7 +215,7 @@ function ensureWear(force){
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
   if(g==="公司大樓") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
-const outfitName=(mid,id)=>id?((window.OUTFIT_SPRITES||[]).find(o=>o.m===mid&&o.id===id)?.name||id):"白 T(定案立繪)";
+const outfitName=(mid,id)=>id?((window.OUTFIT_SPRITES||[]).find(o=>o.m===mid&&o.id===id)?.name||id):"白 T(基本服裝)";
 function spr(mid,outfit,e){const f=byId(mid).f; return `assets/chara/${f}_${outfit?outfit+"_":""}${EXPR.includes(e)?e:"neutral"}.webp`}
 function preload(mid,outfit){for(const e of EXPR){const i=new Image();i.src=spr(mid,outfit,e)}}
 
@@ -240,40 +240,106 @@ const stageOf=id=>{const t=S.m[id].trust,h=S.m[id].heart;if(t>=50&&h>=40)return"
 const STAGE_C={戒備:"#8C7E92",信任:"#C99A2E",夥伴:"#3E9B6B",心動:"#D4537E",戀人:"#C2185B"};
 const who=pid=>M.filter(m=>S.where[m.id]===pid);
 
-/* ---------- 主畫面 ---------- */
+/* ---------- 主畫面:主地圖與建築剖面 ---------- */
 const pausers=new Set(); const paused=()=>pausers.size>0||document.hidden;
 function setPause(k,on){on?pausers.add(k):pausers.delete(k);$("#stage").classList.toggle("paused",paused())}
 function hm(){const s=SLOTS[S.slot],mins=s.from+(s.to-s.from)*Math.min(S.t,SLOT_SEC)/SLOT_SEC,h=Math.floor(mins/60)%24,mm=Math.floor(mins%60/10)*10;return `${pad(h)}:${pad(mm)}`}
+/* 座標都是畫面百分比(插畫 1600×900) */
+const SPOTS=[
+  {id:"company",n:"公司大樓",kind:"building",rect:[11.8,10.3,35.4,50.2],pin:[29.5,40],rooms:["practice","studio","office"]},
+  {id:"tv",n:"電視台",kind:"locked",rect:[53,10.5,17.5,10.5],pin:[62.5,14],note:"出道後的打歌期開放"},
+  {id:"dorm",n:"宿舍",kind:"building",rect:[67.3,27,21.4,33.5],pin:[77.8,28],rooms:["living","kitchen","bedroom"]},
+  {id:"store",n:"便利商店",kind:"place",rect:[47.4,52,17.6,19],pin:[56.2,51.5]},
+  {id:"river",n:"漢江公園",kind:"place",rect:[44,74,56,26],pin:[76,79]}];
+/* 剖面圖的房間:r=[左,上,寬,高],feet=腳底高度,h=168 公分的人在畫面上的高度(%) */
+const INSIDE={
+  company:{n:"公司大樓",sub:"選擇要去的樓層",rooms:[
+    {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5},
+    {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60]},
+    {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80]},
+    {pid:"lobby",fl:"1F",n:"大廳",r:[6.4,78.4,88.8,17.8],feet:94,h:15.5,lp:"r",deco:"之後的訪客與行程看板會在這裡"}]},
+  dorm:{n:"宿舍",sub:"選擇要去的房間",rooms:[
+    {pid:"bedroom",fl:"2F",n:"藝瑟・河嵐的房間",r:[5,11.2,29.9,33.6],feet:43.6,h:22,mates:["ys","hr"],xr:[25,75]},
+    {pid:"bedroom",fl:"2F",n:"泰梨・夏恩的房間",r:[36.2,11.2,26.6,33.6],feet:43.6,h:22,mates:["tr","he"],xr:[25,75]},
+    {pid:"bedroom",fl:"2F",n:"日和的房間",r:[64.4,11.2,30.7,33.6],feet:43.6,h:22,mates:["hy"],xr:[25,75]},
+    {pid:"living",fl:"1F",n:"客廳",r:[5,49.4,48.8,39.6],feet:85,h:22,xr:[30,85]},
+    {pid:"kitchen",fl:"1F",n:"廚房",r:[54.4,49.4,40.6,39.6],feet:85,h:22,xr:[15,60]}]}};
+const ROOMMATE={ys:0,hr:0,tr:1,he:1,hy:2};
+let view="map";                 // map | company | dorm
+const spotOf=pid=>SPOTS.find(s=>s.rooms?.includes(pid))?.id||pid;
+const inSpot=sp=>M.filter(m=>{const w=S.where[m.id];return !w.startsWith("外出")&&(spotOf(w)===sp)});
+const facesHTML=ms=>!ms.length?"":`<div class="avs">${ms.map(m=>`<span class="face" title="${m.n}" style="--c:${m.c};background-image:url(${spr(m.id,null,"neutral")})"></span>`).join("")}</div>`;
+const L=()=>SLOTS[S.slot].light;
+function setArt(id,url){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.u;if(cur===url) return;
+  if(!cur){a.style.backgroundImage=`url(${url})`;a.dataset.u=url;return}
+  b.style.backgroundImage=`url(${url})`;b.classList.remove("next");setTimeout(()=>{a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.classList.add("next")},1250)}
+
 function renderHud(){const d=dateOf(S.day);
-  $("#date").textContent=`${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`; $("#wday").textContent=`${WD[d.getDay()]}・第 ${S.day+1} 天`;
-  $("#slotName").textContent=SLOTS[S.slot].n; $("#hm").textContent=hm(); $("#tbar").style.width=`${100-100*Math.min(S.t,SLOT_SEC)/SLOT_SEC}%`;
-  [...$("#slots").children].forEach((e,i)=>{e.className=i<S.slot?"done":i===S.slot?"on":""});
+  $("#date").textContent=`${pad(d.getMonth()+1)}.${pad(d.getDate())}`; $("#wday").textContent=`${d.getFullYear()}・${WD[d.getDay()]}`; $("#dayN").textContent=`第 ${S.day+1} 天`;
+  $("#slotName").textContent=SLOTS[S.slot].n; $("#hm").textContent=hm();
+  [...$("#segs").children].forEach((e,i)=>{e.className=i<S.slot?"done":i===S.slot?"on":""; e.firstChild.style.width=i===S.slot?`${100*Math.min(S.t,SLOT_SEC)/SLOT_SEC}%`:"0"});
   [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)); $("#actN").textContent=S.acts; $("#badge").textContent=S.unread||""}
-function tileHTML(p){
-  const open=p.open.includes(S.slot), ppl=open?who(p.id):[], vis=S.visited.includes(p.id), nogo=!open||S.acts<=0||vis;
-  const xs=ppl.length===1?[50]:ppl.length===2?[35,65]:ppl.map((_,i)=>18+64*i/(ppl.length-1));
-  const sub=!open?openText(p):vis?"這個時段已來過":ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
-  const label=`${p.n},${open?(vis?"這個時段已拜訪":ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"沒有人"):"現在關閉,"+openText(p)}`;
-  return `<button class="tile${open?"":" closed"}${vis?" visited":""}${nogo?" nogo":""}" data-place="${p.id}" ${nogo?"disabled":""} aria-label="${label}">
-    <div class="room" style="background-image:url(assets/bg/${p.id}_${SLOTS[S.slot].light}.webp)"></div>
-    <div class="ppl">${ppl.map((m,i)=>`<img alt="" src="${spr(m.id,outfitAt(m.id,p.id,S.slot),"neutral")}" style="--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`).join("")}</div>
-    <div class="shade"></div><div class="nm">${p.n}<small>${sub}</small></div>
-    <div class="cnt">${ppl.map(m=>`<i style="--c:${m.c}"></i>`).join("")}</div></button>`}
-function absentHTML(){return `<div class="absent" aria-live="polite"><h3>你不在場時</h3>${S.absent.length?S.absent.map(a=>`<p>${a}</p>`).join(""):`<p class="none">${S.day===0&&S.slot===0?"每個時段結束時,你沒去的地方發生的事會寫在這裡。":"上個時段沒有特別的事。"}</p>`}</div>`}
-function renderMap(){
-  $("#map").innerHTML=["公司大樓","宿舍","外面"].map(g=>`<div class="col"><h2>${g}</h2>${PLACES.filter(p=>p.g===g).map(tileHTML).join("")}${g==="外面"?absentHTML():""}</div>`).join("");
-  $("#map").querySelectorAll(".tile").forEach(b=>b.onclick=()=>visit(b.dataset.place))}
-function locText(m){const w=S.where[m.id];return w.startsWith("外出")?`外出中<b>(${w.slice(3)})</b>`:`在<b>${PL[w].n}</b>`}
-function renderRoster(){const r=$("#roster"); r.querySelectorAll(".mem").forEach(e=>e.remove());
-  for(const m of M){const s=S.m[m.id],st=stageOf(m.id),el=document.createElement("div");el.className="mem";el.style.setProperty("--c",m.c);
-    const w=S.where[m.id], of=w.startsWith("外出")?outfitAt(m.id,"store",S.slot):outfitAt(m.id,w,S.slot);
-    el.innerHTML=`<div class="face" style="background-image:url(${spr(m.id,null,"neutral")})"></div>
+
+function renderWorld(){
+  setArt("worldArt",`assets/scene/map_${L()}.webp`);
+  $("#worldHot").innerHTML=SPOTS.map(sp=>{
+    const [x,y,w,h]=sp.rect, ppl=sp.kind==="locked"?[]:sp.kind==="place"?who(sp.id):inSpot(sp.id);
+    const open=sp.kind==="building"?sp.rooms.some(r=>PL[r].open.includes(S.slot)):sp.kind==="place"?PL[sp.id].open.includes(S.slot):false;
+    const done=sp.kind==="place"&&S.visited.includes(sp.id);
+    const sub=sp.kind==="locked"?`<span class="lock">🔒 ${sp.note}</span>`:sp.kind==="place"?(!open?openText(PL[sp.id]):done?"這個時段已來過":ppl.length?`${ppl.length} 人在這裡`:"沒有認識的人")
+      :(!open?"現在沒有開放的房間":ppl.length?`${ppl.length} 人在裡面`:"沒有人");
+    const dis=sp.kind==="place"&&(!open||done||S.acts<=0);
+    const label=`${sp.n},${sub.replace(/<[^>]+>/g,"")}`;
+    return `<button class="hot" data-spot="${sp.id}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?"disabled":""} aria-label="${label}"></button>
+      <button class="pin${sp.kind==="locked"?" locked":""}${done?" done":""}" data-spot="${sp.id}" style="left:${sp.pin[0]}%;top:${sp.pin[1]}%" ${dis?"disabled":""} tabindex="-1" aria-hidden="true">
+        <span class="plate"><b>${sp.n}</b><small>${sub}</small>${sp.kind==="locked"?"":facesHTML(ppl)}</span></button>`}).join("");
+  $("#worldHot").querySelectorAll("[data-spot]").forEach(b=>{const id=b.dataset.spot,pair=$("#worldHot").querySelectorAll(`[data-spot="${id}"]`);
+    b.onmouseenter=()=>pair.forEach(x=>x.classList.add("lit")); b.onmouseleave=()=>pair.forEach(x=>x.classList.remove("lit"));
+    b.onclick=()=>openSpot(id)})}
+function openSpot(id){const sp=SPOTS.find(s=>s.id===id); if(!sp) return;
+  if(sp.kind==="locked"){toast2(`${sp.n}:${sp.note}`);return}
+  if(sp.kind==="place"){visit(sp.id);return}
+  enter(sp.id)}
+function enter(b){const sp=SPOTS.find(s=>s.id===b);
+  const w=$("#world"); w.style.transformOrigin=`${sp.rect[0]+sp.rect[2]/2}% ${sp.rect[1]+sp.rect[3]/2}%`; w.classList.add("zoom");
+  view=b; renderInside(); renderNews(); const i=$("#inside"); i.classList.add("enter"); i.classList.remove("hide"); requestAnimationFrame(()=>requestAnimationFrame(()=>i.classList.remove("enter")));
+  renderWhere()}
+function exitToMap(){const i=$("#inside"); i.classList.add("enter"); setTimeout(()=>{i.classList.add("hide");i.classList.remove("enter")},350);
+  view="map"; renderWorld(); $("#world").classList.remove("zoom"); renderWhere(); renderNews()}
+function renderInside(){if(view==="map") return; const B=INSIDE[view];
+  setArt("insideArt",`assets/scene/${view}_${L()}.webp`);
+  $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
+    const p=PL[rm.pid], deco=!!rm.deco, open=!deco&&p.open.includes(S.slot), vis=!deco&&S.visited.includes(rm.pid);
+    let ppl=open?who(rm.pid):[]; if(rm.mates) ppl=ppl.filter(m=>rm.mates.includes(m.id));
+    const dis=deco||!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
+    const st=deco?"之後開放":!open?openText(p):vis?"這個時段已來過":ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri));
+    const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
+      const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
+      return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
+    return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}" data-pid="${rm.pid}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?"disabled":""} aria-label="${rm.fl} ${rm.n},${st}">
+      <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
+      ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
+  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
+function renderWhere(){
+  $("#where").innerHTML=view==="map"?"":`<button class="back" id="backBtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>地圖</button><div class="btitle"><b>${INSIDE[view].n}</b><span>${INSIDE[view].sub}</span></div>`;
+  $("#backBtn")&&($("#backBtn").onclick=exitToMap)}
+function renderNews(){const n=$("#news");
+  if(view!=="map"||!S.absent.length||S.newsSeen===S.day*5+S.slot){n.classList.add("hide");return}
+  n.innerHTML=`<h3>你不在場時<button id="newsX">知道了</button></h3>${S.absent.map(a=>`<p>${a}</p>`).join("")}`; n.classList.remove("hide");
+  $("#newsX").onclick=()=>{S.newsSeen=S.day*5+S.slot;save();n.classList.add("hide")}}
+function locText(m){const w=S.where[m.id];return w.startsWith("外出")?`外出中<b>(${w.slice(3)})</b>`:`在<b>${spotOf(w)==="company"?"公司・":spotOf(w)==="dorm"?"宿舍・":""}${PL[w].n}</b>`}
+function renderDrawer(){
+  $("#drawerBody").innerHTML=M.map(m=>{const s=S.m[m.id],st=stageOf(m.id),w=S.where[m.id],of=w.startsWith("外出")?outfitAt(m.id,"store",S.slot):outfitAt(m.id,w,S.slot);
+    return `<div class="mcard" style="--c:${m.c}"><span class="face" style="background-image:url(${spr(m.id,null,"neutral")})"></span>
       <div><div class="top"><span class="n">${m.n}</span><span class="st" style="--sc:${STAGE_C[st]}">${st}</span></div>
-      <div class="loc">${locText(m)}</div>${of?`<div class="wear">穿著:${esc(outfitName(m.id,of))}</div>`:""}
-      <div class="bars"><span>心情</span><div class="bar"><i style="--v:${s.mood}%;--bc:#E8A13C"></i></div><span>壓力</span><div class="bar"><i style="--v:${s.stress}%;--bc:#8C6FD0"></i></div></div></div>`;
-    r.appendChild(el)}}
-function renderAll(){const L=SLOTS[S.slot].light; $("#stage").dataset.time=L; $("#backdrop").style.backgroundImage=`url(assets/bg/office_${L}.webp)`;
-  ensureWear(); renderHud(); renderMap(); renderRoster(); save()}
+      <div class="loc">${locText(m)}</div><div class="wear">穿著:${esc(outfitName(m.id,of))}</div>
+      <div class="bars"><span>心情</span><div class="bar"><i style="--v:${s.mood}%;--bc:#E8A13C"></i></div><span>壓力</span><div class="bar"><i style="--v:${s.stress}%;--bc:#8C6FD0"></i></div></div></div></div>`}).join("")
+    +`<h4>你不在場時</h4>${S.absent.length?S.absent.map(a=>`<p class="ab">${a}</p>`).join(""):`<p class="ab" style="opacity:.7">上個時段沒有特別的事。</p>`}`}
+$("#memBtn").onclick=()=>{renderDrawer();$("#drawer").classList.add("on");setPause("drawer",true)};
+$("#drawerX").onclick=()=>{$("#drawer").classList.remove("on");setPause("drawer",false)};
+function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); renderWorld(); renderInside(); renderWhere(); renderNews();
+  if($("#drawer").classList.contains("on")) renderDrawer(); save()}
 function toast(t,s){const e=$("#toast");$("#toastT").textContent=t;$("#toastS").textContent=s;e.classList.remove("show");void e.offsetWidth;e.classList.add("show")}
 
 /* ---------- 時間 ---------- */

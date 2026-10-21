@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#1A1420; --page-ink:#EDE8F0;
@@ -39,83 +39,6 @@ button:disabled{cursor:default}
 
 .backdrop{position:absolute;inset:-2cqw;background-size:cover;background-position:center;filter:blur(1.4cqw) brightness(.55) saturate(.9);transform:scale(1.04);transition:background-image .8s}
 .backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(26,20,32,.55),rgba(26,20,32,.25) 30%,rgba(26,20,32,.6))}
-
-/* ===== HUD ===== */
-.hud{position:absolute;left:0;right:0;top:0;height:9.4cqw;display:flex;justify-content:space-between;align-items:flex-start;padding:1.3cqw 2cqw 0}
-.clock{display:flex;align-items:stretch;gap:2.2cqw;background:linear-gradient(90deg,rgba(43,32,48,.85),rgba(43,32,48,.55) 70%,rgba(43,32,48,0));color:#fff;
-  padding:.6cqw 5cqw .7cqw 1.4cqw;border-left:.35cqw solid var(--acc)}
-.clock .d b{display:block;font:800 2.3cqw/1.1 Archivo,"Noto Sans TC",sans-serif;letter-spacing:.04em}
-.clock .d span{display:block;font-size:1.25cqw;letter-spacing:.15em;opacity:.85}
-.slotbox{display:flex;flex-direction:column;justify-content:center;gap:.45cqw;min-width:20cqw}
-.slotrow{display:flex;align-items:baseline;gap:1cqw}
-.slotrow .sn{font-size:1.75cqw;font-weight:700;letter-spacing:.2em}
-.slotrow .hm{font:600 1.5cqw/1 Archivo,sans-serif;opacity:.9;font-variant-numeric:tabular-nums}
-.slotrow .pz{font-size:1.05cqw;letter-spacing:.12em;padding:.1cqw .7cqw;border-radius:1cqw;background:rgba(255,255,255,.18);visibility:hidden}
-.stage.paused .slotrow .pz{visibility:visible}
-.tbar{height:.4cqw;background:rgba(255,255,255,.2);border-radius:.4cqw;overflow:hidden}
-.tbar i{display:block;height:100%;width:0;background:var(--acc2);transition:width .25s linear}
-.slots{display:flex;gap:.35cqw}
-.slots i{flex:1;height:.3cqw;background:rgba(255,255,255,.25)}
-.slots i.on{background:#fff}.slots i.done{background:rgba(255,255,255,.55)}
-.acts{display:flex;align-items:center;gap:.9cqw;padding-left:.4cqw}
-.ap{display:flex;gap:.65cqw}
-.ap i{width:1.05cqw;height:1.05cqw;transform:rotate(45deg);background:var(--acc);border:.14cqw solid #fff}
-.ap i.used{background:transparent;border-color:rgba(255,255,255,.55)}
-.acts .lbl{font-size:1.15cqw;letter-spacing:.1em;opacity:.85}
-.endslot{font-size:1.15cqw;letter-spacing:.1em;padding:.25cqw 1cqw;border:.12cqw solid rgba(255,255,255,.6);border-radius:2cqw;color:#fff}
-.endslot:hover{background:rgba(255,255,255,.15)}
-.hbtns{display:flex;gap:.8cqw}
-.circle{width:5cqw;height:5cqw;border-radius:50%;background:rgba(255,255,255,.9);border:.2cqw solid var(--acc);display:grid;place-items:center;
-  font-size:1.25cqw;font-weight:700;color:#2B2030;position:relative}
-.circle .badge{position:absolute;top:-.3cqw;right:-.3cqw;min-width:1.6cqw;height:1.6cqw;border-radius:1cqw;background:var(--acc);color:#fff;font-size:.95cqw;display:grid;place-items:center;padding:0 .35cqw}
-.circle .badge:empty{display:none}
-
-/* ===== 地圖 ===== */
-.map{position:absolute;left:2cqw;top:10.2cqw;width:71cqw;bottom:2cqw;display:grid;grid-template-columns:repeat(3,1fr);gap:1.6cqw}
-.col{display:flex;flex-direction:column;gap:.75cqw;min-height:0}
-.col h2{margin:0;height:2.1cqw;display:flex;align-items:center;gap:.8cqw;font-size:1.3cqw;font-weight:700;letter-spacing:.3em;color:#fff;text-shadow:0 .1cqw .3cqw rgba(0,0,0,.5)}
-.col h2::after{content:"";flex:1;height:.12cqw;background:linear-gradient(90deg,rgba(255,255,255,.55),transparent)}
-.tile{position:relative;aspect-ratio:16/9;width:100%;overflow:hidden;border-radius:.5cqw;background:#3a2f44 center/cover;
-  box-shadow:0 .4cqw 1.2cqw rgba(0,0,0,.35);outline:.15cqw solid rgba(255,255,255,.25);text-align:left;transition:transform .15s, outline-color .15s}
-.tile .room{position:absolute;inset:0;background:center/cover;filter:var(--light)}
-.tile .ppl{position:absolute;inset:0;pointer-events:none}
-.tile .ppl img{position:absolute;height:calc(200% * var(--h));top:calc(7% + (1 - var(--h)) * 200%);left:var(--x);transform:translateX(-50%);
-  filter:var(--light) drop-shadow(0 .3cqw .6cqw rgba(0,0,0,.35))}
-.tile .shade{position:absolute;inset:auto 0 0 0;height:48%;background:linear-gradient(180deg,transparent,rgba(20,14,26,.82))}
-.tile .nm{position:absolute;left:1cqw;bottom:.6cqw;color:#fff;font-size:1.45cqw;font-weight:700;letter-spacing:.12em;line-height:1.25}
-.tile .nm small{display:block;font-size:1cqw;font-weight:500;letter-spacing:.06em;opacity:.85}
-.tile .cnt{position:absolute;right:.8cqw;top:.7cqw;display:flex;gap:.3cqw}
-.tile .cnt i{width:.95cqw;height:.95cqw;border-radius:50%;background:var(--c);border:.12cqw solid #fff}
-.tile:not(:disabled):hover,.tile:not(:disabled):focus-visible{transform:translateY(-.25cqw);outline-color:var(--acc2)}
-.tile.closed .room,.tile.closed .ppl{filter:grayscale(.85) brightness(.45)}
-.tile.closed .nm small{color:#fff;opacity:.75}
-.tile.visited::before{content:"已拜訪";position:absolute;z-index:2;left:.8cqw;top:.7cqw;font-size:.95cqw;letter-spacing:.15em;color:#fff;
-  background:var(--acc);padding:.1cqw .7cqw;border-radius:1cqw}
-.tile.nogo:not(.closed) .room{filter:var(--light) brightness(.7)}
-
-/* 你不在場時 */
-.absent{flex:1;min-height:0;border-radius:.5cqw;background:linear-gradient(180deg,var(--panel),var(--panel2));border-top:.18cqw solid var(--acc);
-  padding:.9cqw 1.1cqw;overflow:auto;color:var(--ink)}
-.absent h3{margin:0 0 .4cqw;font-size:1.15cqw;letter-spacing:.2em;color:var(--acc)}
-.absent p{margin:0 0 .45cqw;font-size:1.1cqw;line-height:1.55}
-.absent p b{font-weight:700}
-.absent .none{color:var(--soft)}
-
-/* ===== 成員名冊 ===== */
-.roster{position:absolute;right:2cqw;top:10.2cqw;width:22.5cqw;bottom:2cqw;display:flex;flex-direction:column;gap:.6cqw}
-.roster h2{margin:0;height:2.1cqw;display:flex;align-items:center;gap:.8cqw;font-size:1.3cqw;font-weight:700;letter-spacing:.3em;color:#fff;text-shadow:0 .1cqw .3cqw rgba(0,0,0,.5)}
-.roster h2::after{content:"";flex:1;height:.12cqw;background:linear-gradient(90deg,rgba(255,255,255,.55),transparent)}
-.mem{flex:1;min-height:0;display:grid;grid-template-columns:5.2cqw 1fr;align-items:center;gap:1cqw;padding:.4cqw 1cqw .4cqw .5cqw;
-  background:linear-gradient(90deg,var(--panel),var(--panel2));border-left:.35cqw solid var(--c);border-radius:0 .5cqw .5cqw 0;color:var(--ink)}
-.face{width:5.2cqw;height:5.2cqw;border-radius:50%;background:#ddd no-repeat;background-size:auto 820%;background-position:50% 1.6%;border:.18cqw solid var(--c)}
-.mem .top{display:flex;align-items:baseline;justify-content:space-between;gap:.6cqw}
-.mem .n{font-size:1.45cqw;font-weight:700;letter-spacing:.12em}
-.mem .st{font-size:.95cqw;padding:0 .6cqw;border-radius:1cqw;color:#fff;background:var(--sc);letter-spacing:.1em;white-space:nowrap}
-.mem .loc{font-size:1.1cqw;color:var(--soft);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mem .loc b{color:var(--ink);font-weight:500}
-.bars{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:.3cqw .6cqw;margin-top:.25cqw;font-size:.9cqw;color:var(--soft)}
-.bar{height:.45cqw;border-radius:.4cqw;background:rgba(125,111,132,.25);overflow:hidden}
-.bar i{display:block;height:100%;width:var(--v);background:var(--bc)}
 
 /* ===== 拜訪畫面 ===== */
 .visit{position:absolute;inset:0;z-index:20;display:none}
@@ -233,37 +156,183 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
 .set .hidden{display:none}
 .toast2{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;background:rgba(26,20,32,.92);color:#fff;font-size:14px;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity .25s;pointer-events:none}
 .toast2.on{opacity:1}
+
+/* =====================================================================
+   主地圖與建築剖面
+   ===================================================================== */
+.stage{--serif:"Noto Serif TC","Songti TC","PMingLiU",serif;--num:Archivo,"Noto Sans TC",sans-serif;
+  --glass:linear-gradient(180deg,rgba(255,253,254,.84),rgba(250,244,248,.72));--glassLine:rgba(255,255,255,.85);--glassInk:#2B2030;--glassSoft:#7D6F84;
+  --shadow:0 .5cqw 1.8cqw rgba(30,18,40,.28);--inlight:none}
+.stage[data-time="night"]{--glass:linear-gradient(180deg,rgba(34,30,64,.82),rgba(24,22,48,.74));--glassLine:rgba(190,180,255,.38);--glassInk:#EEEAFF;--glassSoft:#B4AEDB;--inlight:brightness(.93) saturate(.95)}
+.stage[data-time="evening"]{--inlight:sepia(.08) saturate(1.05)}
+.stage[data-time="dawn"]{--inlight:brightness(1.02) hue-rotate(-4deg)}
+.face{border-radius:50%;background:#ddd no-repeat;background-size:auto 820%;background-position:50% 1.6%}
+
+/* 兩個場景層 */
+.scene{position:absolute;inset:0;overflow:hidden;transition:opacity .55s ease,transform .7s cubic-bezier(.3,.7,.2,1)}
+.scene .art{position:absolute;inset:0;background:center/cover no-repeat;transition:opacity 1.2s ease}
+.scene .art.next{opacity:0}
+.scene.hide{opacity:0;pointer-events:none}
+#world.zoom{transform:scale(1.55);opacity:0;pointer-events:none}
+#inside.enter{transform:scale(1.06);opacity:0}
+#world .art{animation:drift 60s ease-in-out infinite alternate}
+@keyframes drift{from{transform:scale(1.015) translate(0,0)}to{transform:scale(1.04) translate(-.6%,.3%)}}
+@media (prefers-reduced-motion:reduce){#world .art{animation:none}.scene{transition:opacity .2s}}
+.vign{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 55%,rgba(20,12,28,.32)),linear-gradient(180deg,rgba(20,12,28,.38),transparent 16%)}
+
+/* 地圖熱區與名牌 */
+.hot{position:absolute;border-radius:1cqw}
+.hot::after{content:"";position:absolute;inset:-6%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,240,210,.38),transparent);opacity:0;transition:opacity .3s;pointer-events:none}
+.hot:hover::after,.hot.lit::after{opacity:1}
+.hot:disabled{cursor:default}
+.pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:.35cqw;z-index:3;transition:transform .25s}
+.pin:hover,.pin.lit{transform:translate(-50%,calc(-100% - .4cqw))}
+.plate{position:relative;min-width:11cqw;padding:.55cqw 1.4cqw .6cqw;background:var(--glass);-webkit-backdrop-filter:blur(1cqw) saturate(1.2);backdrop-filter:blur(1cqw) saturate(1.2);
+  border:.1cqw solid var(--glassLine);border-radius:.8cqw;box-shadow:var(--shadow);color:var(--glassInk);text-align:center}
+.plate::before{content:"";position:absolute;left:.5cqw;right:.5cqw;top:.35cqw;bottom:.35cqw;border:.08cqw solid var(--acc);border-radius:.5cqw;opacity:.35;pointer-events:none}
+.plate::after{content:"";position:absolute;left:50%;bottom:-.75cqw;width:1.3cqw;height:1.3cqw;transform:translateX(-50%) rotate(45deg);background:inherit;border-right:.1cqw solid var(--glassLine);border-bottom:.1cqw solid var(--glassLine);z-index:-1}
+.plate b{display:block;font:700 max(1.55cqw,12px)/1.25 var(--serif);letter-spacing:.18em;padding-left:.18em}
+.plate small{display:block;font-size:max(.95cqw,10px);color:var(--glassSoft);letter-spacing:.08em;margin-top:.15cqw}
+.plate .lock{color:var(--acc)}
+.avs{display:flex;justify-content:center;margin-top:.45cqw;min-height:2.6cqw}
+.avs .face{width:2.6cqw;height:2.6cqw;border:.16cqw solid var(--c);box-shadow:0 .1cqw .4cqw rgba(0,0,0,.3);margin-left:-.55cqw;background-color:#fff}
+.avs .face:first-child{margin-left:0}
+.pin.locked .plate{opacity:.82}
+.pin.done .plate b::after{content:" ✓";color:var(--acc);font-size:max(1.1cqw,11px)}
+
+/* 建築剖面:房間 */
+.room{position:absolute;text-align:left}
+.room .hl{position:absolute;inset:0;border-radius:.3cqw;box-shadow:inset 0 0 0 .2cqw transparent;transition:box-shadow .25s,background .25s}
+.room:not(:disabled):hover .hl,.room:focus-visible .hl{box-shadow:inset 0 0 0 .22cqw var(--acc2),inset 0 0 3cqw rgba(255,235,210,.35)}
+.room.closed .hl{background:rgba(18,12,30,.58)}
+.room.visited .hl{background:rgba(255,255,255,.08)}
+.room .rp{position:absolute;left:.9cqw;top:.7cqw;display:flex;align-items:center;gap:.6cqw;padding:.3cqw .9cqw .3cqw .4cqw;background:var(--glass);
+  -webkit-backdrop-filter:blur(.8cqw);backdrop-filter:blur(.8cqw);border:.08cqw solid var(--glassLine);border-radius:2cqw;box-shadow:0 .3cqw 1cqw rgba(20,10,30,.25);color:var(--glassInk);z-index:2}
+.room .fl{font:800 max(1cqw,11px)/1 var(--num);color:#fff;background:var(--acc);border-radius:1cqw;padding:.3cqw .55cqw}
+.room .rn{font:700 max(1.3cqw,12px)/1.2 var(--serif);letter-spacing:.12em}
+.room .rs{font-size:max(.92cqw,10px);color:var(--glassSoft);letter-spacing:.06em}
+.room.closed .rp{opacity:.9}
+.room .rp.b{top:auto;bottom:.7cqw}
+.room .rp.r{left:auto;right:.9cqw}
+.room .lockc{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:600 max(1.2cqw,11px)/1.4 var(--serif);letter-spacing:.2em;text-shadow:0 .1cqw .5cqw rgba(0,0,0,.6);pointer-events:none}
+.fig{position:absolute;transform:translateX(-50%);pointer-events:none;filter:var(--inlight) drop-shadow(0 .25cqw .35cqw rgba(30,15,20,.35));transition:opacity .4s}
+.shadowfoot{position:absolute;transform:translate(-50%,-50%);height:.9cqw;border-radius:50%;background:radial-gradient(closest-side,rgba(30,15,20,.35),transparent);pointer-events:none}
+
+/* 頂部列 */
+.topbar{position:absolute;left:1.4cqw;right:1.4cqw;top:1.2cqw;display:flex;justify-content:space-between;align-items:flex-start;z-index:10;pointer-events:none}
+.topbar>*{pointer-events:auto}
+.tcard{display:flex;align-items:stretch;background:var(--glass);-webkit-backdrop-filter:blur(1.2cqw) saturate(1.2);backdrop-filter:blur(1.2cqw) saturate(1.2);
+  border:.1cqw solid var(--glassLine);border-radius:1cqw;box-shadow:var(--shadow);color:var(--glassInk);overflow:hidden}
+.tcard>div{padding:.75cqw 1.5cqw;display:flex;flex-direction:column;justify-content:center}
+.tcard>div+div{border-left:.08cqw solid rgba(125,111,132,.28)}
+.tdate{background:linear-gradient(160deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#2b2030));color:#fff;min-width:9.4cqw}
+.tdate b{font:800 2.5cqw/1 var(--num);letter-spacing:.02em}
+.tdate span{font-size:max(1cqw,10px);letter-spacing:.14em;opacity:.92;margin-top:.3cqw}
+.tslot .row1{display:flex;align-items:baseline;gap:.9cqw}
+.tslot .sn{font:700 1.9cqw/1.1 var(--serif);letter-spacing:.25em}
+.tslot .hm{font:600 max(1.55cqw,12px)/1 var(--num);font-variant-numeric:tabular-nums;color:var(--glassSoft)}
+.tslot .pz{font-size:max(.9cqw,10px);letter-spacing:.12em;padding:.1cqw .7cqw;border-radius:1cqw;background:var(--acc);color:#fff;visibility:hidden}
+.stage.paused .tslot .pz{visibility:visible}
+.segs{display:flex;gap:.35cqw;margin-top:.55cqw;width:17cqw}
+.segs i{flex:1;height:.42cqw;border-radius:.3cqw;background:rgba(125,111,132,.25);overflow:hidden;position:relative}
+.segs i.done{background:color-mix(in srgb,var(--acc) 45%,transparent)}
+.segs i.on b{position:absolute;inset:0 auto 0 0;background:var(--acc);border-radius:.3cqw;transition:width .25s linear}
+.tact .lbl{font-size:max(1cqw,10px);letter-spacing:.2em;color:var(--glassSoft)}
+.tact .ap{display:flex;gap:.6cqw;margin:.45cqw 0 .4cqw}
+.tact .ap i{width:1.15cqw;height:1.15cqw;transform:rotate(45deg);background:linear-gradient(135deg,var(--acc2),var(--acc));border:.12cqw solid #fff;box-shadow:0 .1cqw .3cqw rgba(0,0,0,.25)}
+.tact .ap i.used{background:transparent;border-color:rgba(125,111,132,.5);box-shadow:none}
+.endslot{font-size:max(.95cqw,10px);letter-spacing:.12em;color:var(--acc);text-align:left;text-decoration:underline;text-underline-offset:.25cqw}
+.ibtns{display:flex;gap:.8cqw}
+.ibtn{position:relative;width:5.2cqw;height:5.2cqw;border-radius:50%;background:var(--glass);-webkit-backdrop-filter:blur(1cqw);backdrop-filter:blur(1cqw);border:.1cqw solid var(--glassLine);
+  box-shadow:var(--shadow);color:var(--glassInk);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15cqw;font-size:max(.9cqw,10px);letter-spacing:.1em;transition:transform .2s}
+.ibtn:hover{transform:translateY(-.2cqw)}
+.ibtn svg{width:2cqw;height:2cqw;stroke:var(--acc);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ibtn .badge{position:absolute;top:-.2cqw;right:-.2cqw;min-width:1.7cqw;height:1.7cqw;border-radius:1cqw;background:#E0414F;color:#fff;font:700 max(.95cqw,11px)/1.7cqw var(--num);text-align:center;padding:0 .4cqw;border:.12cqw solid #fff}
+.ibtn .badge:empty{display:none}
+.sync-dot{position:absolute;right:1.6cqw;top:7.2cqw;z-index:10}
+
+/* 左下:返回與地點名 */
+.where{position:absolute;left:1.6cqw;bottom:1.6cqw;z-index:9;display:flex;align-items:flex-end;gap:1cqw}
+.back{display:flex;align-items:center;gap:.6cqw;padding:.7cqw 1.5cqw .7cqw 1.1cqw;background:var(--glass);-webkit-backdrop-filter:blur(1cqw);backdrop-filter:blur(1cqw);border:.1cqw solid var(--glassLine);
+  border-radius:3cqw;box-shadow:var(--shadow);color:var(--glassInk);font:600 max(1.25cqw,11px)/1 var(--serif);letter-spacing:.15em}
+.back svg{width:1.4cqw;height:1.4cqw;stroke:var(--acc);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.btitle{color:#fff;text-shadow:0 .15cqw .8cqw rgba(20,10,30,.7)}
+.btitle b{display:block;font:700 2.6cqw/1.1 var(--serif);letter-spacing:.3em}
+.btitle span{font-size:max(1.1cqw,11px);letter-spacing:.2em;opacity:.9}
+
+/* 成員抽屜 */
+.drawer{position:absolute;top:0;right:0;bottom:0;width:31cqw;z-index:30;transform:translateX(102%);transition:transform .4s cubic-bezier(.3,.7,.2,1);
+  background:var(--glass);-webkit-backdrop-filter:blur(1.6cqw) saturate(1.2);backdrop-filter:blur(1.6cqw) saturate(1.2);border-left:.1cqw solid var(--glassLine);box-shadow:-1cqw 0 3cqw rgba(20,10,30,.3);
+  color:var(--glassInk);display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer header{display:flex;justify-content:space-between;align-items:center;padding:1.6cqw 1.8cqw .8cqw}
+.drawer header b{font:700 1.9cqw/1 var(--serif);letter-spacing:.3em}
+.drawer .x{font-size:max(1.1cqw,11px);color:var(--glassSoft);border:.08cqw solid currentColor;border-radius:2cqw;padding:.25cqw 1cqw}
+.drawer .body{overflow:auto;padding:0 1.4cqw 1.6cqw;display:flex;flex-direction:column;gap:.8cqw}
+.mcard{display:grid;grid-template-columns:5cqw 1fr;gap:1cqw;align-items:center;padding:.8cqw 1cqw .8cqw .8cqw;border-radius:.8cqw;background:rgba(255,255,255,.35);border-left:.35cqw solid var(--c)}
+.stage[data-time="night"] .mcard{background:rgba(255,255,255,.06)}
+.mcard .face{width:5cqw;height:5cqw;border:.18cqw solid var(--c)}
+.mcard .top{display:flex;justify-content:space-between;align-items:baseline}
+.mcard .n{font:700 max(1.5cqw,12px)/1.2 var(--serif);letter-spacing:.15em}
+.mcard .st{font-size:max(.9cqw,10px);padding:.05cqw .7cqw;border-radius:1cqw;color:#fff;background:var(--sc);letter-spacing:.1em}
+.mcard .loc,.mcard .wear{font-size:max(1.05cqw,10px);color:var(--glassSoft);line-height:1.45}
+.mcard .loc b{color:var(--glassInk);font-weight:500}
+.bars{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:.3cqw .6cqw;margin-top:.3cqw;font-size:max(.9cqw,10px);color:var(--glassSoft)}
+.bar{height:.45cqw;border-radius:.4cqw;background:rgba(125,111,132,.25);overflow:hidden}
+.bar i{display:block;height:100%;width:var(--v);background:var(--bc)}
+.drawer h4{margin:1cqw 0 .2cqw;font:700 max(1.2cqw,11px)/1.3 var(--serif);letter-spacing:.2em;color:var(--acc)}
+.drawer p.ab{margin:0;font-size:max(1.1cqw,11px);line-height:1.6}
+
+/* 你不在場時(消息卡) */
+.news{position:absolute;right:1.6cqw;bottom:1.6cqw;width:27cqw;z-index:9;padding:1.1cqw 1.4cqw 1cqw;background:var(--glass);-webkit-backdrop-filter:blur(1.2cqw);backdrop-filter:blur(1.2cqw);
+  border:.1cqw solid var(--glassLine);border-radius:1cqw;box-shadow:var(--shadow);color:var(--glassInk);transition:opacity .4s,transform .4s}
+.news.hide{opacity:0;transform:translateY(1cqw);pointer-events:none}
+.news h3{margin:0 0 .4cqw;font:700 max(1.2cqw,11px)/1.3 var(--serif);letter-spacing:.25em;color:var(--acc);display:flex;justify-content:space-between;align-items:center}
+.news h3 button{font:500 max(.95cqw,11px)/1 "Noto Sans TC",sans-serif;letter-spacing:.1em;color:var(--glassSoft)}
+.news p{margin:0 0 .4cqw;font-size:max(1.08cqw,10px);line-height:1.55}
+
+/* 手機面板改成玻璃風 */
+.sheet{background:var(--glass)!important;-webkit-backdrop-filter:blur(1.4cqw);backdrop-filter:blur(1.4cqw);border:.1cqw solid var(--glassLine);border-top:.25cqw solid var(--acc);color:var(--glassInk);top:8.6cqw;border-radius:1cqw}
+.msg .face{width:3.4cqw;height:3.4cqw}
+.stage .toast b{font-family:var(--serif)}
 </style>
 </head>
 <body>
 <div class="stage" id="stage" data-time="dawn">
-  <div class="backdrop" id="backdrop"></div>
+  <!-- 主地圖 -->
+  <div class="scene" id="world"><div class="art" id="worldArt"></div><div class="art next" id="worldArt2"></div><div class="vign"></div><div id="worldHot"></div></div>
+  <!-- 建築剖面 -->
+  <div class="scene hide" id="inside"><div class="art" id="insideArt"></div><div class="art next" id="insideArt2"></div><div class="vign"></div><div id="rooms"></div></div>
 
-  <div class="hud">
-    <div class="clock">
-      <div class="d"><b id="date">2015.07.03</b><span id="wday">星期五</span></div>
-      <div class="slotbox">
-        <div class="slotrow"><span class="sn" id="slotName">清晨</span><span class="hm" id="hm">06:00</span><span class="pz">暫停中</span></div>
-        <div class="tbar" title="這個時段剩下的時間"><i id="tbar"></i></div>
-        <div class="slots" id="slots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="topbar">
+    <div class="tcard">
+      <div class="tdate"><b id="date">07.03</b><span id="wday">2015・星期五</span><span id="dayN">第 1 天</span></div>
+      <div class="tslot">
+        <div class="row1"><span class="sn" id="slotName">清晨</span><span class="hm" id="hm">06:00</span><span class="pz">暫停中</span></div>
+        <div class="segs" id="segs"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
       </div>
-      <div class="acts">
-        <div>
-          <div class="lbl">行動 <span id="actN">5</span>/5</div>
-          <div class="ap" id="ap"><i></i><i></i><i></i><i></i><i></i></div>
-        </div>
+      <div class="tact">
+        <span class="lbl">行動 <span id="actN">5</span>/5</span>
+        <div class="ap" id="ap"><i></i><i></i><i></i><i></i><i></i></div>
         <button class="endslot" id="endBtn">結束這個時段</button>
       </div>
     </div>
-    <div class="hbtns">
-      <button class="circle" id="phoneBtn" aria-label="手機">手機<span class="badge" id="badge"></span></button>
-      <button class="circle" id="menuBtn" aria-label="選單">選單</button>
+    <div class="ibtns">
+      <button class="ibtn" id="memBtn" aria-label="成員"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.3c2.4-.3 4.4 1.2 5 4.2"/></svg>成員</button>
+      <button class="ibtn" id="phoneBtn" aria-label="手機"><svg viewBox="0 0 24 24"><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.4"/><path d="M10.5 18h3"/></svg>手機<span class="badge" id="badge"></span></button>
+      <button class="ibtn" id="menuBtn" aria-label="選單"><svg viewBox="0 0 24 24"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg>選單</button>
     </div>
   </div>
   <div class="sync-dot" id="syncDot"></div>
 
-  <div class="map" id="map"></div>
-  <div class="roster" id="roster"><h2>成員現在在哪</h2></div>
+  <div class="where" id="where"></div>
+  <section class="news hide" id="news" aria-live="polite"></section>
+
+  <!-- 成員抽屜 -->
+  <aside class="drawer" id="drawer" aria-label="成員">
+    <header><b>成員</b><button class="x" id="drawerX">關閉</button></header>
+    <div class="body" id="drawerBody"></div>
+  </aside>
 
   <!-- 拜訪與對話 -->
   <div class="visit" id="visit" role="dialog" aria-label="拜訪">
