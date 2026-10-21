@@ -45,10 +45,15 @@ const PLACES=[
   {id:"office",  g:"公司大樓",n:"代表辦公室",sp:"office",  open:[1,2,3]},
   {id:"living",  g:"宿舍",   n:"客廳",     sp:"dorm",    open:[0,3,4]},
   {id:"kitchen", g:"宿舍",   n:"廚房",     sp:"dorm",    open:[0,3,4]},
-  {id:"bedroom", g:"宿舍",   n:"寢室",     sp:"dorm",    open:[0,3,4]},
+  {id:"bed_ys",  g:"宿舍",   n:"藝瑟的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"ys"},
+  {id:"bed_tr",  g:"宿舍",   n:"泰梨的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"tr"},
+  {id:"bed_hy",  g:"宿舍",   n:"日和的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"hy"},
+  {id:"bed_he",  g:"宿舍",   n:"夏恩的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"he"},
+  {id:"bed_hr",  g:"宿舍",   n:"河嵐的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"hr"},
   {id:"store",   g:"外面",   n:"便利商店",  sp:"out",     open:[3,4]},
   {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[3,4]}];
 const PL=Object.fromEntries(PLACES.map(p=>[p.id,p]));
+const baseOf=pid=>PL[pid]?.base||pid;
 const openText=p=>p.open.length===5?"全天開放":p.open.map(i=>SLOTS[i].n).join("、")+"開放";
 const WHERE={
   ys:[{practice:3,kitchen:2,living:1},{practice:4},{practice:3,studio:2},{practice:3,living:2,kitchen:1},{practice:3,living:1,river:1,bedroom:1}],
@@ -233,8 +238,8 @@ function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.im
 const seedOf=(...xs)=>xs.reduce((h,x)=>Math.imul(h^(typeof x==="string"?[...x].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7):x),2654435761)>>>0,2166136261);
 function pickKey(w,r){const ks=Object.keys(w);let x=r()*ks.reduce((s,k)=>s+w[k],0);for(const k of ks){x-=w[k];if(x<=0)return k}return ks[ks.length-1]}
 function assign(){S.where={};for(const m of M){const w=WHERE[m.id][S.slot],r=rng(seedOf(S.day,S.slot,m.id));
-  const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k].open.includes(S.slot)));
-  S.where[m.id]=pickKey(Object.keys(ok).length?ok:{practice:1},r)}}
+  const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k].open.includes(S.slot)));
+  let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2}}
 
 const stageOf=id=>{const t=S.m[id].trust,h=S.m[id].heart;if(t>=50&&h>=40)return"心動";if(t>=50)return"夥伴";if(t>=25)return"信任";return"戒備"};
 const STAGE_C={戒備:"#8C7E92",信任:"#C99A2E",夥伴:"#3E9B6B",心動:"#D4537E",戀人:"#C2185B"};
@@ -248,7 +253,7 @@ function hm(){const s=SLOTS[S.slot],mins=s.from+(s.to-s.from)*Math.min(S.t,SLOT_
 const SPOTS=[
   {id:"company",n:"公司大樓",kind:"building",rect:[11.8,10.3,35.4,50.2],pin:[29.5,40],rooms:["practice","studio","office"]},
   {id:"tv",n:"電視台",kind:"locked",rect:[53,10.5,17.5,10.5],pin:[62.5,14],note:"出道後的打歌期開放"},
-  {id:"dorm",n:"宿舍",kind:"building",rect:[67.3,27,21.4,33.5],pin:[77.8,28],rooms:["living","kitchen","bedroom"]},
+  {id:"dorm",n:"宿舍",kind:"building",rect:[67.3,27,21.4,33.5],pin:[77.8,28],rooms:["living","kitchen","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"]},
   {id:"store",n:"便利商店",kind:"place",rect:[47.4,52,17.6,19],pin:[56.2,51.5]},
   {id:"river",n:"漢江公園",kind:"place",rect:[44,74,56,26],pin:[76,79]}];
 /* 剖面圖的房間:r=[左,上,寬,高],feet=腳底高度,h=168 公分的人在畫面上的高度(%) */
@@ -259,12 +264,13 @@ const INSIDE={
     {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80]},
     {pid:"lobby",fl:"1F",n:"大廳",r:[6.4,78.4,88.8,17.8],feet:94,h:15.5,lp:"r",deco:"之後的訪客與行程看板會在這裡"}]},
   dorm:{n:"宿舍",sub:"選擇要去的房間",rooms:[
-    {pid:"bedroom",fl:"2F",n:"藝瑟・河嵐的房間",r:[5,11.2,29.9,33.6],feet:43.6,h:22,mates:["ys","hr"],xr:[25,75]},
-    {pid:"bedroom",fl:"2F",n:"泰梨・夏恩的房間",r:[36.2,11.2,26.6,33.6],feet:43.6,h:22,mates:["tr","he"],xr:[25,75]},
-    {pid:"bedroom",fl:"2F",n:"日和的房間",r:[64.4,11.2,30.7,33.6],feet:43.6,h:22,mates:["hy"],xr:[25,75]},
+    {pid:"bed_ys",fl:"2F",n:"藝瑟",r:[5.25,11.1,17.5,34.1],feet:43.6,h:22,xr:[66,80]},
+    {pid:"bed_tr",fl:"2F",n:"泰梨",r:[24.1,11.1,16.5,34.1],feet:43.6,h:22,xr:[66,80]},
+    {pid:"bed_hy",fl:"2F",n:"日和",r:[41.9,11.1,17.6,34.1],feet:43.6,h:22,xr:[66,80]},
+    {pid:"bed_he",fl:"2F",n:"夏恩",r:[61,11.1,16.2,34.1],feet:43.6,h:22,xr:[66,80]},
+    {pid:"bed_hr",fl:"2F",n:"河嵐",r:[78.6,11.1,16.2,34.1],feet:43.6,h:22,xr:[66,80]},
     {pid:"living",fl:"1F",n:"客廳",r:[5,49.4,48.8,39.6],feet:85,h:22,xr:[30,85]},
     {pid:"kitchen",fl:"1F",n:"廚房",r:[54.4,49.4,40.6,39.6],feet:85,h:22,xr:[15,60]}]}};
-const ROOMMATE={ys:0,hr:0,tr:1,he:1,hy:2};
 let view="map";                 // map | company | dorm
 const spotOf=pid=>SPOTS.find(s=>s.rooms?.includes(pid))?.id||pid;
 const inSpot=sp=>M.filter(m=>{const w=S.where[m.id];return !w.startsWith("外出")&&(spotOf(w)===sp)});
@@ -310,9 +316,9 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
   setArt("insideArt",`assets/scene/${view}_${L()}.webp`);
   $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
     const p=PL[rm.pid], deco=!!rm.deco, open=!deco&&p.open.includes(S.slot), vis=!deco&&S.visited.includes(rm.pid);
-    let ppl=open?who(rm.pid):[]; if(rm.mates) ppl=ppl.filter(m=>rm.mates.includes(m.id));
+    const ppl=open?who(rm.pid):[];
     const dis=deco||!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
-    const st=deco?"之後開放":!open?openText(p):vis?"這個時段已來過":ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const own=p?.owner, st=deco?"之後開放":!open?openText(p):vis?"這個時段已來過":own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
     const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri));
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
@@ -356,7 +362,7 @@ function absentReports(r){const out=[];
     const sn=pickW(cs,r);
     if(sn){S.seen[sn.code]=S.day; const txt=[sn.sc,...(sn.nodes?.start?.L||[]).map(l=>l[0]?`${byId(l[0])?.n||""}:「${l[1]}」`:l[1])].filter(Boolean).join(" ");
       out.push(`<b>${p.n}</b>:${esc(txt)}`); continue}
-    const pool=(ABSENT[p.id]||[]).filter(t=>!t.includes("{b}")||ppl.length>=2); if(!pool.length) continue;
+    const pool=(ABSENT[baseOf(p.id)]||[]).filter(t=>!t.includes("{b}")||ppl.length>=2); if(!pool.length) continue;
     const t=pool[Math.floor(r()*pool.length)],a=ppl[0],b=ppl[1];
     out.push(`<b>${p.n}</b>:`+esc(t).replace("{a}",`<b style="color:${a.c}">${a.n}</b>`).replace("{b}",b?`<b style="color:${b.c}">${b.n}</b>`:""))}
   return out.slice(0,3)}
@@ -389,9 +395,9 @@ function visit(pid){
   $("#vtitle").textContent=p.n; $("#vsub").textContent=`${SLOTS[S.slot].n}・${hm()}・剩 ${S.acts} 次行動`;
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML="";
   if(pid==="office"){narr(SCN.office); menu(); return}
-  if(!ppl.length){narr(EMPTY[pid]); menu(); return}
+  if(!ppl.length){narr(PL[pid].owner?`${byId(PL[pid].owner).n}不在房間裡。${EMPTY.bedroom.replace("寢室裡沒有人,","")}`:EMPTY[pid]); menu(); return}
   const sn=pickW(pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}));
-  if(sn) play(sn,menu); else {narr(SCN[pid]+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
+  if(sn) play(sn,menu); else {narr((PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:SCN[baseOf(pid)])+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
 }
 function drawPeople(){
   const ids=[...V.present,...(V.summoned?[V.summoned]:[])], n=ids.length, ch=n<=1?120:n===2?104:n===3?92:82;
@@ -540,7 +546,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 /* ---------- 啟動 ---------- */
 (async()=>{
   await IDB.open(); SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{};
-  if(!Object.keys(S.where).length) assign();
+  if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
   $("#boot").classList.add("done");
   requestAnimationFrame(t=>{last=t;tick(t)});
