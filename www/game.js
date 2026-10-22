@@ -211,12 +211,15 @@ const CAT={練習:"練習",居家:"日常・居家",外出:"日常・外出",睡
 const wardLoaded=()=>!!localStorage.getItem("kpopGame.pulledOnce")&&Object.keys(ITEMS).length>0;
 function lookFor(code,mid){const lk=ITEMS[code]; if(!lk) return null; const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid); return slot&&lk.members[slot]?lk:null}
 function wardrobe(mid){
-  return (window.OUTFIT_SPRITES||[]).filter(o=>o.m===mid).map(o=>{
+  const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid), stat=new Set((window.OUTFIT_SPRITES||[]).filter(o=>o.m===mid).map(o=>o.look).filter(Boolean));
+  const dyn=Object.values(ITEMS).filter(l=>l&&!l.deleted&&slot&&l.members?.[slot]?.sprites&&!stat.has(l.code))
+    .map(l=>({m:mid,id:l.code,look:l.code,name:l.name,occ:l.occasion,seasons:l.seasons||[]}));
+  return dyn.concat((window.OUTFIT_SPRITES||[]).filter(o=>o.m===mid).map(o=>{
     if(o.look&&wardLoaded()){const lk=lookFor(o.look,mid); if(!lk) return null;
       // 衣帽間舊分類「日常」還沒改成居家/外出/睡衣時,沿用這裡登記的分類
       const occ=lk.occasion&&lk.occasion!=="日常"?lk.occasion:o.occ;
       return {...o,occ,seasons:(lk.seasons&&lk.seasons.length)?lk.seasons:(o.seasons||[]),name:lk.name||o.name}}
-    return {...o,seasons:o.seasons||[]}}).filter(Boolean)}
+    return {...o,seasons:o.seasons||[]}}).filter(Boolean))}
 function ensureWear(force){
   if(S.wear&&S.wear.day===S.day&&!force) return;
   const season=seasonOf(dateOf(S.day)), r=rng(seedOf(S.day,"wear")), w={day:S.day,m:{}};
@@ -228,8 +231,11 @@ function ensureWear(force){
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
   if(g==="公司大樓") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
-const outfitName=(mid,id)=>id?((window.OUTFIT_SPRITES||[]).find(o=>o.m===mid&&o.id===id)?.name||id):"白 T(基本服裝)";
-function spr(mid,outfit,e){const f=byId(mid).f; return `assets/chara/${f}_${outfit?outfit+"_":""}${EXPR.includes(e)?e:"neutral"}.webp`}
+const outfitName=(mid,id)=>id?((window.OUTFIT_SPRITES||[]).find(o=>o.m===mid&&o.id===id)?.name||ITEMS[id]?.name||id):"白 T(基本服裝)";
+function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
+  if(outfit&&outfit.startsWith("LOOK-")&&!(window.OUTFIT_SPRITES||[]).some(o=>o.m===mid&&o.id===outfit)){ // 遊戲裡處理好的立繪
+    const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||d.neutral; window.needDyn&&needDyn(outfit,mid); outfit=null }
+  return `assets/chara/${f}_${outfit?outfit+"_":""}${ex}.webp`}
 function preload(mid,outfit){for(const e of EXPR){const i=new Image();i.src=spr(mid,outfit,e)}}
 
 /* 劇本沒有標表情時,從台詞推測 */
@@ -586,7 +592,7 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 

@@ -16,7 +16,8 @@ const wCatOf=o=>wIsDaily(o)?o:"stage";
 function wLookPrompt(lk,slot){
   const o=lk.members?.[slot]; if(!o) return "";
   const group=lk.type==="group"&&lk.base?` This is her own version of a coordinated K-pop group outfit; the shared design language of the set is: ${lk.base}.`:"";
-  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, pose, framing, art style, lighting and plain light gray background completely identical. Change only her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${wIsDaily(lk.occasion)?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
+  const daily=wIsDaily(lk.occasion);
+  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, pose, framing, art style${daily?" and lighting":", lighting and plain light gray background"} completely identical. Change only her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.${daily?" Remove the background completely: output only her full figure on a fully transparent background, with clean edges around her hair and clothing.":""}`;
 }
 const slotOf=mid=>Object.keys(WMEM).find(k=>WMEM[k]===mid);
 const midOf=slot=>WMEM[slot];
@@ -103,10 +104,12 @@ const OAI_PRICE={low:.02,medium:.06,high:.22};   // 每張約略費用(直圖+�
 function dataURLtoBlob(u){const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:mime})}
 async function toPng(u){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=u});const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);return await new Promise(ok=>c.toBlob(ok,"image/png"))}
 async function baseFor(slot){const m=WMETA.find(x=>x.id===slot); if(!m?.gen) return ""; return await getBlob(m.gen)}
-async function oaiEdit(prompt,baseURL,model){
+async function oaiEdit(prompt,baseURL,model,transparent){
   const o=oai(); if(!o.key) throw {code:"no_key"};
+  if(transparent) model="gpt-image-1.5";   // gpt-image-2 不支援透明背景
   const fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
-  fd.append("size","1024x1536"); fd.append("quality",o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp");
+  fd.append("size","1024x1536"); fd.append("quality",o.quality||"medium"); fd.append("n","1"); fd.append("output_format",transparent?"png":"webp");
+  if(transparent) fd.append("background","transparent");
   if(model==="gpt-image-1.5"||model==="gpt-image-1") fd.append("input_fidelity","high");
   let r; try{ r=await fetch("https://api.openai.com/v1/images/edits",{method:"POST",headers:{Authorization:"Bearer "+o.key},body:fd}) }catch(e){throw {code:"network"}}
   const j=await r.json().catch(()=>({}));
@@ -118,7 +121,11 @@ async function oaiEdit(prompt,baseURL,model){
     if(/verif/i.test(msg)) throw {code:"verify",msg};
     throw {code:"server",msg} }
   const b=j.data?.[0]?.b64_json; if(!b) throw {code:"server",msg:"沒有收到圖片"};
-  return "data:image/webp;base64,"+b;
+  if(!transparent) return "data:image/webp;base64,"+b;
+  // 透明 PNG 轉成 webp(保留透明),檔案小很多
+  const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src="data:image/png;base64,"+b});
+  const c=document.createElement("canvas"); c.width=img.width; c.height=img.height; c.getContext("2d").drawImage(img,0,0);
+  const w=c.toDataURL("image/webp",.92); return w.startsWith("data:image/webp")?w:"data:image/png;base64,"+b;
 }
 const OAI_ERR={no_key:"還沒設定 OpenAI 金鑰(選單 → AI 生圖)",bad_key:"OpenAI 金鑰不正確",quota:"OpenAI 帳戶額度不足,請到 OpenAI 儲值",rate:"太頻繁了,稍等再試",
   blocked:"被 OpenAI 的安全審查擋下,可以改一下服裝描述再試",bad_model:"這個生圖模型不能用",verify:"這個模型需要先在 OpenAI 完成組織驗證",network:"連不上 OpenAI",server:"OpenAI 回傳錯誤"};
@@ -140,8 +147,9 @@ async function runQueue(){
   while(!STOP){ const job=JOBS.find(j=>j.state==="wait"); if(!job) break; job.state="run"; renderFacility();
     try{ const lk=ITEMS[job.code], base=await baseFor(job.slot);
       if(!base) throw {code:"no_base"};
-      let img; try{ img=await oaiEdit(wLookPrompt(lk,job.slot),base,model) }
-      catch(e){ if(e.code==="bad_model"&&model!=="gpt-image-1.5"){model="gpt-image-1.5"; setOai({model}); img=await oaiEdit(wLookPrompt(lk,job.slot),base,model)} else throw e }
+      const tr=wIsDaily(lk.occasion);
+      let img; try{ img=await oaiEdit(wLookPrompt(lk,job.slot),base,model,tr) }
+      catch(e){ if(e.code==="bad_model"&&model!=="gpt-image-1.5"){model="gpt-image-1.5"; setOai({model}); img=await oaiEdit(wLookPrompt(lk,job.slot),base,model,tr)} else throw e }
       PENDING[job.id]={code:job.code,slot:job.slot,img,at:Date.now()}; await IDB.set("pending",PENDING); job.state="done";
     }catch(e){ job.state="err"; job.err=e.code==="no_base"?"衣帽間還沒有這位成員的生圖底模":(OAI_ERR[e.code]||"失敗")+(e.msg?`:${String(e.msg).slice(0,80)}`:"");
       if(["no_key","bad_key","quota","verify","bad_model"].includes(e.code)){STOP=true; toast2(OAI_ERR[e.code])}
@@ -156,6 +164,9 @@ async function approve(id){
   delete PENDING[id]; await IDB.set("pending",PENDING);
   const ok=await saveDoc("items",lk); toast2(ok?"已收進衣櫃,並同步到雲端":"已收進衣櫃(還沒同步,登入後會自動上傳)");
   JOBS=JOBS.filter(j=>j.id!==id); renderFacility();
+  if(wIsDaily(lk.occasion)&&window.processSprites){ toast2("正在處理成遊戲立繪…");
+    try{ const r=await processSprites(p.code,p.slot); toast2(`${byId(midOf(p.slot))?.n}換上「${lk.name}」了:立繪處理完成`+(r.keyed?"(背景不是透明的,已自動去背,建議看一下邊緣)":"")) }
+    catch(e){ toast2("立繪處理失敗:"+(e.message||"請在卡片詳情按「處理成遊戲立繪」再試")) } renderFacility() }
 }
 async function retry(id){ delete PENDING[id]; await IDB.set("pending",PENDING); const j=JOBS.find(x=>x.id===id); if(j){j.state="wait";j.err=""} else {const [code,slot]=id.split("@"); JOBS.push({id,code,slot,state:"wait"})} renderFacility(); runQueue() }
 async function discard(id){ delete PENDING[id]; await IDB.set("pending",PENDING); JOBS=JOBS.filter(j=>j.id!==id); renderFacility() }
@@ -356,7 +367,7 @@ function chipRow(list,cur,attr){return list.map(([k,n,c])=>`<button class="fchip
 function cardHTML(lk,mid){
   const slot=mid?slotOf(mid):Object.keys(lk.members||{}).find(s=>lk.members[s]?.img&&midOf(s))||Object.keys(lk.members||{})[0];
   const m=byId(midOf(slot)), o=lk.members?.[slot]||{}, has=!!o.img;
-  const sprite=(window.OUTFIT_SPRITES||[]).some(x=>x.look===lk.code);
+  const sprite=(window.OUTFIT_SPRITES||[]).some(x=>x.look===lk.code)||Object.values(lk.members||{}).some(x=>x?.sprites);
   return `<button class="wcard" data-look="${esc(lk.code)}" data-slot="${slot}">
     <span class="wframe"></span><span class="wimg" data-ref="${has?esc(o.img):""}">${has?"":`<span class="wnone">尚未生圖</span>`}</span>
     ${m?`<span class="wwho" style="--mc:${m.c}">${lk.type==="group"?"全員":m.n}</span>`:""}
@@ -415,11 +426,17 @@ async function openDetail(code,slot){
       <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}</p>
       <div class="fchips">${slots.map(s=>{const mm=byId(midOf(s));return `<button class="fchip${s===slot?" on":""}" data-ds="${s}" style="--mc:${mm.c}">${mm.n}${lk.members[s]?.img?"":" ・未生圖"}</button>`}).join("")}</div>
       ${lk.concept?`<p class="dcon">${esc(lk.concept)}</p>`:""}
+      ${wIsDaily(lk.occasion)&&o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">已處理,遊戲裡會依地點換穿</span>`:`<span class="no">還沒處理</span>`}
+        <button class="fbtn" id="dProc">${o.sprites?"重新處理":"處理成遊戲立繪"}</button><div class="dspr" id="dSpr"></div></div>`:""}
       ${o.twist?`<p class="dcon"><b style="color:${m?.c}">${m?.n} 的小巧思</b> ${esc(o.twist)}</p>`:""}
       <details><summary>服裝描述(英文)</summary><p class="dout">${esc(o.outfit||"")}</p></details></div></div>`;
   d.classList.remove("hide");
   $("#dClose").onclick=()=>d.classList.add("hide"); $("#dEdit").onclick=()=>editLook(code);
   d.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>openDetail(code,b.dataset.ds));
+  const pb=$("#dProc"); if(pb) pb.onclick=async()=>{ pb.disabled=true; pb.textContent="處理中…(約幾秒)";
+    try{ const r=await processSprites(code,slot); toast2("立繪處理完成"+(r.keyed?"(已自動去背)":"")); openDetail(code,slot) }catch(e){ toast2("處理失敗:"+(e.message||"")); pb.disabled=false; pb.textContent="再試一次" } };
+  const box=$("#dSpr"); if(box&&o.sprites){ const mid=midOf(slot); window.needDyn&&needDyn(code,mid);
+    const show=()=>{const d=window.DYN?.[code+"@"+mid]; if(d) box.innerHTML=["neutral","smile","laugh","sad","angry","shy"].map(e=>`<img src="${d[e]}" alt="">`).join(""); else setTimeout(show,400)}; show() }
   if(o.img){ const src=await getBlob(o.img); if(src&&fDetail?.code===code&&fDetail?.slot===slot) $("#dImg").style.backgroundImage=`url(${src})` }
 }
 
