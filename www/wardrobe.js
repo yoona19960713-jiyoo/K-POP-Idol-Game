@@ -20,7 +20,7 @@ function wLookPrompt(lk,slot){
 }
 const slotOf=mid=>Object.keys(WMEM).find(k=>WMEM[k]===mid);
 const midOf=slot=>WMEM[slot];
-const wLooks=()=>Object.values(ITEMS).filter(l=>l&&l.kind==="look"&&!l.deleted);
+const wLooks=()=>Object.values(ITEMS).filter(l=>l&&(!l.kind||l.kind==="look")&&!l.deleted);
 
 /* ---------- 雲端圖片(衣帽間把圖片以雜湊存在 users/{uid}/blobs) ---------- */
 const BLOBMEM=new Map();
@@ -191,7 +191,7 @@ function renderCloset(){
   list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)||String(b.code).localeCompare(String(a.code)));
   const have=list.filter(l=>Object.values(l.members||{}).some(o=>o?.img)).length;
   return `<div class="fbar"><div class="fchips">${chipRow(mems,fMem,"fm")}</div><div class="fchips">${chipRow(W_CATS,fCat,"fc")}</div></div>
-    <p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":"。還沒讀到衣帽間的造型:請先在選單登入雲端同步"}</p>
+    <p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到衣帽間的造型:到選單按「立即同步」":"。還沒讀到衣帽間的造型:請先在選單登入雲端同步")}</p>
     <div class="wgrid">${list.map(l=>cardHTML(l,fMem==="all"?null:fMem)).join("")||`<p class="fempty">這個分類還沒有造型</p>`}</div>`}
 function renderStudio(){
   const o=oai(), todo=todoList(), pend=Object.entries(PENDING), waiting=JOBS.filter(j=>j.state==="wait"||j.state==="run").length, errs=JOBS.filter(j=>j.state==="err");

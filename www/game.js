@@ -163,8 +163,10 @@ async function pullContent(){
   try{const meta=await syGet("meta/state"); const mm=meta?JSON.parse(meta.fields.json.stringValue).members||[]:[];
     const map={}; for(const m of mm){const hit=M.find(x=>x.re.test((m.name||"")+" "+(m.en||""))); if(hit) map[m.id]=hit.id} if(Object.keys(map).length){WMEM=map;await IDB.set("wmem",WMEM)}
     if(mm.length){WMETA=mm; await IDB.set("wmeta",WMETA)}}catch(e){}
+  // 舊版只存了精簡資料(沒有服裝描述),第一次換新版時整批重新下載
+  if(localStorage.getItem("kpopGame.itemsFmt")!=="2"){ITEMS={}; localStorage.removeItem("kpopGame.pull.items")}
   const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
-  await IDB.set("items",ITEMS);
+  await IDB.set("items",ITEMS); localStorage.setItem("kpopGame.itemsFmt","2");
   const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",
     at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
   await IDB.set("scripts",SCRIPTS); localStorage.setItem("kpopGame.pulledOnce","1");
