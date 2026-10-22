@@ -371,6 +371,29 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
 details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter-spacing:.1em}
 .dx{position:absolute;top:1.2cqw;right:1.2cqw;z-index:2}
 .room.fac .hl{box-shadow:inset 0 0 0 .18cqw rgba(228,204,151,.65)}
+/* 委託設計、編輯、成員底模 */
+.fdesk2{display:grid;grid-template-columns:34cqw 1fr;gap:1.6cqw;align-items:start}
+.fh{margin:1cqw 0 .45cqw;font:700 max(1.05cqw,11px)/1.2 var(--serif);letter-spacing:.2em;color:var(--gold)}
+.fh small{font:400 max(.85cqw,9px) "Noto Sans TC";color:var(--soft);margin-left:.6cqw;letter-spacing:.05em}
+.ftext{width:100%;min-height:6cqw;font:max(1.05cqw,12px)/1.5 "Noto Sans TC",sans-serif;padding:.6cqw .8cqw;border:.1cqw solid rgba(184,149,90,.5);border-radius:.4cqw;background:#fff;color:var(--ink);resize:vertical}
+.ftext.sm{min-height:5cqw;font-size:max(.95cqw,11px)}.ftext.one{min-height:0}
+.fthumb{position:relative;width:4.6cqw;height:4.6cqw;border-radius:.4cqw;background:center/cover;display:inline-block}
+.fthumb button{position:absolute;top:-.5cqw;right:-.5cqw;width:1.8cqw;height:1.8cqw;border-radius:50%;background:#3A2C2E;color:#fff;font-size:max(1cqw,10px)}
+.draft{display:flex;flex-direction:column;gap:.6cqw}
+.dname{font:700 max(2cqw,16px)/1.3 var(--serif);letter-spacing:.1em;border:0;border-bottom:.12cqw dashed var(--gold);background:transparent;color:var(--ink);padding:.3cqw 0;width:100%}
+.dmem{border-left:.35cqw solid var(--mc);padding:.5cqw 0 .5cqw 1cqw;background:rgba(255,255,255,.55);border-radius:0 .4cqw .4cqw 0;display:flex;flex-direction:column;gap:.35cqw}
+.dmem b{font:700 max(1.15cqw,12px)/1.3 var(--serif);color:var(--mc)}.dmem small{font-size:max(.95cqw,10px);color:var(--soft)}
+.flab{font-size:max(1cqw,11px);color:var(--soft);display:inline-flex;gap:.5cqw;align-items:center}
+.flab.block{display:flex;flex-direction:column;align-items:stretch;margin:.6cqw 0}
+.flab select{font-size:max(1cqw,11px);padding:.3cqw .5cqw;border:.1cqw solid rgba(184,149,90,.5);border-radius:.3cqw;background:#fff;color:var(--ink)}
+.dx2{position:absolute;top:1.2cqw;right:9cqw;z-index:2}
+.dcard.edit{grid-template-columns:1fr}.dtext.full{display:flex;flex-direction:column;gap:.6cqw}
+.fnote.dark{color:#5A4A42;background:rgba(255,253,248,.85);padding:.8cqw 1.2cqw;border-radius:.5cqw}
+.bgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:1.2cqw;margin-top:1cqw}
+.bcard{background:rgba(255,253,248,.92);border-radius:.8cqw;padding:.8cqw;display:flex;flex-direction:column;gap:.5cqw;align-items:center;border-top:.35cqw solid var(--mc);box-shadow:0 .4cqw 1.2cqw rgba(80,55,30,.15)}
+.bcard b{font:700 max(1.3cqw,12px)/1.2 var(--serif);color:var(--mc)}
+.bimg{width:100%;aspect-ratio:2/3;border-radius:.5cqw;background:#e9e3da center 10%/cover no-repeat;display:grid;place-items:center}
+.bcard details{width:100%}.bcard summary{font-size:max(.9cqw,10px);color:var(--gold);cursor:pointer}
 
 /* ===== 房間選擇(設施或拜訪) ===== */
 .chooser{position:absolute;inset:0;z-index:35;display:none;place-items:center;background:rgba(20,12,28,.45);-webkit-backdrop-filter:blur(.4cqw);backdrop-filter:blur(.4cqw)}

@@ -154,6 +154,176 @@ async function approve(id){
 async function retry(id){ delete PENDING[id]; await IDB.set("pending",PENDING); const j=JOBS.find(x=>x.id===id); if(j){j.state="wait";j.err=""} else {const [code,slot]=id.split("@"); JOBS.push({id,code,slot,state:"wait"})} renderFacility(); runQueue() }
 async function discard(id){ delete PENDING[id]; await IDB.set("pending",PENDING); JOBS=JOBS.filter(j=>j.id!==id); renderFacility() }
 
+
+/* =====================================================================
+   造型室補完:委託設計(Gemini)、修改與刪除造型、成員生圖底模
+   設計提示詞與衣帽間工坊相同
+   ===================================================================== */
+const W_OCC=["打歌舞台","演唱會","頒獎典禮","寫真","綜藝","機場","練習","日常・居家","日常・外出","日常・睡衣"];
+const W_OCC_NOTE={
+  "練習":"在公司練習室穿的練習服:方便跳舞的運動上衣、運動褲或運動短褲、運動鞋,可以加薄外套或綁在腰上的襯衫;簡單耐穿,不要舞台感。",
+  "日常・居家":"在宿舍穿的居家服:寬鬆舒服的上衣、棉褲或居家短褲、襪子或室內拖鞋;放鬆的感覺,不要外出打扮,不要包包。",
+  "日常・外出":"休假或下班外出的私服:符合她個性的日常穿搭,可以有包包;比舞台樸素,像真實偶像的私服。",
+  "日常・睡衣":"睡覺穿的睡衣:成套、布料厚實不透明、樣式保守的家居睡衣(例如棉質長袖長褲或短袖短褲套裝),搭配室內拖鞋或襪子;不要絲質吊帶、不要短睡裙。"};
+const W_DAILY_RULE="- 這套會用在遊戲立繪,臉部之後會另外換表情:不要帽子、遮到眉毛的髮箍或瀏海配件、口罩、墨鏡、眼鏡、面紗,或任何遮到臉和眉毛的東西;髮夾、耳環、項鍊可以。";
+const W_AXES=[["sweet","甜美","冷豔"],["pure","清純","性感"],["lively","活潑","優雅"],["fancy","華麗","簡約"],["retro","復古","未來"]];
+const W_PROFILES=[
+  [/藝瑟|Yeseul/i,"隊長、領唱、領舞(原型 Dreamcatcher JiU)。黑色長直髮內層挑染紫。代表色紫(#7B4FBF)。168 cm,高挑優雅、腿長、上圍豐滿。舞台上暗黑哥德的神祕感,私下開朗愛笑的團媽,私人物品偏愛粉紅色。適合長版、蕾絲、鍊條、優雅剪裁。"],
+  [/泰梨|Taeri/i,"主 Rapper、領舞(原型 aespa Karina)。深紅色鮑伯頭、灰色眼睛。代表色紅(#C8102E)。167 cm,結實曲線運動型。外表冷豔完美像 AI,私下害羞傻氣。適合皮革、金屬扣環、短版外套、褲裝、未來感材質。"],
+  [/日和|Hiyori/i,"主舞、副唱,日籍,芭蕾出身(原型 LE SSERAFIM 中村一葉)。深棕色低盤髮。代表色香檳金(#E3CFA6)。165 cm,纖細健康的舞者體態、上圍適中。優雅但開朗外向,暱稱天鵝。適合緞帶、薄紗、芭蕾元素、方便舞動的裙裝。"],
+  [/夏恩|Haeun/i,"門面、C 位、副 Rapper(原型 少女時代 潤娥)。及肩栗棕色波浪髮。代表色珊瑚粉(#F28C82)。163 cm,沙漏曲線身材。國民初戀型的開朗隨和,常站中間位置。適合清新又華麗的設計、珍珠、合身剪裁、閃耀材質。"],
+  [/河嵐|Haram/i,"主唱、綜藝擔當、老么(原型 Apink 鄭恩地)。亂翹層次短髮。代表色萊姆綠(#A8D84E)。160 cm,嬌小曲線、全團上圍最豐滿。直率大嗓門、有點男孩子氣、講濟州方言。適合運動元素、短版、牛仔、亮色,以及方便唱跳的款式。"]];
+const DEFAULT_SLOT={ys:"m1",tr:"m2",hy:"m3",he:"m4",hr:"m5"};
+/* 衣帽間還沒設定成員時,先用預設的五個欄位 */
+function ensureMeta(){ if(Object.keys(WMEM).length) return;
+  WMEM={}; for(const m of M) WMEM[DEFAULT_SLOT[m.id]]=m.id;
+  if(!WMETA.length) WMETA=M.map(m=>({id:DEFAULT_SLOT[m.id],name:m.n,en:m.f[0].toUpperCase()+m.f.slice(1),gen:"",profile:"",current:""})) }
+const profileOf=slot=>{const w=WMETA.find(x=>x.id===slot); const m=byId(midOf(slot)); if(w?.profile) return w.profile; return (W_PROFILES.find(([re])=>re.test(m?.n||""))||[,""])[1]};
+
+/* ---- Gemini(與製作者模式共用金鑰;網頁版也會沿用衣帽間的金鑰) ---- */
+const gKey=()=>localStorage.getItem("kpopScripts.geminiKey")||localStorage.getItem("kpopClothes.geminiKey")||"";
+const gModel=()=>{const m=localStorage.getItem("kpopScripts.model")||"gemini-flash-latest"; return ["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-lite"].includes(m)?"gemini-flash-latest":m};
+async function fileToJpegB64(f){const bmp=await createImageBitmap(f); const s=Math.min(1,1280/Math.max(bmp.width,bmp.height)); const c=document.createElement("canvas");
+  c.width=Math.round(bmp.width*s); c.height=Math.round(bmp.height*s); c.getContext("2d").drawImage(bmp,0,0,c.width,c.height); return c.toDataURL("image/jpeg",.85).split(",")[1]}
+async function gemJSON(prompt,files,signal){
+  const key=gKey(); if(!key) throw {code:"no_key"};
+  const parts=[{text:prompt}]; for(const f of files||[]) parts.push({inline_data:{mime_type:"image/jpeg",data:await fileToJpegB64(f)}});
+  let r; try{ r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(gModel())}:generateContent`,{method:"POST",signal,headers:{"Content-Type":"application/json","x-goog-api-key":key},
+    body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json"}})}) }catch(e){ if(e?.name==="AbortError") throw {code:"cancelled"}; throw {code:"network"} }
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){ if(r.status===429) throw {code:"rate"}; if(r.status===401||r.status===403) throw {code:"bad_key"}; throw {code:"server",msg:j?.error?.message} }
+  const c=j.candidates?.[0]; if(j.promptFeedback?.blockReason||!c||["SAFETY","PROHIBITED_CONTENT","BLOCKLIST"].includes(c.finishReason)) throw {code:"blocked"};
+  const t=(c.content?.parts||[]).map(p=>p.text||"").join(""); try{return JSON.parse(t)}catch(e){const m=t.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){}} throw {code:"invalid_json"}}
+}
+const G_ERR={no_key:"還沒設定 Gemini 金鑰:選單 → 製作者模式 → 金鑰",bad_key:"Gemini 金鑰無效",rate:"Gemini 次數到上限,稍等再試",blocked:"被 Gemini 的安全機制擋下,改一下說明再試",invalid_json:"設計結果格式不完整,再按一次",network:"連不上 Gemini",server:"Gemini 暫時出錯",cancelled:"已停止"};
+function wDesignPrompt(hasPhotos,hint,type,targets,occ,seasons){
+  const prof=targets.map(m=>`- id "${m.id}":${m.name}${m.en?`(${m.en})`:""}:${m.profile||"(沒有資料)"}`).join("\n");
+  return `你是 K-POP 女團的造型總監。${hasPhotos?"附上的圖片是穿搭參考,只看衣物與配件,不要描述照片中人物是誰或五官。":""}
+請設計一套${type==="group"?"團體造型:全員共用同一個主題、配色與材質語彙,但每位成員的版本都依她的定位、身材、代表色和個性做一點小巧思的不同(例如剪裁、長度、細節、配件或點綴色),站在一起要協調又能一眼分出誰是誰;C 位的成員可以稍微華麗一點":"個人造型"}。
+場合:${occ}
+${W_OCC_NOTE[occ]?`場合說明:${W_OCC_NOTE[occ]}\n`:""}季節:${wSeasonText(seasons)}(布料厚薄、長短與外套都要符合季節)
+使用者說明:${hint||"(無,請依場合自由發揮)"}
+成員資料:
+${prof}
+
+規則:
+- outfit 用英文,從頭到腳寫完整:上身、下身或連身、外套(若有)、鞋子、襪子或褲襪(若有)、飾品與小配件,寫出顏色、材質、剪裁、長度、裝飾細節;50~110 個英文字。不要改變髮型與髮色,髮飾可以。
+- 不要提到人物長相、姿勢或背景。
+${wIsDaily(occ)?W_DAILY_RULE+"\n":""}- 生圖器容易把豐滿身材判定成性感內容,所以絕對不要用 corset、bustier、lingerie、bra、sheer、see-through、transparent、tight、skin-tight、low-cut、plunging、sexy、revealing 這類字;改用 structured bodice、fitted stage top、sweetheart neckline、opaque fabric、layered tulle overlay 等中性用語,並寫出布料不透明。
+- twist 用繁體中文一句話,說明這位成員版本的巧思。
+- base 用英文 20~50 字,描述整套共用的設計語彙(個人造型也要寫)。
+- attrs 五個軸,整數 -3~3:sweet(負=甜美,正=冷豔)、pure(負=清純,正=性感)、lively(負=活潑,正=優雅)、fancy(負=華麗,正=簡約)、retro(負=復古,正=未來)。
+- tags 2~5 個繁中風格標籤;rarity 依華麗程度從 N、R、SR、SSR 選一。
+
+只回覆一個 JSON 物件:
+{"setName":"繁中造型名稱","concept":"繁中一句話概念","base":"English shared design language","attrs":{"sweet":0,"pure":0,"lively":0,"fancy":0,"retro":0},"tags":["暗黑"],"rarity":"SR","members":[{"id":"${targets[0].id}","outfit":"English full outfit","twist":"繁中巧思"}]}`;
+}
+function nextLookCode(){let max=0;for(const c of Object.keys(ITEMS)) if(/^LOOK-\d+$/.test(c)) max=Math.max(max,parseInt(c.slice(5))||0); return "LOOK-"+String(max+1).padStart(4,"0")}
+
+/* ---- 委託設計畫面 ---- */
+let DZ={type:"solo",mid:"he",occ:"日常・外出",seasons:["夏"],hint:"",photos:[]}, dCtl=null, dRes=null, dMsg="";
+function renderDesign(){
+  ensureMeta(); const has=!!gKey();
+  return `<div class="fdesk2">
+  <div class="fpanel"><h3>委託設計</h3>
+    <p class="fnote">請造型總監(Gemini)依成員的定位、身材和代表色設計一套。設計好之後收進衣櫃,就會出現在設計工作台等著生圖。</p>
+    <h4 class="fh">類型</h4><div class="fchips">${[["solo","個人造型"],["group","團體服(全員)"]].map(([k,n])=>`<button class="fchip${DZ.type===k?" on":""}" data-dt="${k}">${n}</button>`).join("")}</div>
+    ${DZ.type==="solo"?`<h4 class="fh">給誰</h4><div class="fchips">${M.map(m=>`<button class="fchip${DZ.mid===m.id?" on":""}" data-dm="${m.id}" style="--mc:${m.c}">${m.n}</button>`).join("")}</div>`:""}
+    <h4 class="fh">場合</h4><div class="fchips">${W_OCC.map(o=>`<button class="fchip${DZ.occ===o?" on":""}" data-do="${o}">${o.replace("日常・","")}</button>`).join("")}</div>
+    <h4 class="fh">季節<small>不選就是四季</small></h4><div class="fchips">${W_SEASONS.map(x=>`<button class="fchip${DZ.seasons.includes(x)?" on":""}" data-ds2="${x}">${x}</button>`).join("")}</div>
+    <h4 class="fh">說明</h4><textarea class="ftext" id="dHint" placeholder="例如:夏天去漢江野餐的私服,清爽的條紋與草帽以外的配件">${esc(DZ.hint)}</textarea>
+    <div class="frow"><label class="fbtn">放參考照片<input type="file" accept="image/*" multiple id="dFile" hidden></label>${DZ.photos.map((p,i)=>`<span class="fthumb" style="background-image:url(${p.url})"><button data-dp="${i}">×</button></span>`).join("")}</div>
+    <div class="frow"><button class="fbtn pri" id="dGo" ${dCtl||!has?"disabled":""}>${dCtl?"設計中…":"委託設計"}</button>${dCtl?`<button class="fbtn" id="dStop">停止</button>`:""}</div>
+    <p class="fnote" style="color:${dMsg.startsWith("✓")?"#3E7A52":"#9A3D47"}">${esc(has?dMsg:G_ERR.no_key)}</p></div>
+  <div class="fpanel wide"><h3>設計稿</h3>${dRes?`<div class="draft">
+      <input class="dname" id="rName" value="${esc(dRes.name)}"><p class="dcon">${esc(dRes.concept)}</p>
+      <p class="fnote">${esc(dRes.occasion)}・${wSeasonText(dRes.seasons)}${(dRes.tags||[]).length?"・"+dRes.tags.map(esc).join("、"):""}</p>
+      ${Object.entries(dRes.members).map(([slot,o])=>{const m=byId(midOf(slot));return `<div class="dmem" style="--mc:${m?.c}"><b>${m?.n||slot}</b><small>${esc(o.twist)}</small>
+        <textarea class="ftext sm" data-ro="${slot}">${esc(o.outfit)}</textarea></div>`}).join("")}
+      <div class="frow"><button class="fbtn pri" id="rKeep">收進衣櫃</button><button class="fbtn" id="rAgain">重新設計</button><button class="fbtn ghost" id="rDrop">捨棄</button></div></div>`
+    :`<p class="fempty">還沒有設計稿。左邊填好按「委託設計」,大約十幾秒到半分鐘。</p>`}</div></div>`;
+}
+function bindDesign(B){
+  B.querySelectorAll("[data-dt]").forEach(b=>b.onclick=()=>{DZ.type=b.dataset.dt;renderFacility()});
+  B.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>{DZ.mid=b.dataset.dm;renderFacility()});
+  B.querySelectorAll("[data-do]").forEach(b=>b.onclick=()=>{DZ.occ=b.dataset.do;renderFacility()});
+  B.querySelectorAll("[data-ds2]").forEach(b=>b.onclick=()=>{const v=b.dataset.ds2; DZ.seasons=DZ.seasons.includes(v)?DZ.seasons.filter(x=>x!==v):W_SEASONS.filter(x=>x===v||DZ.seasons.includes(x)); renderFacility()});
+  const h=B.querySelector("#dHint"); if(h) h.oninput=e=>DZ.hint=e.target.value;
+  const f=B.querySelector("#dFile"); if(f) f.onchange=e=>{for(const x of [...e.target.files]){ if(DZ.photos.length>=5) break; DZ.photos.push({file:x,url:URL.createObjectURL(x)}) } renderFacility()};
+  B.querySelectorAll("[data-dp]").forEach(b=>b.onclick=()=>{DZ.photos.splice(+b.dataset.dp,1);renderFacility()});
+  const go=B.querySelector("#dGo"); if(go) go.onclick=design;
+  const st=B.querySelector("#dStop"); if(st) st.onclick=()=>dCtl?.abort();
+  if(dRes){ B.querySelector("#rName").oninput=e=>dRes.name=e.target.value;
+    B.querySelectorAll("[data-ro]").forEach(t=>t.oninput=()=>dRes.members[t.dataset.ro].outfit=t.value);
+    B.querySelector("#rKeep").onclick=async()=>{ const it={...dRes,code:nextLookCode(),createdAt:Date.now(),updatedAt:Date.now()}; dRes=null; dMsg="✓ 已收進衣櫃,到設計工作台就能生圖";
+      const ok=await saveDoc("items",it); toast2(ok?`「${it.name}」已收進衣櫃`:"已收進衣櫃(還沒同步,登入後會自動上傳)"); renderFacility() };
+    B.querySelector("#rAgain").onclick=design; B.querySelector("#rDrop").onclick=()=>{dRes=null;renderFacility()} }
+}
+async function design(){
+  ensureMeta(); if(!DZ.hint.trim()&&!DZ.photos.length){toast2("寫一點造型說明,或放參考照片");return}
+  const slots=DZ.type==="group"?M.map(m=>slotOf(m.id)):[slotOf(DZ.mid)];
+  const targets=slots.map(s=>{const w=WMETA.find(x=>x.id===s)||{}; return {id:s,name:w.name||byId(midOf(s))?.n,en:w.en||"",profile:profileOf(s)}});
+  dCtl=new AbortController(); dMsg=""; renderFacility();
+  try{ const r=await gemJSON(wDesignPrompt(!!DZ.photos.length,DZ.hint.trim(),DZ.type,targets,DZ.occ,DZ.seasons),DZ.photos.map(p=>p.file),dCtl.signal);
+    const ms={}; for(const t of targets){const x=(r.members||[]).find(y=>y.id===t.id)||{}; ms[t.id]={outfit:String(x.outfit||""),twist:String(x.twist||""),img:"",status:0}}
+    const attrs={}; W_AXES.forEach(([k])=>attrs[k]=Math.max(-3,Math.min(3,Math.round(+r.attrs?.[k]||0))));
+    dRes={kind:"look",type:DZ.type,target:DZ.type==="solo"?slots[0]:"",occasion:DZ.occ,seasons:[...DZ.seasons],name:String(r.setName||"未命名造型"),concept:String(r.concept||""),base:String(r.base||""),
+      attrs,tags:(Array.isArray(r.tags)?r.tags:[]).map(String).slice(0,6),rarity:["N","R","SR","SSR"].includes(r.rarity)?r.rarity:"R",notes:"在遊戲造型室設計",source:DZ.hint.trim()||"照片",members:ms};
+  }catch(e){ dMsg=G_ERR[e?.code]||"設計失敗,請再試一次" }
+  finally{ dCtl=null; renderFacility() }
+}
+
+/* ---- 修改與刪除造型(在卡片詳情裡) ---- */
+function editLook(code){
+  const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})); if(!lk.code) return; const d=$("#facDetail");
+  d.innerHTML=`<div class="dcard edit"><button class="fac-close dx" id="eClose">取消</button><div class="dtext full">
+    <small>${esc(lk.code)}・編輯</small><input class="dname" id="eName" value="${esc(lk.name||"")}">
+    <div class="frow"><label class="flab">場合<select id="eOcc">${(W_OCC.includes(lk.occasion)?W_OCC:[...W_OCC,lk.occasion]).map(o=>`<option ${o===lk.occasion?"selected":""}>${o}</option>`).join("")}</select></label>
+      <span class="flab">季節</span>${W_SEASONS.map(x=>`<button class="fchip${(lk.seasons||[]).includes(x)?" on":""}" data-es="${x}">${x}</button>`).join("")}</div>
+    <label class="flab block">概念<input class="ftext one" id="eCon" value="${esc(lk.concept||"")}"></label>
+    ${Object.entries(lk.members||{}).filter(([s])=>midOf(s)).map(([s,o])=>{const m=byId(midOf(s));return `<div class="dmem" style="--mc:${m.c}"><b>${m.n}</b>${o.img?`<small>已經有圖;改了描述後,可以到設計工作台按「重生」換新圖</small>`:""}
+      <input class="ftext one" data-tw="${s}" value="${esc(o.twist||"")}" placeholder="小巧思"><textarea class="ftext sm" data-ou="${s}">${esc(o.outfit||"")}</textarea>
+      ${o.img?`<button class="flink" data-clr="${s}">把她的圖清掉,重新排進待生圖</button>`:""}</div>`}).join("")}
+    <div class="frow"><button class="fbtn pri" id="eSave">儲存</button><button class="fbtn ghost" id="eDel">刪除這套造型</button></div></div></div>`;
+  d.classList.remove("hide");
+  $("#eClose").onclick=()=>openDetail(code,Object.keys(lk.members||{})[0]);
+  d.querySelectorAll("[data-es]").forEach(b=>b.onclick=()=>{const v=b.dataset.es,a=new Set(lk.seasons||[]); a.has(v)?a.delete(v):a.add(v); lk.seasons=W_SEASONS.filter(x=>a.has(x)); b.classList.toggle("on",a.has(v))});
+  d.querySelectorAll("[data-clr]").forEach(b=>b.onclick=()=>{lk.members[b.dataset.clr].img="";lk.members[b.dataset.clr].status=0;b.textContent="已清掉,儲存後生效";b.disabled=true});
+  $("#eSave").onclick=async()=>{ lk.name=$("#eName").value.trim()||lk.name; lk.occasion=$("#eOcc").value; lk.concept=$("#eCon").value;
+    d.querySelectorAll("[data-ou]").forEach(t=>lk.members[t.dataset.ou].outfit=t.value); d.querySelectorAll("[data-tw]").forEach(t=>lk.members[t.dataset.tw].twist=t.value);
+    lk.updatedAt=Date.now(); const ok=await saveDoc("items",lk); toast2(ok?"已儲存並同步":"已儲存(還沒同步)"); ensureWear(true); openDetail(code,Object.keys(lk.members)[0]); renderFacility() };
+  $("#eDel").onclick=async()=>{ if(!confirm(`確定刪除「${lk.name}」?衣帽間那邊也會一起刪除。`)) return;
+    delete ITEMS[code]; await IDB.set("items",ITEMS);
+    try{ await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}) }catch(e){}
+    d.classList.add("hide"); toast2("已刪除"); ensureWear(true); renderFacility() };
+}
+
+/* ---- 成員生圖底模 ---- */
+function renderBases(){ ensureMeta();
+  return `<p class="fnote dark">自動生圖會把這張底模附給 OpenAI,只換衣服。請用定案平常立繪(灰底、白 T、平常表情),換臉層才對得準。這裡改了會同步到衣帽間工坊。</p>
+  <div class="bgrid">${M.map(m=>{const s=slotOf(m.id), w=WMETA.find(x=>x.id===s)||{};return `<div class="bcard" style="--mc:${m.c}"><div class="bimg" data-bref="${esc(w.gen||"")}">${w.gen?"":`<span class="wnone">尚未設定</span>`}</div>
+    <b>${m.n}</b><button class="fbtn" data-bup="${s}">${w.gen?"更換底模":"上傳底模"}</button>
+    <details><summary>造型設計用的人設</summary><textarea class="ftext sm" data-bpf="${s}">${esc(profileOf(s))}</textarea><button class="flink" data-bps="${s}">儲存人設</button></details></div>`}).join("")}</div>`}
+async function saveMetaCloud(){
+  const raw=await IDB.get("wmetaRaw")||{}; const obj={...raw,members:WMETA}; obj.std=obj.std||{img:"",marks:{}};
+  await IDB.set("wmeta",WMETA); await IDB.set("wmem",WMEM);
+  if(!syAuth()||!syCfg()){toast2("還沒登入雲端,登入後再改一次才會同步");return false}
+  const blobs=new Map(), json=JSON.stringify(await wStrip(obj,blobs)); const up=new Set(await IDB.get("blobsUp")||[]);
+  for(const [h,s] of blobs){ if(up.has(h)) continue; const parts=[];for(let i=0;i<s.length;i+=900000) parts.push(s.slice(i,i+900000));
+    for(let i=0;i<parts.length;i++) await syPatchPath(`blobs/${h}-${i}`,{d:{stringValue:parts[i]},n:{integerValue:String(parts.length)}}); up.add(h); BLOBMEM.set(h,s); await IDB.set("blob:"+h,s); await IDB.set("blobsUp",[...up]) }
+  await syPatchPath("meta/state",{json:{stringValue:json},updatedAt:{integerValue:String(Date.now())}});
+  WMETA=JSON.parse(json).members; await IDB.set("wmeta",WMETA); await IDB.set("wmetaRaw",JSON.parse(json)); return true }
+function bindBases(B){
+  B.querySelectorAll("[data-bup]").forEach(b=>b.onclick=()=>{ const s=b.dataset.bup, inp=document.createElement("input"); inp.type="file"; inp.accept="image/*";
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; try{ const bmp=await createImageBitmap(f), k=Math.min(1,1536/Math.max(bmp.width,bmp.height)), c=document.createElement("canvas");
+      c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k); c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
+      let url=c.toDataURL("image/webp",.92); if(!url.startsWith("data:image/webp")) url=c.toDataURL("image/png");
+      let w=WMETA.find(x=>x.id===s); if(!w){w={id:s,name:byId(midOf(s)).n,en:"",gen:"",profile:"",current:""};WMETA.push(w)} w.gen=url;
+      toast2("上傳中…"); const ok=await saveMetaCloud(); if(ok) toast2(`${byId(midOf(s)).n}的底模已更新,衣帽間也同步了`); renderFacility() }catch(e){toast2("讀不到這張圖,請換一張")} }; inp.click() });
+  B.querySelectorAll("[data-bps]").forEach(b=>b.onclick=async()=>{ const s=b.dataset.bps, w=WMETA.find(x=>x.id===s); if(!w) return; w.profile=B.querySelector(`[data-bpf="${s}"]`).value; const ok=await saveMetaCloud(); if(ok) toast2("人設已儲存") });
+  for(const el of B.querySelectorAll(".bimg[data-bref]")){ const r=el.dataset.bref; if(r) getThumb(r).then(t=>{if(t) el.style.backgroundImage=`url(${t})`}) }
+}
+
 /* =====================================================================
    畫面
    ===================================================================== */
@@ -163,7 +333,7 @@ function facShell(){
   const el=document.createElement("section"); el.id="facility"; el.className="fac-wrap hide"; el.setAttribute("aria-label","造型室");
   el.innerHTML=`<div class="fac-bg"></div><div class="fac-veil"></div>
     <header class="fac-head"><div class="fac-title"><small>COMPANY ・ 1F</small><b>造型室</b></div>
-      <nav class="fac-tabs" role="tablist"><button data-ft="closet" role="tab">衣櫃</button><button data-ft="studio" role="tab">設計工作台<i id="fBadge"></i></button></nav>
+      <nav class="fac-tabs" role="tablist"><button data-ft="closet" role="tab">衣櫃</button><button data-ft="design" role="tab">委託設計</button><button data-ft="studio" role="tab">設計工作台<i id="fBadge"></i></button><button data-ft="bases" role="tab">成員底模</button></nav>
       <button class="fac-close" id="facClose">離開造型室</button></header>
     <div class="fac-body" id="facBody"></div>
     <div class="fac-detail hide" id="facDetail"></div>`;
@@ -214,7 +384,8 @@ async function renderFacility(){
   if(!FAC||!$("#facility")) return;
   const pc=Object.keys(PENDING).length; $("#fBadge").textContent=pc||"";
   document.querySelectorAll("#facility [data-ft]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.ft===fTab)));
-  const body=$("#facBody"); body.innerHTML=fTab==="closet"?renderCloset():renderStudio();
+  const body=$("#facBody"); body.innerHTML=fTab==="closet"?renderCloset():fTab==="design"?renderDesign():fTab==="bases"?renderBases():renderStudio();
+  if(fTab==="design") bindDesign(body); if(fTab==="bases") bindBases(body);
   body.querySelectorAll("[data-fm]").forEach(b=>b.onclick=()=>{fMem=b.dataset.fm;renderFacility()});
   body.querySelectorAll("[data-fc]").forEach(b=>b.onclick=()=>{fCat=b.dataset.fc;renderFacility()});
   body.querySelectorAll("[data-look]").forEach(b=>b.onclick=()=>openDetail(b.dataset.look,b.dataset.slot));
@@ -232,7 +403,7 @@ async function openDetail(code,slot){
   const lk=ITEMS[code]; if(!lk) return; fDetail={code,slot};
   const slots=Object.keys(lk.members||{}).filter(s=>midOf(s)), o=lk.members[slot]||{}, m=byId(midOf(slot));
   const d=$("#facDetail");
-  d.innerHTML=`<div class="dcard"><button class="fac-close dx" id="dClose">關閉</button>
+  d.innerHTML=`<div class="dcard"><button class="fac-close dx" id="dClose">關閉</button><button class="fac-close dx2" id="dEdit">編輯</button>
     <div class="dimg" id="dImg">${o.img?"":`<span class="wnone">${o.outfit?"尚未生圖:到設計工作台按「全部開始生圖」":"沒有服裝描述"}</span>`}</div>
     <div class="dtext"><small>${esc(lk.code)}・${lk.type==="group"?"團體服":"個人造型"}</small><h2>${esc(lk.name||"")}</h2>
       <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}</p>
@@ -241,7 +412,7 @@ async function openDetail(code,slot){
       ${o.twist?`<p class="dcon"><b style="color:${m?.c}">${m?.n} 的小巧思</b> ${esc(o.twist)}</p>`:""}
       <details><summary>服裝描述(英文)</summary><p class="dout">${esc(o.outfit||"")}</p></details></div></div>`;
   d.classList.remove("hide");
-  $("#dClose").onclick=()=>d.classList.add("hide");
+  $("#dClose").onclick=()=>d.classList.add("hide"); $("#dEdit").onclick=()=>editLook(code);
   d.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>openDetail(code,b.dataset.ds));
   if(o.img){ const src=await getBlob(o.img); if(src&&fDetail?.code===code&&fDetail?.slot===slot) $("#dImg").style.backgroundImage=`url(${src})` }
 }

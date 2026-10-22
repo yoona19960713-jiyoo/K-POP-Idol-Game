@@ -160,7 +160,8 @@ async function pullCollection(col,store,keep,slim){
   localStorage.setItem(k,String(max)); return n}
 async function pullContent(){
   // 衣帽間成員欄位對應
-  try{const meta=await syGet("meta/state"); const mm=meta?JSON.parse(meta.fields.json.stringValue).members||[]:[];
+  try{const meta=await syGet("meta/state"); const raw=meta?JSON.parse(meta.fields.json.stringValue):null; const mm=raw?.members||[];
+    if(raw){ await IDB.set("wmetaRaw",raw); window.WMETA_AT=+meta.fields.updatedAt.integerValue }
     const map={}; for(const m of mm){const hit=M.find(x=>x.re.test((m.name||"")+" "+(m.en||""))); if(hit) map[m.id]=hit.id} if(Object.keys(map).length){WMEM=map;await IDB.set("wmem",WMEM)}
     if(mm.length){WMETA=mm; await IDB.set("wmeta",WMETA)}}catch(e){}
   // 舊版只存了精簡資料(沒有服裝描述),第一次換新版時整批重新下載
