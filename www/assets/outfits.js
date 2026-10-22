@@ -3,5 +3,5 @@
    look:衣帽間工坊的造型編號;有填的話,場合與季節以衣帽間為準,衣帽間刪掉這套遊戲也不再使用
    occ / seasons:衣帽間找不到這套時的備用資料 */
 window.OUTFIT_SPRITES = [
-  { m: "he", id: "casual01", look: "", name: "珍珠外出(測試)", occ: "日常・外出", seasons: ["春", "夏", "秋"] }
+  { m: "he", id: "casual01", look: "LOOK-CMVEUI0L0", name: "珊瑚珍珠日光", occ: "日常・外出", seasons: ["春", "夏", "秋"] }
 ];

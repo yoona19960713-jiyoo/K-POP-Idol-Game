@@ -208,7 +208,10 @@ const wardLoaded=()=>!!localStorage.getItem("kpopGame.pulledOnce")&&Object.keys(
 function lookFor(code,mid){const lk=ITEMS[code]; if(!lk) return null; const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid); return slot&&lk.members[slot]?lk:null}
 function wardrobe(mid){
   return (window.OUTFIT_SPRITES||[]).filter(o=>o.m===mid).map(o=>{
-    if(o.look&&wardLoaded()){const lk=lookFor(o.look,mid); if(!lk) return null; return {...o,occ:lk.occasion,seasons:lk.seasons||[],name:lk.name||o.name}}
+    if(o.look&&wardLoaded()){const lk=lookFor(o.look,mid); if(!lk) return null;
+      // 衣帽間舊分類「日常」還沒改成居家/外出/睡衣時,沿用這裡登記的分類
+      const occ=lk.occasion&&lk.occasion!=="日常"?lk.occasion:o.occ;
+      return {...o,occ,seasons:(lk.seasons&&lk.seasons.length)?lk.seasons:(o.seasons||[]),name:lk.name||o.name}}
     return {...o,seasons:o.seasons||[]}}).filter(Boolean)}
 function ensureWear(force){
   if(S.wear&&S.wear.day===S.day&&!force) return;
