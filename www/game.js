@@ -180,6 +180,7 @@ async function syncAll(manual,atStart){
   if(!syAuth()||!syCfg()){ if(manual) toast2("請先登入雲端同步"); renderSources(); return }
   if(syBusy) return; syBusy=true; syStatus("同步中…");
   try{ if(window.pushOutbox) await pushOutbox(); const n=await pullContent(); let adopted=false;
+    for(const h of window.SYNC_HOOKS||[]){ try{ await h() }catch(e){} }
     if(atStart||manual){ adopted=await pullSave() }
     if(!adopted) await pushSave();
     syStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}));
@@ -266,8 +267,8 @@ const SPOTS=[
 const INSIDE={
   company:{n:"公司大樓",sub:"選擇要去的樓層",rooms:[
     {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5},
-    {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60]},
-    {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80]},
+    {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60],fac:"recording"},
+    {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80],fac:"planning"},
     {pid:"styling",fl:"1F",n:"造型室",r:[6.4,78.4,88.8,17.8],feet:94,h:15.5,lp:"r",fac:"wardrobe"}]},
   dorm:{n:"宿舍",sub:"選擇要去的房間",rooms:[
     {pid:"bed_ys",fl:"2F",n:"藝瑟",r:[5.25,11.1,17.5,34.1],feet:43.6,h:22,xr:[66,80]},
@@ -321,7 +322,7 @@ function exitToMap(){const i=$("#inside"); i.classList.add("enter"); setTimeout(
 function renderInside(){if(view==="map") return; const B=INSIDE[view];
   setArt("insideArt",`assets/scene/${view}_${L()}.webp`);
   $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
-    if(rm.fac){const [x,y,w,h]=rm.r; return `<button class="room fac" data-fac="${rm.fac}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" aria-label="${rm.fl} ${rm.n},設施,不花行動">
+    if(rm.fac&&!PL[rm.pid]){const [x,y,w,h]=rm.r; return `<button class="room fac" data-fac="${rm.fac}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" aria-label="${rm.fl} ${rm.n},設施,不花行動">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">設施・不花行動</span></span></span></button>`}
     const p=PL[rm.pid], deco=!!rm.deco, open=!deco&&p.open.includes(S.slot), vis=!deco&&S.visited.includes(rm.pid);
     const ppl=open?who(rm.pid):[];
@@ -331,10 +332,25 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
-    return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}" data-pid="${rm.pid}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?"disabled":""} aria-label="${rm.fl} ${rm.n},${st}">
+    return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?"disabled":""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
       ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
-  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.fac){window.openFacility&&openFacility(b.dataset.fac);return} const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
+  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.fac){window.openFacility&&openFacility(b.dataset.fac);return}
+    if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
+/* 有設施又能拜訪的房間:先問要做什麼 */
+const FACN={planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"]};
+function chooser(pid,fac){
+  let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
+  const p=PL[pid], open=p.open.includes(S.slot), vis=S.visited.includes(pid), ppl=who(pid), canVisit=open&&!vis&&S.acts>0;
+  el.innerHTML=`<div class="chbox"><h3>${p.n}</h3>
+    <button class="chbtn pri" data-ch="fac"><b>使用${FACN[fac][0]}</b><small>${FACN[fac][1]}・不花行動,時間暫停</small></button>
+    <button class="chbtn" data-ch="visit" ${canVisit?"":"disabled"}><b>${pid==="office"?"在辦公室找成員":"跟在場的成員聊天"}</b><small>${!open?openText(p):vis?"這個時段已來過":S.acts<=0?"沒有行動次數了":pid==="office"?"花 1 次行動,可以請在公司的成員過來":ppl.length?`花 1 次行動・${ppl.map(m=>m.n).join("、")}在這裡`:"花 1 次行動・現在沒有人"}</small></button>
+    <button class="chx" data-ch="x">取消</button></div>`;
+  el.classList.add("on");
+  el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); const c=b.dataset.ch;
+    if(c==="fac") window.openSongFacility&&openSongFacility(fac); else if(c==="visit") visit(pid)});
+  el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
+}
 function renderWhere(){
   $("#where").innerHTML=view==="map"?"":`<button class="back" id="backBtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>地圖</button><div class="btitle"><b>${INSIDE[view].n}</b><span>${INSIDE[view].sub}</span></div>`;
   $("#backBtn")&&($("#backBtn").onclick=exitToMap)}
@@ -547,7 +563,7 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
