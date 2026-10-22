@@ -359,7 +359,7 @@ function facShell(){
   $("#facClose").onclick=closeFacility;
 }
 window.openFacility=async kind=>{ facShell(); FAC=kind; PENDING=await IDB.get("pending")||{}; setPause("fac",true);
-  const el=$("#facility"); el.querySelector(".fac-bg").style.backgroundImage=`url(assets/scene/company_${SLOTS[S.slot].light}.webp)`;
+  const el=$("#facility"); el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/styling_${SLOTS[S.slot].light}.webp)`;
   el.classList.remove("hide"); renderFacility() };
 function closeFacility(){ $("#facility").classList.add("hide"); $("#facDetail").classList.add("hide"); setPause("fac",false); FAC=null }
 

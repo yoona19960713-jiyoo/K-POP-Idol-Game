@@ -43,6 +43,7 @@ const PLACES=[
   {id:"practice",g:"公司大樓",n:"練習室",   sp:"practice",open:[0,1,2,3,4]},
   {id:"studio",  g:"公司大樓",n:"錄音室",   sp:"studio",  open:[1,2,3]},
   {id:"office",  g:"公司大樓",n:"代表辦公室",sp:"office",  open:[1,2,3]},
+  {id:"styling", g:"公司大樓",n:"造型室",   sp:"styling", open:[1,2,3]},
   {id:"living",  g:"宿舍",   n:"客廳",     sp:"dorm",    open:[0,3,4]},
   {id:"kitchen", g:"宿舍",   n:"廚房",     sp:"dorm",    open:[0,3,4]},
   {id:"bed_ys",  g:"宿舍",   n:"藝瑟的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"ys"},
@@ -56,17 +57,17 @@ const PL=Object.fromEntries(PLACES.map(p=>[p.id,p]));
 const baseOf=pid=>PL[pid]?.base||pid;
 const openText=p=>p.open.length===5?"全天開放":p.open.map(i=>SLOTS[i].n).join("、")+"開放";
 const WHERE={
-  ys:[{practice:3,kitchen:2,living:1},{practice:4},{practice:3,studio:2},{practice:3,living:2,kitchen:1},{practice:3,living:1,river:1,bedroom:1}],
+  ys:[{practice:3,kitchen:2,living:1},{practice:4,styling:1},{practice:3,studio:2},{practice:3,living:2,kitchen:1},{practice:3,living:1,river:1,bedroom:1}],
   tr:[{bedroom:3,practice:1},{practice:3,studio:2},{studio:3,practice:2},{practice:2,bedroom:2,studio:1},{bedroom:2,store:2,practice:1}],
-  hy:[{practice:3,kitchen:1},{practice:2,"外出:韓語課":2},{practice:4},{practice:2,living:2},{living:1,bedroom:2,practice:1}],
-  he:[{kitchen:3,bedroom:1},{practice:3,"外出:個人拍攝":1},{practice:2,studio:1,"外出:個人拍攝":1},{kitchen:3,living:1,practice:1},{living:2,bedroom:2}],
+  hy:[{practice:3,kitchen:1},{practice:2,"外出:韓語課":2},{practice:4,styling:1},{practice:2,living:2},{living:1,bedroom:2,practice:1}],
+  he:[{kitchen:3,bedroom:1},{practice:3,styling:1,"外出:個人拍攝":1},{practice:2,studio:1,styling:1,"外出:個人拍攝":1},{kitchen:3,living:1,practice:1},{living:2,bedroom:2}],
   hr:[{bedroom:3,kitchen:1},{practice:3,"外出:聲樂課":1},{practice:3,studio:1},{living:3,practice:1,store:1},{practice:2,store:1,bedroom:1}]};
 
 /* ---------- 示範文字(劇本工坊沒有對應片段時才用) ---------- */
-const SCN={practice:"鏡子前的音樂還在放,地板上散著毛巾和水瓶。",studio:"隔音門關上的瞬間,外面的聲音全部消失了。",office:"你的辦公室。桌上的企劃書疊得比昨天更高。",
+const SCN={practice:"鏡子前的音樂還在放,地板上散著毛巾和水瓶。",studio:"隔音門關上的瞬間,外面的聲音全部消失了。",office:"你的辦公室。桌上的企劃書疊得比昨天更高。",styling:"造型室裡一排排衣架閃著光,化妝鏡的燈泡一盞盞亮著。",
   living:"客廳的電視開著,沙發上堆著抱枕和還沒摺的衣服。",kitchen:"廚房飄著味道,水槽裡泡著幾個碗。",bedroom:"你敲了敲寢室半開的門,裡面的燈還亮著。",
   store:"便利商店的自動門叮咚一聲打開,冷氣撲面而來。",river:"江風吹過來,對岸的燈一盞一盞亮著。"};
-const EMPTY={practice:"這裡現在沒有人。鏡子上貼著一張寫滿走位的便條。",studio:"這裡現在沒有人。控制台上放著一張寫了一半的歌詞。",office:"辦公室只有你一個人。祕書留了一疊待簽的文件。",
+const EMPTY={practice:"這裡現在沒有人。鏡子上貼著一張寫滿走位的便條。",studio:"這裡現在沒有人。控制台上放著一張寫了一半的歌詞。",office:"辦公室只有你一個人。祕書留了一疊待簽的文件。",styling:"造型室現在沒有成員,只有造型師在整理新到的衣服。",
   living:"客廳現在沒有人。遙控器被塞在沙發縫裡。",kitchen:"廚房現在沒有人。冰箱上貼著一張「不准偷吃」的紙條。",bedroom:"寢室裡沒有人,床鋪整理得比你想的還整齊。",
   store:"店裡只有店員在補貨,沒有認識的人。",river:"江邊只有慢跑的人和腳踏車,沒有認識的人。"};
 const LINES={
@@ -265,7 +266,7 @@ function setPause(k,on){on?pausers.add(k):pausers.delete(k);$("#stage").classLis
 function hm(){const s=SLOTS[S.slot],mins=s.from+(s.to-s.from)*Math.min(S.t,SLOT_SEC)/SLOT_SEC,h=Math.floor(mins/60)%24,mm=Math.floor(mins%60/10)*10;return `${pad(h)}:${pad(mm)}`}
 /* 座標都是畫面百分比(插畫 1600×900) */
 const SPOTS=[
-  {id:"company",n:"公司大樓",kind:"building",rect:[11.8,10.3,35.4,50.2],pin:[29.5,40],rooms:["practice","studio","office"]},
+  {id:"company",n:"公司大樓",kind:"building",rect:[11.8,10.3,35.4,50.2],pin:[29.5,40],rooms:["practice","studio","office","styling"]},
   {id:"tv",n:"電視台",kind:"locked",rect:[53,10.5,17.5,10.5],pin:[62.5,14],note:"出道後的打歌期開放"},
   {id:"dorm",n:"宿舍",kind:"building",rect:[67.3,27,21.4,33.5],pin:[77.8,28],rooms:["living","kitchen","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"]},
   {id:"store",n:"便利商店",kind:"place",rect:[47.4,52,17.6,19],pin:[56.2,51.5]},
@@ -276,7 +277,7 @@ const INSIDE={
     {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5},
     {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60],fac:"recording"},
     {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80],fac:"planning"},
-    {pid:"styling",fl:"1F",n:"造型室",r:[6.4,78.4,88.8,17.8],feet:94,h:15.5,lp:"r",fac:"wardrobe"}]},
+    {pid:"styling",fl:"1F",n:"造型室",r:[6.4,78.4,88.8,17.8],feet:93.6,h:15.5,lp:"r",xr:[42,78],fac:"wardrobe"}]},
   dorm:{n:"宿舍",sub:"選擇要去的房間",rooms:[
     {pid:"bed_ys",fl:"2F",n:"藝瑟",r:[5.25,11.1,17.5,34.1],feet:43.6,h:22,xr:[66,80]},
     {pid:"bed_tr",fl:"2F",n:"泰梨",r:[24.1,11.1,16.5,34.1],feet:43.6,h:22,xr:[66,80]},
@@ -354,7 +355,7 @@ function tvChooser(){
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
 }
 /* 有設施又能拜訪的房間:先問要做什麼 */
-const FACN={planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"]};
+const FACN={planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"],wardrobe:["造型室","衣櫃、委託設計、生圖、成員底模"]};
 function chooser(pid,fac){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
   const p=PL[pid], open=p.open.includes(S.slot), vis=S.visited.includes(pid), ppl=who(pid), canVisit=open&&!vis&&S.acts>0;
@@ -364,7 +365,7 @@ function chooser(pid,fac){
     <button class="chx" data-ch="x">取消</button></div>`;
   el.classList.add("on");
   el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); const c=b.dataset.ch;
-    if(c==="fac") window.openSongFacility&&openSongFacility(fac); else if(c==="visit") visit(pid)});
+    if(c==="fac"){ if(fac==="wardrobe") window.openFacility&&openFacility("wardrobe"); else window.openSongFacility&&openSongFacility(fac) } else if(c==="visit") visit(pid)});
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
 }
 function renderWhere(){
