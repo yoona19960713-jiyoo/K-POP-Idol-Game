@@ -498,6 +498,67 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 .react .dn{color:#E8848C}.react .up{color:#8FD9A8}
 .notes.dark .sn{transform:none;background:#221e30;color:#d9d4e6;box-shadow:none;border-left:.3cqw solid #E8D25C}
 .notes.dark .sn.g{border-left-color:#3FD17A}.notes.dark .sn.b{border-left-color:#E8645C}
+
+/* ===== 製作者模式:編輯部的稿紙桌(象牙稿紙、紅筆批註) ===== */
+.th-writer{--gold:#B0473F;--gold2:#E8C9B8;--ink:#2B2522;--soft:#857870;--paper:#FBF8F1}
+.th-writer .fac-veil{background:linear-gradient(180deg,rgba(30,26,34,.88),rgba(24,20,28,.94))}
+.th-writer .fac-head{background:#FBF8F1;border-bottom-color:#B0473F}
+.th-writer .fac-head::after{background:#E8C9B8}
+.th-writer .fac-title small{color:#B0473F}
+.th-writer .fac-tabs{gap:.2cqw}.th-writer .fac-tabs button{padding:1cqw 1.3cqw;font-size:max(1.15cqw,11px)}
+.th-writer .fac-tabs button[aria-selected="true"]{border-bottom-color:#B0473F}
+.th-writer .fac-tabs i{background:#B0473F}
+.th-writer .fac-body{color:#EDE6DD}
+.mstats{display:flex;gap:1.6cqw;flex-wrap:wrap;margin-bottom:1cqw;font-size:max(1cqw,10px);color:#BFB3A8}
+.mstats b{font:800 max(1.6cqw,14px)/1 var(--num);color:#FBF8F1;margin-right:.4cqw}.mstats .warn{color:#F09A8F}
+.msheet{background:#FBF8F1 linear-gradient(transparent calc(100% - .08cqw),rgba(176,71,63,.12) 0) 0 0/100% 2.2cqw;color:var(--ink);border-radius:.3cqw;padding:1.6cqw 2cqw;box-shadow:0 .8cqw 2cqw rgba(0,0,0,.4);margin-bottom:1.2cqw;border-left:.35cqw solid #B0473F}
+.msheet h3{margin:0 0 .8cqw;font:700 max(1.6cqw,14px)/1.2 var(--serif);letter-spacing:.25em}
+.msheet h4{margin:1cqw 0 .4cqw;font:700 max(1.05cqw,11px)/1.2 var(--serif);letter-spacing:.2em;color:#B0473F}
+.msheet.log p{margin:.3cqw 0;font-size:max(1.05cqw,11px);line-height:1.6}
+.mgrid2{display:grid;grid-template-columns:1fr 1fr;gap:1.4cqw}
+.mnote{font-size:max(.98cqw,10px);color:var(--soft);line-height:1.6;margin:.4cqw 0}
+.fac-body>.mrow .mnote,.fac-body>p.mnote{color:#BFB3A8}
+.mrow{display:flex;gap:.8cqw;align-items:center;flex-wrap:wrap;margin:.6cqw 0;font-size:max(1.05cqw,11px)}
+.mrow .grow{flex:1;min-width:14cqw}
+.th-writer input[type=text],.th-writer input[type=password],.th-writer input[type=number],.th-writer select{font-size:max(1.05cqw,12px);padding:.45cqw .7cqw;border:.1cqw solid rgba(176,71,63,.35);border-radius:.3cqw;background:#fff;color:var(--ink)}
+.th-writer input[type=number]{width:6cqw;margin:0 .4cqw}
+.mck{display:flex;gap:.6cqw;align-items:flex-start;font-size:max(1cqw,10px);color:var(--ink);margin:.5cqw 0;line-height:1.5}
+.mchips{display:flex;flex-wrap:wrap;gap:.45cqw}
+.mchip{font-size:max(1cqw,11px);padding:.4cqw 1cqw;border-radius:2cqw;border:.1cqw solid rgba(176,71,63,.35);background:#fff;color:var(--ink)}
+.mchip.on{background:#B0473F;color:#fff;border-color:#B0473F}
+.mbtn{font:600 max(1.02cqw,11px)/1 var(--serif);letter-spacing:.12em;padding:.65cqw 1.3cqw;border-radius:.3cqw;border:.1cqw solid #B0473F;color:#B0473F;background:#fff}
+.mbtn.pri{background:#B0473F;color:#fff}.mbtn.danger{background:#2B2522;color:#fff;border-color:#2B2522}.mbtn.ghost{border-color:transparent;color:var(--soft);background:transparent}
+.mbtn.big{margin-top:1cqw;padding:1cqw 2.4cqw;font-size:max(1.25cqw,13px)}
+.mbtn:disabled{opacity:.5}
+.mstat{font-size:max(1cqw,11px);color:#3E7A52;min-height:1.4em}.mstat.err{color:#B0473F}
+.mempty{color:#BFB3A8;font-size:max(1.1cqw,11px)}
+.mcardx{background:#FBF8F1;color:var(--ink);border-radius:.3cqw;padding:1.2cqw 1.6cqw;margin-bottom:1cqw;box-shadow:0 .5cqw 1.4cqw rgba(0,0,0,.35)}
+.mch{display:flex;justify-content:space-between;gap:1cqw;align-items:flex-start}
+.mch b{font:700 max(1.15cqw,12px)/1.4 var(--serif)}.mch small{display:block;font-size:max(.9cqw,10px);color:var(--soft)}
+.vs{font-size:max(.9cqw,10px);padding:.2cqw .8cqw;border-radius:2cqw;white-space:nowrap}.vs.ok{background:#DCEFD9;color:#2F6B3E}.vs.bad{background:#F6D9D3;color:#9A3328}
+.mscene{font-size:max(1.05cqw,11px);color:#5C514A;font-style:italic;margin:.6cqw 0;border-left:.2cqw solid #E8C9B8;padding-left:.8cqw}
+.mwarn{margin:.4cqw 0;padding-left:1.6cqw;font-size:max(.95cqw,10px);color:#9A3328}
+.mcardx summary{font-size:max(.95cqw,10px);color:#B0473F;cursor:pointer}
+.tree{margin-top:.6cqw;display:flex;flex-direction:column;gap:.6cqw}
+.tnode{border:.08cqw dashed rgba(176,71,63,.35);border-radius:.4cqw;padding:.6cqw .9cqw}
+.tk{font:700 max(.85cqw,9px)/1 var(--num);color:#B0473F;margin-bottom:.3cqw;letter-spacing:.1em}
+.tln{font-size:max(1cqw,10px);line-height:1.6}.tln b{margin-right:.6cqw}.tln.r{padding-left:1.4cqw}
+.tln .ex{font-style:normal;font-size:max(.8cqw,9px);color:var(--soft);margin-left:.5cqw;border:.06cqw solid #d8cfc6;border-radius:.2cqw;padding:0 .3cqw}
+.topt{font-size:max(1cqw,10px);margin:.3cqw 0 .3cqw .8cqw;padding:.3cqw .6cqw;background:rgba(176,71,63,.06);border-radius:.3cqw}
+.sty{display:inline-block;font-size:max(.8cqw,9px);color:#fff;background:#8C6A5E;border-radius:.2cqw;padding:0 .4cqw;margin-right:.5cqw}
+.nx{color:#B0473F;margin-left:.5cqw;font-size:max(.85cqw,9px)}
+.mtbl{overflow:auto;margin-bottom:1.4cqw;background:#FBF8F1;border-radius:.3cqw;padding:.6cqw}
+.mtbl table{border-collapse:collapse;font-size:max(.85cqw,9px);color:var(--ink)}
+.mtbl th,.mtbl td{padding:.25cqw .4cqw;border-bottom:.06cqw solid #e6ddd3;white-space:nowrap;text-align:center}
+.cell{min-width:3.6cqw;padding:.2cqw .3cqw;border-radius:.2cqw;font:600 max(.8cqw,9px)/1.2 var(--num);background:linear-gradient(90deg,#9FD3A8 var(--h),#F1EAE2 var(--h));color:var(--ink)}
+.fac-body h3{color:#FBF8F1;font:700 max(1.3cqw,12px)/1.2 var(--serif);letter-spacing:.2em}
+.msheet h3{color:var(--ink)}
+.mk-dlg{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(0,0,0,.55)}
+.mk-dlg.hide{display:none}
+.mdlg{width:80cqw;max-height:50cqw;display:flex;flex-direction:column;background:#FBF8F1;color:var(--ink);border-radius:.6cqw;padding:1.6cqw 2cqw}
+.mdlg h3{margin:0;font:700 max(1.5cqw,14px)/1.2 var(--serif);letter-spacing:.2em;color:var(--ink)}
+.mdlg textarea{flex:1;min-height:26cqw;font:max(.95cqw,11px)/1.5 ui-monospace,Menlo,monospace;border:.1cqw solid #e0d5ca;border-radius:.3cqw;padding:.8cqw;color:var(--ink);background:#fff}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
@@ -593,6 +654,10 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
     <p class="hint">遊戲依地點換穿:練習室、錄音室、辦公室穿練習服;宿舍穿居家服(深夜有睡衣就穿睡衣);外面穿外出服。某一類還沒有衣服時穿白 T 立繪。</p>
     <ul id="wardList"></ul>
 
+    <h3>製作者模式</h3>
+    <p class="hint">產生日常片段、審稿、試玩、收進內容庫(原本劇本工坊的功能)。打開時遊戲時間暫停。</p>
+    <div class="row"><button class="b pri" id="makerBtn">進入製作者模式</button></div>
+
     <h3>AI 生圖(造型室的設計工作台)</h3>
     <p class="hint">用 OpenAI 的 GPT Image 自動替造型生圖,按張計費,費用從你的 OpenAI 帳戶扣。金鑰只存在這台裝置。</p>
     <div id="oaiBox">
@@ -625,5 +690,6 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 <script src="game.js"></script>
 <script src="wardrobe.js"></script>
 <script src="songs.js"></script>
+<script src="scripts.js"></script>
 </body>
 </html>

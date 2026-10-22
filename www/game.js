@@ -455,6 +455,18 @@ function summon(id){V.summoned=id; V.talked.add(id); drawPeople();
 function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
 
+/* ---- 試玩(製作者模式用):不花行動、不改存檔 ---- */
+window.testPlay=function(sn,onDone){
+  if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen});
+  const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
+  const room=roomOf[sn.at]||"practice";
+  V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[];
+  $("#vbg").style.backgroundImage=`url(assets/bg/${room}_${SLOTS[S.slot].light}.webp)`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花行動,也不會影響存檔";
+  drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
+  play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; save();
+    $("#vopts").innerHTML=`<button class="vopt" id="testEnd">試玩結束<small>回到製作者模式</small></button>`;
+    $("#testEnd").onclick=()=>{ $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); onDone&&onDone() } });
+};
 /* ---- 對話引擎:劇本工坊的節點格式 {start:{L:[[說話者,台詞,表情?]],C:[{t,s,to,g,next,r,set,mood,stress,heart}]}} ---- */
 function play(sn,onEnd){
   if(!sn.demoLine&&!String(sn.code).startsWith("demo-line")) S.seen[sn.code]=S.day;
@@ -501,7 +513,7 @@ function applyChoice(c){
   if(dh){s.heart=clamp(s.heart+dh,0,100); fx(id,`心動 +${dh}`)}
   if(c.mood) s.mood=clamp(s.mood+(+c.mood),0,100); if(c.stress) s.stress=clamp(s.stress+(+c.stress),0,100);
   if(c.set) S.flags[c.set]=(S.flags[c.set]||0)+1;
-  save(true)}
+  save(!V?.test)}
 function fx(id,t){const m=byId(id),e=document.createElement("span");e.style.setProperty("--c",m?.c||"#E85C8A");e.textContent=`${m?.n||""} ${t}`;$("#fx").appendChild(e);setTimeout(()=>e.remove(),2700)}
 /* Auto 與 Log */
 function queueAuto(){if(!auto||!D) return; clearTimeout(autoT); const n=($("#vtext").textContent||"").length; autoT=setTimeout(()=>{if(auto&&D&&!$("#vopts .choice")) step()},1100+n*45)}
@@ -544,6 +556,7 @@ $("#signIn").onclick=async()=>{const c=syCfg(); if(!c){toast2("先貼上 Firebas
   try{const j=await syJSON(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("#syEmail").value.trim(),password:$("#syPw").value,returnSecureToken:true})});
     localStorage.setItem(SY_AUTH,JSON.stringify({uid:j.localId,email:j.email,refreshToken:j.refreshToken})); syTok={id:j.idToken,exp:Date.now()+(+j.expiresIn-60)*1000};
     $("#syPw").value=""; renderSet(); syncAll(true,true)}catch(e){syStatus(syMsg(e),true)}};
+$("#makerBtn").onclick=()=>{setDlg.close(); window.openMaker&&openMaker()};
 $("#signOut").onclick=()=>{localStorage.removeItem(SY_AUTH);syTok=null;renderSet();syStatus("");toast2("已登出,本機進度保留")};
 $("#syncBtn").onclick=()=>syncAll(true,false);
 document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>{S.speed=+b.dataset.speed;save();renderSet()});
@@ -563,7 +576,7 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
