@@ -295,6 +295,82 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
 .sheet{background:var(--glass)!important;-webkit-backdrop-filter:blur(1.4cqw);backdrop-filter:blur(1.4cqw);border:.1cqw solid var(--glassLine);border-top:.25cqw solid var(--acc);color:var(--glassInk);top:8.6cqw;border-radius:1cqw}
 .msg .face{width:3.4cqw;height:3.4cqw}
 .stage .toast b{font-family:var(--serif)}
+
+/* =====================================================================
+   造型室(精品服裝店主題:奶油紙、香檳金燙線、明體)
+   ===================================================================== */
+.fac-wrap{position:absolute;inset:0;z-index:40;color:#3A2C2E;--gold:#B8955A;--gold2:#E4CC97;--paper:#FBF6EE;--paper2:#F3EADC;--ink:#3A2C2E;--soft:#8A7670;transition:opacity .35s}
+.fac-wrap.hide{opacity:0;pointer-events:none}
+.fac-bg{position:absolute;inset:-3cqw;background:center/cover;filter:blur(1.6cqw) saturate(.9) brightness(.9);transform:scale(1.05)}
+.fac-veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(251,246,238,.82),rgba(243,234,220,.9)),repeating-linear-gradient(90deg,rgba(184,149,90,.05) 0 .1cqw,transparent .1cqw 2.4cqw)}
+.fac-head{position:absolute;left:0;right:0;top:0;height:8.6cqw;display:flex;align-items:center;gap:3cqw;padding:0 2.4cqw;border-bottom:.12cqw solid var(--gold);
+  background:linear-gradient(180deg,rgba(255,252,246,.95),rgba(251,246,238,.85))}
+.fac-head::after{content:"";position:absolute;left:2.4cqw;right:2.4cqw;bottom:-.55cqw;height:.08cqw;background:var(--gold2)}
+.fac-title small{display:block;font:600 max(.85cqw,9px)/1 var(--num);letter-spacing:.4em;color:var(--gold)}
+.fac-title b{font:700 2.6cqw/1.2 var(--serif);letter-spacing:.35em}
+.fac-tabs{display:flex;gap:.6cqw;flex:1}
+.fac-tabs button{position:relative;font:600 max(1.35cqw,12px)/1 var(--serif);letter-spacing:.25em;padding:1cqw 2cqw;color:var(--soft);border-bottom:.22cqw solid transparent}
+.fac-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--gold)}
+.fac-tabs i{position:absolute;top:.2cqw;right:.3cqw;min-width:1.6cqw;height:1.6cqw;border-radius:1cqw;background:#C0485A;color:#fff;font:700 max(.9cqw,9px)/1.6cqw var(--num);font-style:normal;padding:0 .4cqw}
+.fac-tabs i:empty{display:none}
+.fac-close{font:600 max(1.05cqw,11px)/1 var(--serif);letter-spacing:.2em;padding:.8cqw 1.6cqw;border:.1cqw solid var(--gold);border-radius:3cqw;color:var(--ink);background:rgba(255,255,255,.6)}
+.fac-body{position:absolute;left:0;right:0;top:9.4cqw;bottom:0;overflow:auto;padding:1.4cqw 2.4cqw 2.4cqw}
+.fbar{display:flex;flex-direction:column;gap:.7cqw;margin-bottom:.8cqw}
+.fchips{display:flex;flex-wrap:wrap;gap:.6cqw}
+.fchip{font-size:max(1.05cqw,11px);letter-spacing:.12em;padding:.45cqw 1.3cqw;border-radius:2cqw;border:.1cqw solid rgba(184,149,90,.55);color:var(--ink);background:rgba(255,255,255,.55)}
+.fchip.on{background:var(--mc,var(--gold));border-color:var(--mc,var(--gold));color:#fff}
+.fsum{font-size:max(1cqw,10px);color:var(--soft);letter-spacing:.08em;margin:.2cqw 0 1cqw}
+.fempty{color:var(--soft);font-size:max(1.1cqw,11px)}
+/* 收藏卡 */
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(13.4cqw,1fr));gap:1.4cqw}
+.wcard{position:relative;aspect-ratio:2/3.15;border-radius:.9cqw;background:linear-gradient(170deg,#fffdf8,#f1e7d6);box-shadow:0 .5cqw 1.4cqw rgba(80,55,30,.22);overflow:hidden;text-align:left;transition:transform .2s}
+.wcard:hover{transform:translateY(-.4cqw) rotate(-.3deg)}
+.wimg{position:absolute;left:.7cqw;right:.7cqw;top:.7cqw;bottom:5.6cqw;border-radius:.5cqw;background:#e9e3da center 8%/cover no-repeat;display:grid;place-items:center}
+.wnone{font-size:max(1cqw,10px);color:var(--soft);letter-spacing:.15em;writing-mode:vertical-rl}
+.wframe{position:absolute;inset:0;border-radius:.9cqw;pointer-events:none;z-index:2;border:.25cqw solid var(--fc,#c9c2b8);box-shadow:inset 0 0 0 .14cqw rgba(255,255,255,.8)}
+.wwho{position:absolute;z-index:3;top:1.1cqw;right:1.1cqw;font-size:max(.9cqw,9px);color:#fff;background:var(--mc);padding:.25cqw .7cqw;border-radius:1cqw;letter-spacing:.1em}
+.wname{position:absolute;left:1cqw;right:1cqw;bottom:2.5cqw;font:700 max(1.2cqw,11px)/1.3 var(--serif);letter-spacing:.06em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wmeta{position:absolute;left:1cqw;right:1cqw;bottom:1cqw;font-size:max(.9cqw,9px);color:var(--soft);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wcard{--fc:var(--gold)}
+.wcard::after{content:"";position:absolute;z-index:3;left:50%;bottom:4.9cqw;width:1cqw;height:1cqw;transform:translateX(-50%) rotate(45deg);background:var(--gold2);border:.08cqw solid var(--gold)}
+.dcard{--fc:var(--gold)}
+/* 設計工作台 */
+.fdesk{display:grid;grid-template-columns:24cqw 1fr;gap:1.6cqw;align-items:start}
+.fpanel{background:rgba(255,253,248,.85);border:.1cqw solid rgba(184,149,90,.45);border-radius:1cqw;padding:1.4cqw 1.6cqw;box-shadow:0 .4cqw 1.4cqw rgba(80,55,30,.12)}
+.fpanel h3{margin:0 0 .6cqw;font:700 max(1.4cqw,13px)/1.2 var(--serif);letter-spacing:.25em;color:var(--ink)}
+.fpanel h3 small{font:500 max(1cqw,10px) "Noto Sans TC";color:var(--soft);letter-spacing:.1em}
+.fpanel .big{font:800 4cqw/1 var(--num);margin:.4cqw 0;color:var(--gold)}
+.fpanel .big small{font:600 max(1.1cqw,11px) "Noto Sans TC";color:var(--soft)}
+.fnote{font-size:max(1cqw,10px);color:var(--soft);line-height:1.6;margin:.6cqw 0}
+.frow{display:flex;gap:.6cqw;flex-wrap:wrap;margin:.8cqw 0}
+.fbtn{font:600 max(1.05cqw,11px)/1 var(--serif);letter-spacing:.15em;padding:.75cqw 1.4cqw;border-radius:2cqw;border:.1cqw solid var(--gold);color:var(--ink);background:#fff}
+.fbtn.pri{background:linear-gradient(180deg,#c9a56a,#a8834a);color:#fff;border-color:#a8834a}
+.fbtn.ghost{border-color:transparent;color:var(--soft);background:transparent}
+.fbtn:disabled{opacity:.45}
+.flink{font-size:max(.95cqw,10px);color:#a8834a;text-decoration:underline}
+.ferrs{font-size:max(.95cqw,10px);color:#9A3D47;line-height:1.5;border-top:.08cqw dashed rgba(184,149,90,.5);padding-top:.6cqw}
+.ferrs p{margin:.3cqw 0}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14cqw,1fr));gap:1.2cqw}
+.rcard{background:#fff;border-radius:.8cqw;overflow:hidden;box-shadow:0 .3cqw 1cqw rgba(80,55,30,.15);border:.1cqw solid rgba(184,149,90,.35)}
+.rcard img{display:block;width:100%;aspect-ratio:2/3;object-fit:cover;object-position:center 10%}
+.rinfo{display:flex;justify-content:space-between;gap:.6cqw;padding:.6cqw .9cqw 0;font-size:max(1cqw,10px)}
+.rinfo b{font-family:var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.racts{display:flex;gap:.4cqw;padding:.6cqw .7cqw .8cqw}
+.racts .fbtn{padding:.55cqw .9cqw}
+/* 卡片詳情 */
+.fac-detail{position:absolute;inset:0;z-index:5;background:rgba(40,28,24,.55);display:grid;place-items:center;-webkit-backdrop-filter:blur(.6cqw);backdrop-filter:blur(.6cqw)}
+.fac-detail.hide{display:none}
+.dcard{position:relative;width:78cqw;height:47cqw;display:grid;grid-template-columns:26cqw 1fr;gap:2.4cqw;padding:2cqw;background:linear-gradient(170deg,#fffdf8,#f1e7d6);border-radius:1.2cqw;border:.3cqw solid var(--fc);box-shadow:0 1.6cqw 4cqw rgba(30,15,10,.45)}
+.dimg{border-radius:.8cqw;background:#e9e3da center 6%/cover no-repeat;display:grid;place-items:center}
+.dtext{overflow:auto;padding-right:1cqw}
+.dtext small{font:600 max(.95cqw,10px)/1 var(--num);letter-spacing:.2em;color:var(--gold)}
+.dtext h2{margin:.6cqw 0 .4cqw;font:700 2.4cqw/1.3 var(--serif);letter-spacing:.12em}
+.dtags{font-size:max(1.05cqw,11px);color:var(--soft);margin:0 0 1cqw;letter-spacing:.1em}
+.dcon{font-size:max(1.15cqw,11px);line-height:1.7;margin:1cqw 0}
+.dout{font-size:max(1cqw,10px);color:var(--soft);line-height:1.6}
+details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter-spacing:.1em}
+.dx{position:absolute;top:1.2cqw;right:1.2cqw;z-index:2}
+.room.fac .hl{box-shadow:inset 0 0 0 .18cqw rgba(228,204,151,.65)}
 </style>
 </head>
 <body>
@@ -390,6 +466,15 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
     <p class="hint">遊戲依地點換穿:練習室、錄音室、辦公室穿練習服;宿舍穿居家服(深夜有睡衣就穿睡衣);外面穿外出服。某一類還沒有衣服時穿白 T 立繪。</p>
     <ul id="wardList"></ul>
 
+    <h3>AI 生圖(造型室的設計工作台)</h3>
+    <p class="hint">用 OpenAI 的 GPT Image 自動替造型生圖,按張計費,費用從你的 OpenAI 帳戶扣。金鑰只存在這台裝置。</p>
+    <div id="oaiBox">
+      <div class="row"><input type="text" id="oaiKey" placeholder="OpenAI API 金鑰(sk-…)" autocomplete="off"></div>
+      <div class="row"><span>模型</span><select id="oaiModel" class="b"><option value="gpt-image-2">gpt-image-2(較新、較便宜)</option><option value="gpt-image-1.5">gpt-image-1.5</option></select>
+        <span>品質</span><select id="oaiQ" class="b"><option value="low">低(約 US$0.02/張)</option><option value="medium">中(約 US$0.06/張)</option><option value="high">高(約 US$0.22/張)</option></select></div>
+      <div class="row"><button class="b pri" id="oaiSave">儲存</button><button class="b" id="oaiClear">清除金鑰</button></div>
+    </div>
+
     <h3>遊戲</h3>
     <p class="hint">遊戲一天等於現實 12 分鐘,開著才會走。時間倍率只給測試用。</p>
     <div class="row"><span>時間倍率</span><button class="b" data-speed="1">×1</button><button class="b" data-speed="5">×5</button><button class="b" data-speed="20">×20</button></div>
@@ -411,5 +496,6 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
 <script src="version.js"></script>
 <script src="assets/outfits.js"></script>
 <script src="game.js"></script>
+<script src="wardrobe.js"></script>
 </body>
 </html>

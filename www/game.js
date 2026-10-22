@@ -127,6 +127,7 @@ const IDB={db:null,
 let SCRIPTS={};   // code → 片段(只留已收錄的)
 let ITEMS={};     // code → 衣帽間造型(精簡)
 let WMEM={};      // 衣帽間成員欄位 m1..m5 → ys..hr
+let WMETA=[];     // 衣帽間成員資料(含生圖底模 gen 的 blob 參照)
 
 /* ---------- 雲端(Firestore REST,跟其他工具同一套) ---------- */
 const SY_CFG="kpopSync.cfg",SY_AUTH="kpopSync.auth";
@@ -160,9 +161,9 @@ async function pullCollection(col,store,keep,slim){
 async function pullContent(){
   // 衣帽間成員欄位對應
   try{const meta=await syGet("meta/state"); const mm=meta?JSON.parse(meta.fields.json.stringValue).members||[]:[];
-    const map={}; for(const m of mm){const hit=M.find(x=>x.re.test((m.name||"")+" "+(m.en||""))); if(hit) map[m.id]=hit.id} if(Object.keys(map).length){WMEM=map;await IDB.set("wmem",WMEM)}}catch(e){}
-  const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({code,name:it.name||"",type:it.type,occasion:it.occasion||"",seasons:Array.isArray(it.seasons)?it.seasons:[],
-    members:Object.fromEntries(Object.entries(it.members||{}).map(([k,o])=>[k,{img:!!o?.img}]))}));
+    const map={}; for(const m of mm){const hit=M.find(x=>x.re.test((m.name||"")+" "+(m.en||""))); if(hit) map[m.id]=hit.id} if(Object.keys(map).length){WMEM=map;await IDB.set("wmem",WMEM)}
+    if(mm.length){WMETA=mm; await IDB.set("wmeta",WMETA)}}catch(e){}
+  const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
   await IDB.set("items",ITEMS);
   const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",
     at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
@@ -176,7 +177,7 @@ function schedulePush(){if(!syAuth()) return; clearTimeout(pushT); pushT=setTime
 async function syncAll(manual,atStart){
   if(!syAuth()||!syCfg()){ if(manual) toast2("請先登入雲端同步"); renderSources(); return }
   if(syBusy) return; syBusy=true; syStatus("同步中…");
-  try{ const n=await pullContent(); let adopted=false;
+  try{ if(window.pushOutbox) await pushOutbox(); const n=await pullContent(); let adopted=false;
     if(atStart||manual){ adopted=await pullSave() }
     if(!adopted) await pushSave();
     syStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}));
@@ -262,7 +263,7 @@ const INSIDE={
     {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5},
     {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60]},
     {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80]},
-    {pid:"lobby",fl:"1F",n:"大廳",r:[6.4,78.4,88.8,17.8],feet:94,h:15.5,lp:"r",deco:"之後的訪客與行程看板會在這裡"}]},
+    {pid:"styling",fl:"1F",n:"造型室",r:[6.4,78.4,88.8,17.8],feet:94,h:15.5,lp:"r",fac:"wardrobe"}]},
   dorm:{n:"宿舍",sub:"選擇要去的房間",rooms:[
     {pid:"bed_ys",fl:"2F",n:"藝瑟",r:[5.25,11.1,17.5,34.1],feet:43.6,h:22,xr:[66,80]},
     {pid:"bed_tr",fl:"2F",n:"泰梨",r:[24.1,11.1,16.5,34.1],feet:43.6,h:22,xr:[66,80]},
@@ -315,6 +316,8 @@ function exitToMap(){const i=$("#inside"); i.classList.add("enter"); setTimeout(
 function renderInside(){if(view==="map") return; const B=INSIDE[view];
   setArt("insideArt",`assets/scene/${view}_${L()}.webp`);
   $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
+    if(rm.fac){const [x,y,w,h]=rm.r; return `<button class="room fac" data-fac="${rm.fac}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" aria-label="${rm.fl} ${rm.n},設施,不花行動">
+      <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">設施・不花行動</span></span></span></button>`}
     const p=PL[rm.pid], deco=!!rm.deco, open=!deco&&p.open.includes(S.slot), vis=!deco&&S.visited.includes(rm.pid);
     const ppl=open?who(rm.pid):[];
     const dis=deco||!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
@@ -326,7 +329,7 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}" data-pid="${rm.pid}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?"disabled":""} aria-label="${rm.fl} ${rm.n},${st}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
       ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
-  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
+  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.fac){window.openFacility&&openFacility(b.dataset.fac);return} const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
 function renderWhere(){
   $("#where").innerHTML=view==="map"?"":`<button class="back" id="backBtn"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>地圖</button><div class="btitle"><b>${INSIDE[view].n}</b><span>${INSIDE[view].sub}</span></div>`;
   $("#backBtn")&&($("#backBtn").onclick=exitToMap)}
@@ -539,13 +542,13 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
 /* ---------- 啟動 ---------- */
 (async()=>{
-  await IDB.open(); SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{};
+  await IDB.open(); SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
   $("#boot").classList.add("done");
