@@ -574,14 +574,81 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 .mtbl table{border-collapse:collapse;font-size:max(.85cqw,9px);color:var(--ink)}
 .mtbl th,.mtbl td{padding:.25cqw .4cqw;border-bottom:.06cqw solid #e6ddd3;white-space:nowrap;text-align:center}
 .cell{min-width:3.6cqw;padding:.2cqw .3cqw;border-radius:.2cqw;font:600 max(.8cqw,9px)/1.2 var(--num);background:linear-gradient(90deg,#9FD3A8 var(--h),#F1EAE2 var(--h));color:var(--ink)}
-.fac-body h3{color:#FBF8F1;font:700 max(1.3cqw,12px)/1.2 var(--serif);letter-spacing:.2em}
-.msheet h3{color:var(--ink)}
+.th-writer .fac-body h3{color:#FBF8F1;font:700 max(1.3cqw,12px)/1.2 var(--serif);letter-spacing:.2em}
+.th-writer .msheet h3{color:var(--ink)}
 .mk-dlg{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:rgba(0,0,0,.55)}
 .mk-dlg.hide{display:none}
 .mdlg{width:80cqw;max-height:50cqw;display:flex;flex-direction:column;background:#FBF8F1;color:var(--ink);border-radius:.6cqw;padding:1.6cqw 2cqw}
 .mdlg h3{margin:0;font:700 max(1.5cqw,14px)/1.2 var(--serif);letter-spacing:.2em;color:var(--ink)}
 .mdlg textarea{flex:1;min-height:26cqw;font:max(.95cqw,11px)/1.5 ui-monospace,Menlo,monospace;border:.1cqw solid #e0d5ca;border-radius:.3cqw;padding:.8cqw;color:var(--ink);background:#fff}
 .hidden{display:none!important}
+
+/* ===== 待機室:電視台後台(霓虹、提詞卡、ON AIR 燈) ===== */
+.chnote{margin:-.4cqw 0 .2cqw;text-align:center;font-size:max(1cqw,10px);color:var(--glassSoft)}
+.th-stage{--gold:#FF4FA3;--gold2:#5CE1FF;--ink:#F2EEFF;--soft:#A39CC4;color:var(--ink)}
+.th-stage .fac-veil{background:radial-gradient(ellipse at 20% 0%,rgba(255,79,163,.18),transparent 50%),radial-gradient(ellipse at 90% 100%,rgba(92,225,255,.14),transparent 50%),linear-gradient(180deg,rgba(10,8,20,.86),rgba(8,6,16,.94))}
+.th-stage .fac-head{background:linear-gradient(180deg,#120E22,#0C0918);border-bottom-color:#FF4FA3;color:var(--ink)}
+.th-stage .fac-head::after{background:#5CE1FF;opacity:.5}
+.th-stage .fac-title small{color:#5CE1FF}.th-stage .fac-title b{color:#fff;text-shadow:0 0 1cqw rgba(255,79,163,.6)}
+.th-stage .fac-close{background:transparent;color:var(--ink);border-color:#FF4FA3}
+.onair{flex:1;display:flex;align-items:center;gap:1cqw;font-size:max(1.05cqw,11px);color:var(--soft)}
+.onair b{font:800 max(1.6cqw,14px)/1 var(--num);letter-spacing:.12em;color:#fff}
+.lamp{width:1.2cqw;height:1.2cqw;border-radius:50%;background:#FF3B5C;box-shadow:0 0 .8cqw #FF3B5C,0 0 1.8cqw #FF3B5C;animation:blinkl 1.6s infinite}
+@keyframes blinkl{50%{opacity:.35}}
+.tweek{display:grid;grid-template-columns:repeat(6,1fr);gap:.8cqw;margin-bottom:1.2cqw}
+.tday{text-align:center;padding:.6cqw;border-radius:.5cqw;background:#15112A;border:.1cqw solid #2C2550;font-size:max(.95cqw,10px);color:var(--soft)}
+.tday b{display:block;font:700 max(1.1cqw,11px)/1.3 var(--serif);color:var(--ink)}
+.tday.now{border-color:#FF4FA3;box-shadow:0 0 1.2cqw rgba(255,79,163,.45)}
+.tday.win{background:linear-gradient(180deg,#3A2A08,#211706);border-color:#FFC857;color:#FFC857}
+.tday.lose span{color:#8D86B0}
+.tgrid{display:grid;grid-template-columns:1fr 30cqw;gap:1.4cqw;align-items:start}
+.cue{background:#F8F4FF;color:#1C1730;border-radius:.4cqw;padding:1.4cqw 1.8cqw;box-shadow:0 0 0 .15cqw #FF4FA3,0 1cqw 2.4cqw rgba(0,0,0,.5);position:relative}
+.cue::before{content:"CUE";position:absolute;top:-.9cqw;left:1.6cqw;font:800 max(.9cqw,9px)/1 var(--num);letter-spacing:.3em;background:#FF4FA3;color:#fff;padding:.35cqw .8cqw;border-radius:.2cqw}
+.cuehead{display:flex;justify-content:space-between;align-items:center}
+.cue h3{margin:0;font:700 max(1.6cqw,14px)/1.2 var(--serif);letter-spacing:.25em}
+.cue h4{margin:1.2cqw 0 .5cqw;font:700 max(1.05cqw,11px)/1.2 var(--serif);letter-spacing:.2em;color:#C2186B;display:flex;gap:1cqw;align-items:center}
+.cue select{font-size:max(1cqw,11px);padding:.35cqw .6cqw;border:.1cqw solid #d6cdea;border-radius:.3cqw;background:#fff;color:#1C1730}
+.trow{display:grid;grid-template-columns:3cqw 1fr 22cqw auto;gap:.8cqw;align-items:center;padding:.45cqw 0;border-bottom:.06cqw dashed #ddd3ee}
+.trow.rest{opacity:.55}
+.trow .sface{width:3cqw;height:3cqw}
+.tn b{font:700 max(1.1cqw,11px)/1.3 var(--serif);margin-right:.5cqw}.tn small{display:block;font-size:max(.85cqw,9px);color:#6C6385}.tn em{font-style:normal;font-weight:700;color:#C2186B}
+.tg{font-style:normal;font-size:max(.78cqw,9px);padding:.05cqw .5cqw;border-radius:1cqw;margin-right:.3cqw;background:#FFE7B0;color:#7A5200}.tg.n{background:#FFD0D6;color:#9A1F33}
+.trest{font-size:max(.9cqw,10px);display:flex;gap:.3cqw;align-items:center;color:#6C6385}
+.topts{display:flex;flex-wrap:wrap;gap:.5cqw}
+.topt{font:600 max(1cqw,11px)/1.3 var(--serif);padding:.55cqw 1cqw;border-radius:.4cqw;border:.1cqw solid #d6cdea;background:#fff;color:#1C1730;text-align:left}
+.topt small{display:block;font:400 max(.8cqw,9px)/1.3 "Noto Sans TC";color:#6C6385}
+.topt.on{background:#1C1730;color:#fff;border-color:#1C1730;box-shadow:0 0 0 .15cqw #FF4FA3}.topt.on small{color:#C9C2E6}
+.topt:disabled{opacity:.4}
+.golive{display:flex;justify-content:flex-end;margin-top:1.2cqw}
+.tbtn{font:700 max(1.05cqw,11px)/1 var(--serif);letter-spacing:.15em;padding:.7cqw 1.4cqw;border-radius:.4cqw;border:.1cqw solid #1C1730;color:#1C1730;background:#fff}
+.tbtn.sm{padding:.45cqw .9cqw;font-size:max(.9cqw,10px);border-color:#5CE1FF;color:#5CE1FF;background:transparent}
+.tbtn.go{background:linear-gradient(90deg,#FF4FA3,#B44BFF);color:#fff;border:0;padding:1cqw 2.6cqw;font-size:max(1.3cqw,13px);box-shadow:0 0 1.6cqw rgba(255,79,163,.6)}
+.tbtn:disabled{opacity:.45}
+.tside{display:flex;flex-direction:column;gap:1cqw}
+.tvcard{background:#120E22;border:.1cqw solid #2C2550;border-radius:.6cqw;padding:1cqw 1.2cqw}
+.tvcard h4{margin:0 0 .6cqw;font:700 max(1.05cqw,11px)/1.2 var(--serif);letter-spacing:.2em;color:#5CE1FF}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:.3cqw 1cqw;font-size:max(.95cqw,10px);color:var(--soft)}.kv b{color:#fff;font-family:var(--num);text-align:right}
+.trow2{display:flex;justify-content:space-between;align-items:center;margin-top:.8cqw;font-size:max(.9cqw,10px);color:var(--soft)}
+.trow2 select{margin-left:.4cqw;font-size:max(.9cqw,10px);background:#0C0918;color:#fff;border:.1cqw solid #2C2550;border-radius:.3cqw}
+.tstat{display:grid;grid-template-columns:3cqw 1fr;gap:.7cqw;align-items:center;margin:.5cqw 0}
+.tstat .sface{width:3cqw;height:3cqw}.tstat b{font:700 max(1cqw,10px)/1.3 var(--serif);margin-right:.4cqw}
+.tbars{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:.2cqw .5cqw;align-items:center;font-size:max(.75cqw,9px);color:var(--soft);margin-top:.2cqw}
+.tbar{height:.45cqw;border-radius:.3cqw;background:#0C0918;overflow:hidden}.tbar i{display:block;height:100%}
+.tnote{font-size:max(.9cqw,10px);color:var(--soft);line-height:1.6}
+.cue .tnote{color:#6C6385}
+.tv-res{position:absolute;inset:0;z-index:6;display:grid;place-items:center;background:rgba(6,4,12,.75);-webkit-backdrop-filter:blur(.6cqw);backdrop-filter:blur(.6cqw)}
+.tv-res.hide{display:none}
+.tvbox{width:62cqw;max-height:48cqw;overflow:auto;background:#120E22;border:.12cqw solid #2C2550;border-radius:1cqw;padding:2cqw 2.4cqw;color:var(--ink)}
+.tvbox.won{border-color:#FFC857;box-shadow:0 0 3cqw rgba(255,200,87,.35)}
+.verd{display:flex;gap:2cqw;align-items:center}
+.grade{font:800 7cqw/1 var(--num);color:#fff;text-shadow:0 0 1.4cqw #FF4FA3,0 0 3cqw #B44BFF}
+.crown{font:700 max(2.4cqw,18px)/1.2 var(--serif);letter-spacing:.2em}.won .crown{color:#FFC857;text-shadow:0 0 1cqw rgba(255,200,87,.7)}
+.verd small{font-size:max(.95cqw,10px);color:var(--soft)}
+.tlog{list-style:none;padding:0;margin:1.2cqw 0;display:flex;flex-direction:column;gap:.4cqw;font-size:max(1.05cqw,11px);line-height:1.6}
+.tlog li{padding-left:1cqw;border-left:.25cqw solid #2C2550}.tlog li.good{border-left-color:#4FE0A0}.tlog li.bad{border-left-color:#FF5C7A}.tlog li.say{border-left-color:#5CE1FF}
+.tvbox table{width:100%;border-collapse:collapse;font-size:max(1cqw,10px)}
+.tvbox th,.tvbox td{padding:.4cqw .6cqw;border-bottom:.06cqw solid #2C2550;text-align:right}.tvbox th:first-child,.tvbox td:first-child{text-align:left}
+.tvbox td.us{color:#FF4FA3;font-weight:700}.tvbox tr.tot td{font-weight:700;color:#fff}
 </style>
 </head>
 <body>
@@ -714,5 +781,6 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 <script src="wardrobe.js"></script>
 <script src="songs.js"></script>
 <script src="scripts.js"></script>
+<script src="stage.js"></script>
 </body>
 </html>

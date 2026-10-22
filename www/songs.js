@@ -393,5 +393,6 @@ function renderRec(){
   B.querySelectorAll("[data-sm]").forEach(b=>b.onclick=()=>{R.shareMode=b.dataset.sm;save(false);commit()});
 }
 window.openSongFacility=open;
+window.songSummary=songSummary;
 
 })();

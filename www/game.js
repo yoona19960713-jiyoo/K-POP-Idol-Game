@@ -311,7 +311,7 @@ function renderWorld(){
     b.onmouseenter=()=>pair.forEach(x=>x.classList.add("lit")); b.onmouseleave=()=>pair.forEach(x=>x.classList.remove("lit"));
     b.onclick=()=>openSpot(id)})}
 function openSpot(id){const sp=SPOTS.find(s=>s.id===id); if(!sp) return;
-  if(sp.kind==="locked"){toast2(`${sp.n}:${sp.note}`);return}
+  if(sp.kind==="locked"){ if(sp.id==="tv"){tvChooser();return} toast2(`${sp.n}:${sp.note}`);return}
   if(sp.kind==="place"){visit(sp.id);return}
   enter(sp.id)}
 function enter(b){const sp=SPOTS.find(s=>s.id===b);
@@ -338,6 +338,15 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
       ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
   $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.fac){window.openFacility&&openFacility(b.dataset.fac);return}
     if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
+/* 電視台:出道後的打歌期才正式開放,先留一個測試入口 */
+function tvChooser(){
+  let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
+  el.innerHTML=`<div class="chbox"><h3>電視台</h3><p class="chnote">出道後的打歌期才會正式開放。</p>
+    <button class="chbtn pri" data-ch="tv"><b>測試入口:進入待機室</b><small>打歌準備單、舞台評價、一位計分・不花行動,時間暫停</small></button>
+    <button class="chx" data-ch="x">取消</button></div>`;
+  el.classList.add("on"); el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); if(b.dataset.ch==="tv") window.openStageRoom&&openStageRoom()});
+  el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
+}
 /* 有設施又能拜訪的房間:先問要做什麼 */
 const FACN={planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"]};
 function chooser(pid,fac){
@@ -577,7 +586,7 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
