@@ -81,7 +81,13 @@ async function takeImport(){
     if(m[1]==="z") bytes=new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
     const o=JSON.parse(new TextDecoder().decode(bytes)); const col=o.app==="kpop-clothes"?"items":o.app==="kpop-scripts"?"scripts":null;
     if(!col||!Array.isArray(o.items)) throw 0;
-    let n=0,off=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now(); if(!(await saveDoc(col,it))) off++; n++ }
+    if(col==="items") ensureMeta();
+    let n=0,off=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
+      // 造型可以用成員代號(ys、tr、hy、he、hr)標示,這裡換成衣帽間的成員欄位,不怕欄位順序不同
+      if(col==="items"&&it.members){ const ms={}; for(const [k,v] of Object.entries(it.members)) ms[byId(k)?(slotOf(k)||DEFAULT_SLOT[k]):k]=v; it.members=ms;
+        if(it.target&&byId(it.target)) it.target=slotOf(it.target)||DEFAULT_SLOT[it.target];
+        it.kind=it.kind||"look"; for(const v of Object.values(it.members)){ v.img=v.img||""; v.status=v.status||0 } }
+      if(!(await saveDoc(col,it))) off++; n++ }
     const what=col==="items"?`${n} 套造型,已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(劇本工坊的審稿區看得到)`;
     setTimeout(()=>toast2(`收到 Claude 創作室送來的 ${what}`+(off?"(還沒登入雲端,登入後會自動上傳)":"")),900);
     if(col==="items"&&window.renderFacility) renderFacility();
