@@ -1,8 +1,7 @@
 "use strict";
 /* =====================================================================
    日常服立繪自動處理(取代原本交給 Claude 跑 outfit_face.py 的步驟)
-   1. 日常類(練習、居家、外出、睡衣)生圖時請 OpenAI 直接給透明背景
-      (萬一沒有透明,這裡用灰底挖除當備援)
+   1. 日常類跟舞台類一樣用 gpt-image-2、淺灰底;收下時由遊戲從邊緣去背
    2. 收下後自動做換臉層:找出表情組在新圖上的位置,把六種表情的臉疊上去、膚色對齊
    3. 裁成跟表情組完全相同的框、高 1300,存進造型資料(members[欄位].sprites),同步到雲端
    遊戲換穿時會直接讀這些立繪(DYN),不用再上傳檔案到 GitHub
@@ -19,21 +18,49 @@ const loadImg=src=>new Promise((ok,no)=>{const i=new Image(); i.crossOrigin="ano
 function canvas(w,h){const c=document.createElement("canvas"); c.width=w; c.height=h; return c}
 function gray(d,i){return d[i]*.299+d[i+1]*.587+d[i+2]*.114}
 
-/* ---- 沒有透明背景時:從四邊開始把接近灰底的顏色挖掉 ---- */
+/* ---- 去背:gpt-image-2 只能給淺灰底,由遊戲從四邊往內做連通填充 ----
+   只挖跟外框相連的灰底(不對全圖做顏色鍵,白色或淺灰的衣服不會被挖掉);
+   底色依上下邊緣取樣做漸層;填充只能沿著平滑的顏色前進,碰到線稿或衣服邊緣就停;
+   被頭髮或身體包住、面積小、顏色很接近底色的灰塊做第二輪清除;邊緣 1~2 px 半透明並去灰邊 */
 function keyOut(ctx,W,H){
   const im=ctx.getImageData(0,0,W,H), d=im.data;
-  const avg=pts=>{let r=0,g=0,b=0; for(const [x,y] of pts){const i=(y*W+x)*4; r+=d[i];g+=d[i+1];b+=d[i+2]} return [r/pts.length,g/pts.length,b/pts.length]};
-  const T=avg([[4,4],[W-5,4],[W>>1,4],[4,H>>2],[W-5,H>>2]]), B=avg([[4,H-5],[W-5,H-5],[W>>1,H-5],[4,H-H/6|0],[W-5,H-H/6|0]]);  // 上方牆面與下方地面顏色不同
-  const dist=i=>Math.min(Math.hypot(d[i]-T[0],d[i+1]-T[1],d[i+2]-T[2]),Math.hypot(d[i]-B[0],d[i+1]-B[1],d[i+2]-B[2]));
-  const seen=new Uint8Array(W*H), q=new Int32Array(W*H); let qh=0,qt=0;
-  const push=p=>{if(!seen[p]&&dist(p*4)<34){seen[p]=1;q[qt++]=p}};
-  for(let x=0;x<W;x++){push(x);push((H-1)*W+x)} for(let y=0;y<H;y++){push(y*W);push(y*W+W-1)}
-  while(qh<qt){const p=q[qh++],x=p%W,y=(p/W)|0; if(x>0)push(p-1); if(x<W-1)push(p+1); if(y>0)push(p-W); if(y<H-1)push(p+W)}
-  const pocketY=H*.38|0;  // 頭髮縫隙裡被包住的底色(洪水填不到)也挖掉
-  for(let p=0;p<W*H;p++){ const i=p*4; if(seen[p]){d[i+3]=0;continue} if(p<pocketY*W&&dist(i)<20){d[i+3]=0;continue}
-    const t=dist(i); if(t<60){ // 邊緣半透明,減少灰邊
-      let near=false; const x=p%W; if((x>0&&seen[p-1])||(x<W-1&&seen[p+1])||(p>=W&&seen[p-W])||(p<W*H-W&&seen[p+W])) near=true;
-      if(near) d[i+3]=Math.round(255*Math.min(1,(t-34)/26)) } }
+  const px=(x,y)=>{const i=(y*W+x)*4; return [d[i],d[i+1],d[i+2]]};
+  const mean=a=>{const s=[0,0,0]; for(const c of a){s[0]+=c[0];s[1]+=c[1];s[2]+=c[2]} return s.map(v=>v/a.length)};
+  const top=[],bot=[]; for(let x=2;x<W-2;x+=8){top.push(px(x,2)); bot.push(px(x,H-3))}
+  for(let y=2;y<H*.5;y+=8){top.push(px(2,y),px(W-3,y))} for(let y=Math.floor(H*.8);y<H-2;y+=8){bot.push(px(2,y),px(W-3,y))}
+  const T=mean(top), B=mean(bot);
+  // 每一列的底色:取該列左右兩側邊緣的平均(上下 ±6 列平滑),牆面到地面的漸層也跟得上
+  const raw=[]; for(let y=0;y<H;y++){ const a=[]; for(const x of [2,5,8,W-3,W-6,W-9]) a.push(px(x,y)); raw.push(mean(a)) }
+  const ROW=raw.map((_,y)=>{const a=[]; for(let k=-6;k<=6;k++){const yy=Math.min(H-1,Math.max(0,y+k)); a.push(raw[yy])} return mean(a)});
+  const dist=p=>{const i=p*4,b=ROW[(p/W)|0]; return Math.hypot(d[i]-b[0],d[i+1]-b[1],d[i+2]-b[2])};
+  // 容許度依邊緣雜訊決定
+  const ed=[...top.map(c=>Math.hypot(c[0]-T[0],c[1]-T[1],c[2]-T[2])),...bot.map(c=>Math.hypot(c[0]-B[0],c[1]-B[1],c[2]-B[2]))].sort((a,b)=>a-b);
+  const TOL=Math.max(12,Math.min(26,ed[Math.floor(ed.length*.9)]*1.6+8)), STEP=9;
+  const bg=new Uint8Array(W*H), q=new Int32Array(W*H); let qh=0,qt=0;
+  const step=(a,b)=>{const i=a*4,j=b*4; return Math.abs(d[i]-d[j])+Math.abs(d[i+1]-d[j+1])+Math.abs(d[i+2]-d[j+2])};
+  for(let x=0;x<W;x++) for(const p of [x,(H-1)*W+x]) if(!bg[p]&&dist(p)<TOL){bg[p]=1;q[qt++]=p}
+  for(let y=0;y<H;y++) for(const p of [y*W,y*W+W-1]) if(!bg[p]&&dist(p)<TOL){bg[p]=1;q[qt++]=p}
+  // 腳下的影子:地面區域裡、比底色暗一些、幾乎沒有彩度的灰,沿著平滑的顏色一起挖掉
+  const FLOOR=Math.floor(H*.8);
+  const shadow=n=>{ if(n<FLOOR*W) return false; const i=n*4,b=ROW[(n/W)|0]; const L=(d[i]+d[i+1]+d[i+2])/3, bL=(b[0]+b[1]+b[2])/3;
+    const ch=Math.max(d[i],d[i+1],d[i+2])-Math.min(d[i],d[i+1],d[i+2]); return L<=bL+4&&L>bL-95&&ch<22 };
+  while(qh<qt){const p=q[qh++],x=p%W; for(const n of [x>0?p-1:-1,x<W-1?p+1:-1,p-W,p+W]){ if(n<0||n>=W*H||bg[n]) continue;
+    if((dist(n)<TOL||shadow(n))&&step(p,n)<STEP*3){bg[n]=1;q[qt++]=n} } }
+  // 第二輪:被包住的小灰塊
+  // 小塊直接清;大一點的(例如兩腿之間)要整塊都跟底色幾乎一樣才清,避免挖到淺灰的衣服
+  const seen=new Uint8Array(W*H); const SMALL=Math.round(W*H*.0016), BIG=Math.round(W*H*.03);
+  for(let s0=0;s0<W*H;s0++){ if(bg[s0]||seen[s0]||dist(s0)>=TOL*.75) continue;
+    const comp=[s0]; seen[s0]=1; let k=0, sum=0;
+    while(k<comp.length){const p=comp[k++],x=p%W; sum+=dist(p); for(const n of [x>0?p-1:-1,x<W-1?p+1:-1,p-W,p+W]){ if(n<0||n>=W*H||seen[n]||bg[n]) continue; if(dist(n)<TOL*.75){seen[n]=1;comp.push(n)} } }
+    const avg=sum/comp.length;
+    if(comp.length<=SMALL||(comp.length<=BIG&&avg<TOL*.4)) for(const p of comp) bg[p]=1 }
+  // 邊緣:半透明過渡與去灰邊
+  for(let p=0;p<W*H;p++){ const i=p*4; if(bg[p]){d[i+3]=0;continue}
+    const x=p%W; let edge=0; for(const n of [x>0?p-1:-1,x<W-1?p+1:-1,p-W,p+W,x>1?p-2:-1,x<W-2?p+2:-1,p-2*W,p+2*W]) if(n>=0&&n<W*H&&bg[n]){edge++}
+    if(!edge) continue;
+    const t=dist(p), a=Math.max(.15,Math.min(1,(t-TOL*.5)/(TOL*1.5)));
+    const b=ROW[(p/W)|0]; for(let c=0;c<3;c++) d[i+c]=Math.max(0,Math.min(255,(d[i+c]-(1-a)*b[c])/a));
+    d[i+3]=Math.round(255*a) }
   ctx.putImageData(im,0,0);
 }
 function hasAlpha(ctx,W,H){const d=ctx.getImageData(0,0,W,8).data; let z=0; for(let i=3;i<d.length;i+=4) if(d[i]<20) z++; return z>W*2}
@@ -102,5 +129,5 @@ window.processSprites=async(code,slot,opts={})=>{
   const ok=await saveDoc("items",lk); ensureWear(true); rerender();
   return {...r,ok};
 };
-window.SPRITE_FACE=FACE;
+window.SPRITE_FACE=FACE; window.__keyOut=keyOut;
 })();
