@@ -161,3 +161,57 @@ window.timelineOnDayStart=()=>{
 window.timelineOnDayEnd=day=>{ const P=S.promo; if(!P||day<P.start||day>=P.start+PROMO_LEN) return; const i=showIdx(day,P); if(i!=null) window.stageCatchUp?.(i+1,promoFirstIdx(P)) };
 })();
 window.gameState=()=>S;
+
+/* =====================================================================
+   成績與年度事件:一位紀錄、粉絲數、宣傳期結算、第一個一位、年末頒獎與歌謠祭
+   ===================================================================== */
+(()=>{
+const st=()=>{ S.stats=S.stats||{fans:0,wins:0,winsByYear:{},firstWin:false,awards:[]}; return S.stats };
+const yr=()=>dateOf(S.day).getFullYear();
+window.fansText=()=>{ const f=st().fans; return f>=10000?`${(f/10000).toFixed(1)} 億`:f>=1?`${Math.round(f)} 萬`:"還沒有粉絲" };
+/* 待機室每一場打歌的結果 */
+window.onShowResult=r=>{ const s=st(), promo=window.promoActive?.(); if(!promo) return null;   // 練習模式不算
+  let first=false;
+  if(r.win){ s.wins++; s.winsByYear[yr()]=(s.winsByYear[yr()]||0)+1; s.fans+=3+Math.min(6,(r.views||0)/80); if(!s.firstWin){ s.firstWin=true; first=true; for(const m of M){S.m[m.id].xp+=200; S.m[m.id].mood=Math.min(100,S.m[m.id].mood+20)} addBond(M.map(x=>x.id),4) } }
+  else s.fans+=1+Math.min(3,(r.views||0)/150);
+  S.promo.wins=(S.promo.wins||0)+(r.win?1:0); S.promo.shows=(S.promo.shows||0)+1; save(true);
+  if(first&&r.auto) setTimeout(()=>window.showCard({tag:"FIRST WIN",title:"第一個一位!",lead:`你不在電視台的那天,完美女團在《${r.sh?.n||"音樂節目"}》拿下了出道後的第一個一位。一回到宿舍,五個人就衝過來抱住你。`,
+    lines:[["he","代表……我們拿到一位了!","sad"],["hr","代表!!我們是一位!!","laugh"],["tr","……下次,你要在台下看。","shy"]],ok:"抱緊她們"}),1500);
+  return first?[["he","代表……我們拿到一位了,真的嗎?","sad"],["ys","不要哭啦,夏恩……(她自己也哭了)","sad"],["hr","代表!代表!!我們是一位!!","laugh"],["tr","……這是我這輩子最開心的一天。","shy"],["hy","代表、本當にありがとう……謝謝你。","laugh"]]:null };
+/* 一次只顯示一張事件卡,其他的排隊 */
+const CQ=[];
+function card(o){ if(document.querySelector(".bigev:not(.out)")){ CQ.push(o); if(CQ.length===1) waitNext(); return } showCardNow(o) }
+function waitNext(){ const t=setInterval(()=>{ if(!document.querySelector(".bigev:not(.out)")&&CQ.length){ const o=CQ.shift(); showCardNow(o); if(!CQ.length) clearInterval(t) } else if(!CQ.length) clearInterval(t) },400) }
+function showCardNow(o){ const el=document.createElement("div"); el.className="bigev";
+  el.innerHTML=`<div class="bg-shot"${o.bg?` style="background-image:url(${o.bg})"`:""}></div><div class="bg-veil"></div><div class="bigcard"><small>${o.tag}</small><h2>${o.title}</h2><p class="lead">${o.lead}</p>
+    ${o.stats?`<div class="evstats">${o.stats.map(([n,v])=>`<div><b>${v}</b><span>${n}</span></div>`).join("")}</div>`:""}
+    ${o.lines?`<div class="evlines">${o.lines.map(([id,t,e])=>{const mm=byId(id);return `<div class="evl"><span class="pface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p></div>`}).join("")}</div>`:""}
+    <button class="fbtn pri cardOk">${o.ok||"繼續"}</button></div>`;
+  $("#stage").appendChild(el); setPause("card",true);
+  el.querySelector(".cardOk").onclick=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),600); setPause("card",false); o.after?.(); save(true); renderAll() } }
+window.showCard=card;
+/* 宣傳期結算 */
+function settle(P){ const s=st(), w=P.wins||0, n=P.shows||0, sum=window.songSummary?songSummary():null;
+  const gain=Math.round(8+w*4+(sum?.title?.score||60)/10); s.fans+=gain; P.settled=true;
+  for(const m of M){ S.m[m.id].xp+=150+w*20; S.m[m.id].stress=Math.max(0,S.m[m.id].stress-15) } addBond(M.map(x=>x.id),2);
+  const rank=w>=12?"打歌節目全面制霸":w>=6?"音源與打歌雙雙登頂":w>=1?"拿下了一位":"每一場都留下了好舞台";
+  card({tag:`${P.kind==="debut"?"DEBUT":"COMEBACK"} RESULT`,title:`〈${esc(P.title)}〉宣傳期結算`,
+    lead:`四週的${P.kind==="debut"?"出道":"回歸"}活動結束了:${rank}。公司為大家準備了慶功宴,成員們的壓力都放下了一些。下一次回歸日可以到 2F 企劃室決定。`,
+    stats:[["一位",`${w} 次`],["完成打歌",`${n} 場`],["新增粉絲",`+${gain} 萬`],["粉絲總數",fansText()]],ok:"慶功宴乾杯"}) }
+/* 年末:12/2 亞洲音樂大獎、12/31 年末歌謠大祭典 */
+function awards(){ const s=st(), y=yr(), w=s.winsByYear[y]||0, debutYear=dateOf(DEBUT_DAY).getFullYear()===y;
+  const got=[]; if(debutYear) got.push("最佳新人獎"); if(w>=3) got.push("年度本賞"); if(w>=6) got.push("最佳女子團體獎"); if(w>=12&&s.fans>=60) got.push("年度大賞・年度歌手");
+  s.awards.push({y,got}); for(const m of M) S.m[m.id].xp+=got.length*80;
+  card({tag:`ASIA MUSIC AWARDS ・ ${y}`,title:got.length?`拿下 ${got.length} 個獎`:"第一次站上頒獎典禮",
+    lead:got.length?`今年的完美女團拿下了:${got.join("、")}。${got.some(g=>g.includes("大賞"))?"出道第一年就拿下大賞,整個會場都在喊她們的名字。":""}`:"這一年雖然沒有拿獎,但能站在這個舞台上表演,已經是很多團體夢寐以求的事。",
+    stats:[["今年一位",`${w} 次`],["粉絲總數",fansText()]],
+    lines:got.length?[["ys","代表……這座獎,是我們六個人一起拿的。","sad"],["hr","我要把獎盃帶回濟州給外婆看!","laugh"]]:[["he","明年,我們一定會拿到。","smile"]],ok:"一起拍張照"}) }
+function festival(){ const y=yr();
+  card({tag:`YEAR-END FESTIVAL ・ ${y}`,title:"年末歌謠大祭典",lead:"跨年夜的舞台上,五個人穿著特別舞台的造型,和其他團體一起倒數。下台後,她們在後台把一杯熱可可塞到你手裡。",
+    lines:[["tr","……新年快樂,代表。明年也請多指教。","shy"],["hy","来年もよろしくね!明年也要在一起喔!","laugh"]],ok:"新年快樂"}) }
+const _ds=window.timelineOnDayStart;
+window.timelineOnDayStart=()=>{ _ds?.(); if(S.day<DEBUT_DAY) return; const d=dateOf(S.day);
+  const P=S.promo; if(P&&!P.settled&&S.day>=P.start+28) setTimeout(()=>settle(P),900);
+  if(d.getMonth()===11&&d.getDate()===2&&S.awardYear!==d.getFullYear()){ S.awardYear=d.getFullYear(); setTimeout(awards,1200) }
+  if(d.getMonth()===11&&d.getDate()===31&&S.festYear!==d.getFullYear()){ S.festYear=d.getFullYear(); setTimeout(festival,1200) } };
+})();

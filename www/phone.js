@@ -134,11 +134,12 @@ function sched(){ const d=dateOf(S.day);
     :P?.active?`<b>${P.kind==="debut"?"出道":"回歸"}宣傳期進行中</b><p>〈${esc(P.title)}〉打歌到 ${fmtGameDay(P.end)}。沒去電視台的那天,會用上一場的準備單自動上台。</p>`
     :S.comeback!=null?`<b>回歸日 ${fmtGameDay(S.comeback)}</b><p>還有 ${S.comeback-S.day} 天,企劃室和造型室可以開始準備了。</p>`
     :`<b>空白期</b><p>到 2F 企劃室決定下一次的回歸日。</p>`;
+  const fansLine=dd<=0&&window.fansText?`<p class="pfans">粉絲 ${fansText()}・一位 ${S.stats?.wins||0} 次${(S.stats?.awards||[]).flatMap(a=>a.got).length?`・獎項 ${(S.stats.awards||[]).flatMap(a=>a.got).length} 座`:""}</p>`:"";
   return head("行程")+`<div class="pscroll"><h4>今天的成員動向 <small>之後的時段是預定,可能會變</small></h4>
     <div class="ptab"><div class="pth"><span></span>${SLOTS.map((s,i)=>`<span class="${i===S.slot?"now":i<S.slot?"past":""}">${s.n}</span>`).join("")}</div>
     ${M.map(m=>`<div class="ptr">${face(m.id,"sm")}${SLOTS.map((_,i)=>{const k=i===S.slot?(S.where[m.id]||whereAt(m,i)):whereAt(m,i);return `<span class="${i===S.slot?"now":i<S.slot?"past":""}">${esc(placeName(k))}</span>`}).join("")}</div>`).join("")}</div>
     <h4>這一週</h4><div class="pweek">${days}</div>
-    <h4>公司公告</h4><div class="pnote">${notice}</div></div>`}
+    <h4>公司公告</h4><div class="pnote">${notice}${fansLine}</div></div>`}
 
 /* ---------- STARLOG(社群) ---------- */
 function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); recount();

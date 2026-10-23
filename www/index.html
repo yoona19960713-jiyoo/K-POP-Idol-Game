@@ -402,6 +402,13 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 .rold i{position:absolute;left:0;right:0;bottom:0;font-style:normal;font-size:max(.75cqw,9px);text-align:center;background:rgba(0,0,0,.55);color:#fff}
 .rmodel{padding:0 .9cqw;font-size:max(.8cqw,9px);color:var(--soft)}
 .wmod{position:absolute;z-index:3;top:1.1cqw;left:1.1cqw;font:700 max(.8cqw,9px)/1 var(--num);color:#fff;background:#9A3D47;padding:.25cqw .5cqw;border-radius:.3cqw}
+.fh2{margin:2cqw 0 .6cqw;font:700 max(1.5cqw,14px)/1.2 var(--serif);letter-spacing:.25em;color:#3A2C2E}
+.pbgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:1cqw;margin-top:1cqw}
+.pbcat{grid-column:1/-1;margin:.6cqw 0 0;font:700 max(1cqw,11px)/1 var(--serif);letter-spacing:.3em;color:var(--gold)}
+.pbcard{background:rgba(255,253,248,.92);border-radius:.7cqw;padding:.6cqw;display:flex;flex-direction:column;gap:.35cqw;align-items:center;box-shadow:0 .3cqw .9cqw rgba(80,55,30,.12)}
+.pbcard b{font:700 max(1cqw,11px)/1.2 var(--serif)}.pbcard small{font-size:max(.8cqw,9px);color:var(--soft)}
+.pbact{display:flex;gap:.6cqw}
+#pbAll{margin-left:auto}
 
 /* ===== 房間選擇(設施或拜訪) ===== */
 .chooser{position:absolute;inset:0;z-index:35;display:none;place-items:center;background:rgba(20,12,28,.45);-webkit-backdrop-filter:blur(.4cqw);backdrop-filter:blur(.4cqw)}
@@ -887,6 +894,13 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 .relbox{background:#FFF8E6;border-radius:.4cqw;padding:.8cqw 1cqw;font-size:max(.9cqw,10px);line-height:1.6;color:#5C4E48;box-shadow:0 .2cqw .6cqw rgba(0,0,0,.12)}
 .relbox b{display:block;font:700 max(1.1cqw,12px)/1.4 var(--serif);color:#2E2420}.relbox.live b{color:#B8323F}
 .relbox input[type=date]{font-size:max(1cqw,11px);padding:.3cqw .5cqw;border:.1cqw solid rgba(156,122,78,.5);border-radius:.3cqw;background:#fffdf8;color:#2E2420}
+.evstats{display:grid;grid-template-columns:repeat(4,1fr);gap:.8cqw;margin:.4cqw 0 1cqw}
+.evstats div{text-align:center;padding:.8cqw .4cqw;border-radius:.6cqw;background:rgba(255,255,255,.08);border:.08cqw solid rgba(243,217,164,.3)}
+.evstats b{display:block;font:800 max(1.6cqw,14px)/1.2 var(--num);color:#F3D9A4}.evstats span{font-size:max(.85cqw,9px);color:#E8CFC8}
+.firstwin{margin:1cqw 0;padding:1cqw 1.2cqw;border-radius:.8cqw;background:linear-gradient(90deg,rgba(255,200,87,.18),rgba(255,79,163,.12));border:.08cqw solid rgba(255,200,87,.5)}
+.firstwin>b{display:block;font:700 max(1.2cqw,12px)/1.4 var(--serif);color:#FFC857;letter-spacing:.2em;margin-bottom:.4cqw}
+.firstwin p{display:flex;gap:.6cqw;align-items:center;margin:.3cqw 0;font-size:max(1cqw,11px)}.firstwin .sface{width:2.4cqw;height:2.4cqw}
+.pfans{color:#B02E5C!important;font-weight:700}
 </style>
 </head>
 <body>
@@ -1016,6 +1030,7 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 <script src="version.js"></script>
 <script src="assets/outfits.js"></script>
 <script src="game.js"></script>
+<script src="assets/poses.js"></script>
 <script src="wardrobe.js"></script>
 <script src="songs.js"></script>
 <script src="scripts.js"></script>

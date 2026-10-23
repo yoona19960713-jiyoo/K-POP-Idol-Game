@@ -122,6 +122,7 @@ function perform(){ syncSkill();
 function applyResult(r){
   const p=S.plan, V=VERS[p.ver];
   if(window.growthOnShow) growthOnShow(M.filter(m=>!p.rest[m.id]).map(m=>m.id));
+  r.first=window.onShowResult?.(r)||null;
   for(const m of M){const st=S.m[m.id];
     if(p.rest[m.id]){st.stamina=Math.min(100,st.stamina+18);st.throat=Math.min(100,st.throat+12);if(st.cond&&rnd()<.6) st.cond="";continue}
     st.stamina=Math.max(5,st.stamina-8-V.st+(r.i%6===5?0:0)); st.throat=Math.max(5,st.throat-(p.mic==="live"?9:p.mic==="half"?5:2));
@@ -255,6 +256,7 @@ function bind(){ const B=$("#tvBody"), p=S.plan;
 function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales","實體銷量"],["views","播放"],["social","社群熱度"],["stage","舞台評價"]];
   el.innerHTML=`<div class="tvbox${r.win?" won":""}"><div class="verd"><div class="grade">${r.grade}</div><div><div class="crown">${r.win?"一位!":"這場第二名"}</div>
       <small>${r.sh.d}《${r.sh.n}》・直拍觀看 ${r.views.toLocaleString()} 萬・造型契合 ${Math.round(r.O.s)}</small></div></div>
+    ${r.first?`<div class="firstwin"><b>出道後的第一個一位</b>${r.first.map(([id,t,e])=>{const mm=byId(id);return `<p><span class="sface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p>`}).join("")}</div>`:""}
     <ul class="tlog">${r.log.map(([k,t])=>`<li class="${k}">${t}</li>`).join("")||`<li>平穩完成的一場舞台。</li>`}</ul>
     <table><thead><tr><th>計分項目</th><th>比重</th><th>我們</th><th>${RIVAL.n}</th></tr></thead><tbody>
       ${rows.map(([k,n])=>`<tr><td>${n}</td><td>${Math.round(r.sh.w[k]*100)}%</td><td class="us">${Math.round(r.us[k])}</td><td>${Math.round(r.rv[k])}</td></tr>`).join("")}

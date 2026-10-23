@@ -13,21 +13,28 @@ const wIsDaily=o=>o==="練習"||String(o||"").startsWith("日常");
 const wSeasonText=a=>Array.isArray(a)&&a.length&&a.length<4?W_SEASONS.filter(s=>a.includes(s)).join("、"):"四季";
 const W_CATS=[["all","全部"],["stage","舞台與活動"],["練習","練習服"],["日常・居家","居家"],["日常・外出","外出"],["日常・睡衣","睡衣"]];
 const wCatOf=o=>wIsDaily(o)?o:"stage";
+/* 定案姿勢:頭部位置與角度完全不動、手不靠近臉(換臉層才對得準);描述固定左右手與高度,五個人比出來一致
+   [代號, 名稱, 分類, 英文描述] */
 const W_POSES=[
-  ["stand","自然站姿","standing naturally with both arms relaxed at her sides"],
-  ["wave","揮手打招呼","waving hello with one hand raised beside her body at chest height, palm open, the other arm relaxed"],
-  ["hips","雙手叉腰","standing confidently with both hands on her hips"],
-  ["behind","雙手背在身後","standing with both hands clasped behind her back, shoulders relaxed"],
-  ["phone","拿著手機","holding a smartphone in one hand at waist height, looking at the viewer, the other arm relaxed"],
-  ["drink","捧著飲料","holding a takeaway drink cup with both hands at waist height"],
-  ["peace","比 V","making a cheerful V sign with one hand held out to the side at waist height, away from her face, the other arm relaxed"]];
+  ["stand","自然站姿","日常","standing naturally, both arms relaxed at her sides"],
+  ["wave","揮手打招呼","日常","her right hand raised to chest height beside her body, palm open facing forward in a friendly wave; her left arm relaxed at her side"],
+  ["phone","拿著手機","日常","holding a smartphone in her right hand at waist height with the screen facing her, her left arm relaxed at her side"],
+  ["peace","比 V","日常","her right hand making a cheerful V sign held out to her right side at waist height, well away from her face; her left arm relaxed at her side"],
+  ["drink","捧著飲料","日常","holding a takeaway iced drink cup with a straw in both hands in front of her stomach"],
+  ["heart","胸前比愛心","活動形象照","making a small finger heart with her right hand held in front of her chest; her left arm relaxed at her side"],
+  ["clasp","雙手交握","活動形象照","both hands lightly clasped together in front of her lower stomach, elegant photocall pose, shoulders relaxed"],
+  ["hipone","單手叉腰","活動形象照","her left hand resting on her left hip, her right arm relaxed at her side, weight slightly on one leg, classic photocall pose"],
+  ["bag","拉著包包肩帶","機場","her right hand holding the strap of a shoulder bag on her right shoulder at chest height, her left arm relaxed at her side, as if walking through an airport"],
+  ["suitcase","拉著行李箱","機場","her left hand holding the extended handle of a small rolling suitcase standing beside her left leg, her right arm relaxed at her side, airport fashion photo"],
+  ["point","舞台指向鏡頭","舞台","her right arm extended straight forward toward the camera at shoulder height, pointing with her index finger, her left hand on her left hip, confident stage ending pose"],
+  ["mic","雙手握麥克風","舞台","holding a handheld stage microphone with both hands in front of her chest, well below her chin, her shoulders relaxed"]];
 const poseOf=k=>W_POSES.find(x=>x[0]===k)||W_POSES[0];
 function wLookPrompt(lk,slot){
   const o=lk.members?.[slot]; if(!o) return "";
   const group=lk.type==="group"&&lk.base?` This is her own version of a coordinated K-pop group outfit; the shared design language of the set is: ${lk.base}.`:"";
   const daily=wIsDaily(lk.occasion);
-  const P=poseOf(lk.pose), moved=P[0]!=="stand";
-  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, ${moved?"":"pose, "}framing, art style, lighting and plain light gray background completely identical.${moved?` Change only her arms and hands into this pose: ${P[2]}. Her head, face position, head angle, gaze, hair and legs must stay exactly as in the attached image; her hands must not cover or come near her face or hair.`:""} ${moved?"Apart from the arms and hands, change only":"Change only"} her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
+  const P=poseOf(lk.pose), moved=P[0]!=="stand"&&!hasPoseBase(slot,P[0]);   // 有姿勢底模時姿勢已經在底圖裡
+  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, ${moved?"":"pose, "}framing, art style, lighting and plain light gray background completely identical.${moved?` Change only her arms and hands into this pose: ${P[3]}. Her head, face position, head angle, gaze, hair and legs must stay exactly as in the attached image; her hands must not cover or come near her face or hair.`:""} ${moved?"Apart from the arms and hands, change only":"Change only"} her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
 }
 const slotOf=mid=>Object.keys(WMEM).find(k=>WMEM[k]===mid);
 const midOf=slot=>WMEM[slot];
@@ -113,7 +120,14 @@ const setOai=o=>localStorage.setItem(OAI_KEY,JSON.stringify({...oai(),...o}));
 const OAI_PRICE={low:.02,medium:.06,high:.22};   // 每張約略費用(直圖+參考圖),只用來估算
 function dataURLtoBlob(u){const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:mime})}
 async function toPng(u){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=u});const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);return await new Promise(ok=>c.toBlob(ok,"image/png"))}
-async function baseFor(slot){const m=WMETA.find(x=>x.id===slot); if(!m?.gen) return ""; return await getBlob(m.gen)}
+/* 內建的姿勢底模(使用者用 ChatGPT 生好、Claude 檢查後放進遊戲):assets/pose/成員_姿勢.webp */
+const POSE_ASSET=window.POSE_ASSETS||{};   // {"haeun_wave":1,...} 由 assets/poses.js 提供
+const poseAsset=(slot,pose)=>{const f=byId(midOf(slot))?.f; return f&&POSE_ASSET[f+"_"+pose]?`assets/pose/${f}_${pose}.webp`:""};
+async function urlToData(u){const r=await fetch(u); const b=await r.blob(); return await new Promise(ok=>{const fr=new FileReader(); fr.onload=()=>ok(fr.result); fr.readAsDataURL(b)})}
+async function baseFor(slot,pose){const m=WMETA.find(x=>x.id===slot); if(!m?.gen) return "";
+  if(pose&&pose!=="stand"){ if(m.poses?.[pose]) return await getBlob(m.poses[pose]); const a=poseAsset(slot,pose); if(a) return await urlToData(a) }   // 姿勢底模
+  return await getBlob(m.gen)}
+const hasPoseBase=(slot,pose)=>!!WMETA.find(x=>x.id===slot)?.poses?.[pose]||!!poseAsset(slot,pose);
 async function oaiEdit(prompt,baseURL,model){
   const o=oai(); if(!o.key) throw {code:"no_key"};
   const fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
@@ -149,7 +163,7 @@ async function runQueue(){
   if(RUNNING) return; RUNNING=true; STOP=false; renderFacility();
   const o=oai(); let model=o.model||"gpt-image-2";
   while(!STOP){ const job=JOBS.find(j=>j.state==="wait"); if(!job) break; job.state="run"; renderFacility();
-    try{ const lk=ITEMS[job.code], base=await baseFor(job.slot);
+    try{ const lk=ITEMS[job.code], base=await baseFor(job.slot,lk.pose);
       if(!base) throw {code:"no_base"};
       let img, used=model; try{ img=await oaiEdit(wLookPrompt(lk,job.slot),base,model) }
       catch(e){ if(e.code==="bad_model"&&model!=="gpt-image-1.5"){model=used="gpt-image-1.5"; setOai({model}); img=await oaiEdit(wLookPrompt(lk,job.slot),base,model)} else throw e }
@@ -326,11 +340,28 @@ function editLook(code){
 }
 
 /* ---- 成員生圖底模 ---- */
+let PB_BUSY=new Set(), PB_MEM="ys";
+function poseBasePrompt(P){ return `Use the attached image as the exact base. Keep her face, head position, head angle, gaze, expression, hairstyle, hair color, body, proportions, white T-shirt and shorts, framing, art style, lighting and plain light gray background completely identical. Change only her pose: ${P[3]}. Her head must stay in exactly the same place and at exactly the same angle as in the attached image; her hands must not cover or come near her face or hair. Any prop is plain, with no logos, brand names or printed text. Full body visible from head to toe.` }
+async function genPoseBase(slot,key){
+  const P=poseOf(key), m=WMETA.find(x=>x.id===slot); if(!m?.gen){toast2("先設定這位成員的生圖底模");return}
+  if(!oai().key){toast2(OAI_ERR.no_key);return} const id=slot+"@"+key; if(PB_BUSY.has(id)) return; PB_BUSY.add(id); renderFacility();
+  try{ const img=await oaiEdit(poseBasePrompt(P),await getBlob(m.gen),oai().model||"gpt-image-2");
+    m.poses={...(m.poses||{}),[key]:img}; toast2(`${byId(midOf(slot)).n}「${P[1]}」的姿勢底模完成,存到雲端中…`); await saveMetaCloud() }
+  catch(e){ toast2((OAI_ERR[e.code]||"生成失敗")+(e.msg?`:${String(e.msg).slice(0,60)}`:"")) }
+  finally{ PB_BUSY.delete(id); renderFacility() } }
+function poseBaseHTML(){ const s=slotOf(PB_MEM), w=WMETA.find(x=>x.id===s)||{}, m=byId(PB_MEM); let cat="";
+  return `<h3 class="fh2">姿勢底模</h3><p class="fnote dark">每個姿勢先做一張穿白 T 的定案圖。生衣服時選了哪個姿勢,就拿那張換衣服:姿勢每次一致,頭也不會動,換臉層才對得準。沒有姿勢底模的,會改用文字描述姿勢(比較不穩)。</p>
+  <div class="fchips">${M.map(o=>`<button class="fchip${o.id===PB_MEM?" on":""}" data-pbm="${o.id}" style="--mc:${o.c}">${o.n}・${W_POSES.filter(p=>p[0]!=="stand"&&hasPoseBase(slotOf(o.id),p[0])).length}/${W_POSES.length-1}</button>`).join("")}
+    <button class="fbtn" id="pbAll" ${w.gen?"":"disabled"}>${m.n}:把缺的全部生成</button></div>
+  <div class="pbgrid">${W_POSES.map(P=>{ const k=P[0], ref=k==="stand"?w.gen:w.poses?.[k], busy=PB_BUSY.has(s+"@"+k), head=P[2]!==cat?(cat=P[2],`<h4 class="pbcat">${P[2]}</h4>`):"";
+    const asset=k!=="stand"&&!ref?poseAsset(s,k):"";
+    return head+`<div class="pbcard"><div class="bimg" data-bref="${esc(ref||"")}" ${asset?`style="background-image:url(${asset})"`:""}>${busy?`<span class="wnone">生成中…</span>`:ref||asset?"":`<span class="wnone">尚未生成</span>`}</div><b>${P[1]}</b>${asset?`<small>內建底模</small>`:""}
+      ${k==="stand"?`<small>就是生圖底模</small>`:`<div class="pbact"><button class="flink" data-pbg="${k}" ${busy||!w.gen?"disabled":""}>${ref?"重新生成":"自動生成"}</button><button class="flink" data-pbu="${k}">上傳</button>${ref?`<button class="flink" data-pbd="${k}">清除</button>`:""}</div>`}</div>` }).join("")}</div>` }
 function renderBases(){ ensureMeta();
   return `<p class="fnote dark">自動生圖會把這張底模附給 OpenAI,只換衣服。請用定案平常立繪(灰底、白 T、平常表情),換臉層才對得準。這裡改了會同步到衣帽間工坊。</p>
   <div class="bgrid">${M.map(m=>{const s=slotOf(m.id), w=WMETA.find(x=>x.id===s)||{};return `<div class="bcard" style="--mc:${m.c}"><div class="bimg" data-bref="${esc(w.gen||"")}">${w.gen?"":`<span class="wnone">尚未設定</span>`}</div>
     <b>${m.n}</b><button class="fbtn" data-bup="${s}">${w.gen?"更換底模":"上傳底模"}</button>
-    <details><summary>造型設計用的人設</summary><textarea class="ftext sm" data-bpf="${s}">${esc(profileOf(s))}</textarea><button class="flink" data-bps="${s}">儲存人設</button></details></div>`}).join("")}</div>`}
+    <details><summary>造型設計用的人設</summary><textarea class="ftext sm" data-bpf="${s}">${esc(profileOf(s))}</textarea><button class="flink" data-bps="${s}">儲存人設</button></details></div>`}).join("")}</div>${poseBaseHTML()}`}
 async function saveMetaCloud(){
   const raw=await IDB.get("wmetaRaw")||{}; const obj={...raw,members:WMETA}; obj.std=obj.std||{img:"",marks:{}};
   await IDB.set("wmeta",WMETA); await IDB.set("wmem",WMEM);
@@ -341,6 +372,17 @@ async function saveMetaCloud(){
   await syPatchPath("meta/state",{json:{stringValue:json},updatedAt:{integerValue:String(Date.now())}});
   WMETA=JSON.parse(json).members; await IDB.set("wmeta",WMETA); await IDB.set("wmetaRaw",JSON.parse(json)); return true }
 function bindBases(B){
+  B.querySelectorAll("[data-pbm]").forEach(b=>b.onclick=()=>{PB_MEM=b.dataset.pbm;renderFacility()});
+  B.querySelectorAll("[data-pbg]").forEach(b=>b.onclick=()=>genPoseBase(slotOf(PB_MEM),b.dataset.pbg));
+  const all=B.querySelector("#pbAll"); if(all) all.onclick=async()=>{ const s=slotOf(PB_MEM), w=WMETA.find(x=>x.id===s)||{};
+    const miss=W_POSES.filter(P=>P[0]!=="stand"&&!w.poses?.[P[0]]); if(!miss.length){toast2("這位成員的姿勢底模都有了");return}
+    if(!confirm(`要生成 ${miss.length} 張姿勢底模嗎?大約 US$${(miss.length*(OAI_PRICE[oai().quality]||.06)).toFixed(2)}。`)) return;
+    for(const P of miss) await genPoseBase(s,P[0]) };
+  B.querySelectorAll("[data-pbd]").forEach(b=>b.onclick=async()=>{ const w=WMETA.find(x=>x.id===slotOf(PB_MEM)); if(!w?.poses) return; if(!confirm("清除這張姿勢底模?")) return; delete w.poses[b.dataset.pbd]; await saveMetaCloud(); renderFacility() });
+  B.querySelectorAll("[data-pbu]").forEach(b=>b.onclick=()=>{ const s=slotOf(PB_MEM), k=b.dataset.pbu, inp=document.createElement("input"); inp.type="file"; inp.accept="image/*";
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; try{ const bmp=await createImageBitmap(f), q=Math.min(1,1536/Math.max(bmp.width,bmp.height)), c=document.createElement("canvas");
+      c.width=Math.round(bmp.width*q); c.height=Math.round(bmp.height*q); c.getContext("2d").drawImage(bmp,0,0,c.width,c.height); let u=c.toDataURL("image/webp",.92); if(!u.startsWith("data:image/webp")) u=c.toDataURL("image/png");
+      const w=WMETA.find(x=>x.id===s); w.poses={...(w.poses||{}),[k]:u}; await saveMetaCloud(); toast2("已上傳姿勢底模"); renderFacility() }catch(e){toast2("讀不到這張圖")} }; inp.click() });
   B.querySelectorAll("[data-bup]").forEach(b=>b.onclick=()=>{ const s=b.dataset.bup, inp=document.createElement("input"); inp.type="file"; inp.accept="image/*";
     inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; try{ const bmp=await createImageBitmap(f), k=Math.min(1,1536/Math.max(bmp.width,bmp.height)), c=document.createElement("canvas");
       c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k); c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
