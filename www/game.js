@@ -199,7 +199,11 @@ const ENTRY=["encounter","practice","request","friction","surprise","worry","bet
 const TALK=["topic","chat","worry","request","encounter"];
 const OFFICE=["chat","request","surprise","long","worry"];
 const PAIR_TYPES=["between","group","pairlong","away"];
-function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage||sn.stage==="*") return true; const id=sn.member||sn.who[0]; return sn.stage===stageOf(id)}
+function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage||sn.stage==="*") return true; const id=sn.member||sn.who[0], cur=stageOf(id);
+  const R=window.STAGE_RANK||[], deep=R.indexOf("戀人");
+  if(sn.stage==="多人親密") return cur==="多人親密"&&(sn.who||[]).filter(x=>x!==id).every(x=>(window.multiPartners?.(id)||[]).includes(x));
+  if(R.indexOf(sn.stage)>=deep&&R.indexOf(cur)>=R.indexOf(sn.stage)) return true;
+  return sn.stage===cur}
 function pool({sp,room,slot,present,types,member}){
   return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&sn.who?.length
     &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&(!sn.period||sn.period===periodNow())
@@ -257,7 +261,7 @@ function assign(){S.where={};for(const m of M){const w=WHERE[m.id][S.slot],r=rng
   let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2}}
 
 const stageOf=id=>window.stageOfXp?stageOfXp(id):"戒備";
-const STAGE_C={戒備:"#8C7E92",信任:"#C99A2E",夥伴:"#3E9B6B",心動:"#D4537E",戀人:"#C2185B"};
+const STAGE_C={戒備:"#8C7E92",信任:"#C99A2E",夥伴:"#3E9B6B",心動:"#D4537E",戀人:"#C2185B",親密:"#9C1B4A",多人親密:"#6A1B9A"};
 const who=pid=>M.filter(m=>S.where[m.id]===pid);
 
 /* ---------- 主畫面:主地圖與建築剖面 ---------- */

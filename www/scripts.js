@@ -70,8 +70,11 @@ const PREF={ys:{安慰:1,鼓勵:1.2,嚴厲:.3,開玩笑:1,轉移話題:.5,陪著
  hy:{安慰:.9,鼓勵:1.1,嚴厲:-.4,開玩笑:1,轉移話題:.6,陪著:.9,出手幫忙:1.1},he:{安慰:.7,鼓勵:.9,嚴厲:.9,開玩笑:1.2,轉移話題:.4,陪著:.8,出手幫忙:.7},
  hr:{安慰:1.2,鼓勵:1.3,嚴厲:-.7,開玩笑:.6,轉移話題:.3,陪著:.9,出手幫忙:1}};
 const STYLES=Object.keys(PREF.ys);
-const STAGES=["戒備","信任","夥伴","心動","戀人"];
-const STAGE_DESC={戒備:"她對代表還有距離,禮貌或冷淡。",信任:"她開始相信代表是好老闆,會說一些工作上的心事。",夥伴:"她把代表當成可以依靠的夥伴,願意說私事。",心動:"她對代表有了心動的感覺,會有曖昧、欲言又止的時刻,但還沒說破。",戀人:"兩人已是戀人,私下親暱自然;表現以情感為主,不露骨。"};
+const STAGES=["戒備","信任","夥伴","心動","戀人","親密","多人親密"];
+const STAGE_DESC={戒備:"她對代表還有距離,禮貌或冷淡。",信任:"她開始相信代表是好老闆,會說一些工作上的心事。",夥伴:"她把代表當成可以依靠的夥伴,願意說私事。",心動:"她對代表有了心動的感覺,會有曖昧、欲言又止的時刻,但還沒說破。",戀人:"兩人已是戀人,私下親暱自然:牽手、擁抱、親吻、只對代表撒嬌的一面、怕被發現的地下戀情;表現以情感為主,不露骨。",
+  親密:"兩人是有身體親密關係的戀人(雙方都是成年人)。可以寫親吻、擁抱、同床共枕、清晨在對方身邊醒來、浴袍、親密前的心跳與張力、事後的溫存與枕邊話;親密行為本身一律用淡出帶過(例如「她伸手關掉了燈」),不描寫性行為過程、裸露或身體部位的性描寫。",
+  多人親密:"她和另一位同樣與代表是親密關係的成員彼此知情,接受三人以上的戀愛關係(全員成年)。寫三人之間醋意的化解、彼此的默契與照顧、一起約會、同房的曖昧與溫柔;另一位成員要一起出現在片段裡(who 放兩人)。親密場面同樣用淡出帶過,不寫露骨描寫。"};
+const ROMANCE=["戀人","親密","多人親密"];
 const PERIODS=["練習生期","出道與上升期","巔峰期","轉型期"];
 const PERIOD_DESC={練習生期:"2015 下半年,還沒出道,每天練習、月評、宿舍生活。",出道與上升期:"2016~2017,剛出道,打歌、綜藝、第一次一位、限韓令、西方市場打開。",巔峰期:"2018~2019,一線女團,頒獎典禮、海外巡演、個人活動機會。",轉型期:"2020 以後,疫情讓舞台消失,線上演唱會、續約與未來的選擇。"};
 const PLACES={practice:"練習室",dorm:"宿舍",studio:"錄音室",office:"辦公室",styling:"造型室",out:"外面走走",phone:"手機"};
@@ -128,14 +131,16 @@ function analyse(sn){
 /* ---------- 生成提示詞 ---------- */
 function buildPrompt(p,existing){
   const t=TYPES[p.type]; const who=t.kind==="pair"?(p.pair==="all"?MB.map(m=>m.id):p.pair.split("-")):[p.member];
-  const voices=who.map(id=>`【${id}】${VOICE[id]}\n她對回應方式的反應倍率(負數是反效果):${Object.entries(PREF[id]).map(([k,v])=>k+v).join("、")}`).join("\n\n");
+  const romance=ROMANCE.includes(p.stage);
+  // 戀愛與親密階段:角色是原創人物,不提原型
+  const voices=who.map(id=>`【${id}】${romance?VOICE[id].replace(/(原型[^)]*)/g,""):VOICE[id]}\n她對回應方式的反應倍率(負數是反效果):${Object.entries(PREF[id]).map(([k,v])=>k+v).join("、")}`).join("\n\n");
   return `你是一款韓國女團養成遊戲的編劇。玩家是一位財閥出身的娛樂公司代表(成員叫他/她「代表」,性別不指定),旗下五位女團成員都是成年人(故事開始時 18 歲)。請用繁體中文寫遊戲的日常片段。
 
 【這批要寫的】
 種類:${t.n}(${t.len})
 ${t.kind==="pair"?`主角組合:${pairName(p.pair)}`:`主角:${mb(p.member).n}(id ${p.member})`}
 ${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}`:`成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
-時期:${p.period}——${PERIOD_DESC[p.period]}
+時期:${p.period}——${PERIOD_DESC[p.period]}${romance?"\n角色都是原創人物,不要提到或影射任何真實的人、團體或公司;戀情是兩人(或多人)之間的祕密,出道後公開戀愛會被粉絲反彈,所以要注意被拍到、被成員撞見的緊張感。":""}
 數量:${p.count} 個,彼此情境要明顯不同。
 可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")};${t.places.filter(k=>PLACE_NOTE[k]).map(k=>`\n${PLACES[k]}的樣子:${PLACE_NOTE[k]}`).join("")}
 時段(sl,數字):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
@@ -176,7 +181,7 @@ function usage(){let u={};try{u=JSON.parse(localStorage.getItem(AK+".use")||"{}"
 function setUsage(u){try{localStorage.setItem(AK+".use",JSON.stringify(u))}catch(e){}}
 function msToReset(){const now=new Date(); const pt=new Date(now.toLocaleString("en-US",{timeZone:"America/Los_Angeles"})); const nx=new Date(pt); nx.setHours(24,0,30,0); return nx-pt}
 /* 各關係階段在各時期的比例(戒備多在早期,戀人多在後期) */
-const PW={戒備:[.6,.3,.1,0],信任:[.4,.35,.15,.1],夥伴:[.2,.3,.3,.2],心動:[.1,.3,.35,.25],戀人:[0,.25,.4,.35],pair:[.3,.25,.25,.2]};
+const PW={戒備:[.6,.3,.1,0],信任:[.4,.35,.15,.1],夥伴:[.2,.3,.3,.2],心動:[.1,.3,.35,.25],戀人:[0,.25,.4,.35],親密:[0,.15,.35,.35],多人親密:[0,.05,.25,.3],pair:[.3,.25,.25,.2]};
 /* 長對話與雙人長對話改由 Claude 創作室負責,自動生產不再用 Gemini 產生 */
 const TYPE_ORDER=["msg","encounter","practice","chat","request","friction","surprise","worry","topic","social"];
 const PAIR_ORDER=["between","away","group"];

@@ -6,7 +6,9 @@
 (()=>{
 /* ---------- 好感度:點數制,階段門檻越後面越高 ---------- */
 const pk=(a,b)=>[a,b].sort().join("-");
-const XP_STAGE=[["戒備",0],["信任",1000],["夥伴",4800],["心動",12000],["戀人",20000]];
+const XP_STAGE=[["戒備",0],["信任",1000],["夥伴",4800],["心動",12000],["戀人",20000],["親密",30000]];
+const STAGE_RANK=["戒備","信任","夥伴","心動","戀人","親密","多人親密"];
+window.STAGE_RANK=STAGE_RANK;
 const DEBUT=new Date(2017,6,13);
 const debutDay=Math.round((DEBUT-START)/864e5);
 window.DEBUT_DAY=debutDay;
@@ -22,11 +24,18 @@ function migrate(){ for(const m of M){ const s=S.m[m.id]; if(s.xp==null) s.xp=Ma
     // 練習生起點:比出道時預定的水準低一截,兩年好好培養就能追上甚至超過
     for(const [id,b] of Object.entries(BASE)) S.skill[id]=Object.fromEntries(Object.entries(b).map(([k,v])=>[k,k==="kor"?(v>=100?100:v-15):Math.max(15,v-16)])) }
   if(!S.evalSnap) S.evalSnap=JSON.parse(JSON.stringify(S.skill)) }
-window.stageOfXp=id=>{ const s=S.m[id]; if(!s) return "戒備"; let st="戒備";
-  for(const [n,v] of XP_STAGE){ if(s.xp>=v){ if(n==="心動"&&(s.heart||0)<30) break; if(n==="戀人"&&((s.heart||0)<70||!debuted())) break; st=n } } return st };
-window.nextStageInfo=id=>{ const s=S.m[id], cur=stageOfXp(id), i=XP_STAGE.findIndex(x=>x[0]===cur), nx=XP_STAGE[i+1]; if(!nx) return null;
+function baseStage(id){ const s=S.m[id]; if(!s) return "戒備"; let st="戒備";
+  for(const [n,v] of XP_STAGE){ if(s.xp>=v){ if(n==="心動"&&(s.heart||0)<30) break; if(n==="戀人"&&((s.heart||0)<70||!debuted())) break; if(n==="親密"&&(s.heart||0)<90) break; st=n } } return st }
+/* 多人親密:自己在親密階段,而且另一位也在親密階段的成員和她默契 80 以上 */
+const multiPartners=id=>M.filter(o=>o.id!==id&&baseStage(o.id)==="親密"&&bondOf(id,o.id)>=80).map(o=>o.id);
+window.multiPartners=multiPartners;
+window.stageOfXp=id=>{ const st=baseStage(id); return st==="親密"&&multiPartners(id).length?"多人親密":st };
+window.nextStageInfo=id=>{ const s=S.m[id], cur=stageOfXp(id);
+  if(cur==="多人親密") return null;
+  if(cur==="親密") return {name:"多人親密",p:Math.min(1,Math.max(...M.filter(o=>o.id!==id).map(o=>bondOf(id,o.id)))/80),extra:"需要另一位成員也到「親密」,而且和她默契 80 以上"};
+  const i=XP_STAGE.findIndex(x=>x[0]===cur), nx=XP_STAGE[i+1]; if(!nx) return null;
   const from=XP_STAGE[i][1], need=nx[1], p=Math.max(0,Math.min(1,(s.xp-from)/(need-from)));
-  const extra=nx[0]==="心動"&&(s.heart||0)<30?"還需要更多心動的時刻":nx[0]==="戀人"&&!debuted()?"出道之後":nx[0]==="戀人"&&(s.heart||0)<70?"還需要更多心動的時刻":"";
+  const extra=nx[0]==="心動"&&(s.heart||0)<30?"還需要更多心動的時刻":nx[0]==="戀人"&&!debuted()?"出道之後":(nx[0]==="戀人"&&(s.heart||0)<70)||(nx[0]==="親密"&&(s.heart||0)<90)?"還需要更多心動的時刻":"";
   return {name:nx[0],p,extra} };
 /* 選擇的效果:回錯方式不扣分;她最喜歡的回應方式額外加分 */
 const bestStyle=id=>Object.entries(PREF[id]||{}).sort((a,b)=>b[1]-a[1])[0]?.[0];
@@ -34,7 +43,7 @@ window.gainFromChoice=(id,c)=>{ const s=S.m[id]; if(!s) return {xp:0,heart:0};
   const p=(PREF[id]||{})[c.s]??1, g=+c.g||0, raw=g*p; let xp=0, heart=0;
   if(raw>0){ xp=Math.round(Math.min(18,raw*5)); if(c.s&&c.s===bestStyle(id)) xp+=6 }
   const st=stageOfXp(id);
-  if(["夥伴","心動","戀人"].includes(st)||s.xp>=4800){ if(c.heart) heart=Math.max(0,Math.min(2,+c.heart)); else if(WARM.includes(c.s)&&raw>=2) heart=1 }
+  if(STAGE_RANK.indexOf(st)>=2||s.xp>=4800){ if(c.heart) heart=Math.max(0,Math.min(2,+c.heart)); else if(WARM.includes(c.s)&&raw>=2) heart=1 }
   return {xp,heart} };
 window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; const before=stageOfXp(id), {xp,heart}=gainFromChoice(id,c);
   s.xp=(s.xp||0)+xp; s.heart=Math.min(100,(s.heart||0)+heart); s.trust=Math.round(xpToTrust(s.xp));
