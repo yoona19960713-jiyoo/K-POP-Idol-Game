@@ -74,24 +74,26 @@ const STAGES=["戒備","信任","夥伴","心動","戀人"];
 const STAGE_DESC={戒備:"她對代表還有距離,禮貌或冷淡。",信任:"她開始相信代表是好老闆,會說一些工作上的心事。",夥伴:"她把代表當成可以依靠的夥伴,願意說私事。",心動:"她對代表有了心動的感覺,會有曖昧、欲言又止的時刻,但還沒說破。",戀人:"兩人已是戀人,私下親暱自然;表現以情感為主,不露骨。"};
 const PERIODS=["練習生期","出道與上升期","巔峰期","轉型期"];
 const PERIOD_DESC={練習生期:"2015 下半年,還沒出道,每天練習、月評、宿舍生活。",出道與上升期:"2016~2017,剛出道,打歌、綜藝、第一次一位、限韓令、西方市場打開。",巔峰期:"2018~2019,一線女團,頒獎典禮、海外巡演、個人活動機會。",轉型期:"2020 以後,疫情讓舞台消失,線上演唱會、續約與未來的選擇。"};
-const PLACES={practice:"練習室",dorm:"宿舍",studio:"錄音室",office:"辦公室",out:"外面走走",phone:"手機"};
+const PLACES={practice:"練習室",dorm:"宿舍",studio:"錄音室",office:"辦公室",styling:"造型室",out:"外面走走",phone:"手機"};
+/* 地點細節:讓片段的旁白與台詞有具體的畫面 */
+const PLACE_NOTE={styling:"造型室在公司 1F:金色滾輪衣架掛滿打歌服與日常服(多數還套著防塵袋、掛著吊牌)、整面鞋牆、玻璃配件櫃(髮飾、耳環、頭冠)、兩座燈泡化妝鏡、全身鏡、拉簾試衣間,桌上常攤著色票、布樣、別針與量尺。駐公司的造型師姓徐(三十多歲、講話直、很專業)與化妝師會出現在旁白裡。常見情境:試穿新打歌服、改尺寸、選配件、補妝、拍定裝照、偷偷試穿別的成員的衣服、對造型有意見、看到自己穿上新衣服的反應。上午與下午最忙,晚上只剩投射燈,深夜關閉(sl 只能是 1、2、3)。這一批裡最好有一個片段發生在造型室。"};
 const SLOTS=["清晨","上午","下午","晚上","深夜"];
 const TYPES={
- long:{n:"長對話",kind:"single",len:"8~10 個來回(玩家要做 8~10 次選擇),至少兩層分支,不同回應走向不同內容;用錯方式可能提早結束",places:["practice","dorm","studio","office","out"],target:24,batch:2},
- encounter:{n:"撞見",kind:"single",len:"1~3 個來回",places:["practice","dorm","studio","out"],target:30,batch:5},
+ long:{n:"長對話",kind:"single",len:"8~10 個來回(玩家要做 8~10 次選擇),至少兩層分支,不同回應走向不同內容;用錯方式可能提早結束",places:["practice","dorm","studio","office","out","styling"],target:24,batch:2},
+ encounter:{n:"撞見",kind:"single",len:"1~3 個來回",places:["practice","dorm","studio","out","styling"],target:30,batch:5},
  practice:{n:"練習中",kind:"single",len:"1~3 個來回",places:["practice","studio"],target:30,batch:5},
- chat:{n:"閒聊",kind:"single",len:"2~3 個來回",places:["office","dorm","practice"],target:30,batch:5},
- request:{n:"請求",kind:"single",len:"1~3 個來回",places:["office","dorm","practice"],target:30,batch:5},
- friction:{n:"小摩擦",kind:"single",len:"1~3 個來回,另一位成員一起出現",places:["practice","dorm"],target:30,batch:5},
- surprise:{n:"驚喜",kind:"single",len:"1~3 個來回",places:["dorm","office","practice"],target:30,batch:5},
+ chat:{n:"閒聊",kind:"single",len:"2~3 個來回",places:["office","dorm","practice","styling"],target:30,batch:5},
+ request:{n:"請求",kind:"single",len:"1~3 個來回",places:["office","dorm","practice","styling"],target:30,batch:5},
+ friction:{n:"小摩擦",kind:"single",len:"1~3 個來回,另一位成員一起出現",places:["practice","dorm","styling"],target:30,batch:5},
+ surprise:{n:"驚喜",kind:"single",len:"1~3 個來回",places:["dorm","office","practice","styling"],target:30,batch:5},
  worry:{n:"心事",kind:"single",len:"2~4 個來回,她說出一點點真心話",places:["out","dorm","practice"],target:30,batch:5},
  social:{n:"社群",kind:"single",len:"1~2 個來回,她的貼文、直播或粉絲通訊與粉絲反應(依時期:2015 年是直播平台剛起步,2020 年後有粉絲通訊 App)",places:["phone"],target:30,batch:5},
  msg:{n:"訊息",kind:"single",len:"1~3 個來回的手機訊息",places:["phone"],target:44,batch:6},
- topic:{n:"再聊一下",kind:"single",len:"2~3 個來回的日常話題,接在其他對話後面",places:["practice","dorm","office","studio","out"],target:20,batch:4},
- between:{n:"成員之間",kind:"pair",len:"2~4 個來回,主要是成員之間對話,代表在旁邊,最後才有選項",places:["practice","dorm","studio"],target:40,batch:4},
+ topic:{n:"再聊一下",kind:"single",len:"2~3 個來回的日常話題,接在其他對話後面",places:["practice","dorm","office","studio","out","styling"],target:20,batch:4},
+ between:{n:"成員之間",kind:"pair",len:"2~4 個來回,主要是成員之間對話,代表在旁邊,最後才有選項",places:["practice","dorm","studio","styling"],target:40,batch:4},
  group:{n:"群組聊天",kind:"pair",len:"團體聊天室裡多人的訊息,1~2 次選擇",places:["phone"],target:30,batch:4},
- pairlong:{n:"雙人長對話",kind:"pair",len:"8~10 個來回(玩家要做 8~10 次選擇),兩位成員和代表一起,至少兩層分支,成員之間也會互相回應",places:["practice","dorm","studio","out"],target:20,batch:2},
- away:{n:"你不在場時",kind:"pair",len:"一段兩三句的旁白,描述代表不在時發生的事,沒有選項",places:["practice","dorm","studio"],target:30,batch:6}};
+ pairlong:{n:"雙人長對話",kind:"pair",len:"8~10 個來回(玩家要做 8~10 次選擇),兩位成員和代表一起,至少兩層分支,成員之間也會互相回應",places:["practice","dorm","studio","out","styling"],target:20,batch:2},
+ away:{n:"你不在場時",kind:"pair",len:"一段兩三句的旁白,描述代表不在時發生的事,沒有選項",places:["practice","dorm","studio","styling"],target:30,batch:6}};
 const PAIRS=[];for(let i=0;i<MB.length;i++)for(let j=i+1;j<MB.length;j++)PAIRS.push(MB[i].id+"-"+MB[j].id);PAIRS.push("all");
 const pairName=p=>p==="all"?"全團":p.split("-").map(x=>mb(x).n).join("×");
 const SINGLE_TYPES=Object.keys(TYPES).filter(k=>TYPES[k].kind==="single"), PAIR_TYPES=Object.keys(TYPES).filter(k=>TYPES[k].kind==="pair");
@@ -135,7 +137,8 @@ ${t.kind==="pair"?`主角組合:${pairName(p.pair)}`:`主角:${mb(p.member).n}(i
 ${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}`:`成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
 時期:${p.period}——${PERIOD_DESC[p.period]}
 數量:${p.count} 個,彼此情境要明顯不同。
-可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")};時段(sl,數字):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
+可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")};${t.places.filter(k=>PLACE_NOTE[k]).map(k=>`\n${PLACES[k]}的樣子:${PLACE_NOTE[k]}`).join("")}
+時段(sl,數字):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
 ${p.hint?`玩家補充:${p.hint}\n`:""}
 【成員設定與口吻,必須嚴格遵守】
 ${voices}
