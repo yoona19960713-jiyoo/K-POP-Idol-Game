@@ -1,6 +1,8 @@
 {
   "appId": "com.yoona.kpopgame",
-  "appName": "K-POP Idol Game",
+  "appName": "完美女團",
   "webDir": "www",
-  "android": { "backgroundColor": "#1A1420" }
+  "android": {
+    "backgroundColor": "#1A1420"
+  }
 }
