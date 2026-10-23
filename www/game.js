@@ -600,7 +600,7 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","phone.js","growth.js","assets/poses.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","phone.js","growth.js","cg.js","assets/poses.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 

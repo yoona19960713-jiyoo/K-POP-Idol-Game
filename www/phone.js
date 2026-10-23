@@ -67,8 +67,8 @@ const wallHTML=k=>{const src=WALLS[k]||WALLS.title; return FIT[k]==="group"
   :k==="portrait"?`<div class="pwall dark"></div><div class="pwall portrait" style="background-image:url(${src})"></div>`
   :`<div class="pwall" style="background-image:url(${src})"></div>`};
 function render(){ status(); const B=$("#pBody"); B.className="pbody app-"+APP;
-  B.innerHTML=APP==="home"?home():APP==="chats"?chats():APP==="chat"?chat():APP==="sched"?sched():APP==="star"?star():APP==="set"?settings():"";
-  bind(B); if(APP==="chat"){const L=$("#pLog"); if(L) L.scrollTop=L.scrollHeight} }
+  B.innerHTML=APP==="home"?home():APP==="chats"?chats():APP==="chat"?chat():APP==="sched"?sched():APP==="star"?star():APP==="set"?settings():APP==="album"&&window.cgAlbumHTML?cgAlbumHTML():"";
+  bind(B); if(APP==="album"&&window.cgAlbumBind) cgAlbumBind(B,render); if(APP==="chat"){const L=$("#pLog"); if(L) L.scrollTop=L.scrollHeight} }
 
 /* ---------- 主畫面 ---------- */
 function icon(k,n,svg,badge,grad){return `<button class="papp" data-app="${k}"><span class="pico" style="background:${grad}">${svg}${badge?`<i class="pbadge">${badge>99?"99+":badge}</i>`:""}</span><small>${n}</small></button>`}
@@ -81,6 +81,7 @@ function home(){ const p=ph(), d=dateOf(S.day), WDN=["日","一","二","三","�
       ${icon("group","群組",'<svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M3 19c.8-3 3-4.5 5-4.5s4.2 1.5 5 4.5M11 19c.8-3 3-4.5 5-4.5s4.2 1.5 5 4.5"/></svg>',grpN,"linear-gradient(160deg,#B79CFF,#7B4FBF)")}
       ${icon("sched","行程",`<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16M9 3v4M15 3v4"/></svg>`,0,"linear-gradient(160deg,#FFD38A,#E8963C)")}
       ${icon("star","STARLOG",'<svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg>',feedN,"linear-gradient(160deg,#7FE3D5,#2F9C9A)")}
+      ${icon("album","相簿",'<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17l5-4.5 3.5 3 3-2.5 4.5 4"/></svg>',window.cgNewCount?cgNewCount():0,"linear-gradient(160deg,#FFB3C8,#C8102E)")}
       ${icon("set","設定",'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1"/></svg>',0,"linear-gradient(160deg,#C9CED8,#7E8696)")}
     </div>
     <div class="pdock"><span>看手機不花行動,時間會暫停</span></div>`}
@@ -159,7 +160,7 @@ function settings(){ const p=ph();
     <h4>關於</h4><div class="pnote"><b>完美女團 ・ 公司配發手機</b><p>訊息、群組與社群的內容來自製作者模式的片段;內容越多,手機越熱鬧。</p></div></div>`}
 
 function bind(B){
-  B.querySelectorAll("[data-app]").forEach(b=>b.onclick=()=>{ const a=b.dataset.app; if(a==="group"){APP="chat";CHAT="group"} else APP=a; render() });
+  B.querySelectorAll("[data-app]").forEach(b=>b.onclick=()=>{ const a=b.dataset.app; if(a==="group"){APP="chat";CHAT="group"} else APP=a; if(a==="album") window.cgAlbumOpen?.(); render() });
   B.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{APP=b.dataset.go;CHAT=null;render()});
   B.querySelectorAll("[data-chat]").forEach(b=>b.onclick=()=>{APP="chat";CHAT=b.dataset.chat;render()});
   B.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{B.querySelectorAll("[data-rep]").forEach(x=>x.disabled=true); reply(+b.dataset.rep)});
