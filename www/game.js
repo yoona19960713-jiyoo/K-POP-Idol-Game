@@ -407,7 +407,7 @@ function absentReports(r){const out=[];
     const t=pool[Math.floor(r()*pool.length)],a=ppl[0],b=ppl[1];
     out.push(`<b>${p.n}</b>:`+esc(t).replace("{a}",`<b style="color:${a.c}">${a.n}</b>`).replace("{b}",b?`<b style="color:${b.c}">${b.n}</b>`:""))}
   return out.slice(0,3)}
-function newMessage(r){if(r()>=.55) return; const m=M[Math.floor(r()*5)];
+function newMessage(r){if(window.phoneIncoming){phoneIncoming(r);return} if(r()>=.55) return; const m=M[Math.floor(r()*5)];
   const cs=snips().filter(sn=>sn.type==="msg"&&(sn.member||sn.who?.[0])===m.id&&(!sn.sl?.length||sn.sl.includes(S.slot))&&stageOk(sn));
   const sn=pickW(cs,r); let t=null;
   if(sn){t=sn.nodes?.start?.L?.find(l=>l[0]===m.id)?.[1]; S.seen[sn.code]=S.day}
@@ -541,9 +541,8 @@ $("#autoBtn").onclick=()=>{auto=!auto;$("#autoBtn").setAttribute("aria-pressed",
 $("#logBtn").onclick=()=>{const L=$("#vlog");L.innerHTML=`<button class="x" id="logX">關閉</button>`+logLines.map(([n,t])=>`<p>${n?`<b>${esc(n)}</b>`:""}${esc(t)}</p>`).join("");L.classList.add("on");L.scrollTop=L.scrollHeight;$("#logX").onclick=()=>L.classList.remove("on")};
 
 /* ---------- 手機 ---------- */
-function openSheet(id){["phone"].forEach(k=>{$("#"+k).classList.toggle("on",k===id&&!$("#"+k).classList.contains("on"));setPause(k,$("#"+k).classList.contains("on"))})}
-$("#phoneBtn").onclick=()=>{openSheet("phone"); if($("#phone").classList.contains("on")){S.unread=0;renderHud();save();
-  $("#msgs").innerHTML=S.msgs.length?S.msgs.map(x=>{const m=byId(x.id);return `<div class="msg"><div class="face" style="background-image:url(${spr(m.id,null,"neutral")})"></div><div><b style="color:${m.c}">${m.n}</b><small>${x.when}</small><p>${esc(x.t)}</p></div></div>`}).join(""):`<p class="hint">還沒有訊息。時段切換時成員可能會傳訊息來。</p>`}};
+function openSheet(id){}
+$("#phoneBtn").onclick=()=>{ if(window.openPhone) openPhone() };
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>openSheet(null));
 
 /* ---------- 選單 ---------- */
@@ -594,7 +593,7 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","phone.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
