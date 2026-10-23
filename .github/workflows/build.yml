@@ -58,6 +58,8 @@ jobs:
           # 遊戲固定橫向、全螢幕
           sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/' android/app/src/main/AndroidManifest.xml
           grep -n screenOrientation android/app/src/main/AndroidManifest.xml
+          # App 圖示:從 assets/ 產生(藝瑟的緋紅搖籃曲特寫)
+          npx --yes @capacitor/assets@3 generate --android --assetPath assets || echo "::warning::圖示產生失敗,先用預設圖示"
           npx cap sync android
 
       - name: 打包 APK
