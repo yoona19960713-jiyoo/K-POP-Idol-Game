@@ -238,18 +238,31 @@ async function runQueue(){
     renderFacility() }
   RUNNING=false; renderFacility();
 }
-async function approve(id){
+async function approve(id,quiet){
   const p=PENDING[id]; if(!p) return; const lk=JSON.parse(JSON.stringify(ITEMS[p.code]||{})); if(!lk.code) return;
   // 還原其他成員已有的圖片參照即可(pushDoc 只會上傳 data: 開頭的新圖)
   const old=lk.members[p.slot]||{};
   const prev=old.img?{img:old.img,model:old.model||"",sprites:old.sprites||null,at:old.spriteAt||0}:(old.prev||null);   // 舊圖不刪,可以改回
   lk.members[p.slot]={...old,img:p.img,model:p.model||"",status:1,prev}; delete lk.members[p.slot].sprites; lk.updatedAt=Date.now();
   delete PENDING[id]; await IDB.set("pending",PENDING);
-  const ok=await saveDoc("items",lk); toast2(ok?"已收進衣櫃,並同步到雲端":"已收進衣櫃(還沒同步,登入後會自動上傳)");
+  const ok=await saveDoc("items",lk); if(!quiet) toast2(ok?"已收進衣櫃,並同步到雲端":"已收進衣櫃(還沒同步,登入後會自動上傳)");
   JOBS=JOBS.filter(j=>j.id!==id); renderFacility();
-  if(wIsDaily(lk.occasion)&&window.processSprites){ toast2("正在處理成遊戲立繪…");
-    try{ await processSprites(p.code,p.slot); toast2(`${byId(midOf(p.slot))?.n}換上「${lk.name}」了:已去背並做好換臉層,可在卡片詳情看六種表情`) }
-    catch(e){ toast2("立繪處理失敗:"+(e.message||"請在卡片詳情按「處理成遊戲立繪」再試")) } renderFacility() }
+  let spriteFail=false;
+  if(wIsDaily(lk.occasion)&&window.processSprites){ if(!quiet) toast2("正在處理成遊戲立繪…");
+    try{ await processSprites(p.code,p.slot); if(!quiet) toast2(`${byId(midOf(p.slot))?.n}換上「${lk.name}」了:已去背並做好換臉層,可在卡片詳情看六種表情`) }
+    catch(e){ spriteFail=true; if(!quiet) toast2("立繪處理失敗:"+(e.message||"請在卡片詳情按「處理成遊戲立繪」再試")) } renderFacility() }
+  return {ok,spriteFail};
+}
+/* 一鍵全部收下:依序收下每一張(日常服照樣自動去背、做換臉層),最後一次回報結果 */
+let BULK=false;
+async function approveAll(){
+  if(BULK) return; const ids=Object.keys(PENDING); if(!ids.length) return;
+  if(!confirm(`把待審的 ${ids.length} 張全部收下?\n日常服會逐張自動去背、做換臉層,張數多時要等一下。`)) return;
+  BULK=true; let n=0,off=0,sf=0; renderFacility();
+  for(const id of ids){ if(!PENDING[id]) continue; toast2(`全部收下中… ${n+1}/${ids.length}`);
+    try{ const r=await approve(id,true); if(r){ n++; if(!r.ok) off++; if(r.spriteFail) sf++ } }catch(e){} }
+  BULK=false; renderFacility();
+  toast2(`已收下 ${n} 張`+(off?`(${off} 張還沒同步,登入後會自動上傳)`:"")+(sf?`;${sf} 張立繪處理失敗,請到卡片詳情按「處理成遊戲立繪」`:""));
 }
 async function retry(id){ delete PENDING[id]; await IDB.set("pending",PENDING); const j=JOBS.find(x=>x.id===id); if(j){j.state="wait";j.err=""} else {const [code,slot]=id.split("@"); JOBS.push({id,code,slot,state:"wait"})} renderFacility(); runQueue() }
 async function discard(id){ delete PENDING[id]; await IDB.set("pending",PENDING); JOBS=JOBS.filter(j=>j.id!==id); renderFacility() }
@@ -509,7 +522,7 @@ function renderStudio(){
       ${errs.length?`<div class="ferrs"><b>${errs.length} 張失敗</b>${errs.slice(0,6).map(j=>`<p>${esc(ITEMS[j.code]?.name||j.code)}・${byId(midOf(j.slot))?.n||""}:${esc(j.err||"")} <button class="flink" data-retry="${esc(j.id)}">重試</button></p>`).join("")}</div>`:""}
       <p class="fnote">生好的圖會放到右邊「待審」;收下後才會寫進衣櫃與雲端。日常服(練習、居家、外出、睡衣)收下時會自動去背、做好六種表情的換臉層,成員就會依地點換穿。要重做某張圖,到衣櫃的卡片詳情按「重新生圖」。</p>
     </div>
-    <div class="fpanel wide"><h3>待審 <small>${pend.length} 張</small></h3>
+    <div class="fpanel wide"><div class="frow" style="justify-content:space-between;align-items:center;margin:0 0 .6cqw"><h3 style="margin:0">待審 <small>${pend.length} 張</small></h3>${pend.length>1?`<button class="fbtn pri" id="fOkAll" ${BULK?"disabled":""}>${BULK?"收下中…":`全部收下(${pend.length} 張)`}</button>`:""}</div>
       <div class="rgrid">${pend.map(([id,p])=>{const lk=ITEMS[p.code],m=byId(midOf(p.slot)),old=lk?.members?.[p.slot]?.img;return `<div class="rcard"><div class="rpair"><img src="${p.img}" alt="">${old?`<span class="rold" data-oldref="${esc(old)}"><i>原本的圖</i></span>`:""}</div>
         <div class="rinfo"><b>${esc(lk?.name||p.code)}</b><span style="color:${m?.c}">${m?.n||""}</span></div><div class="rmodel">${esc(p.model||"")}${p.quality?"・"+({low:"低",medium:"中",high:"高"}[p.quality]||p.quality):""}${old?"・收下會取代原本的圖(舊圖保留,可改回)":""}</div>
         <div class="racts"><button class="fbtn pri" data-ok="${esc(id)}">收下</button><button class="fbtn" data-retry="${esc(id)}">重生</button><button class="fbtn ghost" data-no="${esc(id)}">捨棄</button></div></div>`}).join("")||`<p class="fempty">目前沒有待審的圖</p>`}</div></div></div>`}
@@ -522,7 +535,8 @@ async function renderFacility(){
   body.querySelectorAll("[data-fm]").forEach(b=>b.onclick=()=>{fMem=b.dataset.fm;renderFacility()});
   body.querySelectorAll("[data-fc]").forEach(b=>b.onclick=()=>{fCat=b.dataset.fc;renderFacility()});
   body.querySelectorAll("[data-look]").forEach(b=>b.onclick=()=>openDetail(b.dataset.look,b.dataset.slot));
-  body.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>approve(b.dataset.ok));
+  body.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{ if(!BULK) approve(b.dataset.ok) });
+  const oa=$("#fOkAll"); if(oa) oa.onclick=approveAll;
   body.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>retry(b.dataset.retry));
   body.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>discard(b.dataset.no));
   const st=$("#fStart"); if(st) st.onclick=()=>{ for(const t of todoList()){const id=jobId(t.code,t.slot); if(!JOBS.some(j=>j.id===id)) JOBS.push({id,...t,state:"wait"})} runQueue() };

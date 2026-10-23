@@ -275,6 +275,16 @@ async function saveItem(it){ const body={...it,updatedAt:Date.now()}; if(body.no
 async function removeItem(code){ items=items.filter(x=>x.code!==code); await persist(); delete SCRIPTS[code]; await IDB.set("scripts",SCRIPTS);
   let done=false; if(syAuth()&&syCfg()){ try{ await syPatchPath(`scripts/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}); done=true }catch(e){} }
   if(!done){ const t=await IDB.get("scriptsTombs")||[]; t.push(code); await IDB.set("scriptsTombs",t) } renderAll() }
+/* 一次收很多個:本機一次寫完,雲端在背景逐個上傳(沒登入就排進待上傳區) */
+let BULK=false;
+async function okMany(list,label){
+  if(BULK||!list.length) return; BULK=true; const now=Date.now(), idx=new Map(items.map((x,i)=>[x.code,i])), done=[];
+  for(const sn of list){ const body={...sn,status:"ok",updatedAt:now}; if(body.nodes) cleanExpr(body.nodes);
+    const i=idx.get(body.code); if(i===undefined) continue; items[i]=body; toGame(body); done.push(body) }
+  await persist(); await IDB.set("scripts",SCRIPTS); BULK=false; renderAll(); toast2(`${label} ${done.length} 個,正在同步到雲端…`);
+  let off=0; for(const b of done){ try{ if(!(await saveDoc("scripts",b))) off++ }catch(e){off++} }
+  toast2(`${label} ${done.length} 個`+(off?`(${off} 個還沒同步,登入後會自動上傳)`:",已同步到雲端"));
+}
 async function sync(){
   if(!syAuth()||!syCfg()) return;
   const t=await IDB.get("scriptsTombs")||[]; const left=[];
@@ -379,15 +389,16 @@ function cardHTML(sn,mode){ const a=analyse(sn), who=sn.pair?pairName(sn.pair):m
     <details ${mode==="review"?"open":""}><summary>展開對話樹</summary><div class="tree">${treeHTML(sn)}</div></details>
     <div class="mrow">${mode==="review"?`<button class="mbtn pri" data-ok>收入內容庫</button><button class="mbtn" data-regen>這格再生一個</button>`:(sn.status==="auto"?`<button class="mbtn pri" data-ok>標為審過</button>`:"")}
       <button class="mbtn" data-play>試玩</button><button class="mbtn" data-edit>編輯</button><button class="mbtn ghost" data-drop>${mode==="review"?"丟掉":"刪除"}</button></div></div>` }
-function reviewHTML(){ const Q=reviewQ_(), pass=Q.filter(x=>!analyse(x).warn.length).length;
-  return `<div class="mrow" style="justify-content:space-between"><p class="mnote">每個片段都可以展開對話樹、試玩、編輯;確認後才會收進內容庫,遊戲才會抽到。</p>${pass?`<button class="mbtn pri" id="okAll">格式通過的 ${pass} 個全部收入</button>`:""}</div>
+function reviewHTML(){ const Q=reviewQ_(), pass=Q.filter(x=>!analyse(x).warn.length).length, bad=Q.length-pass;
+  return `<div class="mrow" style="justify-content:space-between"><p class="mnote">每個片段都可以展開對話樹、試玩、編輯;確認後才會收進內容庫,遊戲才會抽到。${pass&&bad?`有提醒的 ${bad} 個不會一起收入(格式有問題,遊戲可能播不完),請個別編輯或丟掉。`:""}</p>${pass?`<button class="mbtn pri" id="okAll" ${BULK?"disabled":""}>一鍵通過:格式通過的 ${pass} 個全部收入</button>`:""}</div>
     ${Q.length?Q.slice(0,30).map(sn=>cardHTML(sn,"review")).join("")+(Q.length>30?`<p class="mnote">還有 ${Q.length-30} 個,先處理上面的。</p>`:""):`<p class="mempty">還沒有待審的片段。</p>`}` }
-function libHTML(){ const list=lib().filter(x=>(!fM||x.member===fM||(x.pair||"").includes(fM))&&(!fT||x.type===fT)&&(!fS||(fS==="__auto"?x.status==="auto":x.stage===fS))&&(!fQ||JSON.stringify(x.nodes).includes(fQ)||String(x.sc).includes(fQ))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+let LIBLIST=[];
+function libHTML(){ const list=LIBLIST=lib().filter(x=>(!fM||x.member===fM||(x.pair||"").includes(fM))&&(!fT||x.type===fT)&&(!fS||(fS==="__auto"?x.status==="auto":x.stage===fS))&&(!fQ||JSON.stringify(x.nodes).includes(fQ)||String(x.sc).includes(fQ))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   return `<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
     <select id="fT"><option value="">全部種類</option>${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${fT===k?"selected":""}>${t.n}</option>`).join("")}</select>
     <select id="fS"><option value="">全部階段</option>${STAGES.map(s=>`<option ${fS===s?"selected":""}>${s}</option>`).join("")}<option value="__auto" ${fS==="__auto"?"selected":""}>只看未審</option></select>
     <input type="text" id="fQ" value="${esc(fQ)}" placeholder="搜尋台詞" class="grow"></div>
-    <p class="mnote">內容庫共 ${lib().length} 個,符合條件 ${list.length} 個${list.length>40?",只顯示最新 40 個":""}。</p>
+    <div class="mrow" style="justify-content:space-between"><p class="mnote">內容庫共 ${lib().length} 個,符合條件 ${list.length} 個${list.length>40?",只顯示最新 40 個":""}。</p>${(()=>{const u=list.filter(x=>x.status==="auto").length; return u?`<button class="mbtn pri" id="okAuto" ${BULK?"disabled":""}>一鍵通過:${fM||fT||fS&&fS!=="__auto"||fQ?"符合條件的":""}未審 ${u} 個全部標為審過</button>`:""})()}</div>
     ${list.slice(0,40).map(sn=>cardHTML(sn,"lib")).join("")||`<p class="mempty">還沒有內容。</p>`}` }
 function heat(n,t){const r=Math.min(1,n/t);return `--h:${Math.round(r*100)}%`}
 function coverHTML(){ const L=lib(), cnt={}; for(const x of L){const k=cellKey(x); cnt[k]=(cnt[k]||0)+1} let total=0,done=0;
@@ -418,7 +429,8 @@ function bind(B){
   B.querySelectorAll("[data-pe]").forEach(b=>b.onclick=()=>{P.period=b.dataset.pe;renderAll()});
   if(q("#tCount")){ q("#tCount").onchange=e=>P.count=Math.max(1,Math.min(8,+e.target.value||1)); q("#tHint").oninput=e=>P.hint=e.target.value }
   if(q("#go")) q("#go").onclick=()=>generate({...P}); if(q("#stop")) q("#stop").onclick=()=>ctl?.abort();
-  if(q("#okAll")) q("#okAll").onclick=async()=>{const pass=reviewQ_().filter(x=>!analyse(x).warn.length); for(const sn of pass) await saveItem({...sn,status:"ok"}); toast2(`收入 ${pass.length} 個`)};
+  if(q("#okAll")) q("#okAll").onclick=()=>okMany(reviewQ_().filter(x=>!analyse(x).warn.length),"已收入內容庫");
+  if(q("#okAuto")) q("#okAuto").onclick=()=>{ const u=LIBLIST.filter(x=>x.status==="auto"); if(u.length>20&&!confirm(`把 ${u.length} 個未審片段全部標為審過?`)) return; okMany(u,"已標為審過") };
   B.querySelectorAll(".mcardx").forEach(card=>{ const code=card.dataset.code, get=()=>items.find(x=>x.code===code);
     const ok=card.querySelector("[data-ok]"); if(ok) ok.onclick=async()=>{const sn=get(),was=sn.status; await saveItem({...sn,status:"ok"}); toast2(was==="auto"?"已標為審過":"已收入內容庫,遊戲同步後就會抽到")};
     const rg=card.querySelector("[data-regen]"); if(rg) rg.onclick=()=>{tab="make";generate({...get().params,count:1})};
