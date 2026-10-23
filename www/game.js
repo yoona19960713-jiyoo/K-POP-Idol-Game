@@ -311,7 +311,7 @@ function renderWorld(){
     const [x,y,w,h]=sp.rect, ppl=sp.kind==="locked"?[]:sp.kind==="place"?who(sp.id):inSpot(sp.id);
     const open=sp.kind==="building"?sp.rooms.some(r=>PL[r].open.includes(S.slot)):sp.kind==="place"?PL[sp.id].open.includes(S.slot):false;
     const done=sp.kind==="place"&&S.visited.includes(sp.id);
-    const sub=sp.kind==="locked"?`<span class="lock">🔒 ${sp.note}</span>`:sp.kind==="place"?(!open?openText(PL[sp.id]):done?"這個時段已來過":ppl.length?`${ppl.length} 人在這裡`:"沒有認識的人")
+    const sub=sp.kind==="locked"?(sp.id==="tv"&&window.promoActive?.()?`<span class="sub">打歌期進行中</span>`:`<span class="lock">🔒 ${sp.id==="tv"&&S.day>=(window.DEBUT_DAY||1e9)?"宣傳期外":sp.note}</span>`):sp.kind==="place"?(!open?openText(PL[sp.id]):done?"這個時段已來過":ppl.length?`${ppl.length} 人在這裡`:"沒有認識的人")
       :(!open?"現在沒有開放的房間":ppl.length?`${ppl.length} 人在裡面`:"沒有人");
     const dis=sp.kind==="place"&&(!open||done||S.acts<=0);
     const label=`${sp.n},${sub.replace(/<[^>]+>/g,"")}`;
@@ -322,7 +322,7 @@ function renderWorld(){
     b.onmouseenter=()=>pair.forEach(x=>x.classList.add("lit")); b.onmouseleave=()=>pair.forEach(x=>x.classList.remove("lit"));
     b.onclick=()=>openSpot(id)})}
 function openSpot(id){const sp=SPOTS.find(s=>s.id===id); if(!sp) return;
-  if(sp.kind==="locked"){ if(sp.id==="tv"){tvChooser();return} toast2(`${sp.n}:${sp.note}`);return}
+  if(sp.kind==="locked"){ if(sp.id==="tv"){ if(window.promoActive?.()) openStageRoom(); else tvChooser(); return} toast2(`${sp.n}:${sp.note}`);return}
   if(sp.kind==="place"){visit(sp.id);return}
   enter(sp.id)}
 function enter(b){const sp=SPOTS.find(s=>s.id===b);
@@ -352,8 +352,9 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
 /* 電視台:出道後的打歌期才正式開放,先留一個測試入口 */
 function tvChooser(){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
-  el.innerHTML=`<div class="chbox"><h3>電視台</h3><p class="chnote">出道後的打歌期才會正式開放。</p>
-    <button class="chbtn pri" data-ch="tv"><b>測試入口:進入待機室</b><small>打歌準備單、舞台評價、一位計分・不花行動,時間暫停</small></button>
+  const after=S.day>=(window.DEBUT_DAY||1e9);
+  el.innerHTML=`<div class="chbox"><h3>電視台</h3><p class="chnote">${after?"現在不是宣傳期。到 2F 企劃室決定下一次的回歸日。":`出道後的打歌期才會正式開放(${window.debutText?debutText():""})。`}</p>
+    <button class="chbtn pri" data-ch="tv"><b>練習模式:進入待機室</b><small>模擬打歌,不影響正式宣傳期・不花行動,時間暫停</small></button>
     <button class="chx" data-ch="x">取消</button></div>`;
   el.classList.add("on"); el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); if(b.dataset.ch==="tv") window.openStageRoom&&openStageRoom()});
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};

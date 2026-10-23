@@ -866,6 +866,27 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 .ev-sk{display:flex;flex-wrap:wrap;gap:.3cqw 1cqw;margin-top:.3cqw;font-size:max(.85cqw,9px);color:#5C4E48}
 .ev-sk em{font:700 max(.95cqw,10px)/1 var(--num);font-style:normal;color:#2E2420}.ev-sk i{font-style:normal;color:#3E8B5A;font-weight:700;margin-left:.2cqw}
 .evcard .fbtn{margin-top:1.2cqw;float:right}
+/* ===== 出道 / 回歸 Showcase ===== */
+.bigev{position:absolute;inset:0;z-index:62;display:grid;place-items:center;animation:evin .6s ease;transition:opacity .6s}
+.bigev.out{opacity:0}
+.bigev .bg-shot{position:absolute;inset:0;background:url(assets/bg/group_photo.webp) center/cover;animation:ttzoom 20s ease-in-out infinite alternate}
+.bigev .bg-veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,4,10,.35),rgba(14,4,10,.82))}
+.bigcard{position:relative;width:60cqw;padding:2.2cqw 2.6cqw;border-radius:1cqw;color:#FFF3EC;background:rgba(30,8,16,.62);-webkit-backdrop-filter:blur(1cqw);backdrop-filter:blur(1cqw);border:.1cqw solid rgba(243,217,164,.45);box-shadow:0 1.6cqw 4cqw rgba(0,0,0,.5)}
+.bigcard small{font:700 max(.9cqw,9px)/1 var(--num);letter-spacing:.45em;color:#F3D9A4}
+.bigcard h2{margin:.6cqw 0;font:900 3.2cqw/1.2 var(--serif);letter-spacing:.2em;background:linear-gradient(180deg,#FFF6E8,#F3D9A4 45%,#C98B4E 60%,#F7E3B8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bigcard .lead{font-size:max(1.05cqw,11px);line-height:1.8;color:#F2DCD8;margin:0 0 1cqw}
+.evlines{display:flex;flex-direction:column;gap:.5cqw}
+.evl{display:flex;gap:.8cqw;align-items:center}.evl .pface{width:3.2cqw;height:3.2cqw}
+.evl p{margin:0;font-size:max(1.05cqw,11px);line-height:1.5}.evl b{margin-right:.6cqw;font-family:var(--serif)}
+.bigcard .fbtn{margin-top:1.2cqw;float:right}
+/* ===== 待機室:今天的狀態 ===== */
+.tvban{margin:-.4cqw 0 1cqw;padding:.6cqw 1.2cqw;border-radius:.5cqw;font-size:max(1cqw,11px);letter-spacing:.08em;color:#C9C2E6;background:rgba(92,225,255,.08);border:.08cqw dashed rgba(92,225,255,.4)}
+.tvban.live{color:#fff;background:linear-gradient(90deg,rgba(255,79,163,.35),rgba(180,75,255,.25));border:0}
+.tvwait{font:600 max(1.1cqw,12px)/1 var(--serif);color:#6C6385;letter-spacing:.12em;padding:1cqw 0}
+/* ===== 企劃室:發行日 ===== */
+.relbox{background:#FFF8E6;border-radius:.4cqw;padding:.8cqw 1cqw;font-size:max(.9cqw,10px);line-height:1.6;color:#5C4E48;box-shadow:0 .2cqw .6cqw rgba(0,0,0,.12)}
+.relbox b{display:block;font:700 max(1.1cqw,12px)/1.4 var(--serif);color:#2E2420}.relbox.live b{color:#B8323F}
+.relbox input[type=date]{font-size:max(1cqw,11px);padding:.3cqw .5cqw;border:.1cqw solid rgba(156,122,78,.5);border-radius:.3cqw;background:#fffdf8;color:#2E2420}
 </style>
 </head>
 <body>

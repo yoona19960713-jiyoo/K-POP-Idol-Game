@@ -282,7 +282,12 @@ function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan()
 const note=([k,t])=>`<li class="sn ${k}">${t}</li>`;
 
 /* ---------- 企劃室 ---------- */
+function syncRelease(){ const G=window; if(!G.promoInfo) return null; const st=GS(); let day=null;
+  if(G.DEBUT_DAY-st.day>0) day=G.DEBUT_DAY; else if(st.comeback!=null) day=st.comeback;
+  if(day!=null){ const d=dateOf(day); if(+R.year!==d.getFullYear()||+R.month!==d.getMonth()+1){ R.year=d.getFullYear(); R.month=d.getMonth()+1; save() } }
+  return day }
 function renderPlan(){
+  const fixed=syncRelease();
   const RL=computeRelease(), T=cur(), C=RL.res.find(x=>x.T.id===T.id).c, P=PRODS[T.prod], RT=RTYPES[R.type];
   const tot=R.tracks.reduce((a,x)=>a+lengthOf(x).t,0);
   $("#sfBody").innerHTML=`<div class="pdesk">
@@ -291,13 +296,14 @@ function renderPlan(){
     <input class="pin-in big" id="pName" value="${esc(R.name)}" aria-label="專輯或單曲名稱" placeholder="發行名稱">
     <p class="psub">${RT.n}・${R.tracks.length} 首・總長 ${fmt(tot)}・準備期約 ${RT.wk} 週</p>
     <div class="pchips">${Object.entries(RTYPES).map(([k,t])=>`<button class="pchip${R.type===k?" on":""}" data-rt="${k}">${t.n}<small>${t.min===t.max?t.min:t.min+"~"+t.max} 首</small></button>`).join("")}</div>
-    <div class="prow"><label>發行<select id="pYear">${YEARS.map(y=>`<option ${+R.year===y?"selected":""}>${y}</option>`).join("")}</select>年</label>
-      <label><select id="pMonth">${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${+R.month===i+1?"selected":""}>${i+1}</option>`).join("")}</select>月</label></div>
+    <div class="prow"><label>發行<select id="pYear" ${fixed!=null?"disabled":""}>${YEARS.map(y=>`<option ${+R.year===y?"selected":""}>${y}</option>`).join("")}</select>年</label>
+      <label><select id="pMonth" ${fixed!=null?"disabled":""}>${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${+R.month===i+1?"selected":""}>${i+1}</option>`).join("")}</select>月</label>${fixed!=null?`<small class="psub">跟著${fixed===window.DEBUT_DAY?"出道日":"回歸日"}</small>`:""}</div>
     <h4>曲目</h4>
     <div class="tapes">${R.tracks.map((x,i)=>{const c=RL.res.find(r=>r.T.id===x.id).c;return `<button class="tape${x.id===R.cur?" on":""}" data-tk="${x.id}">
       <span class="tno">${String(i+1).padStart(2,"0")}</span><span class="tnm">${esc(x.name||"未命名")}${x.id===R.title?`<i class="stamp">主打</i>`:""}</span>
       <span class="tg">${GENRES[x.g[0]].n}</span><span class="tsc">${Math.round(c.score)}</span></button>`}).join("")}
       ${R.tracks.length<RT.max?`<button class="tape add" id="pAdd">+ 新增曲目</button>`:""}</div>
+    ${releaseBox()}
   </div>
   <div class="pcol paper">
     <h3>曲目企劃</h3>
@@ -335,7 +341,23 @@ function renderPlan(){
   B.querySelectorAll("[data-prod]").forEach(b=>b.onclick=()=>{cur().prod=b.dataset.prod;save();render()});
   $("#pChoreo").oninput=e=>{cur().choreo=+e.target.value;save();e.target.previousElementSibling.querySelector(".num").textContent=e.target.value}; $("#pChoreo").onchange=()=>render();
   $("#pGoRec").onclick=()=>open("recording");
+  const cs=$("#cbSet"); if(cs) cs.onclick=()=>{ const v=$("#cbDate").value; if(!v) return; const day=dayOfIso(v);
+    if(day<GS().day+14){toast2("回歸日至少要在兩週以後");return} window.setComeback(day); render() };
+  const cc=$("#cbClear"); if(cc) cc.onclick=()=>{ window.gameState().comeback=null; toast2("已取消回歸日"); render() };
 }
+
+/* ---------- 回歸日(出道日固定,之後由代表決定) ---------- */
+function releaseBox(){ const G=window; if(!G.promoInfo) return "";
+  const P=G.promoInfo(), dd=G.DEBUT_DAY-GS().day;
+  if(dd>0) return `<h4>發行日</h4><div class="relbox"><b>出道日 2017/7/13</b><span>${G.debutText()}・這張是出道作品,出道當天開始四週宣傳期</span></div>`;
+  if(P?.active) return `<h4>發行日</h4><div class="relbox live"><b>宣傳期進行中</b><span>到 ${G.fmtGameDay(P.end)} 為止,結束後就能決定下一次回歸</span></div>`;
+  const cb=GS().comeback, min=GS().day+14, sug=P?Math.max(min,P.end+42):min;
+  return `<h4>下一次回歸</h4><div class="relbox">${cb!=null?`<b>回歸日 ${G.fmtGameDay(cb)}</b><span>還有 ${cb-GS().day} 天。當天會舉行回歸 Showcase,接著四週宣傳期</span><div class="prow"><button class="pbtn ghost" id="cbClear">取消回歸日</button></div>`
+    :`<span>${P?`上一次宣傳期在 ${G.fmtGameDay(P.end)} 結束。`:""}建議留至少 6 週準備(${G.fmtGameDay(sug)} 以後),新歌和打歌服都準備好再回歸。</span>
+      <div class="prow"><input type="date" id="cbDate" min="${isoOf(min)}" value="${isoOf(sug)}"><button class="pbtn pri" id="cbSet">定為回歸日</button></div>`}</div>` }
+const GS=()=>window.gameState?window.gameState():{day:0};
+const isoOf=day=>{const d=dateOf(day);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+const dayOfIso=v=>{const [y,m,d]=v.split("-").map(Number); return Math.round((new Date(y,m-1,d)-dateOf(0))/864e5)};
 
 /* ---------- 錄音室 ---------- */
 function fillOf(l){ if(!l.who.length) return null; if(l.who.length===1) return byId(l.who[0]).c; const n=l.who.length;

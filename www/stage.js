@@ -76,6 +76,9 @@ function perform(){ syncSkill();
   const O=outfitScore(p);
   // 舞台品質
   let stage=SONG.score*.55+O.s*.25+V.fresh;
+  // 成員的實力與團隊默契:實力怪物加分,默契越高現場越穩
+  const avgSk=on.reduce((a,m)=>a+(m.vocal+m.dance+m.expr)/3,0)/Math.max(1,on.length), bond=window.teamBond?teamBond():50;
+  stage+=(avgSk-65)*.3+(bond-50)*.12;
   let mistakes=[], caught=false;
   for(const m of on){const st=S.m[m.id]; const tired=(100-st.stamina)/100;
     stage-=tired*6; if(st.cond==="sick") stage-=3; if(st.cond==="hurt") stage-=4;
@@ -118,6 +121,7 @@ function perform(){ syncSkill();
 }
 function applyResult(r){
   const p=S.plan, V=VERS[p.ver];
+  if(window.growthOnShow) growthOnShow(M.filter(m=>!p.rest[m.id]).map(m=>m.id));
   for(const m of M){const st=S.m[m.id];
     if(p.rest[m.id]){st.stamina=Math.min(100,st.stamina+18);st.throat=Math.min(100,st.throat+12);if(st.cond&&rnd()<.6) st.cond="";continue}
     st.stamina=Math.max(5,st.stamina-8-V.st+(r.i%6===5?0:0)); st.throat=Math.max(5,st.throat-(p.mic==="live"?9:p.mic==="half"?5:2));
@@ -187,11 +191,25 @@ function shell(){
     <div class="fac-body" id="tvBody"></div><div class="tv-res hide" id="tvRes"></div>`;
   $("#stage").appendChild(el); $("#tvClose").onclick=close;
 }
-function open(){ shell(); loadLinked(); OPEN=true; setPause("tv",true); const L=$("#stage").dataset.time||"day";
+function open(){ shell(); loadLinked(); checkToday(); OPEN=true; setPause("tv",true); const L=$("#stage").dataset.time||"day";
   $("#stageFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/backstage_${L==="day2"?"day":L}.webp)`;
   void $("#stageFac").offsetWidth; $("#stageFac").classList.remove("hide"); render() }
 function close(){ $("#stageFac").classList.add("hide"); $("#tvRes").classList.add("hide"); setPause("tv",false); OPEN=false }
 window.openStageRoom=open;
+window.STAGE_SHOWS=SHOWS.map(s=>s.n);
+/* ---- 宣傳期 ---- */
+let TODAY={state:"test"};
+window.stageNewPromo=P=>{ const y=dateOf(P.start).getFullYear(); S=fresh(); S.year=Math.min(2022,Math.max(2015,y)); S.promoStart=P.start; S.updatedAt=Date.now(); save() };
+/* 沒去電視台的打歌:用上一場的準備單自動上台,不扣分 */
+window.stageCatchUp=(n,first)=>{ loadLinked(); if(S.idx<first) S.idx=first; let k=0;
+  while(S.idx<n&&S.idx<TOTAL){ ensurePlan(); const r=perform(); r.auto=true; applyResult(r); k++ }
+  if(k) save(); return k };
+function checkToday(){ const T=window.promoToday?.();
+  if(!T){ TODAY={state:"test"}; return }
+  if(S.promoStart!==T.P.start) stageNewPromo(T.P);
+  if(T.idx==null){ TODAY={state:"none",T}; return }
+  stageCatchUp(T.idx,promoFirstIdx(T.P));
+  TODAY={state:S.idx>T.idx?"done":"ready",T} }
 const optB=(group,key,o,on,dis)=>`<button class="topt${on?" on":""}" data-g="${group}" data-k="${key}" ${dis?"disabled":""}>${o.n}${o.s?`<small>${o.s}</small>`:""}</button>`;
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
 function render(){ if(!OPEN) return; syncSkill();
@@ -210,9 +228,12 @@ function render(){ if(!OPEN) return; syncSkill();
       <h4>收音方式</h4><div class="topts">${Object.entries(MICS).map(([k,o])=>optB("mic",k,o,p.mic===k)).join("")}</div>
       <h4>主推直拍</h4><div class="topts">${M.map(m=>optB("cam",m.id,{n:m.n,s:`已主推 ${S.camCount[m.id]||0} 次${m.id===SONG.killer?"・killing part":""}`},p.cam===m.id,!!p.rest[m.id])).join("")}</div>
       ${+S.year>=2017?`<h4>Ending 鏡頭</h4><div class="topts">${M.map(m=>optB("end",m.id,{n:m.n,s:m.id===SONG.center?"副歌 C 位":""},p.end===m.id,!!p.rest[m.id])).join("")}</div>`:""}
-      <div class="golive"><button class="tbtn go" id="tvGo" ${!p.end&&+S.year>=2017?"disabled":""}>${!p.end&&+S.year>=2017?"先選 Ending 鏡頭":"確認上台"}</button></div></div>`; }
+      <div class="golive">${TODAY.state==="none"?`<span class="tvwait">今天(週一)沒有打歌,好好休息</span>`:TODAY.state==="done"?`<span class="tvwait">今天的打歌已經結束了,明天見</span>`
+        :`<button class="tbtn go" id="tvGo" ${!p.end&&+S.year>=2017?"disabled":""}>${!p.end&&+S.year>=2017?"先選 Ending 鏡頭":"確認上台"}</button>`}</div></div>`; }
   const last=S.log[S.log.length-1];
-  $("#tvBody").innerHTML=`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
+  const ban=TODAY.state==="test"?`<div class="tvban">練習模式:${window.promoInfo?.()?"目前不在宣傳期,到企劃室決定回歸日":"出道前的模擬打歌"},結果不會影響正式宣傳期</div>`
+    :`<div class="tvban live">宣傳期第 ${TODAY.T.week} 週・第 ${TODAY.T.dayN} 天${TODAY.T.show?`・今天是《${TODAY.T.show}》`:""}</div>`;
+  $("#tvBody").innerHTML=ban+`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
     <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${TOTAL} 場,拿下 ${S.wins} 個一位。可以在右邊重新開始一輪宣傳期。</p></div>`:prep}</div>
     <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${S.log.length}/${TOTAL}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${RIVAL.n}</b></div>
       <div class="trow2"><label>年份<select id="tvYear">${[2015,2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始宣傳期</button></div></div>

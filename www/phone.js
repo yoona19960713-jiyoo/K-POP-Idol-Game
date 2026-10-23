@@ -125,13 +125,20 @@ function whereAt(m,slot){ const w=WHERE[m.id][slot], r=rng(seedOf(S.day,slot,m.i
 const WEEK=[["日","休假日・自主練習","rest"],["一","上午 公司週會・下午 舞蹈課",""],["二","下午 聲樂課",""],["三","下午 舞蹈課・晚上 體能訓練",""],["四","下午 錄音・晚上 自主練習",""],["五","下午 舞蹈評估",""],["六","上午 個人課程・下午 自主練習",""]];
 function sched(){ const d=dateOf(S.day);
   const lastSat=(()=>{const x=new Date(d.getFullYear(),d.getMonth()+1,0); while(x.getDay()!==6) x.setDate(x.getDate()-1); return x.getDate()})();
-  const days=[...Array(7)].map((_,i)=>{const x=dateOf(S.day+i); const w=WEEK[x.getDay()]; const eva=x.getDay()===6&&x.getDate()===lastSat;
-    return `<div class="pcal${i===0?" today":""}${w[2]==="rest"?" rest":""}${eva?" eva":""}"><b>${x.getMonth()+1}/${x.getDate()}<small>週${w[0]}</small></b><span>${eva?"<em>月評</em>・全天 月末評估":w[1]}</span></div>`}).join("");
+  const days=[...Array(7)].map((_,i)=>{const day=S.day+i, x=dateOf(day); const w=WEEK[x.getDay()]; const eva=window.isEvalDay?isEvalDay(x):(x.getDay()===6&&x.getDate()===lastSat);
+    const show=window.promoShowOn?.(day), deb=day===window.DEBUT_DAY, cb=S.comeback===day;
+    const txt=deb?"<em>出道日</em>・Showcase":cb?"<em>回歸日</em>・回歸 Showcase":show?`<em>打歌</em>・${show}`:eva?"<em>月評</em>・全天 月末評估":w[1];
+    return `<div class="pcal${i===0?" today":""}${w[2]==="rest"&&!show?" rest":""}${eva||show||deb||cb?" eva":""}"><b>${x.getMonth()+1}/${x.getDate()}<small>週${w[0]}</small></b><span>${txt}</span></div>`}).join("");
+  const P=window.promoInfo?.(), dd=(window.DEBUT_DAY||0)-S.day;
+  const notice=dd>0?`<b>出道企劃進行中・${debutText()}</b><p>2017 年 7 月 13 日出道。主打歌與造型在 2F 企劃室、1F 造型室準備,每月最後一個週六有月評。</p>`
+    :P?.active?`<b>${P.kind==="debut"?"出道":"回歸"}宣傳期進行中</b><p>〈${esc(P.title)}〉打歌到 ${fmtGameDay(P.end)}。沒去電視台的那天,會用上一場的準備單自動上台。</p>`
+    :S.comeback!=null?`<b>回歸日 ${fmtGameDay(S.comeback)}</b><p>還有 ${S.comeback-S.day} 天,企劃室和造型室可以開始準備了。</p>`
+    :`<b>空白期</b><p>到 2F 企劃室決定下一次的回歸日。</p>`;
   return head("行程")+`<div class="pscroll"><h4>今天的成員動向 <small>之後的時段是預定,可能會變</small></h4>
     <div class="ptab"><div class="pth"><span></span>${SLOTS.map((s,i)=>`<span class="${i===S.slot?"now":i<S.slot?"past":""}">${s.n}</span>`).join("")}</div>
     ${M.map(m=>`<div class="ptr">${face(m.id,"sm")}${SLOTS.map((_,i)=>{const k=i===S.slot?(S.where[m.id]||whereAt(m,i)):whereAt(m,i);return `<span class="${i===S.slot?"now":i<S.slot?"past":""}">${esc(placeName(k))}</span>`}).join("")}</div>`).join("")}</div>
     <h4>這一週</h4><div class="pweek">${days}</div>
-    <h4>公司公告</h4><div class="pnote"><b>出道企劃進行中</b><p>主打歌與造型在 2F 企劃室、1F 造型室準備。出道後的打歌行程會出現在這裡。</p></div></div>`}
+    <h4>公司公告</h4><div class="pnote">${notice}</div></div>`}
 
 /* ---------- STARLOG(社群) ---------- */
 function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); recount();

@@ -6,6 +6,8 @@
 (()=>{
 /* ---------- 好感度:點數制,階段門檻越後面越高 ---------- */
 const pk=(a,b)=>[a,b].sort().join("-");
+const capOf=(id,k)=>k==="kor"?100:(({ys:["vocal","dance"],tr:["rap","dance"],hy:["dance","expr"],he:["expr","vocal"],hr:["vocal"]})[id]||[]).includes(k)?99:95;
+window.skillCap=capOf;
 const XP_STAGE=[["戒備",0],["信任",1000],["夥伴",4800],["心動",12000],["戀人",20000],["親密",30000]];
 const STAGE_RANK=["戒備","信任","夥伴","心動","戀人","親密","多人親密"];
 window.STAGE_RANK=STAGE_RANK;
@@ -20,9 +22,12 @@ function migrate(){ for(const m of M){ const s=S.m[m.id]; if(s.xp==null) s.xp=Ma
     for(const [k,v] of Object.entries(base)){ const [a,b]=k.split("-"); S.bond[pk(a,b)]=v } }
   else { // 舊版存檔可能有順序不同的重複鍵,合併成一個
     for(const k of Object.keys(S.bond)){ const [a,b]=k.split("-"), n=pk(a,b); if(n!==k){ S.bond[n]=Math.max(S.bond[n]||0,S.bond[k]); delete S.bond[k] } } }
-  if(!S.skill){ S.skill={}; const BASE={ys:{vocal:64,dance:62,rap:30,expr:72,kor:100},tr:{vocal:45,dance:74,rap:72,expr:70,kor:100},hy:{vocal:48,dance:80,rap:22,expr:68,kor:55},he:{vocal:52,dance:62,rap:50,expr:76,kor:100},hr:{vocal:74,dance:55,rap:30,expr:55,kor:100}};
-    // 練習生起點:比出道時預定的水準低一截,兩年好好培養就能追上甚至超過
-    for(const [id,b] of Object.entries(BASE)) S.skill[id]=Object.fromEntries(Object.entries(b).map(([k,v])=>[k,k==="kor"?(v>=100?100:v-15):Math.max(15,v-16)])) }
+  // 能力 v2:完美團體。起點已經是頂尖練習生,出道時是怪物新人,之後全方位 90、主項 99
+  const START2={ys:{vocal:70,dance:70,rap:52,expr:74,kor:100},tr:{vocal:58,dance:72,rap:76,expr:70,kor:100},hy:{vocal:58,dance:78,rap:48,expr:72,kor:58},he:{vocal:62,dance:66,rap:60,expr:78,kor:100},hr:{vocal:78,dance:62,rap:50,expr:62,kor:100}};
+  if(!S.skill||S.skillVer!==2){ const OLD={ys:{vocal:48,dance:46,rap:15,expr:56,kor:100},tr:{vocal:29,dance:58,rap:56,expr:54,kor:100},hy:{vocal:32,dance:64,rap:15,expr:52,kor:40},he:{vocal:36,dance:46,rap:34,expr:60,kor:100},hr:{vocal:58,dance:39,rap:15,expr:39,kor:100}};
+    const prev=S.skill; S.skill={};
+    for(const [id,b] of Object.entries(START2)) S.skill[id]=Object.fromEntries(Object.entries(b).map(([k,v])=>[k,Math.min(capOf(id,k),v+Math.max(0,(prev?.[id]?.[k]??OLD[id][k])-OLD[id][k]))]));   // 保留已經練出來的進步
+    S.skillVer=2; S.evalSnap=JSON.parse(JSON.stringify(S.skill)) }
   if(!S.evalSnap) S.evalSnap=JSON.parse(JSON.stringify(S.skill)) }
 function baseStage(id){ const s=S.m[id]; if(!s) return "戒備"; let st="戒備";
   for(const [n,v] of XP_STAGE){ if(s.xp>=v){ if(n==="心動"&&(s.heart||0)<30) break; if(n==="戀人"&&((s.heart||0)<70||!debuted())) break; if(n==="親密"&&(s.heart||0)<90) break; st=n } } return st }
@@ -61,21 +66,27 @@ window.teamBond=()=>{ const v=Object.values(S.bond||{}); return v.length?v.reduc
 
 /* ---------- 能力成長 ---------- */
 const SK={vocal:"唱功",dance:"舞蹈",rap:"Rap",expr:"表情管理",kor:"韓語"};
+const MAIN={ys:["vocal","dance"],tr:["rap","dance"],hy:["dance","expr"],he:["expr","vocal"],hr:["vocal"]};
+window.SKILL_MAIN=MAIN;
 window.SKILL_NAMES=SK;
-function grow(id,k,v){ const s=S.skill[id]; if(!s||s[k]==null) return; s[k]=Math.min(99,s[k]+v*(1-s[k]/120)) }
-const LESSON={1:[["dance",.04]],2:[["vocal",.04]],3:[["dance",.04]],4:[["vocal",.03],["rap",.03]],5:[["dance",.02],["expr",.02]],6:["weak"]};
+function grow(id,k,v){ const s=S.skill[id]; if(!s||s[k]==null) return; const cap=capOf(id,k); s[k]=Math.min(cap,s[k]+v*Math.max(0,1-s[k]/cap)) }
+const LESSON={1:[["dance",.08]],2:[["vocal",.08]],3:[["dance",.08]],4:[["vocal",.06],["rap",.06]],5:[["dance",.04],["expr",.04]],6:["weak"]};
+function dailyRoutine(){ for(const m of M) for(const k of Object.keys(SK)) grow(m.id,k,MAIN[m.id].includes(k)?.07:.06) }
 function slotGrowth(){ const wd=dateOf(S.day).getDay(), sl=S.slot;
+  if(sl===4) dailyRoutine();
   for(const m of M){ const w=S.where[m.id]||"";
-    if(w==="practice"){grow(m.id,"dance",.016);grow(m.id,"expr",.008)}
-    if(w==="studio"){grow(m.id,"vocal",.016);grow(m.id,"rap",.01)}
-    if(w==="styling") grow(m.id,"expr",.006);
-    if(m.id==="hy"&&!w.startsWith("bed_")) grow("hy","kor",.01);
-    if(sl===2&&LESSON[wd]){ for(const L of LESSON[wd]){ if(L==="weak"){ const s=S.skill[m.id]; const k=["vocal","dance","rap","expr"].sort((a,b)=>s[a]-s[b])[0]; grow(m.id,k,.04) } else grow(m.id,L[0],L[1]) } } }
+    if(w==="practice"){grow(m.id,"dance",.03);grow(m.id,"expr",.015)}
+    if(w==="studio"){grow(m.id,"vocal",.03);grow(m.id,"rap",.02)}
+    if(w==="styling") grow(m.id,"expr",.012);
+    if(m.id==="hy"&&!w.startsWith("bed_")) grow("hy","kor",.02);
+    if(sl===2&&LESSON[wd]){ for(const L of LESSON[wd]){ if(L==="weak"){ const s=S.skill[m.id]; const k=["vocal","dance","rap","expr"].sort((a,b)=>s[a]-s[b])[0]; grow(m.id,k,.08) } else grow(m.id,L[0],L[1]) } } }
   // 一起在同一個地方的成員,默契慢慢累積
   const by={}; for(const m of M){ const w=S.where[m.id]; if(w&&!w.startsWith("bed_")&&!w.startsWith("外出")) (by[w]=by[w]||[]).push(m.id) }
   for(const ids of Object.values(by)) if(ids.length>1) addBond(ids,.04) }
 /* 代表在練習室或錄音室陪練:選了好的回應,能力也跟著成長 */
-window.coachGrowth=(id,place)=>{ if(place==="practice"){grow(id,"dance",.08);grow(id,"expr",.04)} else if(place==="studio"){grow(id,"vocal",.08);grow(id,"rap",.04)} };
+window.coachGrowth=(id,place)=>{ if(place==="practice"){grow(id,"dance",.12);grow(id,"expr",.06)} else if(place==="studio"){grow(id,"vocal",.12);grow(id,"rap",.06)} };
+/* 出道後:每一場打歌都是實戰經驗 */
+window.growthOnShow=ids=>{ for(const id of ids){ grow(id,"vocal",.25); grow(id,"dance",.25); grow(id,"expr",.3); for(const k of MAIN[id]) grow(id,k,.15) } save(true) };
 window.gameSkill=()=>S.skill;
 
 /* ---------- 月評:每月最後一個週六的下午 ---------- */
@@ -96,8 +107,57 @@ function monthlyEval(){
 }
 /* ---------- 掛進時段流程 ---------- */
 window.growthOnSlotEnd=()=>{ migrate(); slotGrowth();
+  if(S.slot===4) setTimeout(()=>{ window.timelineOnDayEnd?.(S.day-1); window.timelineOnDayStart?.() },50);   // 深夜結束 → 新的一天
   // 下午結束(進入晚上)時,如果是月評日就舉行月評
   if(S.slot===2&&isEvalDay(dateOf(S.day))&&S.lastEval!==S.day){ S.lastEval=S.day; setTimeout(monthlyEval,400) } };
 window.growthInit=migrate;
 window.debutText=()=>{ const dd=debutDay-S.day; return dd>0?`出道 D-${dd}`:dd===0?"今天出道":`出道第 ${-dd+1} 天` };
 })();
+
+/* =====================================================================
+   時間軸:出道日、宣傳期(四週,打歌照日期)、回歸日(玩家自己決定)
+   ===================================================================== */
+(()=>{
+const PROMO_LEN=28;
+const SHOW_N=["SHOW PULSE","CHAMPION LIVE","COUNTDOWN","MUSIC STAGE","SHOW CORE","STAR STAGE"];
+const WD_K={2:0,3:1,4:2,5:3,6:4,0:5};     // 週二~週日 對應六個節目
+const promo=()=>S.promo&&S.day>=S.promo.start&&S.day<S.promo.start+PROMO_LEN?S.promo:null;
+window.promoActive=()=>!!promo();
+/* 某一天是宣傳期的第幾場(沒有打歌回傳 null) */
+function showIdx(day,P){ const d=dateOf(day), k=WD_K[d.getDay()]; if(k==null) return null;
+  const sd=dateOf(P.start), back=(sd.getDay()+5)%7;            // 宣傳期第一週的週二
+  const w=Math.floor((day-(P.start-back))/7); return w*6+k }
+window.promoToday=()=>{ const P=promo(); if(!P) return null; const i=showIdx(S.day,P);
+  return {P,idx:i,show:i==null?null:(window.STAGE_SHOWS||SHOW_N)[i%6],week:Math.floor((S.day-P.start)/7)+1,dayN:S.day-P.start+1} };
+window.promoFirstIdx=P=>{ for(let d=P.start;d<P.start+7;d++){ const i=showIdx(d,P); if(i!=null) return i } return 0 };
+window.promoShowOn=day=>{ const P=S.promo; if(!P||day<P.start||day>=P.start+PROMO_LEN) return null; const i=showIdx(day,P); return i==null?null:(window.STAGE_SHOWS||SHOW_N)[i%6] };
+window.promoInfo=()=>S.promo?{...S.promo,end:S.promo.start+PROMO_LEN-1,active:!!promo()}:null;
+/* 回歸日:玩家在企劃室選;只提醒,不強制 */
+window.setComeback=day=>{ S.comeback=day; save(true); toast2(`回歸日定在 ${fmtD(day)}`) };
+const fmtD=day=>{const d=dateOf(day);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`};
+window.fmtGameDay=fmtD;
+
+function startPromo(kind){ const sum=window.songSummary?songSummary():null;
+  S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",n:(S.promoHist||[]).length+1};
+  S.promoHist=[...(S.promoHist||[]),{...S.promo}]; save(true);
+  window.stageNewPromo?.(S.promo) }
+function bigEvent(kind){
+  const deb=kind==="debut", m=M, sum=window.songSummary?songSummary():null;
+  const lines=deb?[["ys","代表,我們真的……要出道了。","laugh"],["tr","……我不會讓你後悔選了我們。","shy"],["hy","二年間、ありがとうございました!啊,是謝謝代表!","laugh"],["he","今天的 Showcase 結束之後,大家一起去吃烤肉吧!","smile"],["hr","代表要坐第一排喔!我會一直看著那裡唱!","laugh"]]
+    :[["he","又回到舞台上了!","laugh"],["ys","這一次也拜託你了,代表。","smile"],["hr","新歌我練到夢裡都在唱!","laugh"],["tr","……這次的舞台,我很有信心。","smile"],["hy","みんな、がんばろう!","laugh"]];
+  const el=document.createElement("div"); el.className="bigev";
+  el.innerHTML=`<div class="bg-shot"></div><div class="bg-veil"></div><div class="bigcard"><small>${deb?"DEBUT SHOWCASE ・ 2017.07.13":"COMEBACK"}</small>
+    <h2>${deb?"完美女團,正式出道":"完美女團 回歸"}</h2><p class="lead">${deb?"兩年的練習生生活,在這一天畫下句點。Showcase 的燈光亮起,台下坐滿了記者和第一批粉絲。":"新的企劃、新的舞台。回歸 Showcase 的燈光再次亮起。"}${sum?.title?`主打歌〈${esc(sum.title.name)}〉`:""}今天起四週的打歌期開始了,電視台正式開放。</p>
+    <div class="evlines">${lines.map(([id,t,e])=>{const mm=byId(id);return `<div class="evl"><span class="pface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p></div>`}).join("")}</div>
+    <button class="fbtn pri" id="bigOk">${deb?"一起走下去":"上台吧"}</button></div>`;
+  $("#stage").appendChild(el); setPause("bigev",true);
+  $("#bigOk").onclick=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),600); setPause("bigev",false);
+    for(const mm of m){ const s=S.m[mm.id]; s.mood=Math.min(100,s.mood+15); s.xp=(s.xp||0)+120 } addBond(M.map(x=>x.id),3); save(true); renderAll() };
+}
+/* 每天開始(清晨)時檢查:出道日、回歸日;每天結束時:沒去的打歌自動上台 */
+window.timelineOnDayStart=()=>{
+  if(S.day===DEBUT_DAY&&!S.debuted){ S.debuted=true; startPromo("debut"); setTimeout(()=>bigEvent("debut"),600) }
+  else if(S.comeback!=null&&S.day>=S.comeback&&!promo()&&S.day>=DEBUT_DAY){ S.comeback=null; startPromo("comeback"); setTimeout(()=>bigEvent("comeback"),600) } };
+window.timelineOnDayEnd=day=>{ const P=S.promo; if(!P||day<P.start||day>=P.start+PROMO_LEN) return; const i=showIdx(day,P); if(i!=null) window.stageCatchUp?.(i+1,promoFirstIdx(P)) };
+})();
+window.gameState=()=>S;
