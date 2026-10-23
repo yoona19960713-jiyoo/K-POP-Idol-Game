@@ -29,12 +29,76 @@ const W_POSES=[
   ["point","舞台指向鏡頭","舞台","her right arm extended straight forward toward the camera at shoulder height, pointing with her index finger, her left hand on her left hip, confident stage ending pose"],
   ["mic","雙手握麥克風","舞台","holding a handheld stage microphone with both hands in front of her chest, well below her chin, her shoulders relaxed"]];
 const poseOf=k=>W_POSES.find(x=>x[0]===k)||W_POSES[0];
+/* 每位成員自己的版本:同樣 12 種情境,依她的個性與舞台形象擺出不同的動作(頭部仍完全不動、手不靠近臉) */
+const POSE_VAR={
+  ys:{ // 藝瑟:隊長、優雅高挑、暗黑系舞台與私下的溫柔
+    wave:"her right hand raised gently to chest height in a soft, graceful wave with relaxed fingers, her left hand lightly holding her left forearm",
+    phone:"holding a smartphone with both hands in front of her waist, elbows relaxed, standing tall with one leg slightly in front of the other",
+    peace:"her right hand making a soft V sign at her waist with the palm turned inward, her left hand resting on her left thigh, weight on one leg",
+    drink:"cradling a takeaway coffee cup with both hands in front of her chest, well below her chin, shoulders relaxed and elegant",
+    heart:"making a heart shape with both hands together in front of her chest, elbows out, standing tall",
+    clasp:"both hands clasped elegantly in front of her lower stomach, legs crossed at the ankles, graceful and tall",
+    hipone:"her right hand on her right hip, her long legs crossed at the knees, left arm relaxed, a confident leader's photocall pose",
+    bag:"holding the strap of a shoulder bag with both hands at chest height, standing tall with one foot slightly forward",
+    suitcase:"her right hand on the extended handle of a small rolling suitcase beside her right leg, her left hand lightly holding the edge of her jacket at her waist",
+    point:"her right arm extended forward and slightly upward at shoulder height with an elegant open hand reaching toward the camera, her left hand on her chest below her collarbone, dramatic stage ending",
+    mic:"holding a handheld microphone in her right hand at chest height, well below her chin, her left arm extended out to the side with an open palm"},
+  tr:{ // 泰梨:冷豔、俐落、私下害羞
+    wave:"a small, restrained wave with her right hand at waist height, her left hand in her pocket, cool expression kept",
+    phone:"her left hand in her trouser or jacket pocket, holding a smartphone loosely in her right hand at her hip",
+    peace:"her right hand making a V sign held low near her right hip, her left hand in her pocket, a cool and effortless stance",
+    drink:"holding an iced drink cup in her right hand at her side, her left hand in her pocket, weight on one leg",
+    heart:"a small finger heart with her right hand held close in front of her chest, her left arm relaxed, a little shy",
+    clasp:"hands loosely clasped in front of her hips, feet apart at shoulder width, sharp and composed",
+    hipone:"her left hand on her left hip, feet planted apart in a strong, powerful stance, right arm straight at her side",
+    bag:"a crossbody bag strap across her chest with her right thumb hooked under the strap, her left hand in her pocket",
+    suitcase:"leaning her left hand on the extended handle of a small rolling suitcase beside her left leg, her right hand in her jacket pocket, cool airport look",
+    point:"her right arm extended straight toward the camera at shoulder height, pointing sharply with her index finger, her left hand clenched in a fist at her side, fierce stage ending",
+    mic:"holding a handheld microphone in her right hand at chest height, her left hand in a loose fist at her side, a rapper's stance with feet apart"},
+  hy:{ // 日和:芭蕾出身、優雅輕盈、開朗
+    wave:"her right arm raised to chest height in a flowing, ballet-like wave with a soft wrist, her feet in a ballet third position",
+    phone:"holding a smartphone in her right hand at waist height with a graceful ballet hand, her left arm softly rounded at her side, feet in ballet third position",
+    peace:"her right hand making a V sign at waist height, her left hand lightly holding the side of her skirt or shorts, one foot pointed forward in tendu",
+    drink:"holding a takeaway cup with both hands in front of her stomach, standing on one leg with the other foot lifted lightly behind her, playful",
+    heart:"both arms curved in a ballet-like circle in front of her chest forming a heart shape with her fingertips touching",
+    clasp:"hands softly joined low in front of her in a ballet first-position arm shape, feet in ballet first position, posture very upright",
+    hipone:"her left hand on her waist, her right foot extended forward in a pointed tendu, her right arm gracefully rounded",
+    bag:"holding a shoulder bag strap with her right hand at chest height, her left foot pointed forward, light and elegant like a dancer",
+    suitcase:"her left hand on the extended handle of a small rolling suitcase, her right arm extended gracefully to the side at waist height, one foot pointed",
+    point:"her right arm extended forward at shoulder height in a long ballet arabesque line with soft fingers, her left arm extended back behind her, elegant stage ending",
+    mic:"holding a handheld microphone in her right hand at chest height, her left arm extended gracefully to the side in a soft ballet line"},
+  he:{ // 夏恩:國民初戀、開朗明亮、C 位
+    wave:"a big, cheerful wave with her right hand at shoulder height, palm open, her left hand resting lightly on her stomach",
+    phone:"holding up a smartphone in both hands at chest height with the screen turned toward the viewer, as if showing a photo",
+    peace:"her right hand making a bright V sign held forward at waist height, her left hand on her hip, leaning her body slightly but keeping her head still",
+    drink:"holding a takeaway drink cup with both hands in front of her chest, well below her chin, bright and warm",
+    heart:"making a big heart with both arms curved in front of her chest, her fingertips touching",
+    clasp:"hands clasped sweetly in front of her, one knee slightly bent inward, a first-love photocall pose",
+    hipone:"her right hand on her right hip, her left hand giving a small wave at waist height, the center member's confident pose",
+    bag:"holding a small handbag in front of her with both hands at waist height, one knee slightly bent",
+    suitcase:"her right hand on the extended handle of a small rolling suitcase, her left hand waving at waist height toward the viewer, cheerful airport look",
+    point:"her right index finger pointing forward toward the camera at chest height, her left hand on her hip, a playful center-stage ending",
+    mic:"holding a handheld microphone with both hands at chest height, well below her chin, standing at the center"},
+  hr:{ // 河嵐:直率、男孩子氣、綜藝擔當
+    wave:"an energetic wave with her right hand at shoulder height, her left hand giving a thumbs up at her waist",
+    phone:"typing on a smartphone with both thumbs in front of her stomach, feet apart casually",
+    peace:"both hands making V signs held out at waist height on each side, playful and boyish",
+    drink:"raising a takeaway drink cup in her right hand at chest height as if making a toast, her left hand in a fist at her side",
+    heart:"her right arm stretched forward at chest height making a finger heart toward the viewer, her left hand on her hip",
+    clasp:"hands clasped in front of her stomach, rocking slightly on her heels, a cheerful youngest-member pose",
+    hipone:"her right hand on her right hip, her left hand giving a thumbs up at waist height, wide confident stance",
+    bag:"holding both shoulder straps of a backpack with her hands at chest height, feet apart, sporty",
+    suitcase:"her left hand on the extended handle of a small rolling suitcase, her right hand giving a thumbs up at waist height, sporty airport look",
+    point:"both hands making finger guns pointed toward the camera at waist height, a playful, boyish stage ending",
+    mic:"holding a handheld microphone in her right hand at chest height, her left hand raised in a fist at shoulder height to the side, a powerful vocalist's stance"}};
+const poseDesc=(mid,key)=>POSE_VAR[mid]?.[key]||poseOf(key)[3];
+
 function wLookPrompt(lk,slot){
   const o=lk.members?.[slot]; if(!o) return "";
   const group=lk.type==="group"&&lk.base?` This is her own version of a coordinated K-pop group outfit; the shared design language of the set is: ${lk.base}.`:"";
   const daily=wIsDaily(lk.occasion);
   const P=poseOf(lk.pose), moved=P[0]!=="stand"&&!hasPoseBase(slot,P[0]);   // 有姿勢底模時姿勢已經在底圖裡
-  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, ${moved?"":"pose, "}framing, art style, lighting and plain light gray background completely identical.${moved?` Change only her arms and hands into this pose: ${P[3]}. Her head, face position, head angle, gaze, hair and legs must stay exactly as in the attached image; her hands must not cover or come near her face or hair.`:""} ${moved?"Apart from the arms and hands, change only":"Change only"} her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
+  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, ${moved?"":"pose, "}framing, art style, lighting and plain light gray background completely identical.${moved?` Change only her arms and hands into this pose: ${poseDesc(midOf(slot),P[0])}. Her head, face position, head angle, gaze, hair and legs must stay exactly as in the attached image; her hands must not cover or come near her face or hair.`:""} ${moved?"Apart from the arms and hands, change only":"Change only"} her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
 }
 const slotOf=mid=>Object.keys(WMEM).find(k=>WMEM[k]===mid);
 const midOf=slot=>WMEM[slot];
@@ -341,11 +405,11 @@ function editLook(code){
 
 /* ---- 成員生圖底模 ---- */
 let PB_BUSY=new Set(), PB_MEM="ys";
-function poseBasePrompt(P){ return `Use the attached image as the exact base. Keep her face, head position, head angle, gaze, expression, hairstyle, hair color, body, proportions, white T-shirt and shorts, framing, art style, lighting and plain light gray background completely identical. Change only her pose: ${P[3]}. Her head must stay in exactly the same place and at exactly the same angle as in the attached image; her hands must not cover or come near her face or hair. Any prop is plain, with no logos, brand names or printed text. Full body visible from head to toe.` }
+function poseBasePrompt(P,mid){ return `Use the attached image as the exact base. Keep her face, head position, head angle, gaze, expression, hairstyle, hair color, body, proportions, white T-shirt and shorts, framing, art style, lighting and plain light gray background completely identical. Change only her pose: ${poseDesc(mid,P[0])}. Her head must stay in exactly the same place and at exactly the same angle as in the attached image; her hands must not cover or come near her face or hair. Any prop is plain, with no logos, brand names or printed text. Full body visible from head to toe.` }
 async function genPoseBase(slot,key){
   const P=poseOf(key), m=WMETA.find(x=>x.id===slot); if(!m?.gen){toast2("先設定這位成員的生圖底模");return}
   if(!oai().key){toast2(OAI_ERR.no_key);return} const id=slot+"@"+key; if(PB_BUSY.has(id)) return; PB_BUSY.add(id); renderFacility();
-  try{ const img=await oaiEdit(poseBasePrompt(P),await getBlob(m.gen),oai().model||"gpt-image-2");
+  try{ const img=await oaiEdit(poseBasePrompt(P,midOf(slot)),await getBlob(m.gen),oai().model||"gpt-image-2");
     m.poses={...(m.poses||{}),[key]:img}; toast2(`${byId(midOf(slot)).n}「${P[1]}」的姿勢底模完成,存到雲端中…`); await saveMetaCloud() }
   catch(e){ toast2((OAI_ERR[e.code]||"生成失敗")+(e.msg?`:${String(e.msg).slice(0,60)}`:"")) }
   finally{ PB_BUSY.delete(id); renderFacility() } }
