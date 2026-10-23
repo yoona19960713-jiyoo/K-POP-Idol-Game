@@ -256,7 +256,7 @@ function assign(){S.where={};for(const m of M){const w=WHERE[m.id][S.slot],r=rng
   const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k].open.includes(S.slot)));
   let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2}}
 
-const stageOf=id=>{const t=S.m[id].trust,h=S.m[id].heart;if(t>=50&&h>=40)return"心動";if(t>=50)return"夥伴";if(t>=25)return"信任";return"戒備"};
+const stageOf=id=>window.stageOfXp?stageOfXp(id):"戒備";
 const STAGE_C={戒備:"#8C7E92",信任:"#C99A2E",夥伴:"#3E9B6B",心動:"#D4537E",戀人:"#C2185B"};
 const who=pid=>M.filter(m=>S.where[m.id]===pid);
 
@@ -296,7 +296,7 @@ function setArt(id,url){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.u;if(cur
   b.style.backgroundImage=`url(${url})`;b.classList.remove("next");setTimeout(()=>{a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.classList.add("next")},1250)}
 
 function renderHud(){const d=dateOf(S.day);
-  $("#date").textContent=`${pad(d.getMonth()+1)}.${pad(d.getDate())}`; $("#wday").textContent=`${d.getFullYear()}・${WD[d.getDay()]}`; $("#dayN").textContent=`第 ${S.day+1} 天`;
+  $("#date").textContent=`${pad(d.getMonth()+1)}.${pad(d.getDate())}`; $("#wday").textContent=`${d.getFullYear()}・${WD[d.getDay()]}`; $("#dayN").textContent=window.debutText?debutText():`第 ${S.day+1} 天`;
   $("#slotName").textContent=SLOTS[S.slot].n; $("#hm").textContent=hm();
   [...$("#segs").children].forEach((e,i)=>{e.className=i<S.slot?"done":i===S.slot?"on":""; e.firstChild.style.width=i===S.slot?`${100*Math.min(S.t,SLOT_SEC)/SLOT_SEC}%`:"0"});
   [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)); $("#actN").textContent=S.acts; $("#badge").textContent=S.unread||""}
@@ -381,7 +381,10 @@ function renderDrawer(){
     return `<div class="mcard" style="--c:${m.c}"><span class="face" style="background-image:url(${spr(m.id,null,"neutral")})"></span>
       <div><div class="top"><span class="n">${m.n}</span><span class="st" style="--sc:${STAGE_C[st]}">${st}</span></div>
       <div class="loc">${locText(m)}</div><div class="wear">穿著:${esc(outfitName(m.id,of))}</div>
-      <div class="bars"><span>心情</span><div class="bar"><i style="--v:${s.mood}%;--bc:#E8A13C"></i></div><span>壓力</span><div class="bar"><i style="--v:${s.stress}%;--bc:#8C6FD0"></i></div></div></div></div>`}).join("")
+      <div class="bars"><span>心情</span><div class="bar"><i style="--v:${s.mood}%;--bc:#E8A13C"></i></div><span>壓力</span><div class="bar"><i style="--v:${s.stress}%;--bc:#8C6FD0"></i></div></div>
+      ${(()=>{const nx=window.nextStageInfo?.(m.id); return nx?`<div class="rel"><span>距離「${nx.name}」</span><div class="bar"><i style="--v:${Math.round(nx.p*100)}%;--bc:${STAGE_C[nx.name]||m.c}"></i></div>${nx.extra?`<small>${nx.extra}</small>`:""}</div>`:`<div class="rel"><span>關係已經到最深了</span></div>`})()}
+      ${S.skill?`<div class="skl">${Object.entries(SKILL_NAMES).filter(([k])=>!(k==="kor"&&S.skill[m.id].kor>=100)).map(([k,n])=>`<span>${n}<b>${Math.round(S.skill[m.id][k])}</b></span>`).join("")}</div>`:""}
+      ${S.bond?`<div class="bond">${M.filter(o=>o.id!==m.id).map(o=>({o,v:bondOf(m.id,o.id)})).sort((a,b)=>b.v-a.v).slice(0,2).map(({o,v})=>`<span style="--c:${o.c}">和${o.n}默契 ${Math.round(v)}</span>`).join("")}</div>`:""}</div></div>`}).join("")
     +`<h4>你不在場時</h4>${S.absent.length?S.absent.map(a=>`<p class="ab">${a}</p>`).join(""):`<p class="ab" style="opacity:.7">上個時段沒有特別的事。</p>`}`}
 $("#memBtn").onclick=()=>{renderDrawer();$("#drawer").classList.add("on");setPause("drawer",true)};
 $("#drawerX").onclick=()=>{$("#drawer").classList.remove("on");setPause("drawer",false)};
@@ -417,6 +420,7 @@ function endSlot(reason){
   const r=rng(seedOf(S.day,S.slot,"end"));
   S.absent=absentReports(r);
   for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+(S.slot<=2?2:S.slot===4?-6:-1),0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood),0,100)}
+  if(window.growthOnSlotEnd) growthOnSlotEnd();
   S.slot++; if(S.slot>4){S.slot=0;S.day++}
   S.t=0; S.acts=5; S.visited=[]; assign(); ensureWear(); newMessage(r);
   renderAll(); save(true); pushSave();
@@ -487,6 +491,7 @@ window.testPlay=function(sn,onDone){
 };
 /* ---- 對話引擎:劇本工坊的節點格式 {start:{L:[[說話者,台詞,表情?]],C:[{t,s,to,g,next,r,set,mood,stress,heart}]}} ---- */
 function play(sn,onEnd){
+  if(window.addBond&&!V?.test&&(sn.who||[]).length>1) addBond(sn.who,sn.type==="friction"?2.5:1.5);
   if(!sn.demoLine&&!String(sn.code).startsWith("demo-line")) S.seen[sn.code]=S.day;
   D={sn,onEnd,q:[],main:sn.member||sn.who?.[0]};
   $("#vopts").innerHTML=""; $("#vbox").classList.remove("locked");
@@ -525,12 +530,9 @@ function choose(c){
   if(c.next) D.q.push({k:"node",key:c.next});
   step()}
 function applyChoice(c){
-  const id=c.to||D.main, s=S.m[id]; if(!s) return; const p=(PREF[id]||{})[c.s]??1, g=+c.g||0;
-  const dt=clamp(Math.round(g*p),-2,3); if(dt){s.trust=clamp(s.trust+dt,0,100); fx(id,`信任 ${dt>0?"+":""}${dt}`)}
-  let dh=0; if(s.trust>=40){ if(c.heart) dh=clamp(+c.heart,0,2); else if(WARM.includes(c.s)&&g*p>=3) dh=1 }
-  if(dh){s.heart=clamp(s.heart+dh,0,100); fx(id,`心動 +${dh}`)}
-  if(c.mood) s.mood=clamp(s.mood+(+c.mood),0,100); if(c.stress) s.stress=clamp(s.stress+(+c.stress),0,100);
-  if(c.set) S.flags[c.set]=(S.flags[c.set]||0)+1;
+  const id=c.to||D?.main; if(!S.m[id]) return;
+  const xp=applyGain(id,c,(i,t)=>fx(i,t));
+  if(xp>0&&V&&(V.room==="practice"||V.room==="studio")) coachGrowth(id,V.room);
   save(!V?.test)}
 function fx(id,t){const m=byId(id),e=document.createElement("span");e.style.setProperty("--c",m?.c||"#E85C8A");e.textContent=`${m?.n||""} ${t}`;$("#fx").appendChild(e);setTimeout(()=>e.remove(),2700)}
 /* Auto 與 Log */
@@ -593,13 +595,14 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","phone.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","phone.js","growth.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
 /* ---------- 啟動 ---------- */
 (async()=>{
   await IDB.open(); SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
+  if(window.growthInit) growthInit();
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
   $("#boot").classList.add("done");

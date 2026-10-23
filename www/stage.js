@@ -70,7 +70,7 @@ function outfitScore(p){
   const ids=new Set(parts.map(o=>o.L.id)); if(ids.size===1&&parts[0].L.g) s+=5; else if(ids.size>2) s-=4;
   return {s:Math.max(0,Math.min(100,s)),parts};
 }
-function perform(){
+function perform(){ syncSkill();
   const p=S.plan, i=S.idx, wk=weekOf(i), sh=showOf(i); seed=(i+1)*7919+(+S.year);
   const on=M.filter(m=>!p.rest[m.id]); const log=[]; const V=VERS[p.ver];
   const O=outfitScore(p);
@@ -193,7 +193,8 @@ function open(){ shell(); loadLinked(); OPEN=true; setPause("tv",true); const L=
 function close(){ $("#stageFac").classList.add("hide"); $("#tvRes").classList.add("hide"); setPause("tv",false); OPEN=false }
 window.openStageRoom=open;
 const optB=(group,key,o,on,dis)=>`<button class="topt${on?" on":""}" data-g="${group}" data-k="${key}" ${dis?"disabled":""}>${o.n}${o.s?`<small>${o.s}</small>`:""}</button>`;
-function render(){ if(!OPEN) return;
+const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
+function render(){ if(!OPEN) return; syncSkill();
   const done=S.idx>=TOTAL, wk=weekOf(Math.min(S.idx,TOTAL-1)), sh=showOf(Math.min(S.idx,TOTAL-1)), base=(wk-1)*6;
   $("#tvOnair").innerHTML=done?`<b>宣傳期結束</b><span>四週共拿下 ${S.wins} 個一位</span>`:`<i class="lamp"></i><b>${sh.n}</b><span>〈${esc(SONG.name)}〉第 ${wk} 週・${sh.d}・第 ${S.idx+1}/${TOTAL} 場${+S.year===2020||+S.year===2021?"・無觀眾錄影":""}</span>`;
   let prep="";

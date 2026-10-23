@@ -277,7 +277,8 @@ function open(kind){ shell(); OPEN=kind; setPause("song",true);
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));
   render() }
 function close(){ $("#songFac").classList.add("hide"); setPause("song",false); OPEN=null; if(dirty) push() }
-function render(){ if(!OPEN) return; OPEN==="planning"?renderPlan():renderRec() }
+const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
+function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():renderRec() }
 const note=([k,t])=>`<li class="sn ${k}">${t}</li>`;
 
 /* ---------- 企劃室 ---------- */
@@ -393,6 +394,6 @@ function renderRec(){
   B.querySelectorAll("[data-sm]").forEach(b=>b.onclick=()=>{R.shareMode=b.dataset.sm;save(false);commit()});
 }
 window.openSongFacility=open;
-window.songSummary=songSummary;
+window.songSummary=()=>{syncSkill(); return songSummary()};
 
 })();

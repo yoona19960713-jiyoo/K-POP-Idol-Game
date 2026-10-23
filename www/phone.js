@@ -34,7 +34,7 @@ window.phoneIncoming=r=>{
       else { const pool=(MSG[m.id]||[]).filter(x=>x[1].includes(S.slot)); if(pool.length) pushLines(m.id,[[m.id,pool[Math.floor(r()*pool.length)][0]]]) } } }
   // 團體聊天室
   if(r()<.28&&!p.pend.group){ const cs=snips().filter(sn=>sn.type==="group"&&okSnip(sn)); const sn=pickW(cs,r);
-    if(sn){ S.seen[sn.code]=S.day; pushLines("group",sn.nodes.start.L); if(sn.nodes.start.C?.length) p.pend.group={code:sn.code,node:"start"} } }
+    if(sn){ S.seen[sn.code]=S.day; pushLines("group",sn.nodes.start.L); if(window.addBond) addBond([...new Set((sn.nodes.start.L||[]).map(l=>l[0]))],.8); if(sn.nodes.start.C?.length) p.pend.group={code:sn.code,node:"start"} } }
   // 社群貼文
   if(r()<.3){ const cs=snips().filter(sn=>sn.type==="social"&&okSnip(sn)); const sn=pickW(cs,r);
     if(sn){ S.seen[sn.code]=S.day; const id=sn.member||sn.who?.[0]; const pop=Math.max(5,(S.m[id]?.trust||10));
@@ -108,8 +108,8 @@ const snipBy=code=>snips().find(s=>s.code===code);
 async function reply(i){ const p=ph(), k=CHAT, pend=p.pend[k]; if(!pend) return; const sn=snipBy(pend.code), n=sn?.nodes?.[pend.node], c=n?.C?.[i]; if(!c) return;
   const to=c.to&&byId(c.to)?c.to:(k==="group"?(sn.who?.[0]||"ys"):k);
   pushLines(k,[["me",stripQ(c.t)]]); delete p.pend[k];
-  const before=S.m[to]?.trust; applyChoice({...c,to}); const dt=(S.m[to]?.trust||0)-(before||0);
-  if(dt) pfx(`${byId(to).n} 信任 ${dt>0?"+":""}${dt}`,byId(to).c);
+  const before=S.m[to]?.xp||0; applyChoice({...c,to}); const dt=(S.m[to]?.xp||0)-before;
+  if(dt>0) pfx(`${byId(to).n} 好感 +${dt}`,byId(to).c);
   render(); const typing=()=>{const e=$("#pTyping"); if(e){e.hidden=false; $("#pLog").scrollTop=1e9}};
   const next=c.next&&sn.nodes[c.next];
   const lines=[...(c.r||[]),...(next?.L||[])];
@@ -158,7 +158,7 @@ function bind(B){
   B.querySelectorAll("[data-wall]").forEach(b=>b.onclick=()=>{const p=ph(); p.wall=b.dataset.wall; p.wallSet=true; save(); render()});
   B.querySelectorAll("[data-like]").forEach(b=>b.onclick=()=>{const f=ph().feed[+b.dataset.like]; f.liked=true; f.likes++; save(); render()});
   B.querySelectorAll("[data-cmt]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.cmt.split(":").map(Number), f=ph().feed[i], sn=snipBy(f.code), n=sn?.nodes?.[f.choice], c=n?.C?.[j]; if(!c) return;
-    const to=c.to&&byId(c.to)?c.to:f.id, before=S.m[to]?.trust; applyChoice({...c,to}); const dt=(S.m[to]?.trust||0)-(before||0); if(dt) pfx(`${byId(to).n} 信任 ${dt>0?"+":""}${dt}`,byId(to).c);
+    const to=c.to&&byId(c.to)?c.to:f.id, before=S.m[to]?.xp||0; applyChoice({...c,to}); const dt=(S.m[to]?.xp||0)-before; if(dt>0) pfx(`${byId(to).n} 好感 +${dt}`,byId(to).c);
     f.reply=stripQ(c.t); f.r=[...(c.r||[])]; f.choice=null; save(); render() });
 }
 setInterval(()=>{ if($("#phone")?.classList.contains("on")) status() },2000);
