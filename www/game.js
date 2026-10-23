@@ -295,6 +295,11 @@ const spotOf=pid=>SPOTS.find(s=>s.rooms?.includes(pid))?.id||pid;
 const inSpot=sp=>M.filter(m=>{const w=S.where[m.id];return !w.startsWith("外出")&&(spotOf(w)===sp)});
 const facesHTML=ms=>!ms.length?"":`<div class="avs">${ms.map(m=>`<span class="face" title="${m.n}" style="--c:${m.c};background-image:url(${spr(m.id,null,"neutral")})"></span>`).join("")}</div>`;
 const L=()=>SLOTS[S.slot].light;
+/* 季節版場景:春 3–5 月、秋 9–11 月、冬 12–2 月有專屬圖,夏季與還沒有圖的時段用原圖 */
+const SEASON_ART={map:["dawn","day","evening","night"],river:["dawn","day","evening","night"]};
+function seasonKey(){const m=dateOf(S.day).getMonth()+1;return m>=3&&m<=5?"spring":m>=9&&m<=11?"autumn":(m===12||m<=2)?"winter":""}
+function seasonArt(dir,name,light){const s=seasonKey();return `assets/${dir}/${name}_${light}${s&&(SEASON_ART[name]||[]).includes(light)?"_"+s:""}.webp`}
+window.seasonKey=seasonKey;
 function setArt(id,url){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.u;if(cur===url) return;
   if(!cur){a.style.backgroundImage=`url(${url})`;a.dataset.u=url;return}
   b.style.backgroundImage=`url(${url})`;b.classList.remove("next");setTimeout(()=>{a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.classList.add("next")},1250)}
@@ -306,7 +311,7 @@ function renderHud(){const d=dateOf(S.day);
   [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)); $("#actN").textContent=S.acts; $("#badge").textContent=S.unread||""}
 
 function renderWorld(){
-  setArt("worldArt",`assets/scene/map_${L()}.webp`);
+  setArt("worldArt",seasonArt("scene","map",L()));
   $("#worldHot").innerHTML=SPOTS.map(sp=>{
     const [x,y,w,h]=sp.rect, ppl=sp.kind==="locked"?[]:sp.kind==="place"?who(sp.id):inSpot(sp.id);
     const open=sp.kind==="building"?sp.rooms.some(r=>PL[r].open.includes(S.slot)):sp.kind==="place"?PL[sp.id].open.includes(S.slot):false;
@@ -441,7 +446,7 @@ function visit(pid){
   S.acts--; S.visited.push(pid); save(true); setPause("visit",true);
   const ppl=pid==="office"?[]:who(pid).map(m=>m.id);
   V={pid,room:pid,present:ppl,talked:new Set(),summoned:null}; logLines=[];
-  $("#vbg").style.backgroundImage=`url(assets/bg/${pid}_${SLOTS[S.slot].light}.webp)`;
+  $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; $("#vsub").textContent=`${SLOTS[S.slot].n}・${hm()}・剩 ${S.acts} 次行動`;
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML="";
   if(pid==="office"){narr(SCN.office); menu(); return}
@@ -488,7 +493,7 @@ window.testPlay=function(sn,onDone){
   const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",styling:"styling",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
   const room=roomOf[sn.at]||"practice";
   V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[];
-  $("#vbg").style.backgroundImage=`url(assets/bg/${room}_${SLOTS[S.slot].light}.webp)`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花行動,也不會影響存檔";
+  $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花行動,也不會影響存檔";
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
   play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; save();
     $("#vopts").innerHTML=`<button class="vopt" id="testEnd">試玩結束<small>回到製作者模式</small></button>`;
