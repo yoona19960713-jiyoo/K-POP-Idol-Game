@@ -271,7 +271,7 @@ function shell(){
   $("#sfClose").onclick=close;
 }
 function open(kind){ shell(); OPEN=kind; setPause("song",true);
-  const el=$("#songFac"); el.className="fac-wrap "+(kind==="planning"?"th-office":"th-studio");
+  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap "+(kind==="planning"?"th-office":"th-studio")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
   el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${kind==="planning"?"office":"studio"}_${SLOTS[S.slot].light}.webp)`;
   $("#sfTitle").textContent=kind==="planning"?"企劃室":"錄音室"; $("#sfSub").textContent=kind==="planning"?"COMPANY ・ 2F ・ PLANNING":"COMPANY ・ 3F ・ RECORDING";
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));

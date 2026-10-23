@@ -13,11 +13,21 @@ const wIsDaily=o=>o==="練習"||String(o||"").startsWith("日常");
 const wSeasonText=a=>Array.isArray(a)&&a.length&&a.length<4?W_SEASONS.filter(s=>a.includes(s)).join("、"):"四季";
 const W_CATS=[["all","全部"],["stage","舞台與活動"],["練習","練習服"],["日常・居家","居家"],["日常・外出","外出"],["日常・睡衣","睡衣"]];
 const wCatOf=o=>wIsDaily(o)?o:"stage";
+const W_POSES=[
+  ["stand","自然站姿","standing naturally with both arms relaxed at her sides"],
+  ["wave","揮手打招呼","waving hello with one hand raised beside her body at chest height, palm open, the other arm relaxed"],
+  ["hips","雙手叉腰","standing confidently with both hands on her hips"],
+  ["behind","雙手背在身後","standing with both hands clasped behind her back, shoulders relaxed"],
+  ["phone","拿著手機","holding a smartphone in one hand at waist height, looking at the viewer, the other arm relaxed"],
+  ["drink","捧著飲料","holding a takeaway drink cup with both hands at waist height"],
+  ["peace","比 V","making a cheerful V sign with one hand held out to the side at waist height, away from her face, the other arm relaxed"]];
+const poseOf=k=>W_POSES.find(x=>x[0]===k)||W_POSES[0];
 function wLookPrompt(lk,slot){
   const o=lk.members?.[slot]; if(!o) return "";
   const group=lk.type==="group"&&lk.base?` This is her own version of a coordinated K-pop group outfit; the shared design language of the set is: ${lk.base}.`:"";
   const daily=wIsDaily(lk.occasion);
-  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, pose, framing, art style, lighting and plain light gray background completely identical. Change only her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
+  const P=poseOf(lk.pose), moved=P[0]!=="stand";
+  return `Use the attached image as the exact base. Keep her face, hairstyle, hair color, expression, body, proportions, ${moved?"":"pose, "}framing, art style, lighting and plain light gray background completely identical.${moved?` Change only her arms and hands into this pose: ${P[2]}. Her head, face position, head angle, gaze, hair and legs must stay exactly as in the attached image; her hands must not cover or come near her face or hair.`:""} ${moved?"Apart from the arms and hands, change only":"Change only"} her clothing, shoes and accessories.${group} Her outfit: ${o.outfit} Everything is opaque and fully lined, styled as tasteful K-pop idol fashion that fits her body naturally, with realistic folds and drape. No logos, brand names or printed text. ${daily?" Do not add any hat, cap, mask, sunglasses, glasses, or headband or hair accessory over the eyebrows; keep the whole face and both eyebrows fully visible.":""} Full body visible from head to toe.`;
 }
 const slotOf=mid=>Object.keys(WMEM).find(k=>WMEM[k]===mid);
 const midOf=slot=>WMEM[slot];
@@ -233,7 +243,7 @@ ${wIsDaily(occ)?W_DAILY_RULE+"\n":""}- 生圖器容易把豐滿身材判定成�
 function nextLookCode(){let max=0;for(const c of Object.keys(ITEMS)) if(/^LOOK-\d+$/.test(c)) max=Math.max(max,parseInt(c.slice(5))||0); return "LOOK-"+String(max+1).padStart(4,"0")}
 
 /* ---- 委託設計畫面 ---- */
-let DZ={type:"solo",mid:"he",occ:"日常・外出",seasons:["夏"],hint:"",photos:[]}, dCtl=null, dRes=null, dMsg="";
+let DZ={type:"solo",mid:"he",occ:"日常・外出",seasons:["夏"],pose:"stand",hint:"",photos:[]}, dCtl=null, dRes=null, dMsg="";
 function renderDesign(){
   ensureMeta(); const has=!!gKey();
   return `<div class="fdesk2">
@@ -243,13 +253,14 @@ function renderDesign(){
     ${DZ.type==="solo"?`<h4 class="fh">給誰</h4><div class="fchips">${M.map(m=>`<button class="fchip${DZ.mid===m.id?" on":""}" data-dm="${m.id}" style="--mc:${m.c}">${m.n}</button>`).join("")}</div>`:""}
     <h4 class="fh">場合</h4><div class="fchips">${W_OCC.map(o=>`<button class="fchip${DZ.occ===o?" on":""}" data-do="${o}">${o.replace("日常・","")}</button>`).join("")}</div>
     <h4 class="fh">季節<small>不選就是四季</small></h4><div class="fchips">${W_SEASONS.map(x=>`<button class="fchip${DZ.seasons.includes(x)?" on":""}" data-ds2="${x}">${x}</button>`).join("")}</div>
+    <h4 class="fh">姿勢<small>一套衣服搭配一個姿勢;頭部不動,臉才能換表情</small></h4><div class="fchips">${W_POSES.map(([k,n])=>`<button class="fchip${DZ.pose===k?" on":""}" data-dpo="${k}">${n}</button>`).join("")}</div>
     <h4 class="fh">說明</h4><textarea class="ftext" id="dHint" placeholder="例如:夏天去漢江野餐的私服,清爽的條紋與草帽以外的配件">${esc(DZ.hint)}</textarea>
     <div class="frow"><label class="fbtn">放參考照片<input type="file" accept="image/*" multiple id="dFile" hidden></label>${DZ.photos.map((p,i)=>`<span class="fthumb" style="background-image:url(${p.url})"><button data-dp="${i}">×</button></span>`).join("")}</div>
     <div class="frow"><button class="fbtn pri" id="dGo" ${dCtl||!has?"disabled":""}>${dCtl?"設計中…":"委託設計"}</button>${dCtl?`<button class="fbtn" id="dStop">停止</button>`:""}</div>
     <p class="fnote" style="color:${dMsg.startsWith("✓")?"#3E7A52":"#9A3D47"}">${esc(has?dMsg:G_ERR.no_key)}</p></div>
   <div class="fpanel wide"><h3>設計稿</h3>${dRes?`<div class="draft">
       <input class="dname" id="rName" value="${esc(dRes.name)}"><p class="dcon">${esc(dRes.concept)}</p>
-      <p class="fnote">${esc(dRes.occasion)}・${wSeasonText(dRes.seasons)}${(dRes.tags||[]).length?"・"+dRes.tags.map(esc).join("、"):""}</p>
+      <p class="fnote">${esc(dRes.occasion)}・${wSeasonText(dRes.seasons)}・姿勢:${poseOf(dRes.pose)[1]}${(dRes.tags||[]).length?"・"+dRes.tags.map(esc).join("、"):""}</p>
       ${Object.entries(dRes.members).map(([slot,o])=>{const m=byId(midOf(slot));return `<div class="dmem" style="--mc:${m?.c}"><b>${m?.n||slot}</b><small>${esc(o.twist)}</small>
         <textarea class="ftext sm" data-ro="${slot}">${esc(o.outfit)}</textarea></div>`}).join("")}
       <div class="frow"><button class="fbtn pri" id="rKeep">收進衣櫃</button><button class="fbtn" id="rAgain">重新設計</button><button class="fbtn ghost" id="rDrop">捨棄</button></div></div>`
@@ -259,6 +270,7 @@ function bindDesign(B){
   B.querySelectorAll("[data-dt]").forEach(b=>b.onclick=()=>{DZ.type=b.dataset.dt;renderFacility()});
   B.querySelectorAll("[data-dm]").forEach(b=>b.onclick=()=>{DZ.mid=b.dataset.dm;renderFacility()});
   B.querySelectorAll("[data-do]").forEach(b=>b.onclick=()=>{DZ.occ=b.dataset.do;renderFacility()});
+  B.querySelectorAll("[data-dpo]").forEach(b=>b.onclick=()=>{DZ.pose=b.dataset.dpo;if(dRes)dRes.pose=DZ.pose;renderFacility()});
   B.querySelectorAll("[data-ds2]").forEach(b=>b.onclick=()=>{const v=b.dataset.ds2; DZ.seasons=DZ.seasons.includes(v)?DZ.seasons.filter(x=>x!==v):W_SEASONS.filter(x=>x===v||DZ.seasons.includes(x)); renderFacility()});
   const h=B.querySelector("#dHint"); if(h) h.oninput=e=>DZ.hint=e.target.value;
   const f=B.querySelector("#dFile"); if(f) f.onchange=e=>{for(const x of [...e.target.files]){ if(DZ.photos.length>=5) break; DZ.photos.push({file:x,url:URL.createObjectURL(x)}) } renderFacility()};
@@ -279,7 +291,7 @@ async function design(){
   try{ const r=await gemJSON(wDesignPrompt(!!DZ.photos.length,DZ.hint.trim(),DZ.type,targets,DZ.occ,DZ.seasons),DZ.photos.map(p=>p.file),dCtl.signal);
     const ms={}; for(const t of targets){const x=(r.members||[]).find(y=>y.id===t.id)||{}; ms[t.id]={outfit:String(x.outfit||""),twist:String(x.twist||""),img:"",status:0}}
     const attrs={}; W_AXES.forEach(([k])=>attrs[k]=Math.max(-3,Math.min(3,Math.round(+r.attrs?.[k]||0))));
-    dRes={kind:"look",type:DZ.type,target:DZ.type==="solo"?slots[0]:"",occasion:DZ.occ,seasons:[...DZ.seasons],name:String(r.setName||"未命名造型"),concept:String(r.concept||""),base:String(r.base||""),
+    dRes={kind:"look",type:DZ.type,target:DZ.type==="solo"?slots[0]:"",occasion:DZ.occ,seasons:[...DZ.seasons],pose:DZ.pose,name:String(r.setName||"未命名造型"),concept:String(r.concept||""),base:String(r.base||""),
       attrs,tags:(Array.isArray(r.tags)?r.tags:[]).map(String).slice(0,6),rarity:["N","R","SR","SSR"].includes(r.rarity)?r.rarity:"R",notes:"在遊戲造型室設計",source:DZ.hint.trim()||"照片",members:ms};
   }catch(e){ dMsg=G_ERR[e?.code]||"設計失敗,請再試一次" }
   finally{ dCtl=null; renderFacility() }
@@ -292,6 +304,8 @@ function editLook(code){
     <small>${esc(lk.code)}・編輯</small><input class="dname" id="eName" value="${esc(lk.name||"")}">
     <div class="frow"><label class="flab">場合<select id="eOcc">${(W_OCC.includes(lk.occasion)?W_OCC:[...W_OCC,lk.occasion]).map(o=>`<option ${o===lk.occasion?"selected":""}>${o}</option>`).join("")}</select></label>
       <span class="flab">季節</span>${W_SEASONS.map(x=>`<button class="fchip${(lk.seasons||[]).includes(x)?" on":""}" data-es="${x}">${x}</button>`).join("")}</div>
+    <div class="frow"><span class="flab">姿勢</span>${W_POSES.map(([k,n])=>`<button class="fchip${(lk.pose||"stand")===k?" on":""}" data-ep="${k}">${n}</button>`).join("")}</div>
+    <p class="fnote">改了姿勢之後,到詳情按「重新生圖」才會換成新姿勢的圖。</p>
     <label class="flab block">概念<input class="ftext one" id="eCon" value="${esc(lk.concept||"")}"></label>
     ${Object.entries(lk.members||{}).filter(([s])=>midOf(s)).map(([s,o])=>{const m=byId(midOf(s));return `<div class="dmem" style="--mc:${m.c}"><b>${m.n}</b>${o.img?`<small>已經有圖;改了描述後,可以到設計工作台按「重生」換新圖</small>`:""}
       <input class="ftext one" data-tw="${s}" value="${esc(o.twist||"")}" placeholder="小巧思"><textarea class="ftext sm" data-ou="${s}">${esc(o.outfit||"")}</textarea>
@@ -300,6 +314,7 @@ function editLook(code){
   d.classList.remove("hide");
   $("#eClose").onclick=()=>openDetail(code,Object.keys(lk.members||{})[0]);
   d.querySelectorAll("[data-es]").forEach(b=>b.onclick=()=>{const v=b.dataset.es,a=new Set(lk.seasons||[]); a.has(v)?a.delete(v):a.add(v); lk.seasons=W_SEASONS.filter(x=>a.has(x)); b.classList.toggle("on",a.has(v))});
+  d.querySelectorAll("[data-ep]").forEach(b=>b.onclick=()=>{lk.pose=b.dataset.ep; d.querySelectorAll("[data-ep]").forEach(x=>x.classList.toggle("on",x===b))});
   d.querySelectorAll("[data-clr]").forEach(b=>b.onclick=()=>{lk.members[b.dataset.clr].img="";lk.members[b.dataset.clr].status=0;b.textContent="已清掉,儲存後生效";b.disabled=true});
   $("#eSave").onclick=async()=>{ lk.name=$("#eName").value.trim()||lk.name; lk.occasion=$("#eOcc").value; lk.concept=$("#eCon").value;
     d.querySelectorAll("[data-ou]").forEach(t=>lk.members[t.dataset.ou].outfit=t.value); d.querySelectorAll("[data-tw]").forEach(t=>lk.members[t.dataset.tw].twist=t.value);
@@ -344,9 +359,9 @@ function facShell(){
   if($("#facility")) return;
   const el=document.createElement("section"); el.id="facility"; el.className="fac-wrap hide"; el.setAttribute("aria-label","造型室");
   el.innerHTML=`<div class="fac-bg"></div><div class="fac-veil"></div>
-    <header class="fac-head"><div class="fac-title"><small>COMPANY ・ 1F</small><b>造型室</b></div>
+    <header class="fac-head"><div class="fac-title"><small>COMPANY ・ 1F ・ STYLING</small><b>造型室</b></div>
       <nav class="fac-tabs" role="tablist"><button data-ft="closet" role="tab">衣櫃</button><button data-ft="design" role="tab">委託設計</button><button data-ft="studio" role="tab">設計工作台<i id="fBadge"></i></button><button data-ft="bases" role="tab">成員底模</button></nav>
-      <button class="fac-close" id="facClose">離開造型室</button></header>
+      <button class="fac-close" id="facClose">離開</button></header>
     <div class="fac-body" id="facBody"></div>
     <div class="fac-detail hide" id="facDetail"></div>`;
   $("#stage").appendChild(el);
@@ -355,7 +370,7 @@ function facShell(){
 }
 window.openFacility=async kind=>{ facShell(); FAC=kind; PENDING=await IDB.get("pending")||{}; setPause("fac",true);
   const el=$("#facility"); el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/styling_${SLOTS[S.slot].light}.webp)`;
-  el.classList.remove("hide"); renderFacility() };
+  void el.offsetWidth; el.classList.remove("hide"); renderFacility() };
 function closeFacility(){ $("#facility").classList.add("hide"); $("#facDetail").classList.add("hide"); setPause("fac",false); FAC=null }
 
 function chipRow(list,cur,attr){return list.map(([k,n,c])=>`<button class="fchip${k===cur?" on":""}" data-${attr}="${k}" ${c?`style="--mc:${c}"`:""}>${n}</button>`).join("")}
@@ -366,7 +381,7 @@ function cardHTML(lk,mid){
   return `<button class="wcard" data-look="${esc(lk.code)}" data-slot="${slot}">
     <span class="wframe"></span><span class="wimg" data-ref="${has?esc(o.img):""}">${has?"":`<span class="wnone">尚未生圖</span>`}</span>
     ${m?`<span class="wwho" style="--mc:${m.c}">${lk.type==="group"?"全員":m.n}</span>`:""}
-    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${sprite?"・可穿":""}</span></button>`}
+    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
 function renderCloset(){
   const mems=[["all","全員"],...M.map(m=>[m.id,m.n,m.c])];
   let list=wLooks().filter(l=>(fCat==="all"||wCatOf(l.occasion)===fCat)&&(fMem==="all"||Object.keys(l.members||{}).some(s=>midOf(s)===fMem)));
@@ -419,11 +434,11 @@ async function openDetail(code,slot){
   d.innerHTML=`<div class="dcard"><button class="fac-close dx" id="dClose">關閉</button><button class="fac-close dx2" id="dEdit">編輯</button>
     <div class="dimg" id="dImg">${o.img?"":`<span class="wnone">${o.outfit?"尚未生圖:到設計工作台按「全部開始生圖」":"沒有服裝描述"}</span>`}</div>
     <div class="dtext"><small>${esc(lk.code)}・${lk.type==="group"?"團體服":"個人造型"}</small><h2>${esc(lk.name||"")}</h2>
-      <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}</p>
+      <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}・${poseOf(lk.pose)[1]}</p>
       <div class="fchips">${slots.map(s=>{const mm=byId(midOf(s));return `<button class="fchip${s===slot?" on":""}" data-ds="${s}" style="--mc:${mm.c}">${mm.n}${lk.members[s]?.img?"":" ・未生圖"}</button>`}).join("")}</div>
       ${lk.concept?`<p class="dcon">${esc(lk.concept)}</p>`:""}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
-        <button class="fbtn" id="dRegen">重新生圖</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
+        <button class="fbtn" id="dRegen">重新生圖</button><button class="fbtn" id="dSave">下載這張圖</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
       ${wIsDaily(lk.occasion)&&o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">已處理,遊戲裡會依地點換穿</span>`:`<span class="no">還沒處理</span>`}
         <button class="fbtn" id="dProc">${o.sprites?"重新處理":"處理成遊戲立繪"}</button><div class="dspr" id="dSpr"></div></div>`:""}
       ${o.twist?`<p class="dcon"><b style="color:${m?.c}">${m?.n} 的小巧思</b> ${esc(o.twist)}</p>`:""}
@@ -434,6 +449,8 @@ async function openDetail(code,slot){
   const rg=$("#dRegen"); if(rg) rg.onclick=()=>{ const id=jobId(code,slot); if(PENDING[id]){toast2("這張已經在待審了");return}
     if(!oai().key){toast2(OAI_ERR.no_key);return} JOBS=JOBS.filter(j=>j.id!==id); JOBS.push({id,code,slot,state:"wait"}); runQueue();
     toast2("已排進生圖,好了會出現在設計工作台的待審"); rg.disabled=true; rg.textContent="生圖中…" };
+  const sv=$("#dSave"); if(sv) sv.onclick=async()=>{ const src=await getBlob(o.img); if(!src) return;
+    const a=document.createElement("a"); a.href=src; a.download=`${lk.name||code}_${byId(midOf(slot))?.n||slot}.${src.startsWith("data:image/png")?"png":"webp"}`; document.body.appendChild(a); a.click(); a.remove() };
   const rs=$("#dRestore"); if(rs) rs.onclick=async()=>{ if(!confirm("改回舊圖?現在的圖會變成「舊圖」,之後還能再換回來。")) return;
     const lk2=JSON.parse(JSON.stringify(ITEMS[code])), m2=lk2.members[slot], pv=m2.prev;
     lk2.members[slot]={...m2,img:pv.img,model:pv.model||"",sprites:pv.sprites||undefined,prev:{img:m2.img,model:m2.model||"",sprites:m2.sprites||null}};

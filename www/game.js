@@ -605,5 +605,16 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
   $("#boot").classList.add("done");
   requestAnimationFrame(t=>{last=t;tick(t)});
   setTimeout(()=>checkUpdate(false),3000);
-  syncAll(false,true);
+  titleReady();
 })();
+/* ---- 標題畫面(兼讀取畫面):讀完本機資料就能開始,雲端同步在背景進行 ---- */
+function titleReady(){
+  const el=$("#title"); if(!el) {syncAll(false,true); return}
+  setPause("title",true);
+  const btn=$("#ttStart"), msg=$("#ttMsg"), sy=$("#ttSync");
+  btn.disabled=false; msg.textContent="點擊畫面開始";
+  if(syAuth()&&syCfg()){ sy.textContent="正在同步雲端…"; syncAll(false,true).then(()=>{sy.textContent="雲端同步完成"}).catch(()=>{sy.textContent="雲端同步失敗,可稍後在選單重試"}) }
+  else sy.textContent="離線遊玩・可在選單登入雲端同步";
+  const go=()=>{ el.classList.add("out"); setPause("title",false); setTimeout(()=>el.remove(),900) };
+  el.onclick=go; btn.onclick=e=>{e.stopPropagation();go()};
+}

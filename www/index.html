@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1A1420">
-<title>K-POP Idol Game</title>
+<title>完美女團</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -657,6 +657,51 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 .tvbox table{width:100%;border-collapse:collapse;font-size:max(1cqw,10px)}
 .tvbox th,.tvbox td{padding:.4cqw .6cqw;border-bottom:.06cqw solid #2C2550;text-align:right}.tvbox th:first-child,.tvbox td:first-child{text-align:left}
 .tvbox td.us{color:#FF4FA3;font-weight:700}.tvbox tr.tot td{font-weight:700;color:#fff}
+
+/* =====================================================================
+   設施的共同骨架(各設施保留自己的主題色,但形狀、尺寸、位置一致)
+   ===================================================================== */
+.fac-wrap{transition:opacity .35s ease,transform .35s ease}
+.fac-wrap.hide{opacity:0;transform:translateY(1.2cqw)}
+@media (prefers-reduced-motion:reduce){.fac-wrap,.fac-wrap.hide{transition:none;transform:none}}
+.fac-head{height:8.6cqw;padding:0 2.4cqw;gap:3cqw}
+.fac-title small{font:600 max(.85cqw,9px)/1 var(--num);letter-spacing:.4em}
+.fac-title b{font:700 2.6cqw/1.2 var(--serif);letter-spacing:.35em}
+.fac-tabs button{font:600 max(1.3cqw,12px)/1 var(--serif);letter-spacing:.25em;padding:1cqw 1.8cqw}
+/* 離開按鈕:同一個位置、同一個大小 */
+.fac-head .fac-close{margin-left:auto;min-width:8cqw;padding:.8cqw 1.6cqw;border-radius:3cqw;font:600 max(1.05cqw,11px)/1 var(--serif);letter-spacing:.2em;text-align:center}
+/* 一般按鈕:同一套圓角與尺寸 */
+.fac-wrap .fbtn,.fac-wrap .pbtn,.fac-wrap .cbtn,.fac-wrap .tbtn,.fac-wrap .mbtn{border-radius:.5cqw;padding:.7cqw 1.4cqw;font:600 max(1.02cqw,11px)/1.1 var(--serif);letter-spacing:.14em}
+.fac-wrap .tbtn.sm{padding:.5cqw 1cqw;font-size:max(.9cqw,10px)}
+.fac-wrap .tbtn.go,.fac-wrap .mbtn.big{padding:1cqw 2.6cqw;font-size:max(1.3cqw,13px)}
+.fac-wrap .racts .fbtn{padding:.55cqw .9cqw}
+/* 選擇用的小標籤:一律膠囊形 */
+.fac-wrap .fchip,.fac-wrap .mchip,.fac-wrap .pchip.sm{border-radius:2cqw}
+/* 內容區留白一致 */
+.fac-body{top:9.4cqw;padding:1.4cqw 2.4cqw 2.4cqw}
+
+/* ===== 標題畫面「完美女團」(兼讀取畫面) ===== */
+.title{position:absolute;inset:0;z-index:80;overflow:hidden;cursor:pointer;color:#fff;transition:opacity .8s ease,transform .8s ease}
+.title.out{opacity:0;transform:scale(1.03);pointer-events:none}
+.tt-bg{position:absolute;inset:0;background:#120812 center/cover no-repeat;background-image:url(assets/bg/title.webp),url(assets/bg/backstage_night.webp);animation:ttzoom 24s ease-in-out infinite alternate}
+@keyframes ttzoom{from{transform:scale(1.02)}to{transform:scale(1.08)}}
+.tt-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,4,10,.78) 0%,rgba(12,4,10,.25) 34%,rgba(12,4,10,0) 55%,rgba(12,4,10,.55) 88%,rgba(12,4,10,.85) 100%)}
+.tt-spark{position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle,rgba(255,220,230,.9) 0 .12cqw,transparent .14cqw),radial-gradient(circle,rgba(255,180,200,.7) 0 .1cqw,transparent .12cqw);
+  background-size:17cqw 13cqw,23cqw 19cqw;background-position:0 0,7cqw 5cqw;opacity:.32;animation:ttfloat 18s linear infinite}
+@keyframes ttfloat{to{background-position:0 -22cqw,6cqw -30cqw}}
+.tt-logo{position:absolute;left:0;right:0;top:4.4cqw;text-align:center;animation:ttin 1.4s .2s both ease-out}
+@keyframes ttin{from{opacity:0;transform:translateY(-1cqw);letter-spacing:.6em}to{opacity:1;transform:none}}
+.tt-logo small{display:block;font:600 max(.95cqw,10px)/1 var(--num);letter-spacing:.6em;color:rgba(255,220,226,.8);margin-bottom:1cqw}
+.tt-logo h1{margin:0;position:relative;display:inline-block;font:900 7.2cqw/1.05 var(--serif);letter-spacing:.18em;padding-left:.18em}
+.tt-logo h1 .gl{position:absolute;inset:0;padding-left:.18em;color:rgba(120,10,30,.01);text-shadow:0 .25cqw .45cqw rgba(0,0,0,.65),0 0 1.8cqw rgba(200,16,46,.6),0 0 3.6cqw rgba(200,16,46,.3)}
+.tt-logo h1 .fc{position:relative;background:linear-gradient(180deg,#FFF6E8 0%,#F3D9A4 38%,#C98B4E 52%,#F7E3B8 66%,#B8323F 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.tt-logo p{margin:.8cqw 0 0;font:700 max(1.25cqw,12px)/1 var(--num);letter-spacing:.85em;padding-left:.85em;color:#F3D9A4;text-shadow:0 0 1cqw rgba(200,16,46,.6)}
+.tt-start{position:absolute;left:50%;bottom:6.4cqw;transform:translateX(-50%);font:600 max(1.35cqw,13px)/1 var(--serif);letter-spacing:.5em;padding:1cqw 2.6cqw 1cqw 3.1cqw;color:#FFF3E6;
+  border:.1cqw solid rgba(243,217,164,.7);border-radius:3cqw;background:rgba(40,8,18,.35);-webkit-backdrop-filter:blur(.4cqw);backdrop-filter:blur(.4cqw);animation:ttpulse 2.4s ease-in-out infinite}
+.tt-start:disabled{animation:none;opacity:.7}
+@keyframes ttpulse{50%{box-shadow:0 0 1.6cqw rgba(243,217,164,.45);border-color:#F3D9A4}}
+.tt-sync{position:absolute;left:0;right:0;bottom:2.6cqw;text-align:center;font-size:max(.9cqw,10px);letter-spacing:.2em;color:rgba(255,230,236,.7)}
+@media (prefers-reduced-motion:reduce){.tt-bg,.tt-spark,.tt-start,.tt-logo{animation:none}}
 </style>
 </head>
 <body>
@@ -726,6 +771,12 @@ details summary{font-size:max(1cqw,10px);color:var(--gold);cursor:pointer;letter
 
   <div class="toast" id="toast"><b id="toastT">上午</b><span id="toastS"></span></div>
   <div class="boot" id="boot">讀取中…</div>
+  <section class="title" id="title" aria-label="完美女團">
+    <div class="tt-bg"></div><div class="tt-shade"></div><div class="tt-spark"></div>
+    <div class="tt-logo"><small>ENTERTAINMENT ・ IDOL MANAGEMENT</small><h1><span class="gl" aria-hidden="true">完美女團</span><span class="fc">完美女團</span></h1><p>PERFECT GIRL GROUP</p></div>
+    <button class="tt-start" id="ttStart" disabled><span id="ttMsg">讀取中…</span></button>
+    <p class="tt-sync" id="ttSync"></p>
+  </section>
 </div>
 
 <div class="rotate">請把手機轉成橫向來玩<br><span style="font-size:14px;opacity:.7">K-POP Idol Game 是橫向畫面</span></div>

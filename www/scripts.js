@@ -298,7 +298,7 @@ function shell(){
   $("#stage").appendChild(el); $("#mkClose").onclick=close;
 }
 async function open(){ shell(); if(!items.length) items=Object.values(await IDB.get("scriptsAll")||{}); OPEN=true; setPause("maker",true);
-  $("#makerFac").classList.remove("hide"); $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll() }
+  void $("#makerFac").offsetWidth; $("#makerFac").classList.remove("hide"); $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll() }
 function close(){ $("#makerFac").classList.add("hide"); setPause("maker",false); OPEN=false }
 window.openMaker=open;
 const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"]];

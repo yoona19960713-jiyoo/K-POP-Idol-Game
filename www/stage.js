@@ -189,7 +189,7 @@ function shell(){
 }
 function open(){ shell(); loadLinked(); OPEN=true; setPause("tv",true); const L=$("#stage").dataset.time||"day";
   $("#stageFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/backstage_${L==="day2"?"day":L}.webp)`;
-  $("#stageFac").classList.remove("hide"); render() }
+  void $("#stageFac").offsetWidth; $("#stageFac").classList.remove("hide"); render() }
 function close(){ $("#stageFac").classList.add("hide"); $("#tvRes").classList.add("hide"); setPause("tv",false); OPEN=false }
 window.openStageRoom=open;
 const optB=(group,key,o,on,dis)=>`<button class="topt${on?" on":""}" data-g="${group}" data-k="${key}" ${dis?"disabled":""}>${o.n}${o.s?`<small>${o.s}</small>`:""}</button>`;
