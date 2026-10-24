@@ -1122,6 +1122,16 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
   .trow{grid-template-columns:calc(3*var(--u)) minmax(calc(10*var(--u)),1fr) calc(24*var(--u)) auto}
   .tn b{white-space:nowrap}
 }
+
+/* 不能去的地點/房間:不再 disabled,點了會說明原因;看起來維持「暫時不能去」 */
+.hot.dis{cursor:default}
+.room.dis:hover .hl{box-shadow:none}
+.room .lockc.soft{font-size:max(calc(1*var(--u)),10px);opacity:.85}
+.room.visited .lockc.soft{background:rgba(18,12,30,.28)}
+@container (max-width:899px){
+  .pin.dis .plate small{display:block;font-size:max(calc(.8*var(--u)),9px)}   /* 手機上也看得到「晚上、深夜開放」 */
+  .pin.dis .plate{opacity:.82}
+}
 </style>
 </head>
 <body>
@@ -1216,6 +1226,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
     <h3>日常衣櫃</h3>
     <p class="hint">遊戲依地點換穿:練習室、錄音室、辦公室穿練習服;宿舍穿居家服(深夜有睡衣就穿睡衣);外面穿外出服。某一類還沒有衣服時穿白 T 立繪。</p>
     <ul id="wardList"></ul>
+    <div class="row"><button class="b" id="reprocAll">用新版去背重新處理全部日常立繪</button></div>
 
     <h3>製作者模式</h3>
     <p class="hint">產生日常片段、審稿、試玩、收進內容庫(原本劇本工坊的功能)。打開時遊戲時間暫停。</p>

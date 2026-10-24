@@ -335,12 +335,13 @@ function renderWorld(){
       :(!open?"現在沒有開放的房間":ppl.length?`${ppl.length} 人在裡面`:"沒有人");
     const dis=sp.kind==="place"&&(!open||done||S.acts<=0);
     const label=`${sp.n},${sub.replace(/<[^>]+>/g,"")}`;
-    return `<button class="hot" data-spot="${sp.id}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?"disabled":""} aria-label="${label}"></button>
-      <button class="pin${sp.kind==="locked"?" locked":""}${done?" done":""}" data-spot="${sp.id}" style="left:${sp.pin[0]}%;top:${sp.pin[1]}%" ${dis?"disabled":""} tabindex="-1" aria-hidden="true">
+    const why=dis?(!open?openText(PL[sp.id]):done?"這個時段已來過":"沒有行動次數了,結束這個時段就能繼續"):"";
+    return `<button class="hot${dis?" dis":""}" data-spot="${sp.id}" data-why="${why}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?'aria-disabled="true"':""} aria-label="${label}"></button>
+      <button class="pin${sp.kind==="locked"?" locked":""}${done?" done":""}${dis?" dis":""}" data-spot="${sp.id}" data-why="${why}" style="left:${sp.pin[0]}%;top:${sp.pin[1]}%" tabindex="-1" aria-hidden="true">
         <span class="plate"><b>${sp.n}</b><small>${sub}</small>${sp.kind==="locked"?"":facesHTML(ppl)}</span></button>`}).join("");
   $("#worldHot").querySelectorAll("[data-spot]").forEach(b=>{const id=b.dataset.spot,pair=$("#worldHot").querySelectorAll(`[data-spot="${id}"]`);
     b.onmouseenter=()=>pair.forEach(x=>x.classList.add("lit")); b.onmouseleave=()=>pair.forEach(x=>x.classList.remove("lit"));
-    b.onclick=()=>openSpot(id)})}
+    b.onclick=()=>{ if(b.dataset.why){toast2(`${SPOTS.find(x=>x.id===id).n}:${b.dataset.why}`);return} openSpot(id)}})}
 function openSpot(id){const sp=SPOTS.find(s=>s.id===id); if(!sp) return;
   if(sp.kind==="locked"){ if(sp.id==="tv"){ if(window.promoActive?.()) openStageRoom(); else tvChooser(); return} toast2(`${sp.n}:${sp.note}`);return}
   if(sp.kind==="place"){visit(sp.id);return}
@@ -364,11 +365,12 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
-    return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?"disabled":""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
+    return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
-      ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
+      ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:vis?`<span class="lockc soft">這個時段已來過</span>`:""}</button>`}).join("");
   $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.fac){window.openFacility&&openFacility(b.dataset.fac);return}
-    if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid; if(PL[pid]) visit(pid)})}
+    if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
+    if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)})}
 /* 電視台:出道後的打歌期才正式開放,先留一個測試入口 */
 function tvChooser(){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
@@ -615,6 +617,13 @@ $("#signIn").onclick=async()=>{const c=syCfg(); if(!c){toast2("先貼上 Firebas
   try{const j=await syJSON(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("#syEmail").value.trim(),password:$("#syPw").value,returnSecureToken:true})});
     localStorage.setItem(SY_AUTH,JSON.stringify({uid:j.localId,email:j.email,refreshToken:j.refreshToken})); syTok={id:j.idToken,exp:Date.now()+(+j.expiresIn-60)*1000};
     $("#syPw").value=""; renderSet(); syncAll(true,true)}catch(e){syStatus(syMsg(e),true)}};
+$("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if(!window.processSprites) return;
+  const jobs=[]; for(const l of Object.values(ITEMS)) if(l.occasion==="練習"||String(l.occasion).startsWith("日常")) for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]) jobs.push([l.code,slot]);
+  if(!jobs.length){toast2("還沒有日常衣櫃的造型");return}
+  if(!confirm(`用新版去背重新處理 ${jobs.length} 張日常立繪?手機上每張約 5~10 秒,處理時可以繼續玩。`)) return;
+  b.disabled=true; let ok=0;
+  for(const [i,[code,slot]] of jobs.entries()){ b.textContent=`處理中 ${i+1}/${jobs.length}…`; try{ await processSprites(code,slot); ok++ }catch(e){} }
+  b.disabled=false; b.textContent="用新版去背重新處理全部日常立繪"; toast2(`完成:${ok}/${jobs.length} 張已重新處理`) });
 $("#makerBtn").onclick=()=>{setDlg.close(); window.openMaker&&openMaker()};
 $("#signOut").onclick=()=>{localStorage.removeItem(SY_AUTH);syTok=null;renderSet();syStatus("");toast2("已登出,本機進度保留")};
 $("#syncBtn").onclick=()=>syncAll(true,false);
