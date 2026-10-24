@@ -540,7 +540,7 @@ function step(){
   if(it.k==="choices"){showChoices(it.C);return}}
 function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
-  $("#vname").textContent=me?"代表":m?m.n:"旁白"; $("#vname").style.setProperty("--nc",me?"var(--acc)":m?m.c:"#9b8aa0");
+  $("#vname").innerHTML=me?"代表":m?`${m.n}<i class="en">${m.f.toUpperCase()}</i>`:"旁白"; $("#vname").style.setProperty("--nc",me?"var(--acc)":m?m.c:"#9b8aa0");
   if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)) setExpr(id,EXPR.includes(e)?e:guessExpr(text)); else if(!m) setExpr(null);
   logLines.push([me?"代表":m?m.n:"",text]);
   const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
