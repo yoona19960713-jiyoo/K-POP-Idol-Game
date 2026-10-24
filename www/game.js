@@ -405,7 +405,7 @@ function renderNews(){const n=$("#news");
 function locText(m){const w=S.where[m.id];return w.startsWith("外出")?`外出中<b>(${w.slice(3)})</b>`:`在<b>${spotOf(w)==="company"?"公司・":spotOf(w)==="dorm"?"宿舍・":""}${PL[w].n}</b>`}
 function renderDrawer(){
   $("#drawerBody").innerHTML=M.map(m=>{const s=S.m[m.id],st=stageOf(m.id),w=S.where[m.id],of=w.startsWith("外出")?outfitAt(m.id,"store",S.slot):outfitAt(m.id,w,S.slot);
-    return `<div class="mcard" style="--c:${m.c}"><span class="face" style="background-image:url(${spr(m.id,null,"neutral")})"></span>
+    return `<div class="mcard" data-m="${m.id}" style="--c:${m.c}"><span class="face" style="background-image:url(${spr(m.id,null,"neutral")})"></span>
       <div><div class="top"><span class="n">${m.n}</span><span class="st" style="--sc:${STAGE_C[st]}">${st}</span></div>
       <div class="loc">${locText(m)}</div><div class="wear">穿著:${esc(outfitName(m.id,of))}</div>
       <div class="bars"><span>心情</span><div class="bar"><i style="--v:${s.mood}%;--bc:#E8A13C"></i></div><span>壓力</span><div class="bar"><i style="--v:${s.stress}%;--bc:#8C6FD0"></i></div></div>
@@ -415,7 +415,7 @@ function renderDrawer(){
     +`<h4>你不在場時</h4>${S.absent.length?S.absent.map(a=>`<p class="ab">${a}</p>`).join(""):`<p class="ab" style="opacity:.7">上個時段沒有特別的事。</p>`}`}
 $("#memBtn").onclick=()=>{renderDrawer();$("#drawer").classList.add("on");setPause("drawer",true)};
 $("#drawerX").onclick=()=>{$("#drawer").classList.remove("on");setPause("drawer",false)};
-function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); renderWorld(); renderInside(); renderWhere(); renderNews();
+function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); renderWorld(); renderInside(); renderWhere(); renderNews(); wxUpdate();
   if($("#drawer").classList.contains("on")) renderDrawer(); save()}
 function toast(t,s){const e=$("#toast");$("#toastT").textContent=t;$("#toastS").textContent=s;e.classList.remove("show");void e.offsetWidth;e.classList.add("show")}
 
@@ -466,7 +466,7 @@ function visit(pid){
   V={pid,room:pid,present:ppl,talked:new Set(),summoned:null,snap}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; $("#vsub").textContent=`${SLOTS[S.slot].n}・${hm()}・剩 ${S.acts} 次行動`;
-  drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML="";
+  drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
   if(pid==="office"){narr(SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;
   if(!ppl.length){narr(PL[pid].owner?`${byId(PL[pid].owner).n}不在房間裡。${EMPTY.bedroom.replace("寢室裡沒有人,","")}`:byTime(EMPTY[pid])); menu(); return}
@@ -725,3 +725,39 @@ function titleReady(){
     toast2("再按一次返回鍵離開遊戲"); t=setTimeout(push,2000);
   });
 })();
+
+/* ===== 天氣(2026-10-24):每天一種,依日期固定(重讀存檔也一樣)=====
+   冬天(12~2 月)會下雪或下雨、夏天(6~8 月)梅雨與颱風季雨多、春秋偶爾下雨。
+   主地圖與漢江邊畫雨絲或雪花,畫面略帶陰天色調;時間卡顯示天氣小圖示。之後劇情與行程可以讀 weatherOf(S.day) */
+function weatherOf(day){ const mo=dateOf(day).getMonth()+1, r=rng(seedOf(day,"wx"))();
+  if(mo===12||mo<=2) return r<.26?"snow":r<.36?"rain":"clear";
+  if(mo>=6&&mo<=8) return r<.32?"rain":"clear";
+  if(mo>=3&&mo<=5) return r<.18?"rain":"clear";
+  return r<.14?"rain":"clear" }
+window.weatherOf=weatherOf;
+const WX_IC={rain:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 18 0z"/><path d="M12 12v7.5a2 2 0 0 1-4 0"/></svg>雨',
+  snow:'<svg viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 6l2.5-1.5M9.5 19.5 12 18l2.5 1.5"/></svg>雪'};
+let WXK="clear", wxRaf=0, wxLast=0;
+function wxUpdate(){ WXK=window.WX_FORCE||weatherOf(S.day); $("#stage").dataset.wx=WXK;
+  const ic=$("#wxIc"); if(ic){ ic.hidden=WXK==="clear"; ic.innerHTML=WX_IC[WXK]||"" }
+  const outdoorVisit=!!(V&&!V.test&&V.pid==="river");
+  $("#wxWorld")?.classList.toggle("on",WXK!=="clear");
+  $("#wxVisit")?.classList.toggle("on",WXK!=="clear"&&outdoorVisit);
+  if(WXK!=="clear"&&!wxRaf){ wxLast=performance.now(); wxRaf=requestAnimationFrame(wxFrame) } }
+function wxFrame(t){ wxRaf=0; if(WXK==="clear") return; const dt=Math.min(.05,(t-wxLast)/1000); wxLast=t;
+  for(const c of document.querySelectorAll("canvas.wx.on")){ if(!c.offsetParent||document.hidden) continue;
+    const dpr=Math.min(2,devicePixelRatio||1), w=c.clientWidth, h=c.clientHeight; if(!w||!h) continue;
+    if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c._p=null }
+    const x=c.getContext("2d"), W=c.width, H=c.height, k=w/700;          // k:依舞台大小縮放雨絲長度與速度
+    if(!c._p||c._k!==WXK){ c._k=WXK; const n=WXK==="rain"?Math.round(w*h/2400):Math.round(w*h/5200);
+      c._p=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,v:.75+Math.random()*.5,s:.6+Math.random()*.8,ph:Math.random()*6.28})) }
+    x.clearRect(0,0,W,H);
+    if(WXK==="rain"){ x.fillStyle="rgba(46,58,92,.14)"; x.fillRect(0,0,W,H);          // 陰天
+      x.strokeStyle="rgba(222,232,255,.42)"; x.lineWidth=1.1*dpr; x.beginPath();
+      for(const p of c._p){ const sp=1050*k*dpr*p.v, L=22*k*dpr*p.s; p.y+=sp*dt; p.x+=sp*.18*dt;
+        if(p.y>H+L){p.y=-L; p.x=Math.random()*W*1.2-W*.1} x.moveTo(p.x,p.y); x.lineTo(p.x-L*.18,p.y-L) } x.stroke() }
+    else { x.fillStyle="rgba(214,226,255,.07)"; x.fillRect(0,0,W,H); x.fillStyle="rgba(255,255,255,.9)";
+      for(const p of c._p){ const sp=42*k*dpr*p.v; p.y+=sp*dt; p.ph+=dt*1.4; p.x+=Math.sin(p.ph)*18*k*dpr*dt;
+        if(p.y>H+6){p.y=-6; p.x=Math.random()*W} x.globalAlpha=.55+.4*p.s/1.4; x.beginPath(); x.arc(p.x,p.y,(1+p.s*1.6)*k*dpr,0,6.283); x.fill() }
+      x.globalAlpha=1 } }
+  wxRaf=requestAnimationFrame(wxFrame) }

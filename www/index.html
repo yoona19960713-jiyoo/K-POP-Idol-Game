@@ -1039,7 +1039,8 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .cgmeta em{font:800 max(calc(.7*var(--u)),8px)/1 var(--num);font-style:normal;letter-spacing:.1em;color:#fff;background:#E0457B;padding:calc(.25*var(--u)) calc(.45*var(--u));border-radius:calc(.6*var(--u))}
 
 /* ===== 對話介面的精緻化(D8/D9,2026-10-24):香檳金細線、星形飾點、按下回饋。整檔拿掉即可還原 ===== */
-.stage{--gold2:#F3E2AE;--gold3:#C69C55;--gold4:#9A7438;
+
+:root,.stage{--gold2:#F3E2AE;--gold3:#C69C55;--gold4:#9A7438;
   --goldline:linear-gradient(90deg,transparent,var(--gold3) 12%,var(--gold2) 50%,var(--gold3) 88%,transparent);
   --star:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C12.9 8 16 11.1 24 12C16 12.9 12.9 16 12 24C11.1 16 8 12.9 0 12C8 11.1 11.1 8 12 0Z'/%3E%3C/svg%3E")}
 /* 對話框:上緣主題色線下面再一條金線,下緣一條金線,上緣正中一顆星 */
@@ -1089,12 +1090,12 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
   background:linear-gradient(135deg,var(--g1),var(--g2) 55%,var(--g3));-webkit-mask:var(--emb) center/contain no-repeat;mask:var(--emb) center/contain no-repeat}
 .vbox[data-m="narr"] .vname::before{display:none}
 .vbox[data-m="me"]{--pm:var(--acc)}
-.vbox[data-m="ys"]{--pd:#2B1C44;--pm:#7B4FBF;--g1:#F6F0FF;--g2:#C9B8EA;--g3:#8B74BE;--mt:#9C7FD6;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Ccircle cx='15.2' cy='9.2' r='7.6' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Ccircle cx='11' cy='12.6' r='9' mask='url%28%23m%29'/%3E%3Cpath d='M19.2 1.6l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z'/%3E%3Cpath d='M21.4 8.6l.45 1.05 1.05.45-1.05.45-.45 1.05-.45-1.05-1.05-.45 1.05-.45z'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M0 0A8 6 0 0 0 16 0H14.8A6.8 4.8 0 0 1 1.2 0Z'/%3E%3Ccircle cx='8' cy='7.3' r='.75'/%3E%3C/svg%3E");--ew:2.000}
-.vbox[data-m="tr"]{--pd:#120E12;--pm:#C8102E;--g1:#FFFFFF;--g2:#CDD0D8;--g3:#6C707A;--mt:#C8102E;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 4h3.7l7 8-7 8H2.5l7-8z'/%3E%3Cpath d='M10.3 4H14l7 8-7 8h-3.7l7-8z'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 0h2.2l4 4-4 4H1l4-4z'/%3E%3C/svg%3E");--ew:1.250}
-.vbox[data-m="hy"]{--pd:#4B3A26;--pm:#C9A35E;--g1:#FFF6DD;--g2:#E8CF96;--g3:#A9803F;--mt:#E3CFA6;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath transform='rotate%280 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%2872 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%28144 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%28216 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%28288 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Ccircle cx='12' cy='12' r='1.3'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 8'%3E%3Cpath d='M0 3.2C4 .4 8 .4 12 3.2S20 6 24 3.2V4.8C20 7.6 16 7.6 12 4.8S4 2 0 4.8Z'/%3E%3C/svg%3E");--ew:3.000}
-.vbox[data-m="he"]{--pd:#5E2633;--pm:#E9746A;--g1:#FFEDE6;--g2:#F2B8A6;--g3:#C27A68;--mt:#F28C82;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='none' stroke='black' stroke-width='.9'/%3E%3Cpath d='M12 9.6a2.4 2.4 0 1 1-2.2 3.4' fill='none' stroke='black' stroke-width='.8'/%3E%3C/mask%3E%3C/defs%3E%3Cg mask='url%28%23m%29'%3E%3Ccircle transform='rotate%280 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%2872 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%28144 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%28216 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%28288 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3C/g%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Ccircle cx='5' cy='4' r='2.5'/%3E%3C/svg%3E");--ew:1.250}
-.vbox[data-m="hr"]{--pd:#22401A;--pm:#7FAF2C;--g1:#F7FFE2;--g2:#CFE699;--g3:#7E9E38;--mt:#A8D84E;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='6.4' cy='18.6' rx='2.9' ry='2.2' transform='rotate%28-22 6.4 18.6%29'/%3E%3Cellipse cx='17.2' cy='16.2' rx='2.9' ry='2.2' transform='rotate%28-22 17.2 16.2%29'/%3E%3Crect x='8.3' y='5.2' width='1.5' height='13.4'/%3E%3Crect x='19.1' y='2.8' width='1.5' height='13.2'/%3E%3Cpath d='M8.3 5.2L20.6 2.4V5.6L8.3 8.4Z'/%3E%3Cpath d='M3.2 7.4c1.6-2.6 4-3.2 5.1-3.1-.2 1.4-1.7 3.6-5.1 3.1z'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 8'%3E%3Ccircle cx='4' cy='4.2' r='1.2'/%3E%3Cellipse cx='13.6' cy='6.1' rx='1.9' ry='1.4' transform='rotate%28-20 13.6 6.1%29'/%3E%3Crect x='14.7' y='.4' width='.8' height='5.4'/%3E%3Ccircle cx='21' cy='3.2' r='.8'/%3E%3C/svg%3E");--ew:3.000}
-.vbox[data-m="me"]{--pd:#1C2238;--g1:#F3E2AE;--g2:#C69C55;--g3:#9A7438;--mt:#3D4F82;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 18 4 7.5l4.8 4.4L12 4.5l3.2 7.4L20 7.5 21.5 18Z'/%3E%3Crect x='3' y='19.4' width='18' height='1.8'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect y='2' width='8' height='.9'/%3E%3Crect y='5.1' width='8' height='.9'/%3E%3C/svg%3E");--ew:1.000}
+.vbox[data-m="ys"],.mcard[data-m="ys"]{--pd:#2B1C44;--pm:#7B4FBF;--g1:#F6F0FF;--g2:#C9B8EA;--g3:#8B74BE;--mt:#9C7FD6;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Ccircle cx='15.2' cy='9.2' r='7.6' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Ccircle cx='11' cy='12.6' r='9' mask='url%28%23m%29'/%3E%3Cpath d='M19.2 1.6l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z'/%3E%3Cpath d='M21.4 8.6l.45 1.05 1.05.45-1.05.45-.45 1.05-.45-1.05-1.05-.45 1.05-.45z'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8'%3E%3Cpath d='M0 0A8 6 0 0 0 16 0H14.8A6.8 4.8 0 0 1 1.2 0Z'/%3E%3Ccircle cx='8' cy='7.3' r='.75'/%3E%3C/svg%3E");--ew:2.000}
+.vbox[data-m="tr"],.mcard[data-m="tr"]{--pd:#120E12;--pm:#C8102E;--g1:#FFFFFF;--g2:#CDD0D8;--g3:#6C707A;--mt:#C8102E;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 4h3.7l7 8-7 8H2.5l7-8z'/%3E%3Cpath d='M10.3 4H14l7 8-7 8h-3.7l7-8z'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 0h2.2l4 4-4 4H1l4-4z'/%3E%3C/svg%3E");--ew:1.250}
+.vbox[data-m="hy"],.mcard[data-m="hy"]{--pd:#4B3A26;--pm:#C9A35E;--g1:#FFF6DD;--g2:#E8CF96;--g3:#A9803F;--mt:#E3CFA6;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath transform='rotate%280 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%2872 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%28144 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%28216 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Cpath transform='rotate%28288 12 12%29' d='M12 11.2C9.4 9.2 8.9 5.4 10.6 2.8L12 4.3 13.4 2.8C15.1 5.4 14.6 9.2 12 11.2Z'/%3E%3Ccircle cx='12' cy='12' r='1.3'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 8'%3E%3Cpath d='M0 3.2C4 .4 8 .4 12 3.2S20 6 24 3.2V4.8C20 7.6 16 7.6 12 4.8S4 2 0 4.8Z'/%3E%3C/svg%3E");--ew:3.000}
+.vbox[data-m="he"],.mcard[data-m="he"]{--pd:#5E2633;--pm:#E9746A;--g1:#FFEDE6;--g2:#F2B8A6;--g3:#C27A68;--mt:#F28C82;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3Cmask id='m'%3E%3Crect width='24' height='24' fill='white'/%3E%3Ccircle cx='12' cy='12' r='3.6' fill='none' stroke='black' stroke-width='.9'/%3E%3Cpath d='M12 9.6a2.4 2.4 0 1 1-2.2 3.4' fill='none' stroke='black' stroke-width='.8'/%3E%3C/mask%3E%3C/defs%3E%3Cg mask='url%28%23m%29'%3E%3Ccircle transform='rotate%280 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%2872 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%28144 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%28216 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle transform='rotate%28288 12 12%29' cx='12' cy='6.6' r='4.3'/%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3C/g%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Ccircle cx='5' cy='4' r='2.5'/%3E%3C/svg%3E");--ew:1.250}
+.vbox[data-m="hr"],.mcard[data-m="hr"]{--pd:#22401A;--pm:#7FAF2C;--g1:#F7FFE2;--g2:#CFE699;--g3:#7E9E38;--mt:#A8D84E;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cellipse cx='6.4' cy='18.6' rx='2.9' ry='2.2' transform='rotate%28-22 6.4 18.6%29'/%3E%3Cellipse cx='17.2' cy='16.2' rx='2.9' ry='2.2' transform='rotate%28-22 17.2 16.2%29'/%3E%3Crect x='8.3' y='5.2' width='1.5' height='13.4'/%3E%3Crect x='19.1' y='2.8' width='1.5' height='13.2'/%3E%3Cpath d='M8.3 5.2L20.6 2.4V5.6L8.3 8.4Z'/%3E%3Cpath d='M3.2 7.4c1.6-2.6 4-3.2 5.1-3.1-.2 1.4-1.7 3.6-5.1 3.1z'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 8'%3E%3Ccircle cx='4' cy='4.2' r='1.2'/%3E%3Cellipse cx='13.6' cy='6.1' rx='1.9' ry='1.4' transform='rotate%28-20 13.6 6.1%29'/%3E%3Crect x='14.7' y='.4' width='.8' height='5.4'/%3E%3Ccircle cx='21' cy='3.2' r='.8'/%3E%3C/svg%3E");--ew:3.000}
+.vbox[data-m="me"],.mcard[data-m="me"]{--pd:#1C2238;--g1:#F3E2AE;--g2:#C69C55;--g3:#9A7438;--mt:#3D4F82;--emb:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 18 4 7.5l4.8 4.4L12 4.5l3.2 7.4L20 7.5 21.5 18Z'/%3E%3Crect x='3' y='19.4' width='18' height='1.8'/%3E%3C/svg%3E");--edge:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect y='2' width='8' height='.9'/%3E%3Crect y='5.1' width='8' height='.9'/%3E%3C/svg%3E");--ew:1.000}
 
 /* ===== 手機實測修正(2026-10-24,Samsung A55:舞台約 629×354 CSS px = 70u×39u)===== */
 .vtext{bottom:calc(.9*var(--u));overflow:hidden}
@@ -1165,12 +1166,39 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .room .rp{border-color:var(--goldEdge)}
 .room .fl{box-shadow:inset 0 0 0 calc(.1*var(--u)) rgba(243,226,174,.9)}
 .news{border-color:var(--goldEdge)}
+
+/* 成員抽屜:標題金線與金星;每張卡用成員自己的徽記(名字前、右下浮水印)、金屬色細框與頭像框 */
+.drawer header{background:var(--goldline) 0 100%/100% calc(.1*var(--u)) no-repeat}
+.drawer header b{display:inline-flex;align-items:center;gap:calc(.7*var(--u))}
+.drawer header b::before{content:"";width:calc(1.5*var(--u));height:calc(1.5*var(--u));background:linear-gradient(135deg,var(--gold2),var(--gold3) 60%,var(--gold4));-webkit-mask:var(--star) center/contain no-repeat;mask:var(--star) center/contain no-repeat}
+.mcard[data-m]{position:relative;overflow:hidden;flex:none;border-left-color:var(--pm);box-shadow:inset 0 0 0 calc(.08*var(--u)) color-mix(in srgb,var(--g2) 60%,transparent)}
+.mcard[data-m]>*{position:relative;z-index:1}
+.mcard[data-m]::after{content:"";position:absolute;z-index:0;right:calc(.5*var(--u));bottom:calc(.3*var(--u));width:calc(6.5*var(--u));height:calc(6.5*var(--u));pointer-events:none;
+  background:var(--g3);opacity:.13;-webkit-mask:var(--emb) center/contain no-repeat;mask:var(--emb) center/contain no-repeat}
+.mcard[data-m] .n{display:inline-flex;align-items:center;gap:calc(.45*var(--u))}
+.mcard[data-m] .n::before{content:"";flex:none;width:calc(1.35*var(--u));height:calc(1.35*var(--u));background:linear-gradient(135deg,var(--g1),var(--g2) 55%,var(--g3));-webkit-mask:var(--emb) center/contain no-repeat;mask:var(--emb) center/contain no-repeat}
+.mcard[data-m] .face{border-color:var(--g2);box-shadow:0 0 0 calc(.14*var(--u)) var(--pm)}
+/* 選單與更新視窗:標題金星、分節標題小金星、標題列下緣金線 */
+.set header{border-bottom-color:rgba(214,184,124,.65)}
+.set header b{display:inline-flex;align-items:center;gap:8px;font-family:var(--serif)}
+.set header b::before{content:"";width:16px;height:16px;background:linear-gradient(135deg,var(--gold2),var(--gold3) 60%,var(--gold4));-webkit-mask:var(--star) center/contain no-repeat;mask:var(--star) center/contain no-repeat}
+.set h3{display:flex;align-items:center;gap:6px;font-family:var(--serif)}
+.set h3::before{content:"";width:11px;height:11px;flex:none;background:linear-gradient(135deg,var(--gold2),var(--gold3));-webkit-mask:var(--star) center/contain no-repeat;mask:var(--star) center/contain no-repeat}
+
+/* 天氣:主地圖與漢江邊的雨、雪;時間卡上的天氣小圖示 */
+canvas.wx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;display:none}
+canvas.wx.on{display:block}
+#visit canvas.wx{z-index:1}
+.wxic{display:inline-flex;align-items:center;gap:calc(.25*var(--u));font-size:max(calc(.9*var(--u)),10px);letter-spacing:.08em;color:var(--glassSoft)}
+.wxic svg{width:calc(1.3*var(--u));height:calc(1.3*var(--u));fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.wxic[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){canvas.wx{display:none!important}}
 </style>
 </head>
 <body>
 <div class="stage" id="stage" data-time="dawn">
   <!-- 主地圖 -->
-  <div class="scene" id="world"><div class="art" id="worldArt"></div><div class="art next" id="worldArt2"></div><div class="vign"></div><div id="worldHot"></div></div>
+  <div class="scene" id="world"><div class="art" id="worldArt"></div><div class="art next" id="worldArt2"></div><div class="vign"></div><canvas class="wx" id="wxWorld" aria-hidden="true"></canvas><div id="worldHot"></div></div>
   <!-- 建築剖面 -->
   <div class="scene hide" id="inside"><div class="art" id="insideArt"></div><div class="art next" id="insideArt2"></div><div class="vign"></div><div id="rooms"></div></div>
 
@@ -1178,7 +1206,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
     <div class="tcard">
       <div class="tdate"><b id="date">07.03</b><span id="wday">2015・星期五</span><span id="dayN">第 1 天</span></div>
       <div class="tslot">
-        <div class="row1"><span class="sn" id="slotName">清晨</span><span class="hm" id="hm">06:00</span><span class="pz">暫停中</span></div>
+        <div class="row1"><span class="sn" id="slotName">清晨</span><span class="hm" id="hm">06:00</span><span class="wxic" id="wxIc" hidden></span><span class="pz">暫停中</span></div>
         <div class="segs" id="segs"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
       </div>
       <div class="tact">
@@ -1206,7 +1234,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 
   <!-- 拜訪與對話 -->
   <div class="visit" id="visit" role="dialog" aria-label="拜訪">
-    <div class="vbg" id="vbg"></div>
+    <div class="vbg" id="vbg"></div><canvas class="wx" id="wxVisit" aria-hidden="true"></canvas>
     <div class="vppl" id="vppl"></div>
     <div class="vtint"></div>
     <div class="vhead"><b id="vtitle">練習室</b><span id="vsub"></span></div>
