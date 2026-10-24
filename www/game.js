@@ -479,7 +479,7 @@ function drawPeople(){
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 function setExpr(id,e){$("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
-  if(me) swapExpr(img,spr(id,img.dataset.of||null,e))})}
+  if(me){ img.dataset.ex=e; swapExpr(img,spr(id,img.dataset.of||null,e)) }})}
 function swapExpr(img,src){ // 舊表情留一層殘影淡出,新表情解碼好才換,不會閃一下
   if(img.getAttribute("src")===src) return;
   if(matchMedia("(prefers-reduced-motion:reduce)").matches){img.src=src;return}
@@ -512,6 +512,25 @@ function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
   play(sn,menu)}
 function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
+
+/* ---- 眨眼(2026-10-24):每位成員一張「只有眼睛那塊」的閉眼疊加層(assets/chara/blink/成員.webp,與表情組同尺寸),
+   疊在立繪上約 0.12 秒;平常、微笑、害羞三種表情才眨(大笑本來就閉眼,生氣、難過的眼型差太多)。
+   換衣立繪的臉來自表情組,同一層也適用。每人各自隨機 2.6~6.4 秒眨一次,偶爾連眨兩下 ---- */
+const BLINK_SRC={}, BLINK_EX=new Set(["neutral","smile","shy"]);
+M.forEach(m=>{const im=new Image(); im.src=`assets/chara/blink/${m.f}.webp`; (im.decode?im.decode():Promise.resolve()).then(()=>{BLINK_SRC[m.id]=im.src}).catch(()=>{})});
+function blinkOnce(img){
+  const src=BLINK_SRC[img.dataset.id]; if(!src||!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")) return;
+  const o=document.createElement("img"), cs=getComputedStyle(img);
+  o.className=img.className+" blink"; o.style.cssText=img.style.cssText; o.alt=""; o.src=src;
+  o.style.animationDuration=cs.animationDuration; o.style.animationDelay=cs.animationDelay; o.style.zIndex=cs.zIndex;
+  $("#vppl").appendChild(o);
+  const a=img.getAnimations()[0], b=o.getAnimations()[0]; if(a&&b) b.currentTime=a.currentTime;
+  setTimeout(()=>o.remove(),120) }
+setInterval(()=>{ if(!V||document.hidden) return; const now=performance.now();
+  $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
+    const t=+img.dataset.nb||0; if(!t){img.dataset.nb=now+1200+Math.random()*3000; return}
+    if(now<t) return; blinkOnce(img); if(Math.random()<.18) setTimeout(()=>blinkOnce(img),230);
+    img.dataset.nb=now+2600+Math.random()*3800 }) },200);
 
 /* ---- 返回鍵(右上角):誤點進場景時可以退出。還沒跟成員聊過 → 存檔還原到進來之前,不花行動;聊過之後 → 直接離開 ---- */
 function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"); b.id="vback"; b.className="vback"; $("#visit").appendChild(b); b.onclick=backOut }

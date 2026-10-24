@@ -1142,6 +1142,9 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .vback[hidden]{display:none}
 .stage:has(#visit.on) #fx{top:calc(5.2*var(--u))}
 
+/* 眨眼疊加層 */
+.vppl img.blink{pointer-events:none;transition:none}
+
 /* ===== 主畫面 HUD 精緻化(2026-10-24):沿用對話框的香檳金細線與星形,整個遊戲同一套裝飾語言 ===== */
 @property --acc{syntax:"<color>";inherits:true;initial-value:#E85C8A}
 @property --acc2{syntax:"<color>";inherits:true;initial-value:#F7A9C4}
