@@ -70,10 +70,11 @@ function show(id,st,fresh,onClose){
     <div class="cgcap"><small>${fresh?"NEW MEMORY ・ 戀愛紀念":"MEMORY ・ 戀愛紀念"}</small>
       <div class="cgwho"><b>${esc(m.n)}</b><i>${esc(st)}</i></div><h2>「${esc(title)}」</h2><p>${esc(line)}</p>
       ${fresh?`<span class="cgsaved">已收進手機「相簿」,隨時可以重看</span>`:""}</div>
-    <div class="cgbtns"><button class="cgb" data-hide>隱藏文字</button><button class="cgb pri" data-close>${fresh?"收進相簿":"關閉"}</button></div>`;
+    <div class="cgbtns"><button class="cgb" data-hide>只看圖</button><button class="cgb" data-dl>下載・設桌布</button><button class="cgb pri" data-close>${fresh?"收進相簿":"關閉"}</button></div>`;
   $("#stage").appendChild(el); setPause("cg",true);
   const cap=()=>el.classList.toggle("bare");
-  el.querySelector("[data-hide]").onclick=e=>{e.stopPropagation();cap()};
+  el.querySelector("[data-hide]").onclick=e=>{e.stopPropagation();cap(); if(!S.flags.cgBareTip){S.flags.cgBareTip=1; toast2("點一下畫面,按鈕和文字就會回來")}};
+  el.querySelector("[data-dl]").onclick=e=>{e.stopPropagation(); window.saveImage?.(src(id,st),`完美女團_${m.n}_${st}`,true)};
   el.querySelector(".cgimg").onclick=()=>{ if(el.classList.contains("bare")) cap() };
   el.querySelector("[data-close]").onclick=e=>{ e.stopPropagation(); el.classList.add("out"); setTimeout(()=>el.remove(),500); setPause("cg",false); save?.(true); onClose?.() };
 }

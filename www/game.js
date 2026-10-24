@@ -711,6 +711,7 @@ function titleReady(){
 (function(){
   const vis=e=>e&&e.offsetParent!==null&&!e.closest(".hide");
   const steps=[
+    ()=>window.closePhoto?.(),
     ()=>{const d=[...document.querySelectorAll("dialog[open]")].pop(); if(d){d.close(); return true}},
     ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
     ()=>{const d=document.querySelector("#facDetail"); if(d&&!d.classList.contains("hide")){(d.querySelector("#dClose")||d).click(); d.classList.add("hide"); return true}},
@@ -835,3 +836,27 @@ function wxLine(pid){ const k=wxNow(); if(k==="clear") return ""; const a=WX_LIN
 const WX_MOOD={rain:{ys:3,he:2,tr:-2,hr:-1},snow:{hy:4,hr:4,he:2,ys:2,tr:1}};
 const WX_WHERE={rain:{tr:{store:1},hr:{living:1}},snow:{hy:{river:2},hr:{living:1}}};
 function wxDaily(){ const k=wxNow(); for(const [id,v] of Object.entries(WX_MOOD[k]||{})) if(S.m[id]) S.m[id].mood=clamp(S.m[id].mood+v,0,100) }
+
+/* ===== 存圖與純圖檢視(2026-10-24)=====
+   saveImage:APK 裡用原生外掛 ImageSaver 存進手機相簿「完美女團」資料夾(可直接設成桌布);網頁版用一般下載。
+   openPhoto:全螢幕只顯示圖片,點一下畫面切換按鈕顯示/隱藏 */
+window.saveImage=async(src,name,jpeg)=>{
+  try{ toast2("正在存圖…");
+    const blob=await (await fetch(src)).blob(), bmp=await createImageBitmap(blob), c=document.createElement("canvas"); c.width=bmp.width; c.height=bmp.height;
+    c.getContext("2d").drawImage(bmp,0,0); const mime=jpeg?"image/jpeg":"image/png", ext=jpeg?"jpg":"png";
+    const out=await new Promise(r=>c.toBlob(r,mime,.95)), file=`${String(name).replace(/[\\/:*?"<>|]/g,"_")}.${ext}`;
+    const P=window.Capacitor?.Plugins?.ImageSaver;
+    if(P){ const b64=await new Promise(r=>{const f=new FileReader(); f.onload=()=>r(String(f.result).split(",")[1]); f.readAsDataURL(out)});
+      await P.save({data:b64,name:file,mime}); toast2("已存到手機相簿的「完美女團」資料夾,可以直接設成桌布"); return true }
+    const u=URL.createObjectURL(out), a=document.createElement("a"); a.href=u; a.download=file; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000);
+    toast2("已下載"); return true
+  }catch(e){ toast2("存圖失敗:"+(e?.message||e)); return false } };
+window.openPhoto=(src,name,opt={})=>{
+  $("#photoView")?.remove(); const el=document.createElement("div"); el.id="photoView"; el.className="photoview"+(opt.dark?" dark":"");
+  el.innerHTML=`<img alt="" src="${src}"><div class="pvbar">${opt.title?`<b>${esc(opt.title)}</b>`:"<span></span>"}<div><button class="cgb" data-dl>下載・設桌布</button><button class="cgb pri" data-x>關閉</button></div></div><p class="pvhint">點一下畫面顯示/隱藏按鈕</p>`;
+  $("#stage").appendChild(el); setPause("photo",true);
+  el.onclick=e=>{ if(!e.target.closest("button")) el.classList.toggle("bare") };
+  el.querySelector("[data-dl]").onclick=()=>saveImage(src,name,opt.jpeg);
+  el.querySelector("[data-x]").onclick=()=>closePhoto();
+  setTimeout(()=>el.querySelector(".pvhint")?.classList.add("gone"),2200) };
+window.closePhoto=()=>{ const el=$("#photoView"); if(!el) return false; el.remove(); setPause("photo",false); return true };

@@ -613,7 +613,7 @@ async function openDetail(code,slot){
       <div class="fchips">${slots.map(s=>{const mm=byId(midOf(s));return `<button class="fchip${s===slot?" on":""}" data-ds="${s}" style="--mc:${mm.c}">${mm.n}${lk.members[s]?.img?"":" ・未生圖"}</button>`}).join("")}</div>
       ${lk.concept?`<p class="dcon">${esc(lk.concept)}</p>`:""}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
-        <button class="fbtn" id="dRegen">重新生圖</button><button class="fbtn" id="dSave">下載這張圖</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
+        <button class="fbtn" id="dRegen">重新生圖</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dSave">下載・設桌布</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
       ${wIsDaily(lk.occasion)&&o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">已處理,遊戲裡會依地點換穿</span>`:`<span class="no">還沒處理</span>`}
         <button class="fbtn" id="dProc">${o.sprites?"重新處理":"處理成遊戲立繪"}</button><div class="dspr" id="dSpr"></div></div>`:""}
       ${o.twist?`<p class="dcon"><b style="color:${m?.c}">${m?.n} 的小巧思</b> ${esc(o.twist)}</p>`:""}
@@ -624,8 +624,10 @@ async function openDetail(code,slot){
   const rg=$("#dRegen"); if(rg) rg.onclick=()=>{ const id=jobId(code,slot); if(PENDING[id]){toast2("這張已經在待審了");return}
     if(!oai().key){toast2(OAI_ERR.no_key);return} JOBS=JOBS.filter(j=>j.id!==id); JOBS.push({id,code,slot,state:"wait"}); runQueue();
     toast2("已排進生圖,好了會出現在設計工作台的待審"); rg.disabled=true; rg.textContent="生圖中…" };
-  const sv=$("#dSave"); if(sv) sv.onclick=async()=>{ const src=await getBlob(o.img); if(!src) return;
-    const a=document.createElement("a"); a.href=src; a.download=`${lk.name||code}_${byId(midOf(slot))?.n||slot}.${src.startsWith("data:image/png")?"png":"webp"}`; document.body.appendChild(a); a.click(); a.remove() };
+  const fname=`完美女團_${lk.name||code}_${byId(midOf(slot))?.n||slot}`;
+  const sv=$("#dSave"); if(sv) sv.onclick=async()=>{ const src=await getBlob(o.img); if(src) saveImage(src,fname) };
+  const full=async()=>{ const src=await getBlob(o.img); if(src) openPhoto(src,fname,{title:`${lk.name||""}・${byId(midOf(slot))?.n||""}`}) };
+  const fb=$("#dFull"); if(fb) fb.onclick=full; const di=$("#dImg"); if(di&&o.img){ di.style.cursor="zoom-in"; di.onclick=full }
   const rs=$("#dRestore"); if(rs) rs.onclick=async()=>{ if(!confirm("改回舊圖?現在的圖會變成「舊圖」,之後還能再換回來。")) return;
     const lk2=JSON.parse(JSON.stringify(ITEMS[code])), m2=lk2.members[slot], pv=m2.prev;
     lk2.members[slot]={...m2,img:pv.img,model:pv.model||"",sprites:pv.sprites||undefined,prev:{img:m2.img,model:m2.model||"",sprites:m2.sprites||null}};

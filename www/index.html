@@ -1146,6 +1146,24 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 /* 眨眼疊加層 */
 .vppl img.blink{pointer-events:none;transition:none}
 
+/* 只看圖:CG 停止推近、整張完整顯示,連陰影都拿掉 */
+.cgview.bare .cgimg{animation:none;transform:none;cursor:zoom-out}
+/* 純圖檢視(衣櫃全身照等):黑底、整張完整顯示,點一下切換按鈕 */
+.photoview{position:absolute;inset:0;z-index:80;background:#0b070d;display:grid;place-items:center;animation:pvin .3s ease}
+@keyframes pvin{from{opacity:0}to{opacity:1}}
+.photoview img{max-width:100%;max-height:100%;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}
+.photoview .pvbar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:calc(1*var(--u));
+  padding:calc(1.2*var(--u)) calc(2*var(--u)) calc(1.6*var(--u));background:linear-gradient(180deg,transparent,rgba(10,4,12,.72));transition:opacity .35s}
+.photoview .pvbar b{color:#fff;font:700 max(calc(1.3*var(--u)),12px)/1.3 var(--serif);letter-spacing:.12em;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.photoview .pvbar>div{display:flex;gap:calc(.8*var(--u))}
+.photoview.bare .pvbar{opacity:0;pointer-events:none}
+.photoview .pvhint{position:absolute;top:calc(1.4*var(--u));left:50%;translate:-50% 0;margin:0;padding:calc(.4*var(--u)) calc(1.2*var(--u));border-radius:calc(2*var(--u));
+  background:rgba(20,12,24,.6);color:#F3E2AE;font-size:max(calc(.9*var(--u)),10px);letter-spacing:.08em;transition:opacity .6s}
+.photoview .pvhint.gone,.photoview.bare .pvhint{opacity:0}
+.photoview{--c:#B98A43}
+/* 「只看圖」時文字一定要全部消失:.cgcap 有進場動畫(動畫值會蓋過一般樣式),所以這裡關掉動畫並強制隱藏 */
+.cgview.bare :is(.cgcap,.cgshade,.cgbtns,.cgcap *){animation:none!important;opacity:0!important;visibility:hidden;transition:opacity .35s,visibility 0s .35s}
+
 /* ===== 主畫面 HUD 精緻化(2026-10-24):沿用對話框的香檳金細線與星形,整個遊戲同一套裝飾語言 ===== */
 @property --acc{syntax:"<color>";inherits:true;initial-value:#E85C8A}
 @property --acc2{syntax:"<color>";inherits:true;initial-value:#F7A9C4}
