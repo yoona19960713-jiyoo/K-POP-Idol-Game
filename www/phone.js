@@ -39,7 +39,7 @@ window.phoneIncoming=r=>{
   if(r()<.3){ const cs=snips().filter(sn=>sn.type==="social"&&okSnip(sn)); const sn=pickW(cs,r);
     if(sn){ S.seen[sn.code]=S.day; const id=sn.member||sn.who?.[0]; const pop=Math.max(5,(S.m[id]?.trust||10));
       p.feed.unshift({code:sn.code,id,sc:sn.sc||"",lines:sn.nodes.start.L||[],likes:Math.round((800+r()*2200)*(1+pop/40)),cm:Math.round((40+r()*260)*(1+pop/60)),...stamp(),seen:false,
-        choice:sn.nodes.start.C?.length?"start":null}); p.feed=p.feed.slice(0,40) } }
+        choice:sn.nodes.start.C?.length?"start":null}); p.feed=p.feed.slice(0,40); fillPhotos() } }
   recount();
 };
 
@@ -143,12 +143,44 @@ function sched(){ const d=dateOf(S.day);
     <h4>公司公告</h4><div class="pnote">${notice}${fansLine}</div></div>`}
 
 /* ---------- STARLOG(社群) ---------- */
-function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); recount();
+/* 貼文配圖:照片清單在 assets/starlog.js。依貼文情境與台詞的關鍵字挑;沒命中就從她自己的自拍與物品照隨機。
+   挑好寫進 feed 項目的 photo(存檔保留,不會換來換去);舊貼文第一次顯示時補挑。只有清單裡有的照片才會被挑。 */
+const SLP=()=>window.STARLOG_PHOTOS||[];
+const slSrc=k=>`assets/starlog/${k}.webp`;
+function slHash(t){ let h=2166136261; for(const ch of String(t)) h=Math.imul(h^ch.charCodeAt(0),16777619); return h>>>0 }
+function pickPhoto(f,recent){ const L=SLP(); if(!L.length) return null;
+  const mine=L.filter(x=>x.who===f.id), own=(f.lines||[]).filter(l=>l[0]===f.id||!byId(l[0])).map(l=>l[1]).join(" ");
+  const seed=slHash(`${f.code}|${f.day}|${f.slot}`), txt=`${f.sc||""} ${own}`;
+  const pool=L.filter(x=>x.who===f.id||x.who==="grp");
+  const score=x=>x.tags.reduce((a,t)=>a+(txt.includes(t)?1+(t.length>1?.5:0):0),0);
+  let cand;
+  if(/直播|開播|Live|LIVE|V ?LIVE/.test(txt)) cand=mine.filter(x=>x.kind==="selfie");
+  if(!cand?.length){ const sc=pool.map(x=>[x,score(x)]).filter(([,v])=>v>0);
+    if(sc.length){ const best=Math.max(...sc.map(([,v])=>v)); cand=sc.filter(([,v])=>v>=best-.5).map(([x])=>x) } }
+  if(!cand?.length) cand=mine.length?mine:pool;
+  if(!cand.length) return null;
+  const fresh=cand.filter(x=>!recent.includes(x.key)); if(fresh.length) cand=fresh;
+  return cand[seed%cand.length].key }
+/* 新貼文與舊貼文補圖(由舊到新,避開前兩則剛用過的) */
+function fillPhotos(){ const p=ph(); if(!SLP().length) return false; let ch=false;
+  for(let i=p.feed.length-1;i>=0;i--){ const f=p.feed[i]; if(f.photo!==undefined&&(f.photo===null||SLP().some(x=>x.key===f.photo))) continue;
+    f.photo=pickPhoto(f,[p.feed[i+1]?.photo,p.feed[i+2]?.photo].filter(Boolean)); ch=true }
+  return ch }
+function viewPhoto(i){ const f=ph().feed[i]; if(!f?.photo) return; const m=byId(f.id)||M[0];
+  document.getElementById("slView")?.remove();
+  const el=document.createElement("div"); el.id="slView"; el.className="slview"; el.style.setProperty("--c",m.c);
+  el.innerHTML=`<div class="slbg" style="background-image:url(${slSrc(f.photo)})"></div>
+    <figure><img src="${slSrc(f.photo)}" alt=""><figcaption>${face(m.id,"sm")}<div><b>${esc(m.n)}</b><small>@perfect_${m.f} ・ ${whenTxt(f)}</small></div><span>♡ ${f.likes.toLocaleString()}</span></figcaption></figure>
+    <button class="slx" aria-label="關閉">✕</button>`;
+  const close=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),300) };
+  el.onclick=close; $("#stage").appendChild(el) }
+function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); if(fillPhotos()) save(); recount();
   const era=dateOf(S.day).getFullYear()>=2020?"粉絲通訊":"STARLOG";
   return head(era)+`<div class="pscroll feed">${p.feed.length?p.feed.map((f,i)=>{const m=byId(f.id)||M[0];
     const ln=(f.lines||[]).filter(l=>l[1]);
     return `<article class="ppost"><header>${face(m.id,"sm")}<div><b>${m.n}</b><small>@perfect_${m.f} ・ ${whenTxt(f)}</small></div></header>
       ${f.sc?`<p class="psc">${esc(f.sc)}</p>`:""}${ln.map(l=>l[0]===f.id||!byId(l[0])?`<p>${esc(l[1])}</p>`:`<p class="pfan"><b style="color:${byId(l[0]).c}">${byId(l[0]).n}</b> ${esc(l[1])}</p>`).join("")}
+      ${f.photo?`<button class="pphoto" data-photo="${i}" aria-label="放大照片"><img src="${slSrc(f.photo)}" alt="" loading="lazy"></button>`:""}
       <footer><span>♡ ${f.likes.toLocaleString()}</span><span>💬 ${f.cm.toLocaleString()}</span>${f.liked?`<span class="on">你按了讚</span>`:`<button data-like="${i}">按讚</button>`}</footer>
       ${f.choice?(()=>{const sn=snipBy(f.code),n=sn?.nodes?.[f.choice]; return n?.C?.length?`<div class="popts in">${n.C.map((c,j)=>`<button data-cmt="${i}:${j}">${esc(stripQ(c.t))}</button>`).join("")}</div>`:""})():""}
       ${f.reply?`<p class="pmy">你:${esc(f.reply)}</p>`:""}${(f.r||[]).map(l=>`<p class="pfan"><b style="color:${byId(l[0])?.c}">${byId(l[0])?.n||""}</b> ${esc(l[1])}</p>`).join("")}</article>`}).join("")
@@ -165,6 +197,7 @@ function bind(B){
   B.querySelectorAll("[data-chat]").forEach(b=>b.onclick=()=>{APP="chat";CHAT=b.dataset.chat;render()});
   B.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{B.querySelectorAll("[data-rep]").forEach(x=>x.disabled=true); reply(+b.dataset.rep)});
   B.querySelectorAll("[data-wall]").forEach(b=>b.onclick=()=>{const p=ph(); p.wall=b.dataset.wall; p.wallSet=true; save(); render()});
+  B.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>viewPhoto(+b.dataset.photo));
   B.querySelectorAll("[data-like]").forEach(b=>b.onclick=()=>{const f=ph().feed[+b.dataset.like]; f.liked=true; f.likes++; save(); render()});
   B.querySelectorAll("[data-cmt]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.cmt.split(":").map(Number), f=ph().feed[i], sn=snipBy(f.code), n=sn?.nodes?.[f.choice], c=n?.C?.[j]; if(!c) return;
     const to=c.to&&byId(c.to)?c.to:f.id, before=S.m[to]?.xp||0; applyChoice({...c,to}); const dt=(S.m[to]?.xp||0)-before; if(dt>0) pfx(`${byId(to).n} 好感 +${dt}`,byId(to).c);
