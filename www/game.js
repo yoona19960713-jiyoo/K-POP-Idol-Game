@@ -194,7 +194,7 @@ async function syncAll(manual,atStart){
 
 /* ---------- 劇本片段 ---------- */
 const cloudSnips=()=>Object.values(SCRIPTS);
-const snips=()=>{const c=cloudSnips(); return c.length?c:BUILTIN};
+const snips=()=>{const c=cloudSnips(); return [...(c.length?c:BUILTIN),...WX_SNIPS]};
 const ENTRY=["encounter","practice","request","friction","surprise","worry","between","pairlong","long","chat"];
 const TALK=["topic","chat","worry","request","encounter"];
 const OFFICE=["chat","request","surprise","long","worry"];
@@ -206,7 +206,7 @@ function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage|
   return sn.stage===cur}
 function pool({sp,room,slot,present,types,member}){
   return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&sn.who?.length
-    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&(!sn.period||sn.period===periodNow())
+    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())
     &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start)}
 function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)); let x=r()*w.reduce((a,b)=>a+b,0);
   for(let i=0;i<list.length;i++){x-=w[i];if(x<=0) return list[i]} return list[list.length-1]}
@@ -256,7 +256,9 @@ function guessExpr(t){t=String(t||"");
 function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const seedOf=(...xs)=>xs.reduce((h,x)=>Math.imul(h^(typeof x==="string"?[...x].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7):x),2654435761)>>>0,2166136261);
 function pickKey(w,r){const ks=Object.keys(w);let x=r()*ks.reduce((s,k)=>s+w[k],0);for(const k of ks){x-=w[k];if(x<=0)return k}return ks[ks.length-1]}
-function assign(){S.where={};for(const m of M){const w=WHERE[m.id][S.slot],r=rng(seedOf(S.day,S.slot,m.id));
+function assign(){S.where={}; const wk=typeof wxNow==="function"?wxNow():"clear";
+  for(const m of M){let w=WHERE[m.id][S.slot]; const r=rng(seedOf(S.day,S.slot,m.id));
+  if(wk!=="clear"){ w={...w}; if(wk==="rain") delete w.river; for(const [k,v] of Object.entries(WX_WHERE[wk]?.[m.id]||{})) w[k]=(w[k]||0)+v }
   const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k].open.includes(S.slot)));
   let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2}}
 
@@ -448,7 +450,7 @@ function endSlot(reason){
   S.absent=absentReports(r);
   for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+(S.slot<=2?2:S.slot===4?-6:-1),0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood),0,100)}
   if(window.growthOnSlotEnd) growthOnSlotEnd();
-  S.slot++; if(S.slot>4){S.slot=0;S.day++}
+  S.slot++; if(S.slot>4){S.slot=0;S.day++; wxDaily()}
   S.t=0; S.acts=5; S.visited=[]; assign(); ensureWear(); newMessage(r);
   renderAll(); save(true); pushSave();
   toast(SLOTS[S.slot].n,reason==="time"?"時間到了,進入下一個時段":reason==="acts"?"行動用完了,進入下一個時段":"你結束了這個時段")}
@@ -467,11 +469,14 @@ function visit(pid){
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; $("#vsub").textContent=`${SLOTS[S.slot].n}・${hm()}・剩 ${S.acts} 次行動`;
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
-  if(pid==="office"){narr(SCN.office); menu(); return}
+  if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;
-  if(!ppl.length){narr(PL[pid].owner?`${byId(PL[pid].owner).n}不在房間裡。${EMPTY.bedroom.replace("寢室裡沒有人,","")}`:byTime(EMPTY[pid])); menu(); return}
-  const sn=pickW(pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}));
-  if(sn) play(sn,menu); else {narr((PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:byTime(SCN[baseOf(pid)]))+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
+  const wl=wxLine(pid), fsn=firstSnowSnip(ppl);
+  if(fsn){ play(fsn,menu); return }
+  if(!ppl.length){narr(wl+(PL[pid].owner?`${byId(PL[pid].owner).n}不在房間裡。${EMPTY.bedroom.replace("寢室裡沒有人,","")}`:byTime(EMPTY[pid]))); menu(); return}
+  const all=pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}), wxs=all.filter(x=>x.wx);
+  const sn=pickW(wxs.length&&Math.random()<.75?wxs:all);   // 對應天氣的片段優先
+  if(sn) play(wl&&!sn.sc&&!sn.wx?{...sn,sc:wl}:sn,menu); else {narr(wl+(PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:byTime(SCN[baseOf(pid)]))+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
 }
 function drawPeople(){
   const ids=[...V.present,...(V.summoned?[V.summoned]:[])], n=ids.length, ch=n<=1?120:n===2?104:n===3?92:82;
@@ -761,3 +766,72 @@ function wxFrame(t){ wxRaf=0; if(WXK==="clear") return; const dt=Math.min(.05,(t
         if(p.y>H+6){p.y=-6; p.x=Math.random()*W} x.globalAlpha=.55+.4*p.s/1.4; x.beginPath(); x.arc(p.x,p.y,(1+p.s*1.6)*k*dpr,0,6.283); x.fill() }
       x.globalAlpha=1 } }
   wxRaf=requestAnimationFrame(wxFrame) }
+
+/* ===== 天氣劇情(2026-10-24):只在對應天氣出現的內建片段、初雪事件、入場的天氣描寫、成員心情與去處 ===== */
+const WX_SNIPS=[
+ {code:"wx-rain-he-pajeon",type:"surprise",member:"he",stage:"*",at:"dorm",room:"kitchen",sl:[3,4],who:["he"],wx:"rain",w:14,cd:5,
+  sc:"窗外的雨下得正大,廚房裡卻傳來滋滋的煎油聲,空氣裡都是蔥和海鮮的香味。",nodes:{
+  start:{L:[["he","代表來得剛好!下雨天就是要吃海鮮煎餅,這是韓國人的規矩喔。","smile"],["he","第一片剛翻面,你要不要幫我試吃?","smile"]],
+   C:[{t:"「好啊,我來試吃。」",s:"捧場",to:"he",g:1,r:[["he","怎麼樣怎麼樣?……邊邊要再酥一點對不對,我就知道。","laugh"],["he","下次下雨你也要來喔,我會記住的。","smile"]]},
+      {t:"「我來幫妳翻下一片。」",s:"幫忙",to:"he",g:2,next:"b"},
+      {t:"「這麼晚吃這個,明天量體重不怕嗎?」",s:"潑冷水",to:"he",g:0,r:[["he","……代表你這個人真的是。","angry"],["he","算了,不給你吃了,哼。","angry"]]}]},
+  b:{L:[["","(你接過鍋鏟,手一抖,煎餅在空中轉了半圈,勉強落回鍋裡。)"],["he","哇——好險!剛剛那一下好帥喔,雖然差點掉到地上。","laugh"],["he","……有人一起在廚房的感覺,真好。","shy"]]}}},
+ {code:"wx-rain-ys-lyrics",type:"encounter",member:"ys",stage:"*",at:"practice",room:"practice",sl:[1,2,3],who:["ys"],wx:"rain",w:14,cd:5,
+  sc:"雨打在練習室的大片玻璃上,藝瑟抱著筆記本坐在窗邊,一邊看雨一邊輕輕哼著什麼。",nodes:{
+  start:{L:[["ys","啊,代表。……被你聽到了?","shy"],["ys","下雨天的聲音很適合寫歌詞。我在想,雨停之前能不能寫完一段。","smile"]],
+   C:[{t:"「唱給我聽聽看。」",s:"期待",to:"ys",g:2,r:[["","(她清了清喉嚨,用很輕的聲音唱了兩句。窗外的雨好像也跟著慢了下來。)"],["ys","……還沒寫完啦,不准跟別人說。","shy"]]},
+      {t:"「那我不吵妳,在旁邊陪妳。」",s:"陪著",to:"ys",g:1,r:[["ys","嗯。……有人在旁邊,好像比較寫得出來。","smile"]]},
+      {t:"「練習時間在寫歌詞?」",s:"提醒",to:"ys",g:0,r:[["ys","……我知道啦,隊長也想偷懶一下嘛。","sad"]]}]}}},
+ {code:"wx-rain-tr-umbrella",type:"encounter",member:"tr",stage:"*",at:"out",room:"store",sl:[3,4],who:["tr"],wx:"rain",w:14,cd:5,
+  sc:"便利商店門口,泰梨抱著手臂站在屋簷下,看著外面越下越大的雨。",nodes:{
+  start:{L:[["tr","……看什麼。沒帶傘又不是什麼稀奇的事。","angry"],["tr","等雨小一點就走。","neutral"]],
+   C:[{t:"把傘遞給她。「妳先撐回去。」",s:"體貼",to:"tr",g:1,r:[["tr","那你呢?……笨蛋。","angry"],["","(她把傘往你這邊推回來一半。)"],["tr","一起走吧。傘夠大。","shy"]]},
+      {t:"撐開傘,往她那邊偏了一點。「走吧,順路。」",s:"共撐",to:"tr",g:2,next:"b"},
+      {t:"「那妳慢慢等。」",s:"走人",to:"tr",g:0,r:[["tr","……嗯。","sad"]]}]},
+  b:{L:[["","(回宿舍的路上,傘下只剩雨聲。你的肩膀濕了一半。)"],["tr","……你肩膀都濕了。","shy"],["tr","下次……我會記得帶傘的。大概。","smile"]]}}},
+ {code:"wx-rain-hr-guitar",type:"chat",member:"hr",stage:"*",at:"dorm",room:"living",sl:[0,3,4],who:["hr"],wx:"rain",w:12,cd:5,
+  sc:"客廳裡,河嵐抱著吉他窩在沙發上,跟著窗外的雨聲隨手撥弦。",nodes:{
+  start:{L:[["hr","代表!你聽,雨聲跟這個和弦是不是超配?","laugh"],["hr","濟州島下雨的時候,我都會這樣彈一整個下午。","smile"]],
+   C:[{t:"「再彈一次給我聽。」",s:"捧場",to:"hr",g:2,r:[["hr","好耶!這次我加唱的喔,認真聽~","laugh"],["","(她的歌聲很乾淨,混在雨聲裡,像是只唱給你一個人聽。)"]]},
+      {t:"「想家了嗎?」",s:"關心",to:"hr",g:1,r:[["hr","……有一點點啦。","sad"],["hr","不過現在宿舍也是家了!代表也在啊。","smile"]]},
+      {t:"「小聲一點,大家在休息。」",s:"提醒",to:"hr",g:0,r:[["hr","喔……好啦。","sad"]]}]}}},
+ {code:"wx-snow-hr-hy",type:"between",member:"hr",stage:"*",at:"dorm",room:"living",sl:[0,1,2,3],who:["hr","hy"],wx:"snow",w:14,cd:5,
+  sc:"落地窗外一片白,河嵐整個人貼在玻璃上,日和在旁邊笑著幫她擦掉哈出來的霧氣。",nodes:{
+  start:{L:[["hr","下雪了下雪了!代表!我們等一下去打雪仗好不好!","laugh"],["hy","河嵐醬,先把外套穿好喔。……在日本的時候,下雪的早上大家都會一起堆雪人呢。","smile"]],
+   C:[{t:"「好,大家一起去。」",s:"一起玩",to:"hr",g:1,r:[["hr","耶——代表最好了!日和歐尼也要來喔!","laugh"],["hy","はい、一緒に!","smile"]]},
+      {t:"「日和,教大家堆日本的雪人?」",s:"拜託",to:"hy",g:2,r:[["hy","えっ、我嗎?……好,那我教大家做兩顆球的那種。","shy"],["hr","兩顆球?!那要做五個,一人一個!","laugh"]]},
+      {t:"「外面很冷,別感冒了。」",s:"擔心",to:"hr",g:0,r:[["hr","代表好像大人喔……好啦,我會戴圍巾。","sad"]]}]}}},
+ {code:"wx-snow-hy-river",type:"encounter",member:"hy",stage:"*",at:"out",room:"river",sl:[3,4],who:["hy"],wx:"snow",w:14,cd:5,
+  sc:"漢江邊的路燈下,雪靜靜地落著。日和一個人站在步道上,踮起腳尖輕輕轉了一圈。",nodes:{
+  start:{L:[["hy","あ……被看到了。","shy"],["hy","雪落在身上的感覺,好像舞台上灑下來的紙花。忍不住就想跳一下。","smile"]],
+   C:[{t:"「再轉一次,我想看。」",s:"欣賞",to:"hy",g:2,r:[["","(她笑了笑,在雪裡轉了一個完整的圈,圍巾跟著揚起來。)"],["hy","……只給代表看的喔。","shy"]]},
+      {t:"把自己的圍巾圍到她脖子上。",s:"體貼",to:"hy",g:2,r:[["hy","……暖暖的。ありがとう。","shy"]]},
+      {t:"「小心滑倒。」",s:"提醒",to:"hy",g:1,r:[["hy","嗯,我會小心。……代表也是。","smile"]]}]}}}];
+/* 初雪:每年冬天第一個下雪天,第一次遇到成員時,跟在場關係最深的那位(到「心動」以上)發生 */
+const FIRST_SNOW={
+ ys:[[["ys","代表,是初雪耶。","smile"],["ys","韓國有個說法——初雪那天跟誰在一起,那個人的願望就會實現。","shy"],["ys","……所以,我現在要許願了,不准偷聽。","shy"]],
+     [{t:"「妳許了什麼願?」",s:"好奇",g:2,r:[["ys","說出來就不靈了啦。……不過,跟你有關。","shy"]]},{t:"「那我也許一個。」",s:"一起",g:2,r:[["ys","嗯。我們的願望,一起實現吧。","smile"]]}]],
+ tr:[[["tr","……下雪了。今年的第一場。","neutral"],["tr","聽說初雪那天待在一起的人,會在一起很久。……我隨便說說的。","shy"]],
+     [{t:"「那就很久吧。」",s:"認真",g:2,r:[["tr","……你這個人,真的很犯規。","shy"]]},{t:"「妳也會相信這種事?」",s:"逗她",g:1,r:[["tr","吵死了。……不信的話,幹嘛還站在這裡。","angry"]]}]],
+ hy:[[["hy","わぁ……初雪!","laugh"],["hy","代表知道韓國的說法嗎?初雪那天在一起的人……","shy"],["hy","……沒、沒什麼!我們去外面看雪吧!","shy"]],
+     [{t:"「在一起的人,怎麼樣?」",s:"追問",g:2,r:[["hy","……會一直在一起。說出來好害羞。","shy"]]},{t:"「好,一起去看雪。」",s:"一起",g:1,r:[["hy","うん!代表,手給我,路很滑。","smile"]]}]],
+ he:[[["he","代表!初雪!今年的初雪耶!","laugh"],["he","我從小就想,初雪那天要跟特別的人一起看……今年願望實現了。","shy"]],
+     [{t:"「特別的人是我嗎?」",s:"確認",g:2,r:[["he","……不然還有誰。笨蛋。","shy"]]},{t:"「那明年也一起看。」",s:"約定",g:2,r:[["he","說好了喔!打勾勾,不能反悔。","smile"]]}]],
+ hr:[[["hr","雪!是雪!濟州島很少下這麼大的雪耶!","laugh"],["hr","代表代表,聽說初雪那天跟誰在一起,就會一直……一直……","shy"],["hr","哎唷我不說了啦!","shy"]],
+     [{t:"「一直怎麼樣?說完嘛。」",s:"逗她",g:2,r:[["hr","……一直在一起啦!代表好壞!","shy"]]},{t:"摸摸她的頭。「看雪吧。」",s:"溫柔",g:2,r:[["hr","……嗯。今年的初雪,我會記一輩子。","smile"]]}]]};
+const wxNow=(day=S.day)=>window.WX_FORCE||weatherOf(day);
+const winterKey=day=>{const d=dateOf(day); return d.getMonth()===11?d.getFullYear():d.getFullYear()-1};
+function firstSnowSnip(ppl){ if(wxNow()!=="snow"||!ppl.length) return null; const fk="初雪"+winterKey(S.day); if(S.flags[fk]) return null;
+  const R=window.STAGE_RANK||[], rk=id=>R.indexOf(stageOf(id));
+  const id=[...ppl].sort((a,b)=>rk(b)-rk(a)||((S.m[b].heart||0)-(S.m[a].heart||0)))[0];
+  if(!FIRST_SNOW[id]||rk(id)<R.indexOf("心動")) return null;
+  S.flags[fk]=1; const [L,C]=FIRST_SNOW[id];
+  return {code:"wx-firstsnow-"+id,type:"surprise",member:id,who:[id],sc:"窗外飄起了今年的第一場雪。",nodes:{start:{L,C:C.map(c=>({...c,to:id}))}}} }
+/* 入場的天氣描寫 */
+const WX_LINES={rain:{in:["窗外下著雨,玻璃上的雨痕一道一道往下滑。","外面的雨聲淅淅瀝瀝,屋裡顯得特別安靜。"],out:["細雨打在傘面上,地面映著路燈的光。","雨絲斜斜地落下來,空氣裡都是潮濕的味道。"]},
+  snow:{in:["窗外飄著雪,暖氣讓玻璃起了一層薄霧。","外面在下雪,整個世界安靜得只剩下呼吸聲。"],out:["雪花一片一片落在肩上,呼出的氣都變成白霧。","路燈下的雪閃著光,腳下踩出細細的聲響。"]}};
+function wxLine(pid){ const k=wxNow(); if(k==="clear") return ""; const a=WX_LINES[k][PL[pid]?.g==="外面"?"out":"in"]; return a[Math.floor(Math.random()*a.length)] }
+/* 天氣對心情與去處的影響:藝瑟喜歡雨天寫歌、夏恩雨天想煎餅、泰梨討厭淋濕;日和與河嵐最愛下雪 */
+const WX_MOOD={rain:{ys:3,he:2,tr:-2,hr:-1},snow:{hy:4,hr:4,he:2,ys:2,tr:1}};
+const WX_WHERE={rain:{tr:{store:1},hr:{living:1}},snow:{hy:{river:2},hr:{living:1}}};
+function wxDaily(){ const k=wxNow(); for(const [id,v] of Object.entries(WX_MOOD[k]||{})) if(S.m[id]) S.m[id].mood=clamp(S.m[id].mood+v,0,100) }

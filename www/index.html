@@ -1193,6 +1193,18 @@ canvas.wx.on{display:block}
 .wxic svg{width:calc(1.3*var(--u));height:calc(1.3*var(--u));fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .wxic[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){canvas.wx{display:none!important}}
+/* 下雨/下雪時,地圖、剖面與場景背景一起換成陰天色調(背景圖本身是晴天畫的) */
+.stage[data-wx="rain"] :is(#worldArt,#worldArt2,#insideArt,#insideArt2,#vbg){filter:saturate(.68) brightness(.86) contrast(.97) hue-rotate(-8deg)}
+.stage[data-wx="snow"] :is(#worldArt,#worldArt2,#insideArt,#insideArt2,#vbg){filter:saturate(.8) brightness(1.02) hue-rotate(-6deg)}
+.stage[data-wx="rain"] #vbg::after,.stage[data-wx="snow"] #vbg::after{content:"";position:absolute;inset:0;pointer-events:none}
+.stage[data-wx="rain"] #vbg::after{background:linear-gradient(180deg,rgba(60,78,118,.22),rgba(40,52,84,.12))}
+.stage[data-wx="snow"] #vbg::after{background:linear-gradient(180deg,rgba(220,232,255,.16),rgba(200,214,240,.06))}
+:is(#worldArt,#worldArt2,#insideArt,#insideArt2,#vbg){transition:filter 1.2s ease}
+
+/* 右上圓鈕的圖示:香檳金漸層線條、細節小金星(body.html 的 #icGold 漸層) */
+.ibtn svg{stroke:url(#icGold);stroke-width:1.7}
+.ibtn svg .fillg{fill:url(#icGold);stroke:none}
+.stage[data-time="night"] .ibtn svg,.stage[data-time="evening"] .ibtn svg{filter:drop-shadow(0 0 calc(.25*var(--u)) rgba(243,226,174,.35))}
 </style>
 </head>
 <body>
@@ -1202,6 +1214,7 @@ canvas.wx.on{display:block}
   <!-- 建築剖面 -->
   <div class="scene hide" id="inside"><div class="art" id="insideArt"></div><div class="art next" id="insideArt2"></div><div class="vign"></div><div id="rooms"></div></div>
 
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="icGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E9CF8F"/><stop offset=".5" stop-color="#B98A43"/><stop offset="1" stop-color="#7E5A26"/></linearGradient></defs></svg>
   <div class="topbar">
     <div class="tcard">
       <div class="tdate"><b id="date">07.03</b><span id="wday">2015・星期五</span><span id="dayN">第 1 天</span></div>
@@ -1216,9 +1229,9 @@ canvas.wx.on{display:block}
       </div>
     </div>
     <div class="ibtns">
-      <button class="ibtn" id="memBtn" aria-label="成員"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.3c2.4-.3 4.4 1.2 5 4.2"/></svg>成員</button>
-      <button class="ibtn" id="phoneBtn" aria-label="手機"><svg viewBox="0 0 24 24"><rect x="6.5" y="2.8" width="11" height="18.4" rx="2.4"/><path d="M10.5 18h3"/></svg>手機<span class="badge" id="badge"></span></button>
-      <button class="ibtn" id="menuBtn" aria-label="選單"><svg viewBox="0 0 24 24"><path d="M4.5 7h15M4.5 12h15M4.5 17h15"/></svg>選單</button>
+      <button class="ibtn" id="memBtn" aria-label="成員"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.6" r="3.3"/><path d="M3.2 19.6c.7-3.4 3-5.3 6-5.3s5.3 1.9 6 5.3"/><circle cx="16.6" cy="9.6" r="2.5"/><path d="M15.4 14.4c2.6-.2 4.6 1.4 5.3 4.4"/><path class="fillg" d="M19.6 2.6l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/></svg>成員</button>
+      <button class="ibtn" id="phoneBtn" aria-label="手機"><svg viewBox="0 0 24 24"><rect x="6.4" y="2.6" width="11.2" height="18.8" rx="2.6"/><path d="M10.3 5.1h3.4"/><path class="fillg" d="M12 10.2l.75 1.9 1.9.75-1.9.75-.75 1.9-.75-1.9-1.9-.75 1.9-.75z"/><path d="M10.6 18.4h2.8"/></svg>手機<span class="badge" id="badge"></span></button>
+      <button class="ibtn" id="menuBtn" aria-label="選單"><svg viewBox="0 0 24 24"><path d="M5 7h14M7.5 12h9M5 17h14"/><circle class="fillg" cx="3.4" cy="12" r=".9"/><circle class="fillg" cx="20.6" cy="12" r=".9"/></svg>選單</button>
     </div>
   </div>
   <div class="sync-dot" id="syncDot"></div>

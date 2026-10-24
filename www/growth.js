@@ -60,7 +60,7 @@ window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; const before=s
   return xp };
 
 /* ---------- 團隊默契(每對成員,只會增加) ---------- */
-window.addBond=(ids,v)=>{ const u=[...new Set(ids)].filter(id=>byId(id)); for(let i=0;i<u.length;i++) for(let j=i+1;j<u.length;j++){ const k=pk(u[i],u[j]); S.bond[k]=Math.min(100,(S.bond[k]||30)+v) } };
+window.addBond=(ids,v)=>{ S.bond=S.bond||{}; const u=[...new Set(ids)].filter(id=>byId(id)); for(let i=0;i<u.length;i++) for(let j=i+1;j<u.length;j++){ const k=pk(u[i],u[j]); S.bond[k]=Math.min(100,(S.bond[k]||30)+v) } };
 window.bondOf=(a,b)=>S.bond?.[pk(a,b)]||30;
 window.teamBond=()=>{ const v=Object.values(S.bond||{}); return v.length?v.reduce((a,b)=>a+b,0)/v.length:30 };
 
