@@ -58,6 +58,45 @@ jobs:
           # 遊戲固定橫向、全螢幕
           sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/' android/app/src/main/AndroidManifest.xml
           grep -n screenOrientation android/app/src/main/AndroidManifest.xml
+          # 沉浸式全螢幕:隱藏狀態列與導覽列(從邊緣滑動可暫時叫出),舞台才能用滿整個螢幕高度
+          MA=$(find android/app/src/main/java -name MainActivity.java | head -1)
+          PKG=$(grep -m1 '^package' "$MA")
+          cat > "$MA" <<'JAVA'
+          __PKG__
+          import android.os.Build;
+          import android.os.Bundle;
+          import android.view.WindowManager;
+          import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsCompat;
+          import androidx.core.view.WindowInsetsControllerCompat;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                WindowManager.LayoutParams lp = getWindow().getAttributes();
+                lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                getWindow().setAttributes(lp);
+              }
+              hideBars();
+            }
+            @Override
+            public void onWindowFocusChanged(boolean hasFocus) {
+              super.onWindowFocusChanged(hasFocus);
+              if (hasFocus) hideBars();
+            }
+            private void hideBars() {
+              WindowInsetsControllerCompat c = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+              c.hide(WindowInsetsCompat.Type.systemBars());
+              c.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+          }
+          JAVA
+          sed -i "s|^ *__PKG__|$PKG|; s|^          ||" "$MA"
+          head -3 "$MA"
           # App 圖示:從 assets/ 產生(藝瑟的緋紅搖籃曲特寫)
           npx --yes @capacitor/assets@3 generate --android --assetPath assets || echo "::warning::圖示產生失敗,先用預設圖示"
           npx cap sync android
