@@ -3,7 +3,7 @@
    日常服立繪自動處理(取代原本交給 Claude 跑 outfit_face.py 的步驟)
    1. 日常類跟舞台類一樣用 gpt-image-2、淺灰底;收下時由遊戲從邊緣去背
    2. 收下後自動做換臉層:找出表情組在新圖上的位置,把六種表情的臉疊上去、膚色對齊
-   3. 裁成跟表情組完全相同的框、高 1300,存進造型資料(members[欄位].sprites),同步到雲端
+   3. 裁成跟表情組完全相同的框、原生解析度(約 1480 高),存進造型資料(members[欄位].sprites),同步到雲端
    遊戲換穿時會直接讀這些立繪(DYN),不用再上傳檔案到 GitHub
    ===================================================================== */
 (()=>{
@@ -99,7 +99,7 @@ async function makeSprites(mid,imgURL){
   // 膚色對齊用:遮罩中心區、夠亮的像素
   const skin=(D)=>{let r=0,g=0,b=0,n=0; for(let p=0;p<cw*ch;p++){ if(mask[p]<.8) continue; const i=p*4; if(D[i+3]<200) continue; const L=gray(D,i); if(L<150) continue; r+=D[i];g+=D[i+1];b+=D[i+2];n++} return n?[r/n,g/n,b/n]:null};
   const sB=skin(bD.data), out={};
-  const H2=1300, W2=Math.round(cw*H2/ch);
+  const H2=ch, W2=cw; // 原生解析度(手機上立繪會放大約 1.6 倍,不再先縮小)
   for(const e of EXS){
     const eD=ex[e].getContext("2d",{willReadFrequently:true}).getImageData(0,0,cw,ch).data, sE=skin(eD), sh=sB&&sE?[sB[0]-sE[0],sB[1]-sE[1],sB[2]-sE[2]]:[0,0,0];
     const res=new ImageData(new Uint8ClampedArray(bD.data),cw,ch), R=res.data;

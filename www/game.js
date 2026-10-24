@@ -476,7 +476,15 @@ function drawPeople(){
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 function setExpr(id,e){$("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
-  if(me) img.src=spr(id,img.dataset.of||null,e)})}
+  if(me) swapExpr(img,spr(id,img.dataset.of||null,e))})}
+function swapExpr(img,src){ // 舊表情留一層殘影淡出,新表情解碼好才換,不會閃一下
+  if(img.getAttribute("src")===src) return;
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches){img.src=src;return}
+  const g=img.cloneNode(); g.classList.add("ghost"); g.removeAttribute("data-id"); g.alt=""; const cs=getComputedStyle(img); g.style.animationDuration=cs.animationDuration; g.style.animationDelay=cs.animationDelay; img.parentNode.appendChild(g);
+  const a=img.getAnimations()[0], b=g.getAnimations()[0]; if(a&&b) b.currentTime=a.currentTime;
+  const pre=new Image(); pre.src=src;
+  (pre.decode?pre.decode():Promise.resolve()).catch(()=>{}).then(()=>{img.src=src;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{g.style.opacity=0; setTimeout(()=>g.remove(),280)}))})}
 function narr(t){showText("",t,true)}
 function menu(){
   D=null; $("#vbox").classList.add("locked"); $("#vbox").classList.remove("wait");
