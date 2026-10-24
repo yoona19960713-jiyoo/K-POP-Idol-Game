@@ -1205,6 +1205,13 @@ canvas.wx.on{display:block}
 .ibtn svg{stroke:url(#icGold);stroke-width:1.7}
 .ibtn svg .fillg{fill:url(#icGold);stroke:none}
 .stage[data-time="night"] .ibtn svg,.stage[data-time="evening"] .ibtn svg{filter:drop-shadow(0 0 calc(.25*var(--u)) rgba(243,226,174,.35))}
+
+/* 手機 App 圖示:寶石感(上緣光澤、香檳金細框、細緻的白色圖形,重點處用實心) */
+.pico{box-shadow:0 .35cqw .9cqw rgba(20,8,24,.35),inset 0 0 0 .12cqw rgba(243,226,174,.85),inset 0 -.35cqw .6cqw rgba(0,0,0,.14)}
+.pico::before{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(120% 70% at 50% -12%,rgba(255,255,255,.55),rgba(255,255,255,0) 62%);pointer-events:none}
+.pico svg{position:relative;width:2.7cqw;height:2.7cqw;stroke-width:1.6;filter:drop-shadow(0 .08cqw .12cqw rgba(40,10,30,.35))}
+.pico svg .f{fill:#fff;stroke:none}
+.pico .pbadge{z-index:1}
 </style>
 </head>
 <body>
