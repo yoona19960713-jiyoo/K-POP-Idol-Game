@@ -472,7 +472,7 @@ function visit(pid){
 }
 function drawPeople(){
   const ids=[...V.present,...(V.summoned?[V.summoned]:[])], n=ids.length, ch=n<=1?120:n===2?104:n===3?92:82;
-  const xs=n<=1?[30]:ids.map((_,i)=>(n<=3?17:13)+(n===2?26:n===3?36:46)*i/(n-1));
+  const xs=n<=1?[$("#stage").clientWidth<900?36:30]:ids.map((_,i)=>(n<=3?17:13)+(n===2?26:n===3?36:46)*i/(n-1));
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 function setExpr(id,e){$("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
@@ -542,11 +542,17 @@ function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
   $("#vname").innerHTML=me?"代表":m?`${m.n}<i class="en">${m.f.toUpperCase()}</i>`:"旁白"; $("#vname").style.setProperty("--nc",me?"var(--acc)":m?m.c:"#9b8aa0");
   if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)) setExpr(id,EXPR.includes(e)?e:guessExpr(text)); else if(!m) setExpr(null);
+  $("#vbox").dataset.m=me?"me":m?m.id:"narr";
   logLines.push([me?"代表":m?m.n:"",text]);
   const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
+  fitText(el,text);
   if(still){el.textContent=text; typing=null; return}
   let i=0; const chars=[...String(text)]; el.textContent="";
   typing=setInterval(()=>{i+=2; el.textContent=chars.slice(0,i).join(""); if(i>=chars.length){clearInterval(typing);typing=null;$("#vbox").classList.add("wait");queueAuto()}},40)}
+function fitText(el,text){ // 長台詞:先放完整文字量,放不下就逐步縮小字(最小 76%),打字效果不會中途換行跳動
+  el.style.fontSize=""; el.textContent=text; const base=parseFloat(getComputedStyle(el).fontSize);
+  for(let k=.96;k>=.76&&el.scrollHeight>el.clientHeight+1;k-=.04) el.style.fontSize=(base*k).toFixed(2)+"px";
+  el.textContent=""}
 function advance(){if(!D||$("#vopts .choice")) return;
   if(typing){clearInterval(typing);typing=null;const it=logLines[logLines.length-1];$("#vtext").textContent=it?it[1]:"";$("#vbox").classList.add("wait");queueAuto();return}
   clearTimeout(autoT); step()}
@@ -600,11 +606,8 @@ function renderSources(){if(!$("#srcList")) return;
   $("#srcList").innerHTML=(syAuth()?"":`<li>還沒登入,目前用內建的示範劇情與立繪。</li>`)
     +`<li>劇本工坊:${lib?`已收錄 ${lib} 個片段(${Object.entries(byType).map(([k,v])=>k+" "+v).join("、")})`:"還沒有讀到已收錄的片段,先用內建示範劇情"}</li>`
     +`<li>衣帽間工坊:${items.length?`${items.length} 套造型,其中練習與日常類 ${daily.length} 套`:"還沒有讀到造型"}</li>`;
-  const sprites=window.OUTFIT_SPRITES||[], done=new Set(sprites.filter(o=>o.look).map(o=>o.look+"@"+o.m));
-  const todo=[]; for(const l of daily) for(const [slot,o] of Object.entries(l.members||{})){const mid=WMEM[slot]; if(mid&&o.img&&!done.has(l.code+"@"+mid)) todo.push(`${byId(mid).n}:${l.name}(${l.code},${l.occasion}${l.seasons?.length&&l.seasons.length<4?"・"+l.seasons.join(""):""})`)}
   const season=seasonOf(dateOf(S.day));
-  $("#wardList").innerHTML=M.map(m=>{const w=wardrobe(m.id);return `<li><b style="color:${m.c}">${m.n}</b>:${Object.entries(CAT).map(([k,occ])=>{const n=w.filter(o=>o.occ===occ).length,ns=w.filter(o=>o.occ===occ&&(!o.seasons.length||o.seasons.includes(season))).length;return `${k} ${n}${n?`(${season}天可穿 ${ns})`:""}`}).join("・")}</li>`}).join("")
-    +(todo.length?`<li>衣帽間已生圖、還沒處理成遊戲立繪的(把這些圖交給 Claude 處理):<br>${todo.map(esc).join("<br>")}</li>`:"")}
+  $("#wardList").innerHTML=M.map(m=>{const w=wardrobe(m.id);return `<li><b style="color:${m.c}">${m.n}</b>:${Object.entries(CAT).map(([k,occ])=>{const n=w.filter(o=>o.occ===occ).length,ns=w.filter(o=>o.occ===occ&&(!o.seasons.length||o.seasons.includes(season))).length;return `${k} ${n}${n?`(${season}天可穿 ${ns})`:""}`}).join("・")}</li>`}).join("")}
 $("#cfgSave").onclick=()=>{const t=$("#cfgIn").value; const k=t.match(/apiKey["'\s:]+["']([^"']+)["']/),p=t.match(/projectId["'\s:]+["']([^"']+)["']/);
   if(!k||!p){toast2("找不到 apiKey 或 projectId,請貼上整段 firebaseConfig");return}
   localStorage.setItem(SY_CFG,JSON.stringify({apiKey:k[1],projectId:p[1]})); $("#cfgIn").value=""; renderSet(); toast2("Firebase 設定已儲存")};
@@ -658,3 +661,26 @@ function titleReady(){
   const go=()=>{ el.classList.add("out"); setPause("title",false); setTimeout(()=>el.remove(),900) };
   el.onclick=go; btn.onclick=e=>{e.stopPropagation();go()};
 }
+
+/* ===== Android 返回鍵(APK 的 WebView 把返回鍵當成「上一頁」)=====
+   依序關掉最上層的畫面;都沒有開時,2 秒內再按一次才離開遊戲 */
+(function(){
+  const vis=e=>e&&e.offsetParent!==null&&!e.closest(".hide");
+  const steps=[
+    ()=>{const d=[...document.querySelectorAll("dialog[open]")].pop(); if(d){d.close(); return true}},
+    ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
+    ()=>{const d=document.querySelector("#facDetail"); if(d&&!d.classList.contains("hide")){(d.querySelector("#dClose")||d).click(); d.classList.add("hide"); return true}},
+    ()=>{const p=document.querySelector("#phone"); if(p&&p.classList.contains("on")){document.querySelector("#pHome")?.click(); return true}},
+    ()=>{const b=[...document.querySelectorAll(".fac-close")].find(vis); if(b){b.click(); return true}},
+    ()=>{const d=document.querySelector("#drawer"); if(d&&d.classList.contains("on")){d.classList.remove("on"); setPause("drawer",false); return true}},
+  ];
+  let t=null;
+  const push=()=>history.pushState({pgg:1},"");
+  push();
+  addEventListener("popstate",()=>{
+    clearTimeout(t);
+    for(const f of steps){ try{ if(f()){ push(); return } }catch(e){} }
+    // 都沒開:先不補上一頁,2 秒內再按一次 WebView 就沒有上一頁可退,App 會離開;沒再按就補回來
+    toast2("再按一次返回鍵離開遊戲"); t=setTimeout(push,2000);
+  });
+})();
