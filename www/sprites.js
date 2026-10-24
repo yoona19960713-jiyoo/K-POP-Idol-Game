@@ -110,6 +110,7 @@ function keyOut2(ctx,W,H){
     if(!nb) continue; const D=dist(p); if(D<TOL*.6) continue; const a=Math.min(.6,(D-TOL*.6)/(TOL*2)); if(a<.06) continue;
     const Br=bgc(p,0),Bg=bgc(p,1),Bb=bgc(p,2); out[i]=Br+(d[i]-Br)/a; out[i+1]=Bg+(d[i+1]-Bg)/a; out[i+2]=Bb+(d[i+2]-Bb)/a; out[i+3]=Math.round(255*a) }
   im.data.set(out); ctx.putImageData(im,0,0);
+  return Bf;
 }
 
 function hasAlpha(ctx,W,H){const d=ctx.getImageData(0,0,W,8).data; let z=0; for(let i=3;i<d.length;i+=4) if(d[i]<20) z++; return z>W*2}
@@ -127,12 +128,42 @@ function locate(oD,W,H,nD,cw,ch,face){
   return {x:best[0],y:best[1],err:bv};
 }
 
+/* ---- 用「沒換衣服的底模」的精準去背當基準(2026-10-24) ----
+   造型圖是從姿勢底模改出來的:頭、頭髮、手腳的位置與畫法都一樣,只有衣服不同。
+   底模已經先用專門的動畫去背模型(isnet-anime)做好遮罩:站姿用表情組本身,其他姿勢用 assets/pose/cut/成員_姿勢.webp。
+   每個像素比對造型圖與底模:顏色一樣 → 同一張畫,用底模的透明度(髮絲、手臂邊緣都乾淨);
+   顏色不同 → 衣服變了,用遊戲自己的去背;底模那裡沒有人、造型圖又是灰底或影子 → 清掉 */
+async function fuseWithPrior(B,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD){
+  let P=nD;   // 站姿:表情組(與造型圖同一個裁切框)
+  if(pose&&pose!=="stand"&&POSE_CUT(f,pose)){
+    try{ const [pi,mi]=await Promise.all([loadImg(`assets/pose/${f}_${pose}.webp`),loadImg(`assets/pose/cut/${f}_${pose}.webp`)]);
+      const w=pi.naturalWidth,h=pi.naturalHeight, c=canvas(w,h), x=c.getContext("2d",{willReadFrequently:true});
+      x.drawImage(mi,0,0); const md=x.getImageData(0,0,w,h).data; x.drawImage(pi,0,0); const id=x.getImageData(0,0,w,h);
+      for(let i=0;i<md.length;i+=4) id.data[i+3]=md[i]; x.putImageData(id,0,0);
+      const pp=locate(id.data,w,h,nD,cw,ch,face), c2=canvas(cw,ch), x2=c2.getContext("2d",{willReadFrequently:true});
+      x2.drawImage(c,-pp.x,-pp.y); P=x2.getImageData(0,0,cw,ch).data }catch(e){ P=nD } }
+  for(let y=0;y<ch;y++){ const Y=y+pos.y; for(let x=0;x<cw;x++){ const X=x+pos.x, i=(y*cw+x)*4;
+    if(X<0||Y<0||X>=W||Y>=H){B[i+3]=0;continue}
+    const q=Y*W+X, j=q*4, r=rawD[j],g=rawD[j+1],b=rawD[j+2], br=Bf[q*3],bg=Bf[q*3+1],bb=Bf[q*3+2];
+    const db=Math.hypot(r-br,g-bg,b-bb), chr=Math.max(r,g,b)-Math.min(r,g,b), L=(r+g+b)/3, bL=(br+bg+bb)/3;
+    const bgLike=(db<30&&chr<18)||(chr<14&&L<bL+6&&L>bL-70);          // 灰底或灰色影子
+    const Pa=P[i+3], diff=Math.abs(r-P[i])+Math.abs(g-P[i+1])+Math.abs(b-P[i+2]);
+    let a, cr=B[i],cg=B[i+1],cb=B[i+2];
+    if(Pa>=8&&diff<45){ a=Pa; cr=r;cg=g;cb=b;                        // 同一張畫:用底模的透明度,並扣掉邊緣的灰
+      if(a<250){const k=a/255; cr=br+(r-br)/k; cg=bg+(g-bg)/k; cb=bb+(b-bb)/k} }
+    else if(Pa>=8){ a=bgLike?0:(B[i+3]>0?B[i+3]:(db>40?255:0)); if(a===255&&B[i+3]===0){cr=r;cg=g;cb=b} }   // 衣服變了
+    else a=bgLike?0:B[i+3];                                            // 底模這裡沒有人:造型多出來的部分(裙擺等)
+    B[i]=Math.max(0,Math.min(255,cr)); B[i+1]=Math.max(0,Math.min(255,cg)); B[i+2]=Math.max(0,Math.min(255,cb)); B[i+3]=a } }
+}
+const POSE_CUT=(f,pose)=>!!(window.POSE_ASSETS||{})[f+"_"+pose];
+
 /* ---- 主流程:一張造型圖 → 六張表情立繪 ---- */
-async function makeSprites(mid,imgURL){
+async function makeSprites(mid,imgURL,pose){
   const m=byId(mid), f=m.f, [cw,ch]=CROP[f], face=FACE[f];
   const oi=await loadImg(imgURL), W=oi.naturalWidth, H=oi.naturalHeight;
   const oc=canvas(W,H), ox=oc.getContext("2d",{willReadFrequently:true}); ox.drawImage(oi,0,0);
-  let keyed=false; if(!hasAlpha(ox,W,H)){ keyOut2(ox,W,H); keyed=true }
+  const rawD=ox.getImageData(0,0,W,H).data.slice();       // 去背前的原色(邊緣用)
+  let keyed=false, Bf=null; if(!hasAlpha(ox,W,H)){ Bf=keyOut2(ox,W,H); keyed=true }
   const oD=ox.getImageData(0,0,W,H).data;
   // 表情組放大回原圖比例
   const ex={}; for(const e of EXS){ const im=await loadImg(`assets/chara/${f}_${e}.webp`); const c=canvas(cw,ch); c.getContext("2d").drawImage(im,0,0,cw,ch); ex[e]=c }
@@ -145,6 +176,7 @@ async function makeSprites(mid,imgURL){
   // 造型圖裁成表情組的框
   const base=canvas(cw,ch), bx=base.getContext("2d",{willReadFrequently:true}); bx.drawImage(oc,-pos.x,-pos.y);
   const bD=bx.getImageData(0,0,cw,ch);
+  if(keyed) await fuseWithPrior(bD.data,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD);
   // 膚色對齊用:遮罩中心區、夠亮的像素
   const skin=(D)=>{let r=0,g=0,b=0,n=0; for(let p=0;p<cw*ch;p++){ if(mask[p]<.8) continue; const i=p*4; if(D[i+3]<200) continue; const L=gray(D,i); if(L<150) continue; r+=D[i];g+=D[i+1];b+=D[i+2];n++} return n?[r/n,g/n,b/n]:null};
   const sB=skin(bD.data), out={};
@@ -181,7 +213,7 @@ window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) re
 window.processSprites=async(code,slot,opts={})=>{
   const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})), mid=WMEM[slot]; if(!lk.code||!mid) throw new Error("找不到這套造型");
   const src=await getBlob(lk.members?.[slot]?.img); if(!src) throw new Error("這位成員還沒有圖");
-  const r=await makeSprites(mid,src);
+  const r=await makeSprites(mid,src,lk.pose);
   lk.members[slot].sprites=r.sprites; lk.members[slot].spriteAt=Date.now(); lk.updatedAt=Date.now();
   const k=code+"@"+mid; DYN[k]=Object.fromEntries(Object.entries(r.sprites).map(([e,u])=>[e,toBlobURL(u)]));
   const ok=await saveDoc("items",lk); ensureWear(true); rerender();

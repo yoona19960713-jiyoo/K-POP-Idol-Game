@@ -1108,7 +1108,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
   .vtext{left:calc(4.6*var(--u));right:calc(3.4*var(--u));top:calc(4.5*var(--u));line-height:1.55;font-size:calc(1.75*var(--u))}
   .vtext::before{content:"";float:right;width:calc(14.5*var(--u));height:calc(1.9*var(--u))} /* 第一行讓出 Auto/Log 的位置 */
   /* 選項從右上開始排,永遠停在 Auto/Log 上方,太多時可捲動 */
-  .vopts{top:calc(1.2*var(--u));width:calc(33*var(--u));max-height:calc(100% - 1.2*var(--u) - 15.1*var(--u) - 3.2*var(--u))}
+  .vopts{top:calc(5.2*var(--u));width:calc(33*var(--u));max-height:calc(100% - 5.2*var(--u) - 15.1*var(--u) - 3.2*var(--u))}  /* 讓出右上角的返回鍵 */
   .vopt{font-size:calc(1.3*var(--u));line-height:1.45;padding:calc(.45*var(--u)) calc(1.6*var(--u)) calc(.45*var(--u)) calc(3.4*var(--u))}
   .vopt::before{left:calc(1.5*var(--u))}
   .vopt small{font-size:calc(.95*var(--u))}
@@ -1132,6 +1132,15 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
   .pin.dis .plate small{display:block;font-size:max(calc(.8*var(--u)),9px)}   /* 手機上也看得到「晚上、深夜開放」 */
   .pin.dis .plate{opacity:.82}
 }
+
+/* 場景裡的返回鍵(右上角);成員數值的提示往下移,不跟它重疊 */
+.vback{position:absolute;z-index:6;top:calc(1.2*var(--u));right:calc(1.4*var(--u));display:flex;flex-direction:column;align-items:center;gap:0;
+  padding:calc(.45*var(--u)) calc(1.4*var(--u));border-radius:calc(2*var(--u));background:rgba(28,20,36,.62);-webkit-backdrop-filter:blur(calc(.8*var(--u)));backdrop-filter:blur(calc(.8*var(--u)));
+  border:calc(.1*var(--u)) solid rgba(243,226,174,.55);color:#fff;font:600 max(calc(1.05*var(--u)),11px)/1.25 var(--serif);letter-spacing:.12em;cursor:pointer;transition:scale .12s}
+.vback small{font:500 max(calc(.72*var(--u)),9px)/1.2 var(--serif);letter-spacing:.06em;color:#F3E2AE;opacity:.9}
+.vback:active{scale:.92}
+.vback[hidden]{display:none}
+.stage:has(#visit.on) #fx{top:calc(5.2*var(--u))}
 </style>
 </head>
 <body>

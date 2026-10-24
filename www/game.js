@@ -460,9 +460,10 @@ $("#endBtn").onclick=()=>endSlot("manual");
 let V=null, D=null, typing=null, auto=false, autoT=0, logLines=[];
 function visit(pid){
   const p=PL[pid]; if(!p.open.includes(S.slot)||S.acts<=0||S.visited.includes(pid)||V) return;
+  const snap=JSON.stringify(S);
   S.acts--; S.visited.push(pid); save(true); setPause("visit",true);
   const ppl=pid==="office"?[]:who(pid).map(m=>m.id);
-  V={pid,room:pid,present:ppl,talked:new Set(),summoned:null}; logLines=[];
+  V={pid,room:pid,present:ppl,talked:new Set(),summoned:null,snap}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; $("#vsub").textContent=`${SLOTS[S.slot].n}・${hm()}・剩 ${S.acts} 次行動`;
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML="";
@@ -501,23 +502,33 @@ function menu(){
   $("#leave").onclick=leave; $("#vopts button")?.focus({preventScroll:true})}
 function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*pool.length)];
   return {code:"demo-line-"+id,type:"topic",who:[id],member:id,nodes:{start:{L:[[id,t,e]],C:[]}},demoLine:true}}
-function talk(id){V.talked.add(id); const p=PL[V.pid];
+function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid];
   const sn=pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
   play(sn,menu)}
-function summon(id){V.summoned=id; V.talked.add(id); drawPeople();
+function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
   play(sn,menu)}
 function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
 
+/* ---- 返回鍵(右上角):誤點進場景時可以退出。還沒跟成員聊過 → 存檔還原到進來之前,不花行動;聊過之後 → 直接離開 ---- */
+function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"); b.id="vback"; b.className="vback"; $("#visit").appendChild(b); b.onclick=backOut }
+  const free=V&&!V.test&&V.talked.size===0; b.hidden=!V||!!V.test; b.innerHTML=free?`<span>‹ 返回</span><small>不花行動</small>`:`<span>‹ 離開</span>` }
+function backOut(){ if(!V||V.test) return; const free=V.talked.size===0;
+  if(free){ const o=JSON.parse(V.snap); for(const k of Object.keys(S)) if(!(k in o)) delete S[k]; Object.assign(S,o) }
+  D=null; clearInterval(typing); typing=null; stopAuto(); $("#vopts").innerHTML="";
+  $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; save(true);
+  if(free) toast2("已返回,這次沒有花掉行動");
+  if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()} }
+
 /* ---- 試玩(製作者模式用):不花行動、不改存檔 ---- */
 window.testPlay=function(sn,onDone){
   if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen});
   const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",styling:"styling",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
   const room=roomOf[sn.at]||"practice";
-  V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[];
+  V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花行動,也不會影響存檔";
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
   play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; save();
@@ -680,6 +691,8 @@ function titleReady(){
     ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
     ()=>{const d=document.querySelector("#facDetail"); if(d&&!d.classList.contains("hide")){(d.querySelector("#dClose")||d).click(); d.classList.add("hide"); return true}},
     ()=>{const p=document.querySelector("#phone"); if(p&&p.classList.contains("on")){document.querySelector("#pHome")?.click(); return true}},
+    ()=>{const l=document.querySelector("#vlog"); if(l&&l.classList.contains("on")){l.classList.remove("on"); return true}},
+    ()=>{ if(V&&!V.test){ backOut(); return true } },
     ()=>{const b=[...document.querySelectorAll(".fac-close")].find(vis); if(b){b.click(); return true}},
     ()=>{const d=document.querySelector("#drawer"); if(d&&d.classList.contains("on")){d.classList.remove("on"); setPause("drawer",false); return true}},
   ];
