@@ -304,11 +304,26 @@ function setArt(id,url){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.u;if(cur
   if(!cur){a.style.backgroundImage=`url(${url})`;a.dataset.u=url;return}
   b.style.backgroundImage=`url(${url})`;b.classList.remove("next");setTimeout(()=>{a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.classList.add("next")},1250)}
 
-function renderHud(){const d=dateOf(S.day);
-  $("#date").textContent=`${pad(d.getMonth()+1)}.${pad(d.getDate())}`; $("#wday").textContent=`${d.getFullYear()}・${WD[d.getDay()]}`; $("#dayN").textContent=window.debutText?debutText():`第 ${S.day+1} 天`;
-  $("#slotName").textContent=SLOTS[S.slot].n; $("#hm").textContent=hm();
-  [...$("#segs").children].forEach((e,i)=>{e.className=i<S.slot?"done":i===S.slot?"on":""; e.firstChild.style.width=i===S.slot?`${100*Math.min(S.t,SLOT_SEC)/SLOT_SEC}%`:"0"});
-  [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)); $("#actN").textContent=S.acts; $("#badge").textContent=S.unread||""}
+/* 場景圖預先解碼:進建築、進房間時不會先黑一下(手機上解碼大圖較慢)。閒置時逐張處理,這個時段和下一個時段都先備好 */
+const WARMED=new Set(); let warmQ=[], warming=false, warmKey="";
+function warmArt(){ const key=S.day+"|"+S.slot; if(key===warmKey) return; warmKey=key;
+  const lights=[SLOTS[S.slot].light, SLOTS[Math.min(S.slot+1,SLOTS.length-1)].light];
+  const rooms=["practice","studio","office","styling","living","kitchen","store","river","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"];
+  for(const l of lights){ warmQ.push(seasonArt("scene","map",l),seasonArt("scene","company",l),seasonArt("scene","dorm",l)); for(const r of rooms) warmQ.push(seasonArt("bg",r,l)) }
+  warmQ=warmQ.filter(u=>!WARMED.has(u)); if(!warming) warmNext() }
+function warmNext(){ const u=warmQ.shift(); if(!u){warming=false;return} warming=true; WARMED.add(u);
+  const go=()=>{ const i=new Image(); i.src=u; (i.decode?i.decode():Promise.resolve()).catch(()=>{}).finally(()=>setTimeout(warmNext,120)) };
+  window.requestIdleCallback?requestIdleCallback(go,{timeout:2000}):setTimeout(go,200) }
+/* 頂部列每一格畫面都會呼叫:只在數值真的改變時才寫進畫面(每格都重寫會讓玻璃面板一直重畫,手機很耗電、很卡) */
+const HUDC={};
+function hudSet(id,v,prop="textContent"){ const k=id+prop; if(HUDC[k]===v) return; HUDC[k]=v; const e=document.getElementById(id); if(e) e[prop]=v }
+function renderHud(){const d=dateOf(S.day); warmArt();
+  hudSet("date",`${pad(d.getMonth()+1)}.${pad(d.getDate())}`); hudSet("wday",`${d.getFullYear()}・${WD[d.getDay()]}`); hudSet("dayN",window.debutText?debutText():`第 ${S.day+1} 天`);
+  hudSet("slotName",SLOTS[S.slot].n); hudSet("hm",hm());
+  const pct=Math.round(200*Math.min(S.t,SLOT_SEC)/SLOT_SEC)/2, segKey=S.slot+"|"+pct;
+  if(HUDC.seg!==segKey){ HUDC.seg=segKey; [...$("#segs").children].forEach((e,i)=>{const c=i<S.slot?"done":i===S.slot?"on":""; if(e.className!==c) e.className=c; e.firstChild.style.width=i===S.slot?pct+"%":"0"}) }
+  const apKey=S.acts; if(HUDC.ap!==apKey){ HUDC.ap=apKey; [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)) }
+  hudSet("actN",String(S.acts)); hudSet("badge",String(S.unread||""))}
 
 function renderWorld(){
   setArt("worldArt",seasonArt("scene","map",L()));
@@ -473,7 +488,7 @@ function menu(){
   $("#vopts").innerHTML=opts.join("");
   $("#vopts").querySelectorAll("[data-talk]").forEach(b=>b.onclick=()=>talk(b.dataset.talk));
   $("#vopts").querySelectorAll("[data-sum]").forEach(b=>b.onclick=()=>summon(b.dataset.sum));
-  $("#leave").onclick=leave; $("#vopts button")?.focus()}
+  $("#leave").onclick=leave; $("#vopts button")?.focus({preventScroll:true})}
 function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*pool.length)];
   return {code:"demo-line-"+id,type:"topic",who:[id],member:id,nodes:{start:{L:[[id,t,e]],C:[]}},demoLine:true}}
 function talk(id){V.talked.add(id); const p=PL[V.pid];
@@ -532,7 +547,7 @@ document.addEventListener("keydown",e=>{if(!V) return; if(e.key===" "||e.key==="
   if(e.key==="Escape"){if($("#vlog").classList.contains("on")) $("#vlog").classList.remove("on"); else if(!D) leave()}});
 function showChoices(C){$("#vbox").classList.remove("wait"); stopAutoTimer();
   $("#vopts").innerHTML=C.map((c,i)=>`<button class="vopt choice" data-c="${i}">${esc(c.t)}${c.s?`<small>${esc(c.s)}</small>`:""}</button>`).join("");
-  $("#vopts").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>choose(C[+b.dataset.c])); $("#vopts button")?.focus()}
+  $("#vopts").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>choose(C[+b.dataset.c])); $("#vopts button")?.focus({preventScroll:true})}
 function choose(c){
   $("#vopts").innerHTML=""; applyChoice(c);
   D.q=[{k:"line",id:"me",text:c.t}];
@@ -554,6 +569,10 @@ $("#logBtn").onclick=()=>{const L=$("#vlog");L.innerHTML=`<button class="x" id="
 
 /* ---------- 手機 ---------- */
 function openSheet(id){}
+/* 不可捲動的區塊(舞台、面板)不允許被捲走:焦點移到畫面外的按鈕時,瀏覽器會把它捲動,整片畫面就偏掉 */
+document.addEventListener("scroll",e=>{ const t=e.target; if(!t||t.nodeType!==1) return; const cs=getComputedStyle(t);
+  if(t.scrollLeft&&(cs.overflowX==="hidden"||cs.overflowX==="clip")) t.scrollLeft=0;
+  if(t.scrollTop&&(cs.overflowY==="hidden"||cs.overflowY==="clip")) t.scrollTop=0 },true);
 $("#phoneBtn").onclick=()=>{ if(window.openPhone) openPhone() };
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>openSheet(null));
 

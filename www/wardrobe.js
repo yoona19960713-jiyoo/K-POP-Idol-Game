@@ -106,7 +106,7 @@ const wLooks=()=>Object.values(ITEMS).filter(l=>l&&(!l.kind||l.kind==="look")&&!
 
 /* ---------- 雲端圖片(衣帽間把圖片以雜湊存在 users/{uid}/blobs) ---------- */
 const BLOBMEM=new Map();
-async function getBlob(ref){
+async function getBlob(ref,noKeep){
   if(!ref) return ""; if(String(ref).startsWith("data:")) return ref;
   const h=String(ref).replace(/^blob:/,""); if(BLOBMEM.has(h)) return BLOBMEM.get(h);
   let s=await IDB.get("blob:"+h);
@@ -114,18 +114,74 @@ async function getBlob(ref){
     const n=+first.fields.n.integerValue; s=first.fields.d.stringValue;
     for(let i=1;i<n;i++){const d=await syGet(`blobs/${h}-${i}`); s+=d?.fields?.d?.stringValue||""}
     await IDB.set("blob:"+h,s) }
-  if(s) BLOBMEM.set(h,s); return s||"";
+  if(s&&!noKeep) BLOBMEM.set(h,s); return s||"";
 }
-const THUMB=new Map();
-async function getThumb(ref){
-  const h=String(ref).replace(/^blob:/,""); if(THUMB.has(h)) return THUMB.get(h);
-  let t=await IDB.get("thumb:"+h);
-  if(!t){ const src=await getBlob(ref); if(!src) return "";
-    const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=src}).catch(()=>null); if(!img) return "";
-    const H=540,W=Math.round(img.width*H/img.height),c=document.createElement("canvas"); c.width=W;c.height=H; c.getContext("2d").drawImage(img,0,0,W,H);
-    t=c.toDataURL("image/webp",.85); await IDB.set("thumb:"+h,t) }
-  THUMB.set(h,t); return t;
-}
+/* ---------- 縮圖(衣櫃卡片、底模、待審舊圖) ----------
+   以前:每張卡片同時讀完整原圖、在主執行緒解碼縮小再壓成 data URL,衣櫃一打開就整個卡住。
+   現在:縮圖存成檔案(Blob)放在本機資料庫,顯示時用 object URL;要新做縮圖時,
+   解碼與縮小交給瀏覽器背景處理(createImageBitmap),一次最多做兩張,看得到的卡片才做,
+   遊戲閒置時也會先在背景把縮圖做好。 */
+const THUMB=new Map(), THUMB_P=new Map(), THUMB_H=480;
+let thumbRun=0; const thumbQ=[];
+function thumbPump(){ while(thumbRun<2&&thumbQ.length){ const job=thumbQ.shift(); thumbRun++;
+  makeThumb(job.ref).then(job.ok,()=>job.ok("")).finally(()=>{thumbRun--; thumbPump()}) } }
+/* 縮圖工人:在背景執行緒讀原圖、縮小、壓成 webp、存回本機資料庫,主畫面完全不卡 */
+let TW=null, twSeq=0; const twWait=new Map();
+function thumbWorker(){
+  if(TW!==null) return TW;
+  if(!(window.Worker&&window.OffscreenCanvas&&window.createImageBitmap)) return TW=false;
+  const code=`const op=()=>new Promise((ok,no)=>{const r=indexedDB.open("kpopGame",1);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+let DB=null; const db=async()=>DB||(DB=await op());
+const get=async k=>{const d=await db();return new Promise(ok=>{const q=d.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>ok(q.result??null);q.onerror=()=>ok(null)})};
+const put=async(k,v)=>{const d=await db();return new Promise(ok=>{const t=d.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=()=>ok();t.onerror=()=>ok()})};
+onmessage=async e=>{const {id,h,H}=e.data;try{const s=await get("blob:"+h);if(!s){postMessage({id,miss:1});return}
+ const raw=await (await fetch(s)).blob();let b;try{b=await createImageBitmap(raw,{resizeHeight:H,resizeQuality:"high"})}catch(_){b=await createImageBitmap(raw)}
+ const hh=Math.min(H,b.height),w=Math.round(b.width*hh/b.height),c=new OffscreenCanvas(w,hh);c.getContext("2d").drawImage(b,0,0,w,hh);b.close&&b.close();
+ const out=await c.convertToBlob({type:"image/webp",quality:.85});await put("thumb2:"+h,out);postMessage({id,blob:out})}catch(err){postMessage({id,err:String(err)})}};`;
+  try{ TW=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"})));
+    TW.onmessage=e=>{const w=twWait.get(e.data.id); if(w){twWait.delete(e.data.id); w(e.data)}};
+    TW.onerror=()=>{TW=false} }catch(e){ TW=false }
+  return TW }
+const viaWorker=h=>new Promise(ok=>{const w=thumbWorker(); if(!w) return ok(null); const id=++twSeq; twWait.set(id,ok); w.postMessage({id,h,H:THUMB_H})});
+async function makeThumb(ref){
+  const h=String(ref).replace(/^blob:/,"");
+  let blob=String(ref).startsWith("data:")?null:await IDB.get("thumb2:"+h);
+  if(!(blob instanceof Blob)){ blob=null;
+    const old=String(ref).startsWith("data:")?null:await IDB.get("thumb:"+h);   // 舊版存的 data URL 縮圖:直接轉成檔案
+    if(old){ blob=await (await fetch(old)).blob(); await IDB.set("thumb2:"+h,blob) }
+    else if(!String(ref).startsWith("data:")&&thumbWorker()){
+      let r=await viaWorker(h);
+      if(r?.miss){ if(await getBlob(ref,true)) r=await viaWorker(h) }      // 原圖還在雲端:先下載到本機再做
+      blob=r?.blob||null }
+    if(!blob){ const src=await getBlob(ref,true); if(!src) return "";       // 不支援背景執行緒的瀏覽器:在主畫面做
+      const raw=await (await fetch(src)).blob();
+      let bmp=null; try{ bmp=await createImageBitmap(raw,{resizeHeight:THUMB_H,resizeQuality:"high"}) }catch(e){}
+      if(!bmp){ bmp=await createImageBitmap(raw).catch(()=>null) } if(!bmp) return "";
+      const H=Math.min(THUMB_H,bmp.height), W=Math.round(bmp.width*H/bmp.height);
+      const c=document.createElement("canvas"); c.width=W; c.height=H; c.getContext("2d").drawImage(bmp,0,0,W,H); bmp.close?.();
+      blob=await new Promise(ok=>c.toBlob(ok,"image/webp",.85)); if(!blob) return "";
+      if(!String(ref).startsWith("data:")) await IDB.set("thumb2:"+h,blob) } }
+  const url=URL.createObjectURL(blob); THUMB.set(h,url); return url }
+function getThumb(ref){
+  const h=String(ref).replace(/^blob:/,""); if(THUMB.has(h)) return Promise.resolve(THUMB.get(h));
+  if(!THUMB_P.has(h)) THUMB_P.set(h,new Promise(ok=>{thumbQ.push({ref,ok}); thumbPump()}).then(u=>{ if(!u) THUMB_P.delete(h); return u }));
+  return THUMB_P.get(h) }
+/* 只替畫面上(或快捲到)的縮圖排隊 */
+let thumbIO=null;
+function lazyThumbs(root,sel,attr){
+  if(!window.IntersectionObserver){ for(const el of root.querySelectorAll(sel)){ const r=el.dataset[attr]; if(r) getThumb(r).then(t=>{if(t) el.style.backgroundImage=`url(${t})`}) } return }
+  thumbIO?.disconnect();
+  thumbIO=new IntersectionObserver(es=>{ for(const e of es){ if(!e.isIntersecting) continue; thumbIO.unobserve(e.target);
+    const el=e.target, r=el.dataset[attr]; if(r) getThumb(r).then(t=>{if(t) el.style.backgroundImage=`url(${t})`}) } },{root:document.getElementById("facBody"),rootMargin:"600px 0px"});
+  for(const el of root.querySelectorAll(sel)){ const r=el.dataset[attr]; if(!r) continue;
+    const h=String(r).replace(/^blob:/,""); if(THUMB.has(h)) el.style.backgroundImage=`url(${THUMB.get(h)})`; else thumbIO.observe(el) } }
+/* 閒置時先把衣櫃的縮圖做好(一次一張,不影響遊戲) */
+async function warmThumbs(){
+  const refs=[]; for(const lk of wLooks()) for(const o of Object.values(lk.members||{})) if(o?.img) refs.push(o.img);
+  for(const r of refs){ const h=String(r).replace(/^blob:/,""); if(THUMB.has(h)) continue;
+    if(!(await IDB.get("thumb2:"+h) instanceof Blob)){ await new Promise(ok=>window.requestIdleCallback?requestIdleCallback(ok,{timeout:4000}):setTimeout(ok,300)) }
+    await getThumb(r) } }
+setTimeout(()=>{ warmThumbs().catch(()=>{}) },6000);
 async function wHash(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return [...new Uint8Array(b)].slice(0,16).map(x=>x.toString(16).padStart(2,"0")).join("")}
 async function wStrip(obj,blobs){
   if(typeof obj==="string"){ if(obj.startsWith("data:image")){const h=await wHash(obj);blobs.set(h,obj);return "blob:"+h} return obj }
@@ -542,9 +598,8 @@ async function renderFacility(){
   const st=$("#fStart"); if(st) st.onclick=()=>{ for(const t of todoList()){const id=jobId(t.code,t.slot); if(!JOBS.some(j=>j.id===id)) JOBS.push({id,...t,state:"wait"})} runQueue() };
   const sp=$("#fStop"); if(sp) sp.onclick=()=>{STOP=true; toast2("這張畫完就暫停")};
   for(const el of body.querySelectorAll(".rold[data-oldref]")) getThumb(el.dataset.oldref).then(t=>{ if(t) el.style.backgroundImage=`url(${t})` });
-  // 縮圖慢慢載入
-  for(const el of body.querySelectorAll(".wimg[data-ref]")){ const ref=el.dataset.ref; if(!ref) continue;
-    getThumb(ref).then(t=>{ if(t) el.style.backgroundImage=`url(${t})` }) }
+  // 縮圖:看得到的先做,已經做好的直接顯示
+  lazyThumbs(body,".wimg[data-ref]","ref");
 }
 window.renderFacility=renderFacility;
 async function openDetail(code,slot){
