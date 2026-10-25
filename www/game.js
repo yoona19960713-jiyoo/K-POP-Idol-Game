@@ -483,7 +483,9 @@ function drawPeople(){
   const xs=n<=1?[$("#stage").clientWidth<900?36:30]:ids.map((_,i)=>(n<=3?17:13)+(n===2?26:n===3?36:46)*i/(n-1));
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
-function setExpr(id,e){$("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
+let lastSpk=null;
+function setExpr(id,e){ if(id&&id!==lastSpk&&!RM.matches){ const im=imgOf(id); if(im) im.animate([{translate:"0 .8%"},{translate:"0 0"}],{duration:300,easing:"cubic-bezier(.2,.7,.3,1)"}) } lastSpk=id||lastSpk;
+  $("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
   if(me){ img.dataset.ex=e; img.dataset.idle=""; swapExpr(img,spr(id,img.dataset.of||null,e)) }})}
 function swapExpr(img,src){ // 舊表情留一層殘影淡出,新表情解碼好才換,不會閃一下
   if(img.getAttribute("src")===src) return;
@@ -581,18 +583,25 @@ function showText(id,text,still,e){
   if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)) setExpr(id,EXPR.includes(e)?e:guessExpr(text)); else if(!m) setExpr(null);
   $("#vbox").dataset.m=me?"me":m?m.id:"narr";
   logLines.push([me?"代表":m?m.n:"",text]);
-  const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
+  const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait"); mouthStop();
   fitText(el,text);
   if(still){el.textContent=text; typing=null; return}
   let i=0; const chars=[...String(text)]; el.textContent="";
-  let tk=0;
-  typing=setInterval(()=>{i+=2; el.textContent=chars.slice(0,i).join(""); if(++tk%2===0&&/[\p{L}\p{N}]/u.test(chars[i-1]||"")) blip(id); if(i>=chars.length){clearInterval(typing);typing=null;$("#vbox").classList.add("wait");queueAuto()}},40)}
+  let tk=0, fl=0, mopen=false; if(m) mouthStart(id);
+  const PAUSE=ch=>/[。!?!?]/.test(ch)?300:/[,、;:,;:]/.test(ch)?150:ch==="…"?110:/[—~~]/.test(ch)?120:0;
+  const tick=()=>{ i++; el.textContent=chars.slice(0,i).join(""); const ch=chars[i-1]||"";
+    const isL=/[\p{L}\p{N}]/u.test(ch); if(isL&&++tk%3===0) blip(id);
+    if(isL){ const t=performance.now(); if(t-fl>95){ mopen=!mopen; fl=t } mouthFlap(mopen) } else { mopen=false; mouthFlap(false) }   // 嘴巴:約 0.1 秒開合一次,標點時閉上
+    if(i>=chars.length){typing=null;mouthFlap(false);setTimeout(mouthStop,80);$("#vbox").classList.add("wait");queueAuto();return}
+    const nx=chars[i]||"", p=PAUSE(ch)&&!PAUSE(nx)?PAUSE(ch):(ch==="…"?60:0);   // 連續標點只在最後一個停
+    typing=setTimeout(tick,20+p) };
+  typing=setTimeout(tick,20)}
 function fitText(el,text){ // 長台詞:先放完整文字量,放不下就逐步縮小字(最小 76%),打字效果不會中途換行跳動
   el.style.fontSize=""; el.textContent=text; const base=parseFloat(getComputedStyle(el).fontSize);
   for(let k=.96;k>=.76&&el.scrollHeight>el.clientHeight+1;k-=.04) el.style.fontSize=(base*k).toFixed(2)+"px";
   el.textContent=""}
 function advance(){if(!D||$("#vopts .choice")) return;
-  if(typing){clearInterval(typing);typing=null;const it=logLines[logLines.length-1];$("#vtext").textContent=it?it[1]:"";$("#vbox").classList.add("wait");queueAuto();return}
+  if(typing){clearTimeout(typing);typing=null;mouthStop();const it=logLines[logLines.length-1];$("#vtext").textContent=it?it[1]:"";$("#vbox").classList.add("wait");queueAuto();return}
   clearTimeout(autoT); step()}
 $("#vbox").onclick=e=>{if(e.target.closest(".dia")) return; advance()};
 document.addEventListener("keydown",e=>{if(!V) return; if(e.key===" "||e.key==="Enter"){if(document.activeElement?.closest?.("#vopts")) return; e.preventDefault(); advance()}
@@ -863,8 +872,8 @@ window.openPhoto=(src,name,opt={})=>{
 window.closePhoto=()=>{ const el=$("#photoView"); if(!el) return false; el.remove(); setPause("photo",false); return true };
 
 /* ===== 真人化(2026-10-24):即時表情反應、待機小動作、說話提示音 ===== */
-const RM=matchMedia("(prefers-reduced-motion:reduce)");
-const imgOf=id=>[...$("#vppl").querySelectorAll("img[data-id]")].find(i=>i.dataset.id===id);
+var RM=matchMedia("(prefers-reduced-motion:reduce)");
+var imgOf=id=>[...$("#vppl").querySelectorAll("img[data-id]")].find(i=>i.dataset.id===id);
 /* 選完選項的瞬間:對象先露出反應(好感大=害羞或大笑、普通=微笑、冷淡=難過),身體輕輕一彈或一縮 */
 function reactTo(c){ const id=c.to||D?.main; if(!id||!byId(id)||!V) return;
   const R=window.STAGE_RANK||[], deep=R.indexOf(stageOf(id))>=R.indexOf("心動"), g=+c.g||0;
@@ -878,9 +887,10 @@ setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return;
     const speaking=img.classList.contains("on")&&!$("#vbox").classList.contains("wait");
     if(speaking) return;
     const ex=img.dataset.ex||"neutral";
-    if(ex==="neutral"&&img.classList.contains("dim")&&Math.random()<.5){          // 偷偷看過來笑一下
-      img.dataset.idle="1"; img.dataset.ex="smile"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"smile"));
-      setTimeout(()=>{ if(img.isConnected&&img.dataset.idle==="1"&&img.dataset.ex==="smile"){ img.dataset.idle=""; img.dataset.ex="neutral"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"neutral")) } },2200+Math.random()*1200) }
+    const mood=S.m[img.dataset.id]?.mood??60, look=mood<35?"sad":"smile", chance=mood<35?.45:mood>75?.65:.5;
+    if(ex==="neutral"&&img.classList.contains("dim")&&Math.random()<chance){     // 心情好:偷看過來笑一下;心情差:嘆口氣
+      img.dataset.idle="1"; img.dataset.ex=look; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,look));
+      setTimeout(()=>{ if(img.isConnected&&img.dataset.idle==="1"&&img.dataset.ex===look){ img.dataset.idle=""; img.dataset.ex="neutral"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"neutral")) } },2200+Math.random()*1200) }
     else img.animate([{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
   }) },300);
 /* 說話提示音:每人不同音高的輕柔短音(設定裡可以關) */
@@ -892,3 +902,17 @@ function blip(id){ if(localStorage.getItem("kpopGame.blip")==="0"||!V) return; c
     o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+.09) }catch(e){} }
 (()=>{ const b=$("#blipOn"); if(!b) return; b.checked=localStorage.getItem("kpopGame.blip")!=="0";
   b.onchange=()=>{ localStorage.setItem("kpopGame.blip",b.checked?"1":"0"); if(b.checked) blip("hr") } })();
+
+/* ===== 說話時嘴巴開合(2026-10-24):每人「平常」「微笑」各一張只有嘴巴那塊的張嘴疊加層(assets/chara/mouth/成員_表情.webp,
+   與 2 倍表情組同尺寸)。打字時約 0.1 秒開合一次,標點與句尾閉上;其他表情不開合。換衣立繪的臉來自表情組,也適用 ---- */
+const MOUTH_SRC={}; let MOUTH=null;
+M.forEach(m=>["neutral","smile"].forEach(ex=>{ const im=new Image(); im.src=`assets/chara/mouth/${m.f}_${ex}.webp`;
+  (im.decode?im.decode():Promise.resolve()).then(()=>{ (MOUTH_SRC[m.id]=MOUTH_SRC[m.id]||{})[ex]=im.src }).catch(()=>{}) }));
+function mouthStart(id){ mouthStop(); const img=imgOf(id); if(!img) return; const ex=img.dataset.ex||"neutral"; if(ex!=="neutral"&&ex!=="smile") return;
+  const src=MOUTH_SRC[id]?.[ex]||`assets/chara/mouth/${byId(id).f}_${ex}.webp`;
+  const o=document.createElement("img"), cs=getComputedStyle(img); o.className=img.className+" mouth"; o.style.cssText=img.style.cssText; o.alt=""; o.src=src;
+  o.style.animationDuration=cs.animationDuration; o.style.animationDelay=cs.animationDelay; o.style.zIndex=cs.zIndex; o.style.opacity=0;
+  $("#vppl").appendChild(o); const a=img.getAnimations().find(x=>x.animationName==="breathe"), b=o.getAnimations()[0]; if(a&&b) b.currentTime=a.currentTime;
+  MOUTH={o,img} }
+function mouthFlap(open){ if(MOUTH&&MOUTH.o.isConnected) MOUTH.o.style.opacity=open?1:0 }
+function mouthStop(){ if(MOUTH){ MOUTH.o.remove(); MOUTH=null } }

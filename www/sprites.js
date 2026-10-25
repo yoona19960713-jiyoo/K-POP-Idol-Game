@@ -203,7 +203,16 @@ async function makeSprites(mid,imgURL,pose){
       const bx0=fx0*K, by0=fy0*K, bw=(fx1-fx0)*K, bh=(fy1-fy0)*K, E2=ex2.getImageData(bx0,by0,bw,bh).data, Dd=x2.getImageData(bx0,by0,bw,bh), D2=Dd.data;
       for(let y=0;y<bh;y++) for(let x=0;x<bw;x++){ const a=mask[((fy0+(y/K))|0)*cw+((fx0+(x/K))|0)]; if(!a) continue; const i=(y*bw+x)*4; if(E2[i+3]<10) continue; const k=a*E2[i+3]/255;
         for(let c=0;c<3;c++) D2[i+c]=D2[i+c]*(1-k)+Math.max(0,Math.min(255,E2[i+c]+sh[c]))*k }
-      x2.putImageData(Dd,bx0,by0) }
+      x2.putImageData(Dd,bx0,by0);
+      // 頭髮也用高清表情組:頭部那一段(臉中心往下 150px 以上,再 40px 漸變),顏色一致的像素換成 2 倍表情組
+      const HY=face[1]+150, hb=Math.min(H2,(HY+20)*K), HE=ex2.getImageData(0,0,W2,hb).data, Hd=x2.getImageData(0,0,W2,hb), HD=Hd.data;
+      for(let y=0;y<hb;y++){ const y1=y/K, w=y1<HY-20?1:(HY+20-y1)/40; if(w<=0) continue;
+        for(let x=0;x<W2;x++){ const i=(y*W2+x)*4; if(mask[((y1)|0)*cw+((x/K)|0)]>=.999) continue;
+          const ea=HE[i+3], ba=HD[i+3]; if(ea<8&&ba<8) continue;
+          const diff=Math.abs(HD[i]-HE[i])+Math.abs(HD[i+1]-HE[i+1])+Math.abs(HD[i+2]-HE[i+2]);
+          if(diff>=45&&ba>=200) continue;                       // 造型自己的東西(耳環、髮飾)保留
+          for(let c=0;c<3;c++) HD[i+c]=HD[i+c]*(1-w)+HE[i+c]*w; HD[i+3]=Math.round(ba*(1-w)+ea*w) } }
+      x2.putImageData(Hd,0,0) }
     let u=c2.toDataURL("image/webp",.86); if(!u.startsWith("data:image/webp")) u=c2.toDataURL("image/png"); out[e]=u }
   return {sprites:out,pos,keyed,err:pos.err};
 }
