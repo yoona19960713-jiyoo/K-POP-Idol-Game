@@ -1233,6 +1233,52 @@ canvas.wx.on{display:block}
 .pico svg{position:relative;width:2.7cqw;height:2.7cqw;stroke-width:1.6;filter:drop-shadow(0 .08cqw .12cqw rgba(40,10,30,.35))}
 .pico svg .f{fill:#fff;stroke:none}
 .pico .pbadge{z-index:1}
+
+/* ===== 演唱會演出畫面(concert.js) ===== */
+.cnview{position:absolute;inset:0;z-index:70;background:#05030a;overflow:hidden;animation:pvin .5s ease;cursor:pointer;--beam:#FF2E63}
+.cnview.out{opacity:0;transition:opacity .6s}
+.cnbg{position:absolute;inset:0;background:center/cover no-repeat;transition:filter .9s;animation:cnzoom 30s ease-in-out infinite alternate}
+@keyframes cnzoom{to{transform:scale(1.05)}}
+.cnview.dark .cnbg{filter:brightness(.22) saturate(.6)}
+.cnbeams{position:absolute;left:-20%;right:-20%;top:-10%;height:85%;pointer-events:none;transform-origin:50% 0;mix-blend-mode:screen;opacity:.55;transition:opacity .9s;
+  background:repeating-conic-gradient(from 200deg at 50% 0%,transparent 0deg 7deg,color-mix(in srgb,var(--beam) 38%,transparent) 8deg 9.5deg,transparent 10.5deg 19deg);
+  -webkit-mask:linear-gradient(180deg,#000 30%,transparent);mask:linear-gradient(180deg,#000 30%,transparent);animation:cnbeam 7s ease-in-out infinite alternate}
+@keyframes cnbeam{from{rotate:-7deg}to{rotate:7deg}}
+.cnview.dark .cnbeams{opacity:.08}
+.cnsticks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cnscreen{position:absolute;top:calc(4*var(--u));right:calc(3*var(--u));width:calc(19*var(--u));aspect-ratio:16/10;border-radius:calc(.6*var(--u));overflow:hidden;background:#000;
+  box-shadow:0 0 0 calc(.15*var(--u)) rgba(255,255,255,.7),0 0 calc(3*var(--u)) var(--c,#FF2E63);opacity:0;transform:scale(.94);transition:opacity .5s,transform .5s}
+.cnscreen.on{opacity:1;transform:none}
+.cnscreen span{position:absolute;inset:0;background:50% 7%/250% auto no-repeat;filter:contrast(1.05) saturate(1.1)}
+.cnscreen::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0 1px,transparent 1px 3px);pointer-events:none}
+.cntitle{position:absolute;left:calc(4*var(--u));top:calc(4*var(--u));color:#fff;opacity:0;transform:translateY(calc(.8*var(--u)));transition:opacity .6s,transform .6s;text-shadow:0 0 calc(1.2*var(--u)) rgba(0,0,0,.7)}
+.cntitle.on{opacity:1;transform:none}
+.cntitle small{display:block;font:600 max(calc(.95*var(--u)),10px)/1.4 var(--num);letter-spacing:.32em;color:#F3E2AE}
+.cntitle b{display:block;font:700 max(calc(2.6*var(--u)),18px)/1.3 var(--serif);letter-spacing:.12em}
+.cntitle.big{left:50%;top:40%;translate:-50% -50%;text-align:center}
+.cntitle.big b{font-size:max(calc(3.6*var(--u)),24px)}
+.cnview.encore .cntitle b{animation:cnpulse 1s ease-in-out infinite}
+@keyframes cnpulse{50%{opacity:.55;scale:1.04}}
+.cnline{position:absolute;left:calc(3*var(--u));right:calc(3*var(--u));bottom:calc(3.4*var(--u));display:flex;align-items:center;gap:calc(1.2*var(--u));padding:calc(1*var(--u)) calc(1.6*var(--u));
+  border-radius:calc(.8*var(--u));background:rgba(12,6,18,.66);border-top:calc(.1*var(--u)) solid rgba(243,226,174,.7);-webkit-backdrop-filter:blur(calc(.6*var(--u)));backdrop-filter:blur(calc(.6*var(--u)));
+  color:#fff;opacity:0;transform:translateY(calc(1*var(--u)));transition:opacity .4s,transform .4s;pointer-events:none}
+.cnline.on{opacity:1;transform:none;pointer-events:auto}
+.cnline .pface{flex:none;width:calc(4.6*var(--u));height:calc(4.6*var(--u));border-radius:50%;background:50% 6%/240% auto no-repeat;box-shadow:0 0 0 calc(.18*var(--u)) var(--c)}
+.cnline p{margin:0;font:500 max(calc(1.35*var(--u)),13px)/1.6 var(--sans,inherit)}
+.cnline p b{margin-right:calc(.8*var(--u));font-family:var(--serif)}
+.cnconf{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 1s;
+  background-image:radial-gradient(circle,#FFD36E 0 1.6px,transparent 2.2px),radial-gradient(circle,#FF8FB3 0 1.6px,transparent 2.2px),radial-gradient(circle,#fff 0 1.1px,transparent 1.6px);
+  background-size:120px 170px,90px 140px,70px 110px;animation:cnconf 5s linear infinite}
+.cnview.finale .cnconf{opacity:1}
+@keyframes cnconf{to{background-position:20px 170px,-30px 140px,10px 110px}}
+.cnskip{position:absolute;z-index:3;top:calc(1.2*var(--u));right:calc(1.4*var(--u));padding:calc(.45*var(--u)) calc(1.4*var(--u));border-radius:calc(2*var(--u));background:rgba(28,20,36,.55);
+  border:calc(.1*var(--u)) solid rgba(243,226,174,.55);color:#fff;font:600 max(calc(1*var(--u)),11px)/1.3 var(--serif);letter-spacing:.12em;opacity:.8}
+.cntap{position:absolute;left:50%;bottom:calc(.8*var(--u));translate:-50% 0;margin:0;color:rgba(255,255,255,.55);font-size:max(calc(.8*var(--u)),9px);letter-spacing:.12em;pointer-events:none}
+.cncap{position:absolute;left:calc(4*var(--u));bottom:calc(3.2*var(--u));max-width:60%;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.cncap small{font:600 max(calc(.85*var(--u)),10px)/1 var(--num);letter-spacing:.3em;color:#F3E2AE}
+.cncap h2{margin:calc(.5*var(--u)) 0;font:700 max(calc(2.2*var(--u)),18px)/1.3 var(--serif);letter-spacing:.1em}
+.cncap p{margin:0;font-size:max(calc(1.2*var(--u)),12px);line-height:1.6}
+@media (prefers-reduced-motion:reduce){.cnbg,.cnbeams,.cnconf{animation:none}}
 </style>
 </head>
 <body>
@@ -1377,5 +1423,6 @@ canvas.wx.on{display:block}
 <script src="phone.js"></script>
 <script src="growth.js"></script>
 <script src="cg.js"></script>
+<script src="concert.js"></script>
 </body>
 </html>

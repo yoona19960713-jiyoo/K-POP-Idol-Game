@@ -541,8 +541,8 @@ setInterval(()=>{ if(!V||document.hidden) return; const now=performance.now();
 
 /* ---- 返回鍵(右上角):誤點進場景時可以退出。還沒跟成員聊過 → 存檔還原到進來之前,不花行動;聊過之後 → 直接離開 ---- */
 function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"); b.id="vback"; b.className="vback"; $("#visit").appendChild(b); b.onclick=backOut }
-  const free=V&&!V.test&&V.talked.size===0; b.hidden=!V||!!V.test; b.innerHTML=free?`<span>‹ 返回</span><small>不花行動</small>`:`<span>‹ 離開</span>` }
-function backOut(){ if(!V||V.test) return; const free=V.talked.size===0;
+  const free=V&&!V.test&&V.talked.size===0; b.hidden=!V||!!V.test||!!V.event; b.innerHTML=free?`<span>‹ 返回</span><small>不花行動</small>`:`<span>‹ 離開</span>` }
+function backOut(){ if(!V||V.test||V.event) return; const free=V.talked.size===0;
   if(free){ const o=JSON.parse(V.snap); for(const k of Object.keys(S)) if(!(k in o)) delete S[k]; Object.assign(S,o) }
   D=null; clearInterval(typing); typing=null; stopAuto(); $("#vopts").innerHTML="";
   $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; save(true);
