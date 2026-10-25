@@ -443,14 +443,32 @@ function drawPeople(){
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 let lastSpk=null;
-function setExpr(id,e){ if(id&&id!==lastSpk&&!RM.matches){ const im=imgOf(id); if(im) im.animate([{translate:"0 .8%"},{translate:"0 0"}],{duration:300,easing:"cubic-bezier(.2,.7,.3,1)"}) } lastSpk=id||lastSpk;
+function setExpr(id,e){ if(id&&id!==lastSpk&&!RM.matches){ const im=imgOf(id); if(im) animPortrait(im,[{translate:"0 .8%"},{translate:"0 0"}],{duration:300,easing:"cubic-bezier(.2,.7,.3,1)"}) } lastSpk=id||lastSpk;
   $("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
   if(me){ img.dataset.ex=e; img.dataset.idle=""; swapExpr(img,spr(id,img.dataset.of||null,e)) }})}
+/* ---- 立繪的「跟隨層」:換表情時的殘影(ghost)、眨眼與嘴型疊加層都要跟立繪一起動。
+   呼吸動畫對齊同一個相位;往前一步、反應的彈跳、待機換重心這些程式動作也複製過去、之後新加的動作一起套用。
+   以前跟隨層停在原地(殘影還會拿錯動畫對齊),立繪一動就錯開 5~6px,看起來是一片殘影 ---- */
+function syncFollower(img,el){ const a=img.getAnimations().find(x=>x.animationName==="breathe"), b=el.getAnimations().find(x=>x.animationName==="breathe");
+  if(a&&b&&a.currentTime!=null) b.currentTime=a.currentTime;
+  for(const y of el.getAnimations()) if(y._src&&y._src.currentTime!=null&&y.playState!=="finished") y.currentTime=y._src.currentTime }
+/* 新加的跟隨層要等圖準備好,它的動畫才真正開始(殘影是複製出來的整張立繪,手機上可能晚好幾格);
+   在那之前每一格都把時間對齊立繪,開始後再對一次,之後就跟立繪同步前進 */
+function followPortrait(img,el){ el.dataset.fid=img.dataset.id||"";
+  for(const x of img.getAnimations()){ if(x instanceof CSSAnimation||x instanceof CSSTransition||!x.effect||x.playState==="finished") continue;
+    const t=x.effect.getTiming(), y=el.animate(x.effect.getKeyframes(),{duration:t.duration,easing:t.easing,delay:t.delay,fill:t.fill,iterations:t.iterations}); y._src=x }
+  syncFollower(img,el); let n=0, after=0;
+  const tick=()=>{ if(!el.isConnected||!img.isConnected) return; syncFollower(img,el);
+    if(el.getAnimations().some(x=>x.pending)) after=0; else after++;
+    if(++n<60&&after<2) requestAnimationFrame(tick) };
+  requestAnimationFrame(tick) }
+function animPortrait(img,kf,opt){ const x=img.animate(kf,opt), id=img.dataset.id;
+  if(id) $("#vppl").querySelectorAll(`[data-fid="${id}"]`).forEach(el=>{ el.animate(kf,opt)._src=x; requestAnimationFrame(()=>{ if(el.isConnected) syncFollower(img,el) }) }) }
 function swapExpr(img,src){ // 舊表情留一層殘影淡出,新表情解碼好才換,不會閃一下
   if(img.getAttribute("src")===src) return;
   if(matchMedia("(prefers-reduced-motion:reduce)").matches){img.src=src;return}
   const g=img.cloneNode(); g.classList.add("ghost"); g.removeAttribute("data-id"); g.alt=""; const cs=getComputedStyle(img); g.style.animationDuration=cs.animationDuration; g.style.animationDelay=cs.animationDelay; img.parentNode.appendChild(g);
-  const a=img.getAnimations()[0], b=g.getAnimations()[0]; if(a&&b) b.currentTime=a.currentTime;
+  followPortrait(img,g);
   const pre=new Image(); pre.src=src;
   (pre.decode?pre.decode():Promise.resolve()).catch(()=>{}).then(()=>{img.src=src;
     requestAnimationFrame(()=>requestAnimationFrame(()=>{g.style.opacity=0; setTimeout(()=>g.remove(),280)}))})}
@@ -495,7 +513,7 @@ function ovlMake(img,f,part,cls){ const im=OVL_IMG[f+"|"+part], o0=OVL[f]; if(!i
   Object.assign(o.style,{aspectRatio:`${W}/${H}`,backgroundImage:`url("${im.src}")`,backgroundSize:`${w/W*100}% ${h/H*100}%`,
     backgroundPosition:`${w<W?x/(W-w)*100:0}% ${h<H?y/(H-h)*100:0}%`,animationDuration:cs.animationDuration,animationDelay:cs.animationDelay,zIndex:cs.zIndex});
   $("#vppl").appendChild(o);
-  const a=img.getAnimations().find(x=>x.animationName==="breathe"), b=o.getAnimations().find(x=>x.animationName==="breathe"); if(a&&b) b.currentTime=a.currentTime;
+  followPortrait(img,o);
   return o }
 const BLINK_EX=new Set(["neutral","smile","shy"]);
 function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")) return;
@@ -851,7 +869,7 @@ var imgOf=id=>[...$("#vppl").querySelectorAll("img[data-id]")].find(i=>i.dataset
 function reactTo(c){ const id=c.to||D?.main; if(!id||!byId(id)||!V) return;
   const R=window.STAGE_RANK||[], deep=R.indexOf(stageOf(id))>=R.indexOf("心動"), g=+c.g||0;
   const e=g>=2?(deep?"shy":"laugh"):g===1?"smile":"sad"; setExpr(id,e);
-  const img=imgOf(id); if(img&&!RM.matches) img.animate(g>=1?[{translate:"0 0"},{translate:"0 -1.1%"},{translate:"0 0"}]:[{translate:"0 0"},{translate:"0 .7%"},{translate:"0 0"}],{duration:g>=1?420:520,easing:"ease-out"}) }
+  const img=imgOf(id); if(img&&!RM.matches) animPortrait(img,g>=1?[{translate:"0 0"},{translate:"0 -1.1%"},{translate:"0 0"}]:[{translate:"0 0"},{translate:"0 .7%"},{translate:"0 0"}],{duration:g>=1?420:520,easing:"ease-out"}) }
 /* 待機小動作:沒在說話的成員每隔 7~14 秒偶爾看過來笑一下,或輕輕換個重心 */
 setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return; const now=performance.now();
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
@@ -864,7 +882,7 @@ setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return;
     if(ex==="neutral"&&img.classList.contains("dim")&&Math.random()<chance){     // 心情好:偷看過來笑一下;心情差:嘆口氣
       img.dataset.idle="1"; img.dataset.ex=look; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,look));
       setTimeout(()=>{ if(img.isConnected&&img.dataset.idle==="1"&&img.dataset.ex===look){ img.dataset.idle=""; img.dataset.ex="neutral"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"neutral")) } },2200+Math.random()*1200) }
-    else img.animate([{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
+    else animPortrait(img,[{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
   }) },300);
 /* 說話提示音:每人不同音高的輕柔短音(設定裡可以關) */
 const BLIP_HZ={ys:520,tr:390,hy:690,he:575,hr:770}; let AC=null;
