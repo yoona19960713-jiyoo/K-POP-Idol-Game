@@ -166,7 +166,8 @@ async function makeSprites(mid,imgURL,pose){
   let keyed=false, Bf=null; if(!hasAlpha(ox,W,H)){ Bf=keyOut2(ox,W,H); keyed=true }
   const oD=ox.getImageData(0,0,W,H).data;
   // 表情組放大回原圖比例
-  const ex={}; for(const e of EXS){ const im=await loadImg(`assets/chara/${f}_${e}.webp`); const c=canvas(cw,ch); c.getContext("2d").drawImage(im,0,0,cw,ch); ex[e]=c }
+  const ex={}, exI={}; for(const e of EXS){ const im=await loadImg(`assets/chara/${f}_${e}.webp`); exI[e]=im; const c=canvas(cw,ch); c.getContext("2d").drawImage(im,0,0,cw,ch); ex[e]=c }
+  const K=Math.max(1,Math.min(2,Math.round(exI.neutral.naturalHeight/ch)));   // 表情組是 2 倍高清時,換衣立繪也輸出 2 倍
   const nD=ex.neutral.getContext("2d",{willReadFrequently:true}).getImageData(0,0,cw,ch).data;
   const pos=locate(oD,W,H,nD,cw,ch,face);
   // 羽化橢圓遮罩
@@ -180,7 +181,8 @@ async function makeSprites(mid,imgURL,pose){
   // 膚色對齊用:遮罩中心區、夠亮的像素
   const skin=(D)=>{let r=0,g=0,b=0,n=0; for(let p=0;p<cw*ch;p++){ if(mask[p]<.8) continue; const i=p*4; if(D[i+3]<200) continue; const L=gray(D,i); if(L<150) continue; r+=D[i];g+=D[i+1];b+=D[i+2];n++} return n?[r/n,g/n,b/n]:null};
   const sB=skin(bD.data), out={};
-  const H2=ch, W2=cw; // 原生解析度(手機上立繪會放大約 1.6 倍,不再先縮小)
+  const H2=ch*K, W2=cw*K;   // 2 倍:身體由造型圖平滑放大,臉再用高清表情組重疊一次,臉部跟白 T 立繪一樣清楚
+  const fy0=Math.max(0,cy-ay-FEATHER), fy1=Math.min(ch,cy+ay+FEATHER), fx0=Math.max(0,cx-ax-FEATHER), fx1=Math.min(cw,cx+ax+FEATHER);
   for(const e of EXS){
     const eD=ex[e].getContext("2d",{willReadFrequently:true}).getImageData(0,0,cw,ch).data, sE=skin(eD), sh=sB&&sE?[sB[0]-sE[0],sB[1]-sE[1],sB[2]-sE[2]]:[0,0,0];
     const res=new ImageData(new Uint8ClampedArray(bD.data),cw,ch), R=res.data;
@@ -196,7 +198,12 @@ async function makeSprites(mid,imgURL,pose){
     for(let p=0;p<cw*ch;p++){ const a=mask[p]; if(!a) continue; const i=p*4; if(eD[i+3]<10) continue; const k=a*eD[i+3]/255;
       for(let c=0;c<3;c++) R[i+c]=R[i+c]*(1-k)+Math.max(0,Math.min(255,eD[i+c]+sh[c]))*k }
     const c1=canvas(cw,ch); c1.getContext("2d").putImageData(res,0,0);
-    const c2=canvas(W2,H2), x2=c2.getContext("2d"); x2.imageSmoothingQuality="high"; x2.drawImage(c1,0,0,W2,H2);
+    const c2=canvas(W2,H2), x2=c2.getContext("2d",{willReadFrequently:true}); x2.imageSmoothingQuality="high"; x2.drawImage(c1,0,0,W2,H2);
+    if(K>1){ const e2=canvas(W2,H2), ex2=e2.getContext("2d",{willReadFrequently:true}); ex2.drawImage(exI[e],0,0,W2,H2);
+      const bx0=fx0*K, by0=fy0*K, bw=(fx1-fx0)*K, bh=(fy1-fy0)*K, E2=ex2.getImageData(bx0,by0,bw,bh).data, Dd=x2.getImageData(bx0,by0,bw,bh), D2=Dd.data;
+      for(let y=0;y<bh;y++) for(let x=0;x<bw;x++){ const a=mask[((fy0+(y/K))|0)*cw+((fx0+(x/K))|0)]; if(!a) continue; const i=(y*bw+x)*4; if(E2[i+3]<10) continue; const k=a*E2[i+3]/255;
+        for(let c=0;c<3;c++) D2[i+c]=D2[i+c]*(1-k)+Math.max(0,Math.min(255,E2[i+c]+sh[c]))*k }
+      x2.putImageData(Dd,bx0,by0) }
     let u=c2.toDataURL("image/webp",.86); if(!u.startsWith("data:image/webp")) u=c2.toDataURL("image/png"); out[e]=u }
   return {sprites:out,pos,keyed,err:pos.err};
 }

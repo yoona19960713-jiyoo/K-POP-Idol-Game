@@ -484,7 +484,7 @@ function drawPeople(){
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 function setExpr(id,e){$("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
-  if(me){ img.dataset.ex=e; swapExpr(img,spr(id,img.dataset.of||null,e)) }})}
+  if(me){ img.dataset.ex=e; img.dataset.idle=""; swapExpr(img,spr(id,img.dataset.of||null,e)) }})}
 function swapExpr(img,src){ // 舊表情留一層殘影淡出,新表情解碼好才換,不會閃一下
   if(img.getAttribute("src")===src) return;
   if(matchMedia("(prefers-reduced-motion:reduce)").matches){img.src=src;return}
@@ -585,7 +585,8 @@ function showText(id,text,still,e){
   fitText(el,text);
   if(still){el.textContent=text; typing=null; return}
   let i=0; const chars=[...String(text)]; el.textContent="";
-  typing=setInterval(()=>{i+=2; el.textContent=chars.slice(0,i).join(""); if(i>=chars.length){clearInterval(typing);typing=null;$("#vbox").classList.add("wait");queueAuto()}},40)}
+  let tk=0;
+  typing=setInterval(()=>{i+=2; el.textContent=chars.slice(0,i).join(""); if(++tk%2===0&&/[\p{L}\p{N}]/u.test(chars[i-1]||"")) blip(id); if(i>=chars.length){clearInterval(typing);typing=null;$("#vbox").classList.add("wait");queueAuto()}},40)}
 function fitText(el,text){ // 長台詞:先放完整文字量,放不下就逐步縮小字(最小 76%),打字效果不會中途換行跳動
   el.style.fontSize=""; el.textContent=text; const base=parseFloat(getComputedStyle(el).fontSize);
   for(let k=.96;k>=.76&&el.scrollHeight>el.clientHeight+1;k-=.04) el.style.fontSize=(base*k).toFixed(2)+"px";
@@ -600,7 +601,7 @@ function showChoices(C){$("#vbox").classList.remove("wait"); stopAutoTimer();
   $("#vopts").innerHTML=C.map((c,i)=>`<button class="vopt choice" data-c="${i}">${esc(c.t)}${c.s?`<small>${esc(c.s)}</small>`:""}</button>`).join("");
   $("#vopts").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>choose(C[+b.dataset.c])); $("#vopts button")?.focus({preventScroll:true})}
 function choose(c){
-  $("#vopts").innerHTML=""; applyChoice(c);
+  $("#vopts").innerHTML=""; applyChoice(c); reactTo(c);
   D.q=[{k:"line",id:"me",text:c.t}];
   for(const l of c.r||[]) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
   if(c.next) D.q.push({k:"node",key:c.next});
@@ -860,3 +861,34 @@ window.openPhoto=(src,name,opt={})=>{
   el.querySelector("[data-x]").onclick=()=>closePhoto();
   setTimeout(()=>el.querySelector(".pvhint")?.classList.add("gone"),2200) };
 window.closePhoto=()=>{ const el=$("#photoView"); if(!el) return false; el.remove(); setPause("photo",false); return true };
+
+/* ===== 真人化(2026-10-24):即時表情反應、待機小動作、說話提示音 ===== */
+const RM=matchMedia("(prefers-reduced-motion:reduce)");
+const imgOf=id=>[...$("#vppl").querySelectorAll("img[data-id]")].find(i=>i.dataset.id===id);
+/* 選完選項的瞬間:對象先露出反應(好感大=害羞或大笑、普通=微笑、冷淡=難過),身體輕輕一彈或一縮 */
+function reactTo(c){ const id=c.to||D?.main; if(!id||!byId(id)||!V) return;
+  const R=window.STAGE_RANK||[], deep=R.indexOf(stageOf(id))>=R.indexOf("心動"), g=+c.g||0;
+  const e=g>=2?(deep?"shy":"laugh"):g===1?"smile":"sad"; setExpr(id,e);
+  const img=imgOf(id); if(img&&!RM.matches) img.animate(g>=1?[{translate:"0 0"},{translate:"0 -1.1%"},{translate:"0 0"}]:[{translate:"0 0"},{translate:"0 .7%"},{translate:"0 0"}],{duration:g>=1?420:520,easing:"ease-out"}) }
+/* 待機小動作:沒在說話的成員每隔 7~14 秒偶爾看過來笑一下,或輕輕換個重心 */
+setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return; const now=performance.now();
+  $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
+    const t=+img.dataset.it||0; if(!t){img.dataset.it=now+5000+Math.random()*6000; return} if(now<t) return;
+    img.dataset.it=now+7000+Math.random()*7000;
+    const speaking=img.classList.contains("on")&&!$("#vbox").classList.contains("wait");
+    if(speaking) return;
+    const ex=img.dataset.ex||"neutral";
+    if(ex==="neutral"&&img.classList.contains("dim")&&Math.random()<.5){          // 偷偷看過來笑一下
+      img.dataset.idle="1"; img.dataset.ex="smile"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"smile"));
+      setTimeout(()=>{ if(img.isConnected&&img.dataset.idle==="1"&&img.dataset.ex==="smile"){ img.dataset.idle=""; img.dataset.ex="neutral"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"neutral")) } },2200+Math.random()*1200) }
+    else img.animate([{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
+  }) },300);
+/* 說話提示音:每人不同音高的輕柔短音(設定裡可以關) */
+const BLIP_HZ={ys:520,tr:390,hy:690,he:575,hr:770}; let AC=null;
+function blip(id){ if(localStorage.getItem("kpopGame.blip")==="0"||!V) return; const f=BLIP_HZ[id]; if(!f) return;
+  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume();
+    const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain(); o.type="triangle"; o.frequency.value=f*(.96+Math.random()*.08);
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.05,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+.075);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+.09) }catch(e){} }
+(()=>{ const b=$("#blipOn"); if(!b) return; b.checked=localStorage.getItem("kpopGame.blip")!=="0";
+  b.onchange=()=>{ localStorage.setItem("kpopGame.blip",b.checked?"1":"0"); if(b.checked) blip("hr") } })();
