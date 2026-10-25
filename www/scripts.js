@@ -390,7 +390,7 @@ async function open(){ shell(); if(!items.length) items=Object.values(await IDB.
   void $("#makerFac").offsetWidth; $("#makerFac").classList.remove("hide"); $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll() }
 function close(){ $("#makerFac").classList.add("hide"); setPause("maker",false); OPEN=false }
 window.openMaker=open;
-window.makerDebug={buildPrompt,SCHEMA,parseSnippets,analyse,EX_SINGLE,EX_PAIR};
+window.makerDebug={buildPrompt,SCHEMA,parseSnippets,analyse,EX_SINGLE,EX_PAIR,revisePrompt,toSchemaShape,sameShape};
 const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"]];
 function renderAll(){ if(!OPEN) return;
   $("#mkTabs").innerHTML=TABS.map(([k,n])=>`<button data-mt="${k}" aria-selected="${k===tab}">${n}${k==="review"&&reviewQ_().length?`<i>${reviewQ_().length}</i>`:""}</button>`).join("");
@@ -465,7 +465,59 @@ function reviewHTML(){ const Q=reviewQ_(), pass=Q.filter(x=>!analyse(x).warn.len
   return `<div class="mrow" style="justify-content:space-between"><p class="mnote">每個片段都可以展開對話樹、試玩、編輯;確認後才會收進內容庫,遊戲才會抽到。${pass&&bad?`有提醒的 ${bad} 個不會一起收入(格式有問題,遊戲可能播不完),請個別編輯或丟掉。`:""}</p>${pass?`<button class="mbtn pri" id="okAll" ${BULK?"disabled":""}>一鍵通過:格式通過的 ${pass} 個全部收入</button>`:""}</div>
     ${Q.length?Q.slice(0,30).map(sn=>cardHTML(sn,"review")).join("")+(Q.length>30?`<p class="mnote">還有 ${Q.length-30} 個,先處理上面的。</p>`:""):`<p class="mempty">還沒有待審的片段。</p>`}` }
 let LIBLIST=[];
-function libIO(){ return `<div class="mrow"><button class="mbtn" id="mkExport">匯出全部片段(JSON)</button><button class="mbtn" id="mkImport">匯入修訂後的片段</button><input type="file" id="mkImportF" accept=".json,application/json" hidden><span class="mnote">匯出請用電腦版;修訂好的檔案匯入後會覆蓋同代號的片段並同步到雲端。</span></div>` }
+
+/* ---------- AI 修訂(2026-10-25):用新的人物設定與寫作守則,請 Gemini 逐一改寫內容庫裡的舊片段 ----------
+   結構不動(節點、選項數量與順序、回應方式、影響強度、next 都一樣),只改台詞、旁白與選項的措辭;改完標 rev=3 */
+function toSchemaShape(sn){ return {at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,
+  nodes:Object.entries(sn.nodes||{}).map(([key,n])=>({key,lines:(n.L||[]).map(l=>({who:l[0]||"narr",text:l[1],expr:l[2]||"neutral"})),
+    choices:(n.C||[]).map(c=>({text:c.t,style:c.s,to:c.to||sn.member||"ys",g:+c.g||0,...(c.next?{next:c.next}:{}),...(c.r?{reply:c.r.map(l=>({who:l[0]||"narr",text:l[1],expr:l[2]||"neutral"}))}:{})}))}))} }
+function revisePrompt(sn){
+  const id=sn.member||(sn.who||[])[0]||"ys", romance=ROMANCE.includes(sn.stage), who=[...new Set([id,...(sn.who||[])])].filter(x=>mb(x));
+  return `你是一款韓國女團養成戀愛遊戲的資深編劇。下面是遊戲裡一個舊片段,寫得不夠細緻、不夠像本人。請依照人物設定與寫作守則改寫它。
+種類:${TYPES[sn.type]?.n||sn.type};主角:${mb(id).n};關係階段:${sn.stage||""}——${STAGE_DESC[sn.stage]||""} ${STAGE_VOICE[sn.stage]||""};時期:${sn.period||"練習生期"}——${PERIOD_DESC[sn.period]||""}
+${who.map(x=>`【${mb(x).n}(id ${x})】${romance?VOICE[x].replace(/(原型[^)]*)/g,""):VOICE[x]}
+說話樣本(只學語氣):${SAMPLE[x].join(" ")}
+具體細節:${DETAIL[x]}`).join("\n\n")}
+${ADDR}
+${CRAFT}
+
+【改寫規則】
+- 結構完全不變:節點的 key 與順序、每個節點的選項數量與順序、每個選項的 style、to、g、next 都照原樣;只改 sc、台詞、旁白(who 用 narr)與選項的 text。
+- 每個節點 1~5 句;太長的台詞拆短、說教或解說情緒的改成動作與細節;日和只夾一兩個簡單的日文詞(例如 大丈夫です、はい、すごい),不要整句日文或韓文。
+- 選項 text 可以潤飾得更自然,但意思和態度不變;reply 是她對那個選項的反應,要符合她對那種回應方式的感受。
+- 劇情內容、發生的事、地點與時段都保留,不要換成別的故事。
+
+【原本的片段】
+${JSON.stringify({snippets:[toSchemaShape(sn)]})}
+
+只回覆改寫後的 JSON,格式同上。` }
+function sameShape(a,b){ const ka=Object.keys(a.nodes), kb=Object.keys(b.nodes); if(ka.join()!==kb.join()) return false;
+  return ka.every(k=>{ const ca=a.nodes[k].C||[], cb=b.nodes[k].C||[]; return ca.length===cb.length&&ca.every((c,i)=>c.s===cb[i].s&&(c.next||"")===(cb[i].next||"")) }) }
+let revRunning=false, revState="";
+const revTodo=()=>lib().filter(x=>(+x.rev||0)<3&&x.nodes?.start);
+async function reviseOne(sn){
+  const r=await aiJSON(revisePrompt(sn),[],undefined,SCHEMA([sn.at||"practice"],MB.map(m=>m.id)));
+  const out=parseSnippets(r,sn.member||(sn.who||[])[0]||"ys",sn.stage)[0]; if(!out) throw {code:"invalid_json"};
+  if(!sameShape(sn,out)) throw {code:"invalid_json",message:"結構跟原本不同"};
+  for(const [k,n] of Object.entries(out.nodes)) n.C.forEach((c,i)=>{ const o=sn.nodes[k].C[i]; c.to=o.to; c.g=o.g; ["mood","stress","heart","set"].forEach(f=>{ if(o[f]!=null) c[f]=o[f]; else delete c[f] }) });
+  const w=analyse({...sn,nodes:out.nodes}).warn.filter(x=>!/超過 60 字|重複/.test(x)); if(w.length) throw {code:"invalid_json",message:w[0]};
+  await saveItem({...sn,sc:out.sc||sn.sc,nodes:out.nodes,rev:3,revisedAt:Date.now()}) }
+async function reviseLoop(){
+  while(revRunning){
+    const u=usage(); if(u.n>=A.day||u.out){ revState="今天的額度用完了,明天繼續。"; revRunning=false; break }
+    const sn=revTodo()[0]; if(!sn){ revState="全部修訂完成!"; revRunning=false; break }
+    const gap=60000/Math.max(1,A.rpm); lastCalls=lastCalls.filter(t=>Date.now()-t<60000);
+    if(lastCalls.length>=A.rpm){ revState="控制速度中…"; await sleep(60000-(Date.now()-lastCalls[0])+500); continue }
+    revState=`修訂中:${mb(sn.member)?.n||""}・${TYPES[sn.type]?.n||""}・${(sn.sc||"").slice(0,18)}…(剩 ${revTodo().length} 個)`; renderAll();
+    lastCalls.push(Date.now()); u.n++; setUsage(u);
+    try{ await reviseOne(sn) }catch(e){ if(e?.code==="rate_minute"){ await sleep(65000); continue } if(e?.code==="rate_day"){ revState="今天的額度用完了"; revRunning=false; break }
+      if(["no_key","bad_key","bad_model","region"].includes(e?.code)){ revState=ERR[e.code]; revRunning=false; break }
+      await saveItem({...sn,rev:3,revFail:String(e?.message||e?.code||"")}) }      // 修不了的先跳過,保留原文
+    await sleep(gap) }
+  renderAll() }
+
+function libIO(){ return `<div class="mrow"><button class="mbtn" id="mkExport">匯出全部片段(JSON)</button><button class="mbtn" id="mkImport">匯入修訂後的片段</button><input type="file" id="mkImportF" accept=".json,application/json" hidden><span class="mnote">匯出請用電腦版;修訂好的檔案匯入後會覆蓋同代號的片段並同步到雲端。</span></div>
+  <div class="mrow"><button class="mbtn ${revRunning?"danger":""}" id="mkRevise">${revRunning?"停止 AI 修訂":"用新守則請 Gemini 逐一修訂"}</button><span class="mnote">還沒修訂的 ${revTodo().length} 個;${revState?esc(revState):"每分鐘、每天次數沿用自動生產的設定;結構不動,只改台詞與措辭。"}</span></div>` }
 function libHTML(){ const list=LIBLIST=lib().filter(x=>(!fM||x.member===fM||(x.pair||"").includes(fM))&&(!fT||x.type===fT)&&(!fS||(fS==="__auto"?x.status==="auto":x.stage===fS))&&(!fQ||JSON.stringify(x.nodes).includes(fQ)||String(x.sc).includes(fQ))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   return libIO()+`<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
     <select id="fT"><option value="">全部種類</option>${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${fT===k?"selected":""}>${t.n}</option>`).join("")}</select>
@@ -496,6 +548,7 @@ function bind(B){
       const blob=new Blob([JSON.stringify({app:"kpop-scripts",version:2,exportedAt:Date.now(),items},null,1)],{type:"application/json"}), u=URL.createObjectURL(blob), a=document.createElement("a");
       a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); toast2(`已匯出 ${items.length} 個片段`) };
     q("#mkImport").onclick=()=>q("#mkImportF").click();
+    q("#mkRevise").onclick=()=>{ if(!apiKey()){ toast2("先設定 Gemini API 金鑰"); return } revRunning=!revRunning; if(revRunning){ revState=""; reviseLoop() } renderAll() };
     q("#mkImportF").onchange=async e=>{ const f=e.target.files?.[0]; if(!f) return; let o; try{ o=JSON.parse(await f.text()) }catch(_){ toast2("檔案不是正確的 JSON"); return }
       const list=(Array.isArray(o)?o:o.items||[]).filter(x=>x?.code&&x?.nodes?.start); if(!list.length){ toast2("檔案裡沒有可用的片段"); return }
       if(!confirm(`匯入 ${list.length} 個片段?同代號的會被覆蓋。`)) return; let n=0;
