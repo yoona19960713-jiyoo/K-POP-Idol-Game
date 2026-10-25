@@ -842,10 +842,11 @@ function wxDaily(){ const k=wxNow(); for(const [id,v] of Object.entries(WX_MOOD[
 /* ===== 存圖與純圖檢視(2026-10-24)=====
    saveImage:APK 裡用原生外掛 ImageSaver 存進手機相簿「完美女團」資料夾(可直接設成桌布);網頁版用一般下載。
    openPhoto:全螢幕只顯示圖片,點一下畫面切換按鈕顯示/隱藏 */
-window.saveImage=async(src,name,jpeg)=>{
+window.saveImage=async(src,name,jpeg,crop)=>{   // crop(寬,高) 回傳 {x,y,w,h,ow,oh}:只存一部分並縮放(例如半身照)
   try{ toast2("正在存圖…");
-    const blob=await (await fetch(src)).blob(), bmp=await createImageBitmap(blob), c=document.createElement("canvas"); c.width=bmp.width; c.height=bmp.height;
-    c.getContext("2d").drawImage(bmp,0,0); const mime=jpeg?"image/jpeg":"image/png", ext=jpeg?"jpg":"png";
+    const blob=await (await fetch(src)).blob(), bmp=await createImageBitmap(blob), c=document.createElement("canvas");
+    const r=crop?crop(bmp.width,bmp.height):{x:0,y:0,w:bmp.width,h:bmp.height,ow:bmp.width,oh:bmp.height};
+    c.width=r.ow; c.height=r.oh; const g=c.getContext("2d"); g.imageSmoothingQuality="high"; g.drawImage(bmp,r.x,r.y,r.w,r.h,0,0,r.ow,r.oh); const mime=jpeg?"image/jpeg":"image/png", ext=jpeg?"jpg":"png";
     const out=await new Promise(r=>c.toBlob(r,mime,.95)), file=`${String(name).replace(/[\\/:*?"<>|]/g,"_")}.${ext}`;
     const P=window.Capacitor?.Plugins?.ImageSaver;
     if(P){ const b64=await new Promise(r=>{const f=new FileReader(); f.onload=()=>r(String(f.result).split(",")[1]); f.readAsDataURL(out)});
@@ -853,13 +854,20 @@ window.saveImage=async(src,name,jpeg)=>{
     const u=URL.createObjectURL(out), a=document.createElement("a"); a.href=u; a.download=file; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000);
     toast2("已下載"); return true
   }catch(e){ toast2("存圖失敗:"+(e?.message||e)); return false } };
+/* 純圖檢視。opt.mode:"full" 全身照(整張完整顯示,背後鋪同一張的模糊放大;按鈕列出現時圖往上讓位,腳不會被蓋住)
+   /"half" 半身照(舞台寬度鋪滿,從頭頂往下取 16:9)。有 mode 時多一顆切換鍵;下載存的就是畫面上看到的那張(半身照輸出 1920×1080) */
+const HALF_CROP=(w,h)=>{ const ch=Math.min(h,Math.round(w*9/16)), k=Math.max(1,1920/w); return {x:0,y:0,w,h:ch,ow:Math.round(w*k),oh:Math.round(ch*k)} };
 window.openPhoto=(src,name,opt={})=>{
-  $("#photoView")?.remove(); const el=document.createElement("div"); el.id="photoView"; el.className="photoview"+(opt.dark?" dark":"");
-  el.innerHTML=`<img alt="" src="${src}"><div class="pvbar">${opt.title?`<b>${esc(opt.title)}</b>`:"<span></span>"}<div><button class="cgb" data-dl>下載・設桌布</button><button class="cgb pri" data-x>關閉</button></div></div><p class="pvhint">點一下畫面顯示/隱藏按鈕</p>`;
+  $("#photoView")?.remove(); const mode=opt.mode==="half"?"half":"full", el=document.createElement("div");
+  el.id="photoView"; el.className="photoview "+mode+(opt.dark?" dark":"")+(opt._sw?" noanim":"");
+  const label=opt.mode?`<small>${mode==="half"?"半身照":"全身照"}</small>`:"", sw=opt.mode?`<button class="cgb" data-sw>${mode==="half"?"看全身照":"看半身照"}</button>`:"";
+  el.innerHTML=`${mode==="full"?`<div class="pvbg" style="background-image:url(${src})"></div>`:""}<img alt="" src="${src}"><div class="pvbar">${opt.title?`<b>${esc(opt.title)}${label}</b>`:"<span></span>"}<div>${sw}<button class="cgb" data-dl>下載・設桌布</button><button class="cgb pri" data-x>關閉</button></div></div>${opt._sw?"":`<p class="pvhint">點一下畫面顯示/隱藏按鈕</p>`}`;
   $("#stage").appendChild(el); setPause("photo",true);
   el.onclick=e=>{ if(!e.target.closest("button")) el.classList.toggle("bare") };
-  el.querySelector("[data-dl]").onclick=()=>saveImage(src,name,opt.jpeg);
+  const file=opt.mode?`${name}_${mode==="half"?"半身":"全身"}`:name;
+  el.querySelector("[data-dl]").onclick=()=>saveImage(src,file,opt.jpeg,mode==="half"?HALF_CROP:null);
   el.querySelector("[data-x]").onclick=()=>closePhoto();
+  el.querySelector("[data-sw]")?.addEventListener("click",()=>openPhoto(src,name,{...opt,mode:mode==="half"?"full":"half",_sw:true}));
   setTimeout(()=>el.querySelector(".pvhint")?.classList.add("gone"),2200) };
 window.closePhoto=()=>{ const el=$("#photoView"); if(!el) return false; el.remove(); setPause("photo",false); return true };
 
