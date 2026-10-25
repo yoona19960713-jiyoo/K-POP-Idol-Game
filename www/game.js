@@ -446,7 +446,7 @@ let lastSpk=null;
 function setExpr(id,e){ if(id&&id!==lastSpk&&!RM.matches){ const im=imgOf(id); if(im) animPortrait(im,[{translate:"0 .8%"},{translate:"0 0"}],{duration:300,easing:"cubic-bezier(.2,.7,.3,1)"}) } lastSpk=id||lastSpk;
   $("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
   if(me){ img.dataset.ex=e; img.dataset.idle=""; swapExpr(img,spr(id,img.dataset.of||null,e)) }})}
-/* ---- 立繪的「跟隨層」:換表情時的殘影(ghost)、眨眼與嘴型疊加層都要跟立繪一起動。
+/* ---- 立繪的「跟隨層」:換表情時的殘影(ghost)、眨眼疊加層都要跟立繪一起動。
    呼吸動畫對齊同一個相位;往前一步、反應的彈跳、待機換重心這些程式動作也複製過去、之後新加的動作一起套用。
    以前跟隨層停在原地(殘影還會拿錯動畫對齊),立繪一動就錯開 5~6px,看起來是一片殘影 ---- */
 function syncFollower(img,el){ const a=img.getAnimations().find(x=>x.animationName==="breathe"), b=el.getAnimations().find(x=>x.animationName==="breathe");
@@ -455,7 +455,8 @@ function syncFollower(img,el){ const a=img.getAnimations().find(x=>x.animationNa
 /* 新加的跟隨層要等圖準備好,它的動畫才真正開始(殘影是複製出來的整張立繪,手機上可能晚好幾格);
    在那之前每一格都把時間對齊立繪,開始後再對一次,之後就跟立繪同步前進 */
 function followPortrait(img,el){ el.dataset.fid=img.dataset.id||"";
-  for(const x of img.getAnimations()){ if(x instanceof CSSAnimation||x instanceof CSSTransition||!x.effect||x.playState==="finished") continue;
+  for(const x of img.getAnimations()){ if(!x.effect||x.playState==="finished"||x instanceof CSSAnimation) continue;
+    if(x instanceof CSSTransition&&!(el.tagName==="IMG"&&x.transitionProperty==="filter")) continue;   // 亮度轉場只複製給殘影(疊加層等轉場結束才出現)
     const t=x.effect.getTiming(), y=el.animate(x.effect.getKeyframes(),{duration:t.duration,easing:t.easing,delay:t.delay,fill:t.fill,iterations:t.iterations}); y._src=x }
   syncFollower(img,el); let n=0, after=0;
   const tick=()=>{ if(!el.isConnected||!img.isConnected) return; syncFollower(img,el);
@@ -497,15 +498,15 @@ function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
 function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
 
-/* ---- 眨眼與嘴型的疊加層(2026-10-24 做,2026-10-25 改成只存小塊)----
-   眨眼:每人一張閉眼的眼睛小塊(assets/chara/blink/成員.webp);嘴型:平常、微笑兩張張嘴的嘴巴小塊(assets/chara/mouth/成員_表情.webp)。
+/* ---- 眨眼疊加層(2026-10-24 做,2026-10-25 改成只存小塊;說話時嘴巴開合在 2026-10-25 依使用者決定拿掉)----
+   每人一張閉眼的眼睛小塊(assets/chara/blink/成員.webp)。之後的新疊加層(例如視線)照同樣方式加部位。
    OVL 記錄小塊在整張表情組(2 倍框 W×H)裡的位置 [x,y,寬,高]。疊加層是一個跟立繪同一個框的 div(同樣的 class、位置與呼吸動畫),
    小塊用背景圖貼回原位。以前是整張立繪大小的透明圖,一張解碼後約 11MB;現在 0.02~0.4MB。讀到舊的整張圖(快取)時照整張貼。
    換衣立繪的臉來自表情組、框也一樣,同一層也適用。眨眼只在平常、微笑、害羞時(大笑本來就閉眼,生氣、難過的眼型差太多) ---- */
-const OVL={yeseul:{"W":960,"H":2944,"blink":[364,148,328,176],"neutral":[460,300,120,124],"smile":[452,296,128,116]},taeri:{"W":900,"H":2956,"blink":[192,120,368,248],"neutral":[348,344,144,136],"smile":[368,344,148,112]},hiyori:{"W":866,"H":2922,"blink":[280,160,288,160],"neutral":[344,332,88,72],"smile":[384,320,128,104]},haeun:{"W":932,"H":2972,"blink":[316,172,372,188],"neutral":[368,332,168,108],"smile":[356,332,168,108]},haram:{"W":920,"H":2954,"blink":[280,196,280,200],"neutral":[328,368,188,140],"smile":[336,356,144,152]}};
+const OVL={yeseul:{"W":960,"H":2944,"blink":[364,148,328,176]},taeri:{"W":900,"H":2956,"blink":[192,120,368,248]},hiyori:{"W":866,"H":2922,"blink":[280,160,288,160]},haeun:{"W":932,"H":2972,"blink":[316,172,372,188]},haram:{"W":920,"H":2954,"blink":[280,196,280,200]}};
 const OVL_IMG={};
 function ovlLoad(key,src){ const im=new Image(); im.src=src; (im.decode?im.decode():Promise.resolve()).then(()=>{OVL_IMG[key]=im}).catch(()=>{}) }
-M.forEach(m=>{ ovlLoad(m.f+"|blink",`assets/chara/blink/${m.f}.webp`); for(const ex of ["neutral","smile"]) ovlLoad(m.f+"|"+ex,`assets/chara/mouth/${m.f}_${ex}.webp`) });
+M.forEach(m=>{ ovlLoad(m.f+"|blink",`assets/chara/blink/${m.f}.webp`); });
 function ovlMake(img,f,part,cls){ const im=OVL_IMG[f+"|"+part], o0=OVL[f]; if(!im||!o0||!o0[part]) return null;
   const {W,H}=o0, [x,y,w,h]=im.naturalWidth>=W*.98?[0,0,W,H]:o0[part];
   const o=document.createElement("div"), cs=getComputedStyle(img);
@@ -515,8 +516,9 @@ function ovlMake(img,f,part,cls){ const im=OVL_IMG[f+"|"+part], o0=OVL[f]; if(!i
   $("#vppl").appendChild(o);
   followPortrait(img,o);
   return o }
-const BLINK_EX=new Set(["neutral","smile","shy"]);
-function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")) return;
+const BLINK_EX=new Set(["neutral","smile"]);   // 閉眼小塊是從平常的臉做的,害羞的臉有紅暈,眨眼會蓋出一塊不同的膚色
+const fading=img=>img.getAnimations().some(x=>x instanceof CSSTransition&&x.transitionProperty==="filter"&&x.playState==="running");
+function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")||fading(img)) return;
   const o=ovlMake(img,byId(img.dataset.id)?.f,"blink","blink"); if(o) setTimeout(()=>o.remove(),120) }
 setInterval(()=>{ if(!V||document.hidden) return; const now=performance.now();
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
@@ -568,16 +570,15 @@ function showText(id,text,still,e){
   if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)) setExpr(id,EXPR.includes(e)?e:guessExpr(text)); else if(!m) setExpr(null);
   $("#vbox").dataset.m=me?"me":m?m.id:"narr";
   logLines.push([me?"代表":m?m.n:"",text]);
-  const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait"); mouthStop();
+  const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
   fitText(el,text);
   if(still){el.textContent=text; typing=null; return}
   let i=0; const chars=[...String(text)]; el.textContent="";
-  let tk=0, fl=0, mopen=false; if(m) mouthStart(id);
+  let tk=0;
   const PAUSE=ch=>/[。!?!?]/.test(ch)?300:/[,、;:,;:]/.test(ch)?150:ch==="…"?110:/[—~~]/.test(ch)?120:0;
   const tick=()=>{ i++; el.textContent=chars.slice(0,i).join(""); const ch=chars[i-1]||"";
     const isL=/[\p{L}\p{N}]/u.test(ch); if(isL&&++tk%3===0) blip(id);
-    if(isL){ const t=performance.now(); if(t-fl>95){ mopen=!mopen; fl=t } mouthFlap(mopen) } else { mopen=false; mouthFlap(false) }   // 嘴巴:約 0.1 秒開合一次,標點時閉上
-    if(i>=chars.length){typing=null;mouthFlap(false);setTimeout(mouthStop,80);$("#vbox").classList.add("wait");queueAuto();return}
+    if(i>=chars.length){typing=null;$("#vbox").classList.add("wait");queueAuto();return}
     const nx=chars[i]||"", p=PAUSE(ch)&&!PAUSE(nx)?PAUSE(ch):(ch==="…"?60:0);   // 連續標點只在最後一個停
     typing=setTimeout(tick,20+p) };
   typing=setTimeout(tick,20)}
@@ -586,7 +587,7 @@ function fitText(el,text){ // 長台詞:先放完整文字量,放不下就逐步
   for(let k=.96;k>=.76&&el.scrollHeight>el.clientHeight+1;k-=.04) el.style.fontSize=(base*k).toFixed(2)+"px";
   el.textContent=""}
 function advance(){if(!D||$("#vopts .choice")) return;
-  if(typing){clearTimeout(typing);typing=null;mouthStop();const it=logLines[logLines.length-1];$("#vtext").textContent=it?it[1]:"";$("#vbox").classList.add("wait");queueAuto();return}
+  if(typing){clearTimeout(typing);typing=null;const it=logLines[logLines.length-1];$("#vtext").textContent=it?it[1]:"";$("#vbox").classList.add("wait");queueAuto();return}
   clearTimeout(autoT); step()}
 $("#vbox").onclick=e=>{if(e.target.closest(".dia")) return; advance()};
 document.addEventListener("keydown",e=>{if(!V) return; if(e.key===" "||e.key==="Enter"){if(document.activeElement?.closest?.("#vopts")) return; e.preventDefault(); advance()}
@@ -894,9 +895,3 @@ function blip(id){ if(localStorage.getItem("kpopGame.blip")==="0"||!V) return; c
 (()=>{ const b=$("#blipOn"); if(!b) return; b.checked=localStorage.getItem("kpopGame.blip")!=="0";
   b.onchange=()=>{ localStorage.setItem("kpopGame.blip",b.checked?"1":"0"); if(b.checked) blip("hr") } })();
 
-/* ===== 說話時嘴巴開合:打字時約 0.1 秒開合一次,標點與句尾閉上;只在平常、微笑兩種表情開合(疊加層見 ovlMake)===== */
-let MOUTH=null;
-function mouthStart(id){ mouthStop(); const img=imgOf(id); if(!img) return; const ex=img.dataset.ex||"neutral"; if(ex!=="neutral"&&ex!=="smile") return;
-  const o=ovlMake(img,byId(id).f,ex,"mouth"); if(!o) return; o.style.opacity=0; MOUTH={o,img} }
-function mouthFlap(open){ if(MOUTH&&MOUTH.o.isConnected) MOUTH.o.style.opacity=open?1:0 }
-function mouthStop(){ if(MOUTH){ MOUTH.o.remove(); MOUTH=null } }

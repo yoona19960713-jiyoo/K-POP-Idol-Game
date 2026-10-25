@@ -1142,7 +1142,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .stage:has(#visit.on) #fx{top:calc(5.2*var(--u))}
 
 /* 眨眼疊加層 */
-.vppl .ovl{background-repeat:no-repeat;pointer-events:none}
+.vppl .ovl{background-repeat:no-repeat;pointer-events:none;filter:var(--light)}
 .vppl .ovl.blink{transition:none}
 
 /* 只看圖:CG 停止推近、整張完整顯示,連陰影都拿掉 */
@@ -1163,8 +1163,6 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 /* 「只看圖」時文字一定要全部消失:.cgcap 有進場動畫(動畫值會蓋過一般樣式),所以這裡關掉動畫並強制隱藏 */
 .cgview.bare :is(.cgcap,.cgshade,.cgbtns,.cgcap *){animation:none!important;opacity:0!important;visibility:hidden;transition:opacity .35s,visibility 0s .35s}
 
-/* 說話時的嘴型疊加層:開合要瞬間切換,不要淡入淡出 */
-.vppl .ovl.mouth{transition:none!important}
 
 /* ===== 主畫面 HUD 精緻化(2026-10-24):沿用對話框的香檳金細線與星形,整個遊戲同一套裝飾語言 ===== */
 @property --acc{syntax:"<color>";inherits:true;initial-value:#E85C8A}
