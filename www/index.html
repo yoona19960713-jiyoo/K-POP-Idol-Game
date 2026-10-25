@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" href="assets/fonts/wenkai-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/iansui-400.woff2" as="font" type="font/woff2" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Iansui&family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=Iansui&family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>/* ===== 內嵌字型(2026-10-24 使用者選定):標題=霞鶩文楷 TC,內文=芫荽;粗體內文用文楷粗體(兩者同源於 Klee One,風格一致)
    基本檔=Big5 常用字+遊戲用字;芫荽缺的字退到文楷;Big5 次常用字在 PGG Kai X,用到才載入 ===== */
 @font-face{font-family:"PGG Serif";src:url(assets/fonts/wenkai-400.woff2) format("woff2");font-weight:1 550;font-display:swap}
@@ -50,8 +50,8 @@ button:disabled{cursor:default}
 .stage[data-time="night"]{--acc:#9E9CF5;--acc2:#C9C7FF;--panel:rgba(28,26,52,.88);--panel2:rgba(22,20,44,.88);--ink:#EDE8FF;--soft:#A9A4D0;--line:rgba(140,140,240,.5);--light:brightness(.78) saturate(.85) hue-rotate(6deg)}
 :focus-visible{outline:calc(.25*var(--u)) solid var(--acc);outline-offset:calc(.2*var(--u))}
 
-.backdrop{position:absolute;inset:calc(-2*var(--u));background-size:cover;background-position:center;filter:blur(calc(1.4*var(--u))) brightness(.55) saturate(.9);transform:scale(1.04);transition:background-image .8s}
-.backdrop::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(26,20,32,.55),rgba(26,20,32,.25) 30%,rgba(26,20,32,.6))}
+
+
 
 /* ===== 拜訪畫面 ===== */
 .visit{position:absolute;inset:0;z-index:20;display:none}
@@ -60,14 +60,14 @@ button:disabled{cursor:default}
 .visit .vtint{position:absolute;inset:0;pointer-events:none}
 .stage[data-time="evening"] .visit .vtint{background:rgba(255,150,70,.12);mix-blend-mode:soft-light}
 .stage[data-time="night"] .visit .vtint{background:rgba(40,50,140,.3);mix-blend-mode:multiply}
-.vppl img{position:absolute;height:var(--ch);top:calc(var(--ty) + (1 - var(--h)) * var(--ch));left:var(--x);transform:translateX(-50%);
+.vppl img,.vppl .ovl{position:absolute;height:var(--ch);top:calc(var(--ty) + (1 - var(--h)) * var(--ch));left:var(--x);transform:translateX(-50%);
   filter:var(--light) drop-shadow(0 calc(.6*var(--u)) calc(1.2*var(--u)) rgba(40,20,40,.3));transition:opacity .3s}
-.vppl img{z-index:1}.vppl img.dim{filter:var(--light) brightness(.6) saturate(.8)}.vppl img.on{z-index:2}
+.vppl img,.vppl .ovl{z-index:1}.vppl img.dim,.vppl .ovl.dim{filter:var(--light) brightness(.6) saturate(.8)}.vppl img.on,.vppl .ovl.on{z-index:2}
 .vhead{position:absolute;z-index:3;left:calc(2*var(--u));top:calc(1.6*var(--u));color:#fff;background:linear-gradient(90deg,rgba(43,32,48,.85),rgba(43,32,48,0));padding:calc(.6*var(--u)) calc(5*var(--u)) calc(.6*var(--u)) calc(1.4*var(--u));border-left:calc(.35*var(--u)) solid var(--acc)}
 .vhead b{display:block;font-size:calc(2.1*var(--u));letter-spacing:.2em;line-height:1.3}
 .vhead span{font-size:calc(1.2*var(--u));opacity:.85;letter-spacing:.12em}
 .vopts{position:absolute;z-index:3;right:calc(2*var(--u));top:calc(8.4*var(--u));width:calc(30*var(--u));display:flex;flex-direction:column;gap:calc(.6*var(--u))}
-.vopts .vh{font-size:calc(1.05*var(--u));color:#fff;text-align:right;letter-spacing:.12em;text-shadow:0 calc(.1*var(--u)) calc(.4*var(--u)) rgba(0,0,0,.6);margin-bottom:calc(-.1*var(--u))}
+
 .vopt{position:relative;background:linear-gradient(90deg,transparent,var(--panel) 12%,var(--panel));border-top:calc(.15*var(--u)) solid var(--acc2);border-bottom:calc(.15*var(--u)) solid var(--acc2);
   padding:calc(.55*var(--u)) calc(2.4*var(--u)) calc(.55*var(--u)) calc(4.4*var(--u));font-size:calc(1.5*var(--u));font-weight:500;color:var(--ink);text-align:center;transition:transform .15s}
 .vopt::before{content:"◆";position:absolute;left:calc(2.6*var(--u));top:50%;transform:translateY(-50%);color:var(--acc);font-size:calc(1*var(--u))}
@@ -79,28 +79,26 @@ button:disabled{cursor:default}
 .vname{position:absolute;left:0;top:calc(-.4*var(--u));height:calc(4.2*var(--u));min-width:calc(22*var(--u));padding:0 calc(5*var(--u)) 0 calc(3*var(--u));display:flex;align-items:center;font-size:calc(2*var(--u));font-weight:700;letter-spacing:.3em;color:#fff;
   background:linear-gradient(90deg,#3a2b40,var(--nc,#9b8aa0));clip-path:polygon(0 0,calc(100% - calc(2.4*var(--u))) 0,100% 100%,0 100%)}
 .vtext{position:absolute;left:calc(9*var(--u));right:calc(14*var(--u));top:calc(5.4*var(--u));font-size:calc(2.05*var(--u));line-height:1.7;font-weight:500;color:var(--ink)}
-.vnote{position:absolute;right:calc(2*var(--u));bottom:calc(.6*var(--u));font-size:calc(1*var(--u));color:var(--soft);letter-spacing:.08em}
 
 /* ===== 小面板(手機、選單) ===== */
-.sheet{position:absolute;z-index:30;isolation:isolate;top:calc(8*var(--u));right:calc(2*var(--u));width:calc(34*var(--u));max-height:calc(44*var(--u));display:none;flex-direction:column;
-  background:linear-gradient(180deg,var(--panel),var(--panel2));border-top:calc(.25*var(--u)) solid var(--acc);border-radius:0 0 calc(.6*var(--u)) calc(.6*var(--u));-webkit-backdrop-filter:blur(calc(1.2*var(--u)));backdrop-filter:blur(calc(1.2*var(--u)));box-shadow:0 calc(1*var(--u)) calc(3*var(--u)) rgba(0,0,0,.4);color:var(--ink)}
-.sheet.on{display:flex}
-.stage[data-time="night"] .sheet{background:linear-gradient(180deg,#1E1C38,#18162F)}
-.sheet{background-color:#FBF7FA}
-.sheet header{display:flex;justify-content:space-between;align-items:center;padding:calc(1*var(--u)) calc(1.4*var(--u)) calc(.6*var(--u))}
-.sheet header b{font-size:calc(1.5*var(--u));letter-spacing:.2em}
-.sheet .x{font-size:calc(1.2*var(--u));color:var(--soft);padding:calc(.2*var(--u)) calc(.6*var(--u))}
-.sheet .body{padding:0 calc(1.4*var(--u)) calc(1.2*var(--u));overflow:auto}
-.sheet .hint{font-size:calc(1.05*var(--u));color:var(--soft);margin:0 0 calc(.8*var(--u));line-height:1.5}
+
+
+
+
+
+
+
+
+
 .msg{display:grid;grid-template-columns:calc(3.4*var(--u)) 1fr;gap:calc(.9*var(--u));align-items:center;padding:calc(.6*var(--u)) 0;border-top:calc(.1*var(--u)) solid var(--line)}
 .msg .face{width:calc(3.4*var(--u));height:calc(3.4*var(--u))}
 .msg b{font-size:calc(1.2*var(--u))}.msg p{margin:0;font-size:calc(1.15*var(--u));line-height:1.45}
 .msg small{color:var(--soft);font-size:calc(.95*var(--u));margin-left:calc(.6*var(--u))}
 .row{display:flex;flex-wrap:wrap;gap:calc(.6*var(--u));align-items:center;margin:calc(.5*var(--u)) 0 calc(1*var(--u))}
 .row span{font-size:calc(1.15*var(--u));margin-right:calc(.4*var(--u))}
-.pill{font-size:calc(1.15*var(--u));padding:calc(.3*var(--u)) calc(1.2*var(--u));border-radius:calc(2*var(--u));border:calc(.12*var(--u)) solid var(--acc);color:var(--ink)}
-.pill[aria-pressed="true"]{background:var(--acc);color:#fff}
-.pill.warn{border-color:#C8102E}
+
+
+
 
 /* 時段切換提示 */
 .toast{position:absolute;z-index:40;left:50%;top:42%;transform:translate(-50%,-50%);text-align:center;color:#fff;pointer-events:none;opacity:0}
@@ -109,13 +107,13 @@ button:disabled{cursor:default}
 .toast::before{content:"";position:absolute;left:calc(-20*var(--u));right:calc(-20*var(--u));top:calc(-1.5*var(--u));bottom:calc(-1.5*var(--u));z-index:-1;background:linear-gradient(90deg,transparent,rgba(26,20,32,.7) 30%,rgba(26,20,32,.7) 70%,transparent)}
 .toast.show{animation:toast 2.4s ease forwards}
 @keyframes toast{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.toast.show{animation-duration:.01s;opacity:0}.tile{transition:none}}
+@media (prefers-reduced-motion:reduce){.toast.show{animation-duration:.01s;opacity:0}}
 
 /* ===== 遊戲本體追加 ===== */
 .boot{position:absolute;inset:0;z-index:60;display:grid;place-items:center;background:#1A1420;color:#fff;font-size:calc(1.6*var(--u));letter-spacing:.2em;transition:opacity .5s}
 .boot.done{opacity:0;pointer-events:none}
 .sync-dot{position:absolute;right:calc(13*var(--u));top:calc(2.6*var(--u));font-size:calc(1*var(--u));color:#fff;opacity:.75;letter-spacing:.08em;text-shadow:0 calc(.1*var(--u)) calc(.3*var(--u)) rgba(0,0,0,.6)}
-.mem .wear{font-size:calc(.9*var(--u));color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 
 /* 對話:可點的文字框 */
 .vbox{cursor:pointer}
@@ -133,7 +131,7 @@ button:disabled{cursor:default}
 .fx{position:absolute;z-index:4;right:calc(2*var(--u));top:calc(2*var(--u));display:flex;flex-direction:column;gap:calc(.5*var(--u));align-items:flex-end;pointer-events:none}
 .fx span{background:rgba(26,20,32,.82);color:#fff;font-size:calc(1.25*var(--u));padding:calc(.3*var(--u)) calc(1.1*var(--u));border-radius:calc(2*var(--u));border-left:calc(.3*var(--u)) solid var(--c,#E85C8A);animation:fxin 2.6s ease forwards}
 @keyframes fxin{0%{opacity:0;transform:translateX(calc(1*var(--u)))}10%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
-.vppl img{transition:opacity .25s, filter .25s}
+.vppl img,.vppl .ovl{transition:opacity .25s, filter .25s}
 .vlog{position:absolute;inset:0;z-index:25;background:rgba(20,16,30,.92);color:#EDE8FF;padding:calc(3*var(--u)) calc(6*var(--u));overflow:auto;display:none}
 .vlog.on{display:block}
 .vlog p{margin:0 0 calc(.9*var(--u));font-size:calc(1.5*var(--u));line-height:1.6}
@@ -307,7 +305,7 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
 .news p{margin:0 0 calc(.4*var(--u));font-size:max(calc(1.08*var(--u)),10px);line-height:1.55}
 
 /* 手機面板改成玻璃風 */
-.sheet{background:var(--glass)!important;-webkit-backdrop-filter:blur(calc(1.4*var(--u)));backdrop-filter:blur(calc(1.4*var(--u)));border:calc(.1*var(--u)) solid var(--glassLine);border-top:calc(.25*var(--u)) solid var(--acc);color:var(--glassInk);top:calc(8.6*var(--u));border-radius:calc(1*var(--u))}
+
 .msg .face{width:calc(3.4*var(--u));height:calc(3.4*var(--u))}
 .stage .toast b{font-family:var(--serif)}
 
@@ -335,11 +333,11 @@ dialog.set::backdrop{background:rgba(10,8,16,.6)}
 
 /* ===== 立繪的生命感:呼吸般的輕微起伏、換表情交叉淡入(2026-10-24) ===== */
 @keyframes breathe{0%,100%{scale:1 1}50%{scale:1.002 1.0045}}
-.vppl img{transform-origin:50% 100%;animation:breathe 5.2s ease-in-out infinite}
+.vppl img,.vppl .ovl{transform-origin:50% 100%;animation:breathe 5.2s ease-in-out infinite}
 .vppl img:nth-child(2n){animation-duration:5.9s;animation-delay:-1.7s}
 .vppl img:nth-child(3n){animation-duration:4.7s;animation-delay:-3.1s}
 .vppl img.ghost{z-index:3;pointer-events:none;transition:opacity .22s ease-out}
-@media (prefers-reduced-motion:reduce){.vppl img{animation:none}.vppl img.ghost{transition:none}}
+@media (prefers-reduced-motion:reduce){.vppl img,.vppl .ovl{animation:none}.vppl img.ghost{transition:none}}
 
 /* =====================================================================
    造型室(精品服裝店主題:奶油紙、香檳金燙線、明體)
@@ -788,7 +786,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 /* 遊戲共用的霧面玻璃:疊一層細緻顆粒 */
 /* 顆粒疊在玻璃的漸層上面(只寫 background-image 會把漸層蓋掉,面板就變成透明、字看不清) */
 .plate,.room .rp,.tcard,.ibtn,.back,.drawer,.news,.chbox{background-image:url(assets/ui/glass_a.webp),var(--glass);background-size:128px,auto}
-.sheet{background-image:url(assets/ui/glass_a.webp),linear-gradient(180deg,var(--panel),var(--panel2));background-size:128px,auto}
+
 
 /* ---- 造型室:象牙絲麻布 + 香檳金拉絲 ---- */
 .fac-wrap:not([class*="th-"]) .fac-head{background:linear-gradient(180deg,rgba(255,252,246,.72),rgba(251,246,238,.55)),url(assets/ui/silk.webp) 0 0/256px}
@@ -1144,7 +1142,8 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .stage:has(#visit.on) #fx{top:calc(5.2*var(--u))}
 
 /* 眨眼疊加層 */
-.vppl img.blink{pointer-events:none;transition:none}
+.vppl .ovl{background-repeat:no-repeat;pointer-events:none}
+.vppl .ovl.blink{transition:none}
 
 /* 只看圖:CG 停止推近、整張完整顯示,連陰影都拿掉 */
 .cgview.bare .cgimg{animation:none;transform:none;cursor:zoom-out}
@@ -1165,7 +1164,7 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .cgview.bare :is(.cgcap,.cgshade,.cgbtns,.cgcap *){animation:none!important;opacity:0!important;visibility:hidden;transition:opacity .35s,visibility 0s .35s}
 
 /* 說話時的嘴型疊加層:開合要瞬間切換,不要淡入淡出 */
-.vppl img.mouth{pointer-events:none;transition:none!important}
+.vppl .ovl.mouth{transition:none!important}
 
 /* ===== 主畫面 HUD 精緻化(2026-10-24):沿用對話框的香檳金細線與星形,整個遊戲同一套裝飾語言 ===== */
 @property --acc{syntax:"<color>";inherits:true;initial-value:#E85C8A}
@@ -1333,7 +1332,6 @@ canvas.wx.on{display:block}
       <div class="dia"><button class="dbtn" id="autoBtn" aria-pressed="false"><span><b>▶</b>Auto</span></button><button class="dbtn" id="logBtn"><span><b>≡</b>Log</span></button></div>
       <div class="vtext" id="vtext"></div>
       <div class="vnext">▼</div>
-      <div class="vnote" id="vnote"></div>
     </div>
     <div class="vlog" id="vlog"></div>
   </div>
@@ -1351,7 +1349,7 @@ canvas.wx.on{display:block}
   </section>
 </div>
 
-<div class="rotate">請把手機轉成橫向來玩<br><span style="font-size:14px;opacity:.7">K-POP Idol Game 是橫向畫面</span></div>
+<div class="rotate">請把手機轉成橫向來玩<br><span style="font-size:14px;opacity:.7">完美女團是橫向畫面</span></div>
 <div class="toast2" id="toast2"></div>
 
 <!-- 選單 -->
@@ -1359,7 +1357,7 @@ canvas.wx.on{display:block}
   <header><b>選單</b><button class="b" id="setClose">關閉</button></header>
   <div class="in">
     <h3>雲端同步</h3>
-    <p class="hint">跟衣帽間工坊、劇本工坊用同一個 Firebase 專案與帳號。登入後會讀取它們的資料,並把遊戲存檔放到雲端,手機和電腦可以接著玩。</p>
+    <p class="hint">登入後,遊戲存檔、劇情內容庫、造型、歌曲與打歌資料都會存在雲端,手機和電腦可以接著玩。</p>
     <div id="cfgBox">
       <textarea id="cfgIn" placeholder="貼上 firebaseConfig 整段"></textarea>
       <div class="row"><button class="b" id="cfgSave">儲存設定</button><span class="st" id="cfgInfo"></span></div>
@@ -1380,21 +1378,20 @@ canvas.wx.on{display:block}
     <div class="row"><button class="b" id="reprocAll">用新版去背重新處理全部日常立繪</button></div>
 
     <h3>製作者模式</h3>
-    <p class="hint">產生日常片段、審稿、試玩、收進內容庫(原本劇本工坊的功能)。打開時遊戲時間暫停。</p>
+    <p class="hint">產生日常片段、審稿、試玩、收進內容庫。打開時遊戲時間暫停。</p>
     <div class="row"><button class="b pri" id="makerBtn">進入製作者模式</button></div>
 
     <h3>AI 生圖(造型室的設計工作台)</h3>
     <p class="hint">用 OpenAI 的 GPT Image 自動替造型生圖,按張計費,費用從你的 OpenAI 帳戶扣。金鑰只存在這台裝置。</p>
     <div id="oaiBox">
       <div class="row"><input type="text" id="oaiKey" placeholder="OpenAI API 金鑰(sk-…)" autocomplete="off"></div>
-      <div class="row"><span>模型</span><select id="oaiModel" class="b"><option value="gpt-image-2">gpt-image-2(較新、較便宜)</option><option value="gpt-image-1.5">gpt-image-1.5</option></select>
+      <div class="row"><span>模型 gpt-image-2</span>
         <span>品質</span><select id="oaiQ" class="b"><option value="low">低(約 US$0.02/張)</option><option value="medium">中(約 US$0.06/張)</option><option value="high">高(約 US$0.22/張)</option></select></div>
       <div class="row"><button class="b pri" id="oaiSave">儲存</button><button class="b" id="oaiClear">清除金鑰</button></div>
     </div>
 
     <h3>遊戲</h3>
-    <p class="hint">遊戲一天等於現實 12 分鐘,開著才會走。時間倍率只給測試用。</p>
-    <div class="row"><span>時間倍率</span><button class="b" data-speed="1">×1</button><button class="b" data-speed="5">×5</button><button class="b" data-speed="20">×20</button></div>
+    <p class="hint">遊戲一天等於現實 12 分鐘,開著才會走;打開設施、手機、選單或事件時,時間會暫停。</p>
     <div class="row"><button class="b warn" id="resetBtn">從第一天重新開始</button></div>
 
     <h3>版本</h3>
@@ -1411,7 +1408,6 @@ canvas.wx.on{display:block}
 </dialog>
 
 <script src="version.js"></script>
-<script src="assets/outfits.js"></script>
 <script src="game.js"></script>
 <script src="assets/poses.js"></script>
 <script src="wardrobe.js"></script>

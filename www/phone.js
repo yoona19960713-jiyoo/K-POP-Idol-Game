@@ -17,7 +17,7 @@ const stamp=()=>({day:S.day,slot:S.slot,hm:hm()});
 const whenTxt=x=>x?.day==null?(x?.when||""):x.day===S.day?x.hm:`${x.day===S.day-1?"昨天":`第 ${x.day+1} 天`} ${x.hm}`;
 const face=(id,cls="")=>{const m=byId(id); return `<span class="pface ${cls}" style="--c:${m.c};background-image:url(${spr(id,null,"smile")})"></span>`};
 const stripQ=t=>String(t||"").replace(/^「|」$/g,"");
-const unreadOf=k=>{const p=ph(), n=(p.threads[k]||[]).length; return Math.max(0,n-(p.read[k]||0))+(p.pend[k]?0:0)};
+const unreadOf=k=>{const p=ph(), n=(p.threads[k]||[]).length; return Math.max(0,n-(p.read[k]||0))};
 function recount(){ const p=ph(); let n=0; for(const k of Object.keys(p.threads)) n+=unreadOf(k); n+=p.feed.filter(f=>!f.seen).length; S.unread=n; renderHud() }
 
 /* ---------- 時段切換時:收到訊息、群組、社群貼文 ---------- */
@@ -105,7 +105,7 @@ function chat(){ const p=ph(), k=CHAT, g=k==="group", t=p.threads[k]||[], pend=p
   let opts=""; if(pend){ const sn=snipBy(pend.code), n=sn?.nodes?.[pend.node]; if(n?.C?.length) opts=`<div class="popts">${n.C.map((c,i)=>`<button data-rep="${i}">${esc(stripQ(c.t))}</button>`).join("")}</div>` }
   return head(g?GROUP_NAME:byId(k).n,"chats",g?"6 人":"")+`<div class="plog" id="pLog">${t.length?bubbles(t,g):`<p class="pempty">${g?"群組裡還很安靜。":"還沒有訊息。時段切換時她可能會傳訊息來。"}</p>`}
     ${pend?`<div class="ptyping" id="pTyping" hidden><i></i><i></i><i></i></div>`:""}</div>${opts||`<div class="pinput"><span>${pend?"":"沒有需要回覆的訊息"}</span></div>`}`}
-const snipBy=code=>snips().find(s=>s.code===code);
+const snipBy=code=>SCRIPTS[code]||WX_SNIPS.find(s=>s.code===code);   // 直接用代號查,不用每次複製整個內容庫
 async function reply(i){ const p=ph(), k=CHAT, pend=p.pend[k]; if(!pend) return; const sn=snipBy(pend.code), n=sn?.nodes?.[pend.node], c=n?.C?.[i]; if(!c) return;
   const to=c.to&&byId(c.to)?c.to:(k==="group"?(sn.who?.[0]||"ys"):k);
   pushLines(k,[["me",stripQ(c.t)]]); delete p.pend[k];

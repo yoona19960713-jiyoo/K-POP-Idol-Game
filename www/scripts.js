@@ -77,7 +77,7 @@ const STAGE_DESC={戒備:"她對代表還有距離,禮貌或冷淡。",信任:"�
   多人親密:"她和另一位同樣與代表是親密關係的成員彼此知情,接受三人以上的戀愛關係(全員成年)。寫三人之間醋意的化解、彼此的默契與照顧、一起約會、同房的曖昧與溫柔;另一位成員要一起出現在片段裡(who 放兩人)。親密場面同樣用淡出帶過,不寫露骨描寫。"};
 const ROMANCE=["戀人","親密","多人親密"];
 const PERIODS=["練習生期","出道與上升期","巔峰期","轉型期"];
-const PERIOD_DESC={練習生期:"2015 下半年,還沒出道,每天練習、月評、宿舍生活。",出道與上升期:"2016~2017,剛出道,打歌、綜藝、第一次一位、限韓令、西方市場打開。",巔峰期:"2018~2019,一線女團,頒獎典禮、海外巡演、個人活動機會。",轉型期:"2020 以後,疫情讓舞台消失,線上演唱會、續約與未來的選擇。"};
+const PERIOD_DESC={練習生期:"2015 年 7 月到 2017 年 7 月出道前,還沒出道,每天練習、月評、宿舍生活。",出道與上升期:"2017 年 7 月 13 日出道到 2017 年底,剛出道,打歌、綜藝、第一次一位、限韓令、西方市場打開。",巔峰期:"2018~2019,一線女團,頒獎典禮、海外巡演、個人活動機會。",轉型期:"2020 以後,疫情讓舞台消失,線上演唱會、續約與未來的選擇。"};
 const PLACES={practice:"練習室",dorm:"宿舍",studio:"錄音室",office:"辦公室",styling:"造型室",out:"外面走走",phone:"手機"};
 /* 地點細節:讓片段的旁白與台詞有具體的畫面 */
 const PLACE_NOTE={styling:"造型室在公司 1F:金色滾輪衣架掛滿打歌服與日常服(多數還套著防塵袋、掛著吊牌)、整面鞋牆、玻璃配件櫃(髮飾、耳環、頭冠)、兩座燈泡化妝鏡、全身鏡、拉簾試衣間,桌上常攤著色票、布樣、別針與量尺。駐公司的造型師姓徐(三十多歲、講話直、很專業)與化妝師會出現在旁白裡。常見情境:試穿新打歌服、改尺寸、選配件、補妝、拍定裝照、偷偷試穿別的成員的衣服、對造型有意見、看到自己穿上新衣服的反應。上午與下午最忙,晚上只剩投射燈,深夜關閉(sl 只能是 1、2、3)。這一批裡最好有一個片段發生在造型室。"};
@@ -105,9 +105,9 @@ const SINGLE_TYPES=Object.keys(TYPES).filter(k=>TYPES[k].kind==="single"), PAIR_
 /* ---------- 世界設定(依《世界設定與時間軸》;只能用這些原創名稱) ---------- */
 const WORLD_BASE="公司:星環娛樂(老牌大公司)、黑鑽(嘻哈 girl crush)、晨光(親民、選秀組團)、方舟音樂(粉絲經營崛起)、楓葉娛樂(藝瑟的前公司)。打歌節目:週二 SHOW PULSE、週三 CHAMPION LIVE、週四 COUNTDOWN M、週五 MUSIC VAULT、週六 CORE STAGE、週日 STAR GAYO。頒獎:NOTE AWARDS(12 月,海外舉辦)、旋律音樂獎(12 月)、金盤獎(1 月)、首爾歌謠大賞(1 月)。音源平台 Melodi,排行榜圓音榜,入口網站 Nexa(熱搜與留言),八卦媒體 D-Scope。頂級製作人團隊 Lighthouse。";
 const WORLD_PERIOD={
- 練習生期:"這時還沒出道。活躍的女團:RADIANT 9(國民女團)、BLAZE、WONDER POP、SUNNY DAY、PEACH、HARMONY、VELVET ROSE、GLOW(2015 夏天正爆紅)、TWINKLE(2015 年 10 月經選秀出道)。男團 EXON、NOVA。直播平台 Spotlight Live 剛上線。2015 年夏天有中東呼吸症候群疫情。",
- 出道與上升期:"活躍的女團:GLOW、TWINKLE(2016 年最紅)、VELVET ROSE、HARMONY、PRISM 9(2016 年 5 月由選秀節目 SPOTLIGHT 99 選出的期間限定團)、LUMIÈRE(黑鑽 2016 年 8 月出道,藝瑟的舊同伴是成員)。BLAZE、WONDER POP、SUNNY DAY 在 2016 底到 2017 年陸續解散。2016 年底起中國市場關閉(限韓令)。2017 年 NOVA 在美國頒獎典禮得獎,西方市場打開。",
- 巔峰期:"活躍的女團:TWINKLE、VELVET ROSE、LUMIÈRE、HARMONY、IRIS 12(2018 年 10 月韓日合作選秀)、ZEST(2019 年出道)。日本市場熱絡,2019 年起短影音平台 Clip 普及;2019 年有娛樂圈大型醜聞,輿論緊縮。",
+ 練習生期:"這時還沒出道。練習生期從 2015 年 7 月到 2017 年 7 月 13 日出道,片段可能在這兩年間的任何一天出現,所以只寫一直成立的事,不要寫某團剛出道、剛解散、得獎這類有日期的新聞。2015 年活躍的女團:RADIANT 9(國民女團)、BLAZE、WONDER POP、SUNNY DAY、PEACH、HARMONY、VELVET ROSE、GLOW(2015 夏天正爆紅)、TWINKLE(2015 年 10 月經選秀出道);男團 EXON、NOVA;直播平台 Spotlight Live 剛上線;2015 年夏天有中東呼吸症候群疫情。2016 年:TWINKLE 最紅;5 月選秀節目 SPOTLIGHT 99 選出期間限定團 PRISM 9;8 月 NOXVEIL(黑鑽)出道,成員裡有藝瑟以前的同伴(出道前在別家公司當練習生);年底起中國市場關閉(限韓令),BLAZE、WONDER POP、SUNNY DAY 從年底開始陸續解散。",
+ 出道與上升期:"活躍的女團:GLOW、TWINKLE(2016 年最紅)、VELVET ROSE、HARMONY、PRISM 9(2016 年 5 月由選秀節目 SPOTLIGHT 99 選出的期間限定團)、NOXVEIL(黑鑽 2016 年 8 月出道,藝瑟的舊同伴是成員)。BLAZE、WONDER POP、SUNNY DAY 在 2016 底到 2017 年陸續解散。2016 年底起中國市場關閉(限韓令)。2017 年 NOVA 在美國頒獎典禮得獎,西方市場打開。",
+ 巔峰期:"活躍的女團:TWINKLE、VELVET ROSE、NOXVEIL、HARMONY、IRIS 12(2018 年 10 月韓日合作選秀)、ZEST(2019 年出道)。日本市場熱絡,2019 年起短影音平台 Clip 普及;2019 年有娛樂圈大型醜聞,輿論緊縮。",
  轉型期:"2020 年起新冠疫情,演唱會全停、打歌無觀眾錄影、線上演唱會;粉絲通訊 Pocket 上線、Clip 舞蹈挑戰是宣傳主力。NEOVERSE(2020 年 11 月)、2022 年 SERAPH、NEW DAY 出道。2022 年疫情解封、巡演回歸,也是第一份七年合約到期的時候。"};
 
 /* ---------- 格式檢查 ---------- */
@@ -128,7 +128,7 @@ function analyse(sn){
     if(t.length>60) w.push(`節點 ${k} 有一句台詞超過 60 字`);
     const cl=CLICHE.find(x=>t.includes(x)); if(cl) w.push(`節點 ${k} 用了套話「${cl}」`);
     if(t.length>6&&seenT.has(t)) w.push(`節點 ${k} 有重複的台詞`); seenT.add(t) }
-  const memo={}; const depth=(k,seen)=>{if(seen.has(k)||!N[k])return 0; seen.add(k); let m=0; for(const c of N[k].C||[]) m=Math.max(m,1+(c.next?depth(c.next,new Set(seen)):0)); return m};
+  const depth=(k,seen)=>{if(seen.has(k)||!N[k])return 0; seen.add(k); let m=0; for(const c of N[k].C||[]) m=Math.max(m,1+(c.next?depth(c.next,new Set(seen)):0)); return m};
   const d=depth("start",new Set()); const branch=Object.values(N).filter(n=>(n.C||[]).filter(c=>c.next).length>=2).length;
   if(sn.type==="long"||sn.type==="pairlong"){ if(d<8) w.push(`最長只有 ${d} 個來回,長對話要 8~10 個`); if(d>11) w.push(`最長 ${d} 個來回,超過 10 個`); if(branch<2) w.push(`只有 ${branch} 個分岔點,長對話至少要 2 個`) }
   if(sn.type==="away"&&(N.start.C||[]).length) w.push("你不在場時的片段不應該有選項");
@@ -338,7 +338,7 @@ function cleanExpr(nodes){ for(const n of Object.values(nodes||{})){ for(const l
   for(const c of n.C||[]) for(const l of c.r||[]) if(l.length>2&&!EXPRS.includes(l[2])) l.length=2 } return nodes }
 async function persist(){ const o={}; for(const x of items) o[x.code]=x; await IDB.set("scriptsAll",o) }
 function toGame(sn){ // 遊戲玩的時候用的精簡內容庫
-  if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]={code:sn.code,type:sn.type,member:sn.member||"",pair:sn.pair||"",stage:sn.stage||"",period:sn.period||"",at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,nodes:sn.nodes||{}};
+  if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]={code:sn.code,type:sn.type,member:sn.member||"",pair:sn.pair||"",stage:sn.stage||"",period:sn.period||"",room:sn.room||"",wx:sn.wx||"",at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,nodes:sn.nodes||{}};
   else delete SCRIPTS[sn.code] }
 async function saveItem(it){ const body={...it,updatedAt:Date.now()}; if(body.nodes) cleanExpr(body.nodes);
   const i=items.findIndex(x=>x.code===body.code); if(i>=0) items[i]=body; else items.push(body);
@@ -368,7 +368,7 @@ async function sync(){
     if(d.fields.deleted?.booleanValue){ if(i>=0){items.splice(i,1);ch++} continue }
     let it; try{it=JSON.parse(d.fields.json.stringValue)}catch(e){continue}
     if(i<0) items.push(it); else if((it.updatedAt||0)>=(items[i].updatedAt||0)) items[i]=it; ch++ }
-  localStorage.setItem(K,String(max)); if(ch){ await persist(); if(OPEN) renderAll() }
+  localStorage.setItem(K,String(max)); if(ch){ await persist(); await renameOld(); if(OPEN) renderAll() }
 }
 (window.SYNC_HOOKS=window.SYNC_HOOKS||[]).push(sync);
 
@@ -390,7 +390,6 @@ async function open(){ shell(); if(!items.length) items=Object.values(await IDB.
   void $("#makerFac").offsetWidth; $("#makerFac").classList.remove("hide"); $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll() }
 function close(){ $("#makerFac").classList.add("hide"); setPause("maker",false); OPEN=false }
 window.openMaker=open;
-window.makerDebug={buildPrompt,SCHEMA,parseSnippets,analyse,EX_SINGLE,EX_PAIR,revisePrompt,toSchemaShape,sameShape};
 const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"]];
 function renderAll(){ if(!OPEN) return;
   $("#mkTabs").innerHTML=TABS.map(([k,n])=>`<button data-mt="${k}" aria-selected="${k===tab}">${n}${k==="review"&&reviewQ_().length?`<i>${reviewQ_().length}</i>`:""}</button>`).join("");
@@ -535,7 +534,7 @@ function coverHTML(){ const L=lib(), cnt={}; for(const x of L){const k=cellKey(x
       return `<td><button class="cell" style="${heat(n,t)}" data-pcell="${k}|${p}">${n}/${t}</button></td>`}).join("")+`</tr>` }
   return `<p class="mnote">整體進度 ${done}/${total}(${Math.round(done/total*100)}%)。點任一格可以直接到「手動產生」那一格。</p>`+h+`</tbody></table></div>` }
 function keyHTML(){ const m=model(), known=["gemini-flash-latest","gemini-flash-lite-latest"].includes(m);
-  return `<div class="msheet"><h3>Gemini API 金鑰</h3><p class="mnote">金鑰只存在這台裝置,不會上傳。網頁版如果在同一個瀏覽器用過劇本工坊,會自動沿用同一把。</p>
+  return `<div class="msheet"><h3>Gemini API 金鑰</h3><p class="mnote">金鑰只存在這台裝置,不會上傳。</p>
     <div class="mrow"><input type="password" id="keyIn" class="grow" value="${esc(apiKey())}" placeholder="貼上金鑰" autocomplete="off"><button class="mbtn" id="keyShow">顯示</button></div>
     <div class="mrow"><label>使用的模型<select id="modelIn"><option value="gemini-flash-latest" ${m==="gemini-flash-latest"?"selected":""}>最新 Flash(推薦)</option><option value="gemini-flash-lite-latest" ${m==="gemini-flash-lite-latest"?"selected":""}>最新 Flash-Lite(較快,每日次數較多)</option><option value="custom" ${known?"":"selected"}>自行輸入…</option></select></label>
       <input type="text" id="modelCustom" class="grow${known?" hidden":""}" value="${known?"":esc(m)}" placeholder="例如 gemini-3.6-flash"></div>
@@ -591,6 +590,9 @@ function edit(sn){ const {nodes,sc,at,sl,who,w,cd}=sn; const d=$("#mkDlg");
   $("#ejs").onclick=async()=>{try{const o=JSON.parse($("#ej").value); await saveItem({...sn,...o}); d.classList.add("hide"); toast2("已更新")}catch(e){toast2("JSON 格式有誤,請檢查逗號與括號")}} }
 function renderAuto(){ if(OPEN&&tab==="auto") renderAll() }
 setInterval(()=>{ if(OPEN&&tab==="auto"&&!document.querySelector("#makerFac input:focus")) renderAll() },1000);
-(async()=>{ for(let i=0;i<40&&!IDB.db;i++) await new Promise(r=>setTimeout(r,100)); items=Object.values(await IDB.get("scriptsAll")||{}) })();
+/* 2026-10-25 對手女團改名 LUMIÈRE → NOXVEIL:內容庫裡提到舊名字的片段一起換掉並同步到雲端(沒有就什麼都不做) */
+const RENAMES=[[/LUMI[ÈE]RE|Lumi[èe]re/g,"NOXVEIL"]];
+async function renameOld(){ for(const it of [...items]){ const s=JSON.stringify(it); let t=s; for(const [re,to] of RENAMES) t=t.replace(re,to); if(t!==s) await saveItem(JSON.parse(t)) } }
+(async()=>{ for(let i=0;i<40&&!IDB.db;i++) await new Promise(r=>setTimeout(r,100)); items=Object.values(await IDB.get("scriptsAll")||{}); await renameOld() })();
 
 })();

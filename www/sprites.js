@@ -11,7 +11,6 @@ const EXS=["neutral","smile","laugh","sad","angry","shy"];
 /* 表情組的裁切框(原圖座標)與臉部橢圓中心(裁切座標),與 outfit_face.py 相同 */
 const CROP={yeseul:[480,1472],taeri:[450,1478],hiyori:[433,1461],haeun:[466,1486],haram:[460,1477]};
 const FACE={yeseul:[258,133],taeri:[208,158],hiyori:[216,140],haeun:[235,151],haram:[200,168]};
-const GUESS={haeun:[278,9],taeri:[289,9]};
 const AXR=[56,50], FEATHER=14;
 
 const loadImg=src=>new Promise((ok,no)=>{const i=new Image(); i.crossOrigin="anonymous"; i.onload=()=>ok(i); i.onerror=()=>no(new Error("圖片讀取失敗")); i.src=src});
@@ -235,5 +234,4 @@ window.processSprites=async(code,slot,opts={})=>{
   const ok=await saveDoc("items",lk); ensureWear(true); rerender();
   return {...r,ok};
 };
-window.SPRITE_FACE=FACE; window.__keyOut=keyOut2; window.__makeSprites=makeSprites;
 })();

@@ -226,7 +226,7 @@ async function takeImport(){
         if(it.target&&byId(it.target)) it.target=slotOf(it.target)||DEFAULT_SLOT[it.target];
         it.kind=it.kind||"look"; for(const v of Object.values(it.members)){ v.img=v.img||""; v.status=v.status||0 } }
       if(!(await saveDoc(col,it))) off++; n++ }
-    const what=col==="items"?`${n} 套造型,已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(劇本工坊的審稿區看得到)`;
+    const what=col==="items"?`${n} 套造型,已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
     setTimeout(()=>toast2(`收到 Claude 創作室送來的 ${what}`+(off?"(還沒登入雲端,登入後會自動上傳)":"")),900);
     if(col==="items"&&window.renderFacility) renderFacility();
   }catch(e){ setTimeout(()=>toast2("收到的資料無法讀取"),900) }
@@ -235,10 +235,9 @@ window.addEventListener("hashchange",takeImport);
 
 /* ---------- OpenAI 生圖 ---------- */
 const OAI_KEY="kpopGame.openai";
-const oai=()=>{try{return {model:"gpt-image-2",quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}")}}catch(e){return {model:"gpt-image-2",quality:"medium"}}};
+const oai=()=>{try{return {model:"gpt-image-2",quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}"),model:"gpt-image-2"}}catch(e){return {model:"gpt-image-2",quality:"medium"}}};
 const setOai=o=>localStorage.setItem(OAI_KEY,JSON.stringify({...oai(),...o}));
 const OAI_PRICE={low:.02,medium:.06,high:.22};   // 每張約略費用(直圖+參考圖),只用來估算
-function dataURLtoBlob(u){const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:mime})}
 async function toPng(u){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=u});const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);return await new Promise(ok=>c.toBlob(ok,"image/png"))}
 /* 內建的姿勢底模(使用者用 ChatGPT 生好、Claude 檢查後放進遊戲):assets/pose/成員_姿勢.webp */
 const POSE_ASSET=window.POSE_ASSETS||{};   // {"haeun_wave":1,...} 由 assets/poses.js 提供
@@ -252,7 +251,6 @@ async function oaiEdit(prompt,baseURL,model){
   const o=oai(); if(!o.key) throw {code:"no_key"};
   const fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
   fd.append("size","1024x1536"); fd.append("quality",o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp");
-  if(model==="gpt-image-1.5"||model==="gpt-image-1") fd.append("input_fidelity","high");
   let r; try{ r=await fetch("https://api.openai.com/v1/images/edits",{method:"POST",headers:{Authorization:"Bearer "+o.key},body:fd}) }catch(e){throw {code:"network"}}
   const j=await r.json().catch(()=>({}));
   if(!r.ok){ const msg=j?.error?.message||"", code=j?.error?.code||"";
@@ -266,7 +264,7 @@ async function oaiEdit(prompt,baseURL,model){
   return "data:image/webp;base64,"+b;
 }
 const OAI_ERR={no_key:"還沒設定 OpenAI 金鑰(選單 → AI 生圖)",bad_key:"OpenAI 金鑰不正確",quota:"OpenAI 帳戶額度不足,請到 OpenAI 儲值",rate:"太頻繁了,稍等再試",
-  blocked:"被 OpenAI 的安全審查擋下,可以改一下服裝描述再試",bad_model:"這個生圖模型不能用",verify:"這個模型需要先在 OpenAI 完成組織驗證",network:"連不上 OpenAI",server:"OpenAI 回傳錯誤"};
+  blocked:"被 OpenAI 的安全審查擋下,可以改一下服裝描述再試",bad_model:"gpt-image-2 目前不能用(不會自動改用其他模型)",verify:"這個模型需要先在 OpenAI 完成組織驗證",network:"連不上 OpenAI",server:"OpenAI 回傳錯誤"};
 
 /* 工作佇列:每一筆是 一套造型 × 一位成員 */
 let JOBS=[];        // {id,code,slot,state:"wait"|"run"|"done"|"err",err}
@@ -281,14 +279,13 @@ function todoList(){ const out=[];
   return out }
 async function runQueue(){
   if(RUNNING) return; RUNNING=true; STOP=false; renderFacility();
-  const o=oai(); let model=o.model||"gpt-image-2";
+  const o=oai(), model="gpt-image-2";   // 只用 gpt-image-2:1.5 的畫風、臉、身材都會跑掉,失敗就停下來,不自動換模型
   while(!STOP){ const job=JOBS.find(j=>j.state==="wait"); if(!job) break; job.state="run"; renderFacility();
     try{ const lk=ITEMS[job.code], base=await baseFor(job.slot,lk.pose);
       if(!base) throw {code:"no_base"};
-      let img, used=model; try{ img=await oaiEdit(wLookPrompt(lk,job.slot),base,model) }
-      catch(e){ if(e.code==="bad_model"&&model!=="gpt-image-1.5"){model=used="gpt-image-1.5"; setOai({model}); img=await oaiEdit(wLookPrompt(lk,job.slot),base,model)} else throw e }
+      const img=await oaiEdit(wLookPrompt(lk,job.slot),base,model), used=model;
       PENDING[job.id]={code:job.code,slot:job.slot,img,model:used,quality:o.quality||"medium",at:Date.now()}; await IDB.set("pending",PENDING); job.state="done";
-    }catch(e){ job.state="err"; job.err=e.code==="no_base"?"衣帽間還沒有這位成員的生圖底模":(OAI_ERR[e.code]||"失敗")+(e.msg?`:${String(e.msg).slice(0,80)}`:"");
+    }catch(e){ job.state="err"; job.err=e.code==="no_base"?"還沒有這位成員的生圖底模(造型室 → 成員底模)":(OAI_ERR[e.code]||"失敗")+(e.msg?`:${String(e.msg).slice(0,80)}`:"");
       if(["no_key","bad_key","quota","verify","bad_model"].includes(e.code)){STOP=true; toast2(OAI_ERR[e.code])}
       if(e.code==="rate"){ job.state="wait"; await new Promise(r=>setTimeout(r,20000)) } }
     renderFacility() }
@@ -466,7 +463,7 @@ function editLook(code){
   $("#eSave").onclick=async()=>{ lk.name=$("#eName").value.trim()||lk.name; lk.occasion=$("#eOcc").value; lk.concept=$("#eCon").value;
     d.querySelectorAll("[data-ou]").forEach(t=>lk.members[t.dataset.ou].outfit=t.value); d.querySelectorAll("[data-tw]").forEach(t=>lk.members[t.dataset.tw].twist=t.value);
     lk.updatedAt=Date.now(); const ok=await saveDoc("items",lk); toast2(ok?"已儲存並同步":"已儲存(還沒同步)"); ensureWear(true); openDetail(code,Object.keys(lk.members)[0]); renderFacility() };
-  $("#eDel").onclick=async()=>{ if(!confirm(`確定刪除「${lk.name}」?衣帽間那邊也會一起刪除。`)) return;
+  $("#eDel").onclick=async()=>{ if(!confirm(`確定刪除「${lk.name}」?雲端的這套造型也會一起刪除。`)) return;
     delete ITEMS[code]; await IDB.set("items",ITEMS);
     try{ await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}) }catch(e){}
     d.classList.add("hide"); toast2("已刪除"); ensureWear(true); renderFacility() };
@@ -491,7 +488,7 @@ function poseBaseHTML(){ const s=slotOf(PB_MEM), w=WMETA.find(x=>x.id===s)||{}, 
     return head+`<div class="pbcard"><div class="bimg" data-bref="${esc(ref||"")}" ${asset?`style="background-image:url(${asset})"`:""}>${busy?`<span class="wnone">生成中…</span>`:ref||asset?"":`<span class="wnone">尚未生成</span>`}</div><b>${P[1]}</b>${asset?`<small>內建底模</small>`:""}
       ${k==="stand"?`<small>就是生圖底模</small>`:`<div class="pbact"><button class="flink" data-pbg="${k}" ${busy||!w.gen?"disabled":""}>${ref?"重新生成":"自動生成"}</button><button class="flink" data-pbu="${k}">上傳</button>${ref?`<button class="flink" data-pbd="${k}">清除</button>`:""}</div>`}</div>` }).join("")}</div>` }
 function renderBases(){ ensureMeta();
-  return `<p class="fnote dark">自動生圖會把這張底模附給 OpenAI,只換衣服。請用定案平常立繪(灰底、白 T、平常表情),換臉層才對得準。這裡改了會同步到衣帽間工坊。</p>
+  return `<p class="fnote dark">自動生圖會把這張底模附給 OpenAI,只換衣服。請用定案平常立繪(灰底、白 T、平常表情),換臉層才對得準。改了會同步到雲端。</p>
   <div class="bgrid">${M.map(m=>{const s=slotOf(m.id), w=WMETA.find(x=>x.id===s)||{};return `<div class="bcard" style="--mc:${m.c}"><div class="bimg" data-bref="${esc(w.gen||"")}">${w.gen?"":`<span class="wnone">尚未設定</span>`}</div>
     <b>${m.n}</b><button class="fbtn" data-bup="${s}">${w.gen?"更換底模":"上傳底模"}</button>
     <details><summary>造型設計用的人設</summary><textarea class="ftext sm" data-bpf="${s}">${esc(profileOf(s))}</textarea><button class="flink" data-bps="${s}">儲存人設</button></details></div>`}).join("")}</div>${poseBaseHTML()}`}
@@ -521,7 +518,7 @@ function bindBases(B){
       c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k); c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);
       let url=c.toDataURL("image/webp",.92); if(!url.startsWith("data:image/webp")) url=c.toDataURL("image/png");
       let w=WMETA.find(x=>x.id===s); if(!w){w={id:s,name:byId(midOf(s)).n,en:"",gen:"",profile:"",current:""};WMETA.push(w)} w.gen=url;
-      toast2("上傳中…"); const ok=await saveMetaCloud(); if(ok) toast2(`${byId(midOf(s)).n}的底模已更新,衣帽間也同步了`); renderFacility() }catch(e){toast2("讀不到這張圖,請換一張")} }; inp.click() });
+      toast2("上傳中…"); const ok=await saveMetaCloud(); if(ok) toast2(`${byId(midOf(s)).n}的底模已更新,也同步到雲端了`); renderFacility() }catch(e){toast2("讀不到這張圖,請換一張")} }; inp.click() });
   B.querySelectorAll("[data-bps]").forEach(b=>b.onclick=async()=>{ const s=b.dataset.bps, w=WMETA.find(x=>x.id===s); if(!w) return; w.profile=B.querySelector(`[data-bpf="${s}"]`).value; const ok=await saveMetaCloud(); if(ok) toast2("人設已儲存") });
   for(const el of B.querySelectorAll(".bimg[data-bref]")){ const r=el.dataset.bref; if(r) getThumb(r).then(t=>{if(t) el.style.backgroundImage=`url(${t})`}) }
 }
@@ -552,7 +549,7 @@ function chipRow(list,cur,attr){return list.map(([k,n,c])=>`<button class="fchip
 function cardHTML(lk,mid){
   const slot=mid?slotOf(mid):Object.keys(lk.members||{}).find(s=>lk.members[s]?.img&&midOf(s))||Object.keys(lk.members||{})[0];
   const m=byId(midOf(slot)), o=lk.members?.[slot]||{}, has=!!o.img;
-  const sprite=(window.OUTFIT_SPRITES||[]).some(x=>x.look===lk.code)||Object.values(lk.members||{}).some(x=>x?.sprites);
+  const sprite=Object.values(lk.members||{}).some(x=>x?.sprites);
   return `<button class="wcard" data-look="${esc(lk.code)}" data-slot="${slot}">
     <span class="wframe"></span><span class="wimg" data-ref="${has?esc(o.img):""}">${has?"":`<span class="wnone">尚未生圖</span>`}</span>
     ${m?`<span class="wwho" style="--mc:${m.c}">${lk.type==="group"?"全員":m.n}</span>`:""}
@@ -563,7 +560,7 @@ function renderCloset(){
   list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)||String(b.code).localeCompare(String(a.code)));
   const have=list.filter(l=>Object.values(l.members||{}).some(o=>o?.img)).length;
   return `<div class="fbar"><div class="fchips">${chipRow(mems,fMem,"fm")}</div><div class="fchips">${chipRow(W_CATS,fCat,"fc")}</div></div>
-    <p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到衣帽間的造型:到選單按「立即同步」":"。還沒讀到衣帽間的造型:請先在選單登入雲端同步")}</p>
+    <p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到造型:到選單按「立即同步」":"。還沒讀到造型:請先在選單登入雲端同步")}</p>
     <div class="wgrid">${list.map(l=>cardHTML(l,fMem==="all"?null:fMem)).join("")||`<p class="fempty">這個分類還沒有造型</p>`}</div>`}
 function renderStudio(){
   const o=oai(), todo=todoList(), pend=Object.entries(PENDING), waiting=JOBS.filter(j=>j.state==="wait"||j.state==="run").length, errs=JOBS.filter(j=>j.state==="err");
@@ -572,7 +569,7 @@ function renderStudio(){
     <div class="fpanel">
       <h3>待生圖</h3>
       <p class="big">${todo.length}<small> 張</small></p>
-      ${noBaseCount()?`<p class="fnote" style="color:#9A3D47">另有 ${noBaseCount()} 張因為衣帽間還沒設定該成員的「生圖底模」而略過</p>`:""}
+      ${noBaseCount()?`<p class="fnote" style="color:#9A3D47">另有 ${noBaseCount()} 張因為還沒設定該成員的「生圖底模」而略過</p>`:""}
       <p class="fnote">${o.key?`品質「${{low:"低",medium:"中",high:"高"}[o.quality]||o.quality}」,預估約 US$${cost}(以 OpenAI 帳單為準)`:"還沒設定 OpenAI 金鑰:選單 → AI 生圖"}</p>
       <div class="frow"><button class="fbtn pri" id="fStart" ${!o.key||(!todo.length&&!waiting)||RUNNING?"disabled":""}>${RUNNING?`生圖中…剩 ${waiting} 張`:"全部開始生圖"}</button>${RUNNING?`<button class="fbtn" id="fStop">暫停</button>`:""}</div>
       ${errs.length?`<div class="ferrs"><b>${errs.length} 張失敗</b>${errs.slice(0,6).map(j=>`<p>${esc(ITEMS[j.code]?.name||j.code)}・${byId(midOf(j.slot))?.n||""}:${esc(j.err||"")} <button class="flink" data-retry="${esc(j.id)}">重試</button></p>`).join("")}</div>`:""}
@@ -645,9 +642,9 @@ async function openDetail(code,slot){
 /* ---------- 選單:AI 生圖設定 ---------- */
 function oaiSettingsInit(){
   const box=$("#oaiBox"); if(!box) return; const o=oai();
-  $("#oaiKey").value=o.key?"•••••••• 已設定":""; $("#oaiModel").value=o.model||"gpt-image-2"; $("#oaiQ").value=o.quality||"medium";
+  $("#oaiKey").value=o.key?"•••••••• 已設定":""; $("#oaiQ").value=o.quality||"medium";
   $("#oaiKey").onfocus=e=>{ if(e.target.value.startsWith("•")) e.target.value="" };
-  $("#oaiSave").onclick=()=>{ const k=$("#oaiKey").value.trim(); const patch={model:$("#oaiModel").value,quality:$("#oaiQ").value};
+  $("#oaiSave").onclick=()=>{ const k=$("#oaiKey").value.trim(); const patch={model:"gpt-image-2",quality:$("#oaiQ").value};
     if(k&&!k.startsWith("•")){ if(!/^sk-/.test(k)){toast2("OpenAI 金鑰通常是 sk- 開頭,請再確認");return} patch.key=k }
     setOai(patch); oaiSettingsInit(); toast2("AI 生圖設定已儲存") };
   $("#oaiClear").onclick=()=>{ const x=oai(); delete x.key; localStorage.setItem(OAI_KEY,JSON.stringify(x)); oaiSettingsInit(); toast2("已清除 OpenAI 金鑰") };

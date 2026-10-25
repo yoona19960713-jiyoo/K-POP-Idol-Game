@@ -1,7 +1,7 @@
 "use strict";
 /* =====================================================================
    K-POP Idol Game ・ 遊戲本體
-   主畫面(公司地圖、時段、行動)+ 拜訪對話。讀取衣帽間工坊的日常衣櫃與劇本工坊的片段庫。
+   主畫面(公司地圖、時段、行動)+ 拜訪對話。日常服從造型室的衣櫃換穿,劇情從內容庫(製作者模式)抽片段。
    ===================================================================== */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -36,7 +36,8 @@ const START=new Date(2015,6,3);   // 2015.07.03
 const WD=["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
 const dateOf=day=>{const d=new Date(START);d.setDate(d.getDate()+day);return d};
 const seasonOf=d=>{const m=d.getMonth()+1;return m>=3&&m<=5?"春":m>=6&&m<=8?"夏":m>=9&&m<=11?"秋":"冬"};
-const periodNow=()=>"練習生期";
+/* 時期:出道前是練習生期,出道後依年份(跟製作者模式的時期描述一致)。片段的 period 要對得上才會被抽到 */
+const periodNow=(day=S.day)=>{ if(day<(window.DEBUT_DAY??741)) return "練習生期"; const y=dateOf(day).getFullYear(); return y<2018?"出道與上升期":y<2020?"巔峰期":"轉型期" };
 
 /* ---------- 地點:sp = 劇本工坊的地點代號 ---------- */
 const PLACES=[
@@ -63,7 +64,7 @@ const WHERE={
   he:[{kitchen:3,bedroom:1},{practice:3,styling:1,"外出:個人拍攝":1},{practice:2,studio:1,styling:1,"外出:個人拍攝":1},{kitchen:3,living:1,practice:1},{living:2,bedroom:2}],
   hr:[{bedroom:3,kitchen:1},{practice:3,"外出:聲樂課":1},{practice:3,studio:1},{living:3,practice:1,store:1},{practice:2,store:1,bedroom:1}]};
 
-/* ---------- 示範文字(劇本工坊沒有對應片段時才用) ---------- */
+/* ---------- 備用文字(內容庫沒有對應片段時才用) ---------- */
 const SCN={practice:"鏡子前的音樂還在放,地板上散著毛巾和水瓶。",studio:"隔音門關上的瞬間,外面的聲音全部消失了。",office:"你的辦公室。桌上的企劃書疊得比昨天更高。",styling:["","上午的陽光從落地窗斜斜照進來,衣架上新到的打歌服還套著防塵袋,空氣裡有淡淡的熨斗蒸氣味。","下午的造型室最熱鬧:化妝鏡的燈泡一盞盞亮著,桌上攤著色票和飾品盒,試衣間的布簾拉開又拉上。","入夜後只剩衣架間的投射燈還亮著,鏡子裡映著一排排亮片與緞面,地上散著幾根被拆下的吊牌。",""],
   living:"客廳的電視開著,沙發上堆著抱枕和還沒摺的衣服。",kitchen:"廚房飄著味道,水槽裡泡著幾個碗。",bedroom:"你敲了敲寢室半開的門,裡面的燈還亮著。",
   store:"便利商店的自動門叮咚一聲打開,冷氣撲面而來。",river:"江風吹過來,對岸的燈一盞一盞亮著。"};
@@ -83,38 +84,11 @@ const MSG={ys:[["代表今天也辛苦了~明天的行程我會再確認一次!"
   hy:[["代表,不好意思這麼晚。韓文的「心很累」要怎麼說比較自然呢?",[4]],["今天的韓語課被老師稱讚了!",[2,3]]],he:[["代表吃飯了嗎~宿舍還有我煮的湯喔",[2,3]],["明天早上要拍照,我會早點睡的!",[3,4]]],
   hr:[["代表早安!!今天天氣超好 我要第一個到練習室!!",[0,1]],["濟州的橘子季要到了……",[2,3,4]]]};
 
-/* 內建示範劇情(劇本工坊還沒有片段時才會出現) */
-const BUILTIN=[
- {code:"demo-ys-1",type:"long",member:"ys",stage:"*",at:"practice",sl:[4],who:["ys"],w:5,cd:30,sc:"深夜的練習室只剩一盞燈,藝瑟坐在地上看手機,看到你立刻笑著把螢幕轉過來。",nodes:{
-  start:{L:[["ys","代表~你看,這是我以前那個團的新聞,解散了耶。","smile"],["ys","那團比較慘啦哈哈。","laugh"]],C:[{t:"(陪著笑)「哈哈,是喔。」",s:"開玩笑",to:"ys",g:0,r:[["ys","對吧~好啦,我也該回去睡了!","smile"]]},{t:"「妳笑得好用力。」",s:"陪著",to:"ys",g:1,next:"b"},{t:"「……那時候,妳也在那個團吧?」",s:"安慰",to:"ys",g:1,next:"c"}]},
-  b:{L:[["ys","……","sad"],["","(她的笑容停住了。)"],["ys","代表怎麼這樣啦。","sad"]],C:[{t:"坐到她旁邊,不說話。",s:"陪著",to:"ys",g:2,next:"d"},{t:"「不想說也沒關係。」",s:"安慰",to:"ys",g:1,r:[["ys","嗯……謝謝。","sad"]]}]},
-  c:{L:[["ys","啊……代表知道啊。嗯,是我以前的團。","sad"]],C:[{t:"「想聊嗎?」",s:"陪著",to:"ys",g:1,next:"d"},{t:"「那是公司的錯,不是妳的。」",s:"安慰",to:"ys",g:1,r:[["ys","……我知道。只是有時候會忘記。","sad"]]}]},
-  d:{L:[["ys","我那時候以為,只要再撐三個月就好了。","sad"],["ys","三個月後,公司說我們不用出道了。","sad"],["ys","……所以現在,我每天都有點怕。","sad"]],C:[{t:"「這次不會。」",s:"鼓勵",to:"ys",g:2,next:"e"},{t:"「怕也沒關係,我在。」",s:"陪著",to:"ys",g:2,next:"e"}]},
-  e:{L:[["","(她終於真的笑了一下。)"],["ys","……那句是我的台詞耶。","smile"],["ys","代表呢?為什麼要開這間公司?你明明可以去做別的事。","neutral"]],C:[{t:"「因為我想做一個不會被丟下的團。」",s:"陪著",to:"ys",g:2,next:"g"},{t:"「錢太多,找點事做。」",s:"開玩笑",to:"ys",g:1,next:"f2"},{t:"「因為那天在練習室,聽到妳唱歌。」",s:"鼓勵",to:"ys",g:2,heart:1,next:"f3"}]},
-  f2:{L:[["ys","噗——財閥的煩惱好奢侈喔!","laugh"],["ys","……不過,幸好你錢太多。因為這樣,我才有第二次機會。","smile"]],C:[{t:"「這次的機會,是妳自己贏來的。」",s:"鼓勵",to:"ys",g:2,next:"g"}]},
-  f3:{L:[["ys","欸?!","shy"],["","(她拿起毛巾擋住臉。)"],["ys","代表突然說這個幹嘛啦!……那天我唱得很爛耶。","shy"]],C:[{t:"「我覺得很好。」",s:"鼓勵",to:"ys",g:1,next:"g"},{t:"「爛到我記住了。」",s:"開玩笑",to:"ys",g:1,next:"g"}]},
-  g:{L:[["","(她從口袋拿出一罐草莓牛奶,遞給你。)"],["ys","給你,封口費。今天我說的話,不准跟成員講喔~","smile"],["ys","好啦,很晚了。隊長命令:代表也要回去睡覺!","laugh"]],C:[{t:"「晚安,隊長。」",s:"陪著",to:"ys",g:1,r:[["ys","晚安~","smile"]]}]}}},
- {code:"demo-tr-1",type:"encounter",member:"tr",stage:"*",at:"practice",sl:[1,2,3],who:["tr"],w:4,cd:20,sc:"你經過休息室,聽到幾個練習生在說泰梨每次都擺臉色、很難相處。轉角,泰梨站在那裡。",nodes:{
-  start:{L:[["tr","……","neutral"]],C:[{t:"「要我去說他們嗎?」",s:"出手幫忙",to:"tr",g:1,r:[["tr","……不用。說了也沒用。","sad"]]},{t:"「妳剛剛,是在生氣嗎?」",s:"陪著",to:"tr",g:1,next:"b"},{t:"「妳在瞪我?」",s:"開玩笑",to:"tr",g:1,r:[["tr","……沒有。這是我平常的臉。","angry"],["tr","……好啦,有一點。","shy"]]}]},
-  b:{L:[["tr","……不是。","sad"],["tr","我不是在生氣,我只是……不知道要說什麼。","shy"]],C:[{t:"「我懂。我第一次見投資人也是這樣。」",s:"開玩笑",to:"tr",g:2,next:"c"},{t:"「那就慢慢來,想到再說。」",s:"陪著",to:"tr",g:2,next:"c"}]},
-  c:{L:[["tr","……代表也會緊張?看不出來。","smile"],["","(她的嘴角動了一下。)"],["tr","……為什麼電腦不會感冒?","neutral"],["tr","因為它有……防毒軟體。","smile"]],C:[{t:"笑出來。",s:"開玩笑",to:"tr",g:3,r:[["","(她看你在笑,自己也笑到停不下來。)"],["tr","……這個我想了三天。","laugh"]]},{t:"「……這個不好笑。」",s:"嚴厲",to:"tr",g:0,r:[["tr","我知道。下次會更好笑。","sad"]]}]}}},
- {code:"demo-he-1",type:"encounter",member:"he",stage:"*",at:"dorm",room:"kitchen",sl:[3,4],who:["he"],w:5,cd:20,sc:"晚上十一點,宿舍廚房的燈還亮著。夏恩背對門口,正要把泡麵放進鍋子,聽到腳步聲整個人僵住。",nodes:{
-  start:{L:[["he","……代表?","shy"],["he","這、這不是我的,是河嵐的。","smile"]],C:[{t:"「河嵐在房間睡覺喔。」",s:"開玩笑",to:"he",g:1,next:"b"},{t:"「餓了就吃,沒關係。」",s:"陪著",to:"he",g:1,next:"c"}]},
-  b:{L:[["he","……被抓到了。","laugh"],["he","拜託不要跟經紀人說,明天要拍形象照。","sad"]],C:[{t:"「我不說,但要分我一口。」",s:"開玩笑",to:"he",g:2,heart:1,next:"d"},{t:"「拍照前一晚還吃?」",s:"嚴厲",to:"he",g:0,next:"e"}]},
-  c:{L:[["he","真的嗎?……大家都說我是門面,所以我連吃東西都要很小心。","sad"],["he","有時候覺得,我的工作好像就是『不要變胖』。","sad"]],C:[{t:"「妳的工作是站在中間,讓大家看見這個團。」",s:"鼓勵",to:"he",g:3,next:"d"},{t:"「門面也會餓。」",s:"陪著",to:"he",g:2,next:"d"}]},
-  e:{L:[["he","……我知道啦。","angry"],["he","可是我今天只吃了一碗沙拉耶!代表你知道那有多難過嗎!","angry"]],C:[{t:"「……好,煮吧。半包。」",s:"陪著",to:"he",g:1,next:"d"}]},
-  d:{L:[["he","那我煮兩包喔,代表一包。","smile"],["","(她熟練地打了一顆蛋進去,香味一下子飄滿整個廚房。)"],["he","吃完要一起洗碗喔,這是共犯的規定。","laugh"]],C:[{t:"「好,共犯。」",s:"陪著",to:"he",g:1,r:[["he","……謝謝你,代表。今天的泡麵特別好吃。","smile"]]}]}}},
- {code:"demo-hr-1",type:"encounter",member:"hr",stage:"*",at:"practice",sl:[3,4],who:["hr"],w:5,cd:20,sc:"河嵐一個人在練習室對著鏡子唱同一段高音,唱到一半停下來,用濟州話罵了自己一句。",nodes:{
-  start:{L:[["hr","哎唷,怎麼又破……","angry"],["hr","代表?!你、你什麼時候來的!","shy"]],C:[{t:"「再唱一次,我聽。」",s:"鼓勵",to:"hr",g:2,next:"b"},{t:"「剛剛那句方言是什麼意思?」",s:"開玩笑",to:"hr",g:1,next:"c"}]},
-  b:{L:[["","(她深吸一口氣,這次唱上去了。練習室安靜了好幾秒。)"],["hr","……剛剛那個,有過嗎?","neutral"]],C:[{t:"「有。很好聽。」",s:"鼓勵",to:"hr",g:3,next:"d"}]},
-  c:{L:[["hr","沒、沒什麼!就是……笨蛋的意思啦。","shy"],["hr","大家都練了好幾年,我才兩個月。不練多一點,會被說是運氣好。","sad"]],C:[{t:"「妳的聲音不是運氣。」",s:"鼓勵",to:"hr",g:3,next:"d"}]},
-  d:{L:[["hr","代表,我在濟州的時候,唱歌都是對著海唱的。海不會說我才練兩個月。","smile"],["hr","我唱一首外婆以前常唱的歌給你聽好不好!","laugh"]],C:[{t:"「好,我聽。」",s:"陪著",to:"hr",g:2,r:[["","(她小聲唱起一首聽不懂歌詞的民謠,溫柔又安靜。)"],["hr","……這首歌,是外婆在海邊等外公回來的時候唱的。","sad"],["hr","代表,如果我們去濟州辦演唱會,你會坐第一排嗎?","smile"]]}]}}}];
-
 /* ---------- 存檔 ---------- */
 const KEY="kpopGame.save";
-function fresh(){return {v:1,day:0,slot:0,t:0,acts:5,visited:[],speed:1,
+function fresh(){return {v:1,day:0,slot:0,t:0,acts:5,visited:[],
   m:{ys:{trust:30,heart:0,mood:60,stress:40},tr:{trust:10,heart:0,mood:55,stress:35},hy:{trust:25,heart:0,mood:50,stress:45},he:{trust:35,heart:0,mood:70,stress:30},hr:{trust:45,heart:0,mood:65,stress:35}},
-  where:{},flags:{},seen:{},absent:[],msgs:[],unread:0,wear:null,lastWear:{},updatedAt:0}}
+  where:{},flags:{},seen:{},absent:[],unread:0,wear:null,lastWear:{},updatedAt:0}}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.m) S=fresh();
 /* updatedAt 只在有進度時更新(換時段、拜訪、做選擇),用來判斷雲端與本機哪份較新;時間流動只存本機 */
@@ -162,14 +136,14 @@ async function pullCollection(col,store,keep,slim){
 async function pullContent(){
   // 衣帽間成員欄位對應
   try{const meta=await syGet("meta/state"); const raw=meta?JSON.parse(meta.fields.json.stringValue):null; const mm=raw?.members||[];
-    if(raw){ await IDB.set("wmetaRaw",raw); window.WMETA_AT=+meta.fields.updatedAt.integerValue }
+    if(raw) await IDB.set("wmetaRaw",raw);
     const map={}; for(const m of mm){const hit=M.find(x=>x.re.test((m.name||"")+" "+(m.en||""))); if(hit) map[m.id]=hit.id} if(Object.keys(map).length){WMEM=map;await IDB.set("wmem",WMEM)}
     if(mm.length){WMETA=mm; await IDB.set("wmeta",WMETA)}}catch(e){}
   // 舊版只存了精簡資料(沒有服裝描述),第一次換新版時整批重新下載
   if(localStorage.getItem("kpopGame.itemsFmt")!=="2"){ITEMS={}; localStorage.removeItem("kpopGame.pull.items")}
   const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
   await IDB.set("items",ITEMS); localStorage.setItem("kpopGame.itemsFmt","2");
-  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",
+  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",room:it.room||"",wx:it.wx||"",
     at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
   await IDB.set("scripts",SCRIPTS); localStorage.setItem("kpopGame.pulledOnce","1");
   return a+b}
@@ -194,7 +168,7 @@ async function syncAll(manual,atStart){
 
 /* ---------- 劇本片段 ---------- */
 const cloudSnips=()=>Object.values(SCRIPTS);
-const snips=()=>{const c=cloudSnips(); return [...(c.length?c:BUILTIN),...WX_SNIPS]};
+const snips=()=>[...cloudSnips(),...WX_SNIPS];
 const ENTRY=["encounter","practice","request","friction","surprise","worry","between","pairlong","long","chat"];
 const TALK=["topic","chat","worry","request","encounter"];
 const OFFICE=["chat","request","surprise","long","worry"];
@@ -213,18 +187,11 @@ function pickW(list,r=Math.random){if(!list.length) return null; const w=list.ma
 
 /* ---------- 衣櫃 ---------- */
 const CAT={練習:"練習",居家:"日常・居家",外出:"日常・外出",睡衣:"日常・睡衣"};
-const wardLoaded=()=>!!localStorage.getItem("kpopGame.pulledOnce")&&Object.keys(ITEMS).length>0;
-function lookFor(code,mid){const lk=ITEMS[code]; if(!lk) return null; const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid); return slot&&lk.members[slot]?lk:null}
+/* 這位成員可以換穿的日常服:造型室裡已經做好換臉立繪(sprites)的造型。舊分類「日常」當成外出服 */
 function wardrobe(mid){
-  const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid), stat=new Set((window.OUTFIT_SPRITES||[]).filter(o=>o.m===mid).map(o=>o.look).filter(Boolean));
-  const dyn=Object.values(ITEMS).filter(l=>l&&!l.deleted&&slot&&l.members?.[slot]?.sprites&&!stat.has(l.code))
-    .map(l=>({m:mid,id:l.code,look:l.code,name:l.name,occ:l.occasion,seasons:l.seasons||[]}));
-  return dyn.concat((window.OUTFIT_SPRITES||[]).filter(o=>o.m===mid).map(o=>{
-    if(o.look&&wardLoaded()){const lk=lookFor(o.look,mid); if(!lk) return null;
-      // 衣帽間舊分類「日常」還沒改成居家/外出/睡衣時,沿用這裡登記的分類
-      const occ=lk.occasion&&lk.occasion!=="日常"?lk.occasion:o.occ;
-      return {...o,occ,seasons:(lk.seasons&&lk.seasons.length)?lk.seasons:(o.seasons||[]),name:lk.name||o.name}}
-    return {...o,seasons:o.seasons||[]}}).filter(Boolean))}
+  const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid);
+  return Object.values(ITEMS).filter(l=>l&&!l.deleted&&slot&&l.members?.[slot]?.sprites)
+    .map(l=>({m:mid,id:l.code,look:l.code,name:l.name,occ:l.occasion==="日常"?"日常・外出":l.occasion,seasons:l.seasons||[]}))}
 function ensureWear(force){
   if(S.wear&&S.wear.day===S.day&&!force) return;
   const season=seasonOf(dateOf(S.day)), r=rng(seedOf(S.day,"wear")), w={day:S.day,m:{}};
@@ -236,11 +203,11 @@ function ensureWear(force){
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
   if(g==="公司大樓") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
-const outfitName=(mid,id)=>id?((window.OUTFIT_SPRITES||[]).find(o=>o.m===mid&&o.id===id)?.name||ITEMS[id]?.name||id):"白 T(基本服裝)";
+const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
-  if(outfit&&outfit.startsWith("LOOK-")&&!(window.OUTFIT_SPRITES||[]).some(o=>o.m===mid&&o.id===outfit)){ // 遊戲裡處理好的立繪
-    const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||d.neutral; window.needDyn&&needDyn(outfit,mid); outfit=null }
-  return `assets/chara/${f}_${outfit?outfit+"_":""}${ex}.webp`}
+  if(outfit){ // 造型室處理好的換衣立繪(DYN);還沒載入好時先穿白 T
+    const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||d.neutral; window.needDyn&&needDyn(outfit,mid) }
+  return `assets/chara/${f}_${ex}.webp`}
 function preload(mid,outfit){for(const e of EXPR){const i=new Image();i.src=spr(mid,outfit,e)}}
 
 /* 劇本沒有標表情時,從台詞推測 */
@@ -357,23 +324,20 @@ function exitToMap(){const i=$("#inside"); i.classList.add("enter"); setTimeout(
 function renderInside(){if(view==="map") return; const B=INSIDE[view];
   setArt("insideArt",`assets/scene/${view}_${L()}.webp`);
   $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
-    if(rm.fac&&!PL[rm.pid]){const [x,y,w,h]=rm.r; return `<button class="room fac" data-fac="${rm.fac}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" aria-label="${rm.fl} ${rm.n},設施,不花行動">
-      <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">設施・不花行動</span></span></span></button>`}
-    const p=PL[rm.pid], deco=!!rm.deco, open=!deco&&p.open.includes(S.slot), vis=!deco&&S.visited.includes(rm.pid);
+    const p=PL[rm.pid], open=p.open.includes(S.slot), vis=S.visited.includes(rm.pid);
     const ppl=open?who(rm.pid):[];
-    const dis=deco||!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
-    const own=p?.owner, st=deco?"之後開放":!open?openText(p):vis?"這個時段已來過":own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const dis=!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
+    const own=p.owner, st=!open?openText(p):vis?"這個時段已來過":own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
     const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri));
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
-    return `${figs}<button class="room${!open&&!deco?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
+    return `${figs}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
-      ${!open&&!deco?`<span class="lockc">${openText(p)}</span>`:vis?`<span class="lockc soft">這個時段已來過</span>`:""}</button>`}).join("");
-  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.fac){window.openFacility&&openFacility(b.dataset.fac);return}
-    if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
+      ${!open?`<span class="lockc">${openText(p)}</span>`:vis?`<span class="lockc soft">這個時段已來過</span>`:""}</button>`}).join("");
+  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
     if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)})}
-/* 電視台:出道後的打歌期才正式開放,先留一個測試入口 */
+/* 電視台:宣傳期直接進待機室,其他時間是練習模式 */
 function tvChooser(){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
   const after=S.day>=(window.DEBUT_DAY||1e9);
@@ -422,10 +386,10 @@ function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); re
 function toast(t,s){const e=$("#toast");$("#toastT").textContent=t;$("#toastS").textContent=s;e.classList.remove("show");void e.offsetWidth;e.classList.add("show")}
 
 /* ---------- 時間 ---------- */
+/* 遊戲時鐘:每 0.25 秒走一次(頂部列的數字最快約 0.7 秒才變一次)。以前每一格畫面都跑,A55 的 120Hz 螢幕上一秒 120 次,開著很耗電 */
 let last=performance.now();
-function tick(now){const dt=Math.min(1,(now-last)/1000);last=now;
-  if(!paused()){S.t+=dt*(S.speed||1); if(S.t>=SLOT_SEC) endSlot("time"); else renderHud()}
-  requestAnimationFrame(tick)}
+function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
+  if(!paused()){S.t+=dt; if(S.t>=SLOT_SEC) endSlot("time"); else renderHud()}}
 setInterval(()=>{if(!paused()) save()},3000);
 document.addEventListener("visibilitychange",()=>{$("#stage").classList.toggle("paused",paused()); save(); if(document.hidden) pushSave()});
 
@@ -439,12 +403,7 @@ function absentReports(r){const out=[];
     const t=pool[Math.floor(r()*pool.length)],a=ppl[0],b=ppl[1];
     out.push(`<b>${p.n}</b>:`+esc(t).replace("{a}",`<b style="color:${a.c}">${a.n}</b>`).replace("{b}",b?`<b style="color:${b.c}">${b.n}</b>`:""))}
   return out.slice(0,3)}
-function newMessage(r){if(window.phoneIncoming){phoneIncoming(r);return} if(r()>=.55) return; const m=M[Math.floor(r()*5)];
-  const cs=snips().filter(sn=>sn.type==="msg"&&(sn.member||sn.who?.[0])===m.id&&(!sn.sl?.length||sn.sl.includes(S.slot))&&stageOk(sn));
-  const sn=pickW(cs,r); let t=null;
-  if(sn){t=sn.nodes?.start?.L?.find(l=>l[0]===m.id)?.[1]; S.seen[sn.code]=S.day}
-  if(!t){const p=MSG[m.id].filter(x=>x[1].includes(S.slot)); if(p.length) t=p[Math.floor(r()*p.length)][0]}
-  if(!t) return; S.msgs.unshift({id:m.id,t,code:sn?.code||"",when:`第 ${S.day+1} 天${SLOTS[S.slot].n}`}); S.msgs=S.msgs.slice(0,20); S.unread++}
+function newMessage(r){ window.phoneIncoming?.(r) }   // 訊息、群組、STARLOG 由 phone.js 處理
 function endSlot(reason){
   const r=rng(seedOf(S.day,S.slot,"end"));
   S.absent=absentReports(r);
@@ -520,19 +479,27 @@ function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
 function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
 
-/* ---- 眨眼(2026-10-24):每位成員一張「只有眼睛那塊」的閉眼疊加層(assets/chara/blink/成員.webp,與表情組同尺寸),
-   疊在立繪上約 0.12 秒;平常、微笑、害羞三種表情才眨(大笑本來就閉眼,生氣、難過的眼型差太多)。
-   換衣立繪的臉來自表情組,同一層也適用。每人各自隨機 2.6~6.4 秒眨一次,偶爾連眨兩下 ---- */
-const BLINK_SRC={}, BLINK_EX=new Set(["neutral","smile","shy"]);
-M.forEach(m=>{const im=new Image(); im.src=`assets/chara/blink/${m.f}.webp`; (im.decode?im.decode():Promise.resolve()).then(()=>{BLINK_SRC[m.id]=im.src}).catch(()=>{})});
-function blinkOnce(img){
-  const src=BLINK_SRC[img.dataset.id]; if(!src||!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")) return;
-  const o=document.createElement("img"), cs=getComputedStyle(img);
-  o.className=img.className+" blink"; o.style.cssText=img.style.cssText; o.alt=""; o.src=src;
-  o.style.animationDuration=cs.animationDuration; o.style.animationDelay=cs.animationDelay; o.style.zIndex=cs.zIndex;
+/* ---- 眨眼與嘴型的疊加層(2026-10-24 做,2026-10-25 改成只存小塊)----
+   眨眼:每人一張閉眼的眼睛小塊(assets/chara/blink/成員.webp);嘴型:平常、微笑兩張張嘴的嘴巴小塊(assets/chara/mouth/成員_表情.webp)。
+   OVL 記錄小塊在整張表情組(2 倍框 W×H)裡的位置 [x,y,寬,高]。疊加層是一個跟立繪同一個框的 div(同樣的 class、位置與呼吸動畫),
+   小塊用背景圖貼回原位。以前是整張立繪大小的透明圖,一張解碼後約 11MB;現在 0.02~0.4MB。讀到舊的整張圖(快取)時照整張貼。
+   換衣立繪的臉來自表情組、框也一樣,同一層也適用。眨眼只在平常、微笑、害羞時(大笑本來就閉眼,生氣、難過的眼型差太多) ---- */
+const OVL={yeseul:{"W":960,"H":2944,"blink":[364,148,328,176],"neutral":[460,300,120,124],"smile":[452,296,128,116]},taeri:{"W":900,"H":2956,"blink":[192,120,368,248],"neutral":[348,344,144,136],"smile":[368,344,148,112]},hiyori:{"W":866,"H":2922,"blink":[280,160,288,160],"neutral":[344,332,88,72],"smile":[384,320,128,104]},haeun:{"W":932,"H":2972,"blink":[316,172,372,188],"neutral":[368,332,168,108],"smile":[356,332,168,108]},haram:{"W":920,"H":2954,"blink":[280,196,280,200],"neutral":[328,368,188,140],"smile":[336,356,144,152]}};
+const OVL_IMG={};
+function ovlLoad(key,src){ const im=new Image(); im.src=src; (im.decode?im.decode():Promise.resolve()).then(()=>{OVL_IMG[key]=im}).catch(()=>{}) }
+M.forEach(m=>{ ovlLoad(m.f+"|blink",`assets/chara/blink/${m.f}.webp`); for(const ex of ["neutral","smile"]) ovlLoad(m.f+"|"+ex,`assets/chara/mouth/${m.f}_${ex}.webp`) });
+function ovlMake(img,f,part,cls){ const im=OVL_IMG[f+"|"+part], o0=OVL[f]; if(!im||!o0||!o0[part]) return null;
+  const {W,H}=o0, [x,y,w,h]=im.naturalWidth>=W*.98?[0,0,W,H]:o0[part];
+  const o=document.createElement("div"), cs=getComputedStyle(img);
+  o.className=img.className+" ovl "+cls; o.style.cssText=img.style.cssText; o.setAttribute("aria-hidden","true");
+  Object.assign(o.style,{aspectRatio:`${W}/${H}`,backgroundImage:`url("${im.src}")`,backgroundSize:`${w/W*100}% ${h/H*100}%`,
+    backgroundPosition:`${w<W?x/(W-w)*100:0}% ${h<H?y/(H-h)*100:0}%`,animationDuration:cs.animationDuration,animationDelay:cs.animationDelay,zIndex:cs.zIndex});
   $("#vppl").appendChild(o);
-  const a=img.getAnimations()[0], b=o.getAnimations()[0]; if(a&&b) b.currentTime=a.currentTime;
-  setTimeout(()=>o.remove(),120) }
+  const a=img.getAnimations().find(x=>x.animationName==="breathe"), b=o.getAnimations().find(x=>x.animationName==="breathe"); if(a&&b) b.currentTime=a.currentTime;
+  return o }
+const BLINK_EX=new Set(["neutral","smile","shy"]);
+function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")) return;
+  const o=ovlMake(img,byId(img.dataset.id)?.f,"blink","blink"); if(o) setTimeout(()=>o.remove(),120) }
 setInterval(()=>{ if(!V||document.hidden) return; const now=performance.now();
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
     const t=+img.dataset.nb||0; if(!t){img.dataset.nb=now+1200+Math.random()*3000; return}
@@ -629,13 +596,11 @@ $("#autoBtn").onclick=()=>{auto=!auto;$("#autoBtn").setAttribute("aria-pressed",
 $("#logBtn").onclick=()=>{const L=$("#vlog");L.innerHTML=`<button class="x" id="logX">關閉</button>`+logLines.map(([n,t])=>`<p>${n?`<b>${esc(n)}</b>`:""}${esc(t)}</p>`).join("");L.classList.add("on");L.scrollTop=L.scrollHeight;$("#logX").onclick=()=>L.classList.remove("on")};
 
 /* ---------- 手機 ---------- */
-function openSheet(id){}
 /* 不可捲動的區塊(舞台、面板)不允許被捲走:焦點移到畫面外的按鈕時,瀏覽器會把它捲動,整片畫面就偏掉 */
 document.addEventListener("scroll",e=>{ const t=e.target; if(!t||t.nodeType!==1) return; const cs=getComputedStyle(t);
   if(t.scrollLeft&&(cs.overflowX==="hidden"||cs.overflowX==="clip")) t.scrollLeft=0;
   if(t.scrollTop&&(cs.overflowY==="hidden"||cs.overflowY==="clip")) t.scrollTop=0 },true);
 $("#phoneBtn").onclick=()=>{ if(window.openPhone) openPhone() };
-document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>openSheet(null));
 
 /* ---------- 選單 ---------- */
 const setDlg=$("#setDlg");
@@ -645,14 +610,13 @@ setDlg.addEventListener("close",()=>setPause("menu",false));
 function renderSet(){const c=syCfg(),a=syAuth();
   $("#cfgInfo").textContent=c?`已設定專案:${c.projectId}`:""; $("#cfgBox").classList.toggle("hidden",!!a);
   $("#inBox").classList.toggle("hidden",!!a); $("#outBox").classList.toggle("hidden",!a); $("#who").textContent=a?`已登入:${a.email}`:"";
-  document.querySelectorAll("[data-speed]").forEach(b=>b.setAttribute("aria-pressed",String((S.speed||1)==+b.dataset.speed)));
   $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources()}
 function renderSources(){if(!$("#srcList")) return;
   const sc=cloudSnips(), lib=sc.length, byType={}; sc.forEach(s=>byType[s.type]=(byType[s.type]||0)+1);
   const items=Object.values(ITEMS), daily=items.filter(l=>l.occasion==="練習"||String(l.occasion).startsWith("日常"));
-  $("#srcList").innerHTML=(syAuth()?"":`<li>還沒登入,目前用內建的示範劇情與立繪。</li>`)
-    +`<li>劇本工坊:${lib?`已收錄 ${lib} 個片段(${Object.entries(byType).map(([k,v])=>k+" "+v).join("、")})`:"還沒有讀到已收錄的片段,先用內建示範劇情"}</li>`
-    +`<li>衣帽間工坊:${items.length?`${items.length} 套造型,其中練習與日常類 ${daily.length} 套`:"還沒有讀到造型"}</li>`;
+  $("#srcList").innerHTML=(syAuth()?"":`<li>還沒登入雲端:目前只用這台裝置上的資料。</li>`)
+    +`<li>內容庫(劇情片段):${lib?`已收錄 ${lib} 個(${Object.entries(byType).map(([k,v])=>k+" "+v).join("、")})`:"還沒有片段,場景會先用簡短的旁白與台詞"}</li>`
+    +`<li>造型室:${items.length?`${items.length} 套造型,其中練習與日常類 ${daily.length} 套`:"還沒有造型"}</li>`;
   const season=seasonOf(dateOf(S.day));
   $("#wardList").innerHTML=M.map(m=>{const w=wardrobe(m.id);return `<li><b style="color:${m.c}">${m.n}</b>:${Object.entries(CAT).map(([k,occ])=>{const n=w.filter(o=>o.occ===occ).length,ns=w.filter(o=>o.occ===occ&&(!o.seasons.length||o.seasons.includes(season))).length;return `${k} ${n}${n?`(${season}天可穿 ${ns})`:""}`}).join("・")}</li>`}).join("")}
 $("#cfgSave").onclick=()=>{const t=$("#cfgIn").value; const k=t.match(/apiKey["'\s:]+["']([^"']+)["']/),p=t.match(/projectId["'\s:]+["']([^"']+)["']/);
@@ -672,8 +636,7 @@ $("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if
 $("#makerBtn").onclick=()=>{setDlg.close(); window.openMaker&&openMaker()};
 $("#signOut").onclick=()=>{localStorage.removeItem(SY_AUTH);syTok=null;renderSet();syStatus("");toast2("已登出,本機進度保留")};
 $("#syncBtn").onclick=()=>syncAll(true,false);
-document.querySelectorAll("[data-speed]").forEach(b=>b.onclick=()=>{S.speed=+b.dataset.speed;save();renderSet()});
-$("#resetBtn").onclick=()=>{if(!confirm("確定從第一天重新開始?目前的進度會清掉(雲端存檔也會被覆蓋)。"))return;const sp=S.speed;S=fresh();S.speed=sp;assign();ensureWear();setDlg.close();renderAll();save(true);pushSave();toast("清晨","第 1 天開始")};
+$("#resetBtn").onclick=()=>{if(!confirm("確定從第一天重新開始?目前的進度會清掉(雲端存檔也會被覆蓋)。"))return;S=fresh();assign();ensureWear();setDlg.close();renderAll();save(true);pushSave();toast("清晨","第 1 天開始")};
 
 /* ---------- 版本更新(跟其他工具相同) ---------- */
 const isNative=!!window.Capacitor?.isNativePlatform?.();
@@ -689,21 +652,25 @@ $("#updDlg").addEventListener("close",()=>setPause("upd",false));
 $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").close()};
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
-  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{await Promise.all(["index.html","game.js","wardrobe.js","songs.js","scripts.js","stage.js","sprites.js","phone.js","growth.js","cg.js","assets/poses.js","version.js","assets/outfits.js","manifest.webmanifest"].map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+  $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{const files=["index.html","manifest.webmanifest",...[...document.scripts].map(s=>s.getAttribute("src")).filter(Boolean)];   // 頁面上所有的程式檔,新增檔案也不會漏
+    await Promise.all(files.map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
-/* ---------- 啟動 ---------- */
-(async()=>{
+/* ---------- 啟動 ----------
+   等所有程式檔都載入完(DOMContentLoaded)才開始。以前一開始就跑,手機上 IndexedDB 開得快時,growth.js 等還沒載入,
+   養成的初始化(growthInit)和雲端同步的掛勾(歌曲、打歌、劇本)會被跳過 */
+async function boot(){
   await IDB.open(); SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
   if(window.growthInit) growthInit();
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
   $("#boot").classList.add("done");
-  requestAnimationFrame(t=>{last=t;tick(t)});
+  last=performance.now(); setInterval(tick,250);
   setTimeout(()=>checkUpdate(false),3000);
   titleReady();
-})();
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot,{once:true}); else boot();
 /* ---- 標題畫面(兼讀取畫面):讀完本機資料就能開始,雲端同步在背景進行 ---- */
 function titleReady(){
   const el=$("#title"); if(!el) {syncAll(false,true); return}
@@ -759,9 +726,15 @@ function wxUpdate(){ WXK=window.WX_FORCE||weatherOf(S.day); $("#stage").dataset.
   const outdoorVisit=!!(V&&!V.test&&V.pid==="river");
   $("#wxWorld")?.classList.toggle("on",WXK!=="clear");
   $("#wxVisit")?.classList.toggle("on",WXK!=="clear"&&outdoorVisit);
-  if(WXK!=="clear"&&!wxRaf){ wxLast=performance.now(); wxRaf=requestAnimationFrame(wxFrame) } }
-function wxFrame(t){ wxRaf=0; if(WXK==="clear") return; const dt=Math.min(.05,(t-wxLast)/1000); wxLast=t;
-  for(const c of document.querySelectorAll("canvas.wx.on")){ if(!c.offsetParent||document.hidden) continue;
+  if(WXK!=="clear"&&!wxRaf){ wxLast=0; wxRaf=requestAnimationFrame(wxFrame) } }
+/* 畫面上看得到雨雪嗎:地圖被拜訪畫面、設施、標題或事件卡蓋住時不用畫 */
+const WX_COVER=["visit","fac","tv","song","maker","title","concert","bigev","card","eval","cg","photo"];
+const wxShown=c=>!!c.offsetParent&&(c.id!=="wxWorld"||(view==="map"&&!WX_COVER.some(k=>pausers.has(k))));
+function wxFrame(t){ wxRaf=0; if(WXK==="clear") return;
+  const cs=document.hidden?[]:[...document.querySelectorAll("canvas.wx.on")].filter(wxShown);
+  if(!cs.length){ wxLast=0; wxRaf=setTimeout(()=>{wxRaf=requestAnimationFrame(wxFrame)},500); return }   // 看不到時每 0.5 秒看一下就好
+  const dt=wxLast?Math.min(.05,(t-wxLast)/1000):0; wxLast=t;
+  for(const c of cs){
     const dpr=Math.min(2,devicePixelRatio||1), w=c.clientWidth, h=c.clientHeight; if(!w||!h) continue;
     if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c._p=null }
     const x=c.getContext("2d"), W=c.width, H=c.height, k=w/700;          // k:依舞台大小縮放雨絲長度與速度
@@ -776,7 +749,7 @@ function wxFrame(t){ wxRaf=0; if(WXK==="clear") return; const dt=Math.min(.05,(t
       for(const p of c._p){ const sp=42*k*dpr*p.v; p.y+=sp*dt; p.ph+=dt*1.4; p.x+=Math.sin(p.ph)*18*k*dpr*dt;
         if(p.y>H+6){p.y=-6; p.x=Math.random()*W} x.globalAlpha=.55+.4*p.s/1.4; x.beginPath(); x.arc(p.x,p.y,(1+p.s*1.6)*k*dpr,0,6.283); x.fill() }
       x.globalAlpha=1 } }
-  wxRaf=requestAnimationFrame(wxFrame) }
+  wxRaf=setTimeout(()=>{wxRaf=requestAnimationFrame(wxFrame)},26) }   // 約每秒 30 格,雨絲已經夠順
 
 /* ===== 天氣劇情(2026-10-24):只在對應天氣出現的內建片段、初雪事件、入場的天氣描寫、成員心情與去處 ===== */
 const WX_SNIPS=[
@@ -903,16 +876,9 @@ function blip(id){ if(localStorage.getItem("kpopGame.blip")==="0"||!V) return; c
 (()=>{ const b=$("#blipOn"); if(!b) return; b.checked=localStorage.getItem("kpopGame.blip")!=="0";
   b.onchange=()=>{ localStorage.setItem("kpopGame.blip",b.checked?"1":"0"); if(b.checked) blip("hr") } })();
 
-/* ===== 說話時嘴巴開合(2026-10-24):每人「平常」「微笑」各一張只有嘴巴那塊的張嘴疊加層(assets/chara/mouth/成員_表情.webp,
-   與 2 倍表情組同尺寸)。打字時約 0.1 秒開合一次,標點與句尾閉上;其他表情不開合。換衣立繪的臉來自表情組,也適用 ---- */
-const MOUTH_SRC={}; let MOUTH=null;
-M.forEach(m=>["neutral","smile"].forEach(ex=>{ const im=new Image(); im.src=`assets/chara/mouth/${m.f}_${ex}.webp`;
-  (im.decode?im.decode():Promise.resolve()).then(()=>{ (MOUTH_SRC[m.id]=MOUTH_SRC[m.id]||{})[ex]=im.src }).catch(()=>{}) }));
+/* ===== 說話時嘴巴開合:打字時約 0.1 秒開合一次,標點與句尾閉上;只在平常、微笑兩種表情開合(疊加層見 ovlMake)===== */
+let MOUTH=null;
 function mouthStart(id){ mouthStop(); const img=imgOf(id); if(!img) return; const ex=img.dataset.ex||"neutral"; if(ex!=="neutral"&&ex!=="smile") return;
-  const src=MOUTH_SRC[id]?.[ex]||`assets/chara/mouth/${byId(id).f}_${ex}.webp`;
-  const o=document.createElement("img"), cs=getComputedStyle(img); o.className=img.className+" mouth"; o.style.cssText=img.style.cssText; o.alt=""; o.src=src;
-  o.style.animationDuration=cs.animationDuration; o.style.animationDelay=cs.animationDelay; o.style.zIndex=cs.zIndex; o.style.opacity=0;
-  $("#vppl").appendChild(o); const a=img.getAnimations().find(x=>x.animationName==="breathe"), b=o.getAnimations()[0]; if(a&&b) b.currentTime=a.currentTime;
-  MOUTH={o,img} }
+  const o=ovlMake(img,byId(id).f,ex,"mouth"); if(!o) return; o.style.opacity=0; MOUTH={o,img} }
 function mouthFlap(open){ if(MOUTH&&MOUTH.o.isConnected) MOUTH.o.style.opacity=open?1:0 }
 function mouthStop(){ if(MOUTH){ MOUTH.o.remove(); MOUTH=null } }

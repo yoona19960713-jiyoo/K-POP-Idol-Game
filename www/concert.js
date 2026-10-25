@@ -144,5 +144,4 @@ function result(r){
 /* ---- 接上每天開始的檢查 ---- */
 const prev=window.timelineOnDayStart;
 window.timelineOnDayStart=()=>{ prev?.(); try{ scheduleFirst(); concertDay() }catch(e){ console.error(e) } };
-window.concertDebug={schedule:scheduleFirst,run:c=>runConcert(c||{day:S.day,venue:"hall",title:"PERFECT DAY",first:true}),VENUES};
 })();

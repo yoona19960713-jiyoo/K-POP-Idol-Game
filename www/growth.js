@@ -7,7 +7,6 @@
 /* ---------- 好感度:點數制,階段門檻越後面越高 ---------- */
 const pk=(a,b)=>[a,b].sort().join("-");
 const capOf=(id,k)=>k==="kor"?100:(({ys:["vocal","dance"],tr:["rap","dance"],hy:["dance","expr"],he:["expr","vocal"],hr:["vocal"]})[id]||[]).includes(k)?99:95;
-window.skillCap=capOf;
 const XP_STAGE=[["戒備",0],["信任",1000],["夥伴",4800],["心動",12000],["戀人",20000],["親密",30000]];
 const STAGE_RANK=["戒備","信任","夥伴","心動","戀人","親密","多人親密"];
 window.STAGE_RANK=STAGE_RANK;
@@ -67,7 +66,6 @@ window.teamBond=()=>{ const v=Object.values(S.bond||{}); return v.length?v.reduc
 /* ---------- 能力成長 ---------- */
 const SK={vocal:"唱功",dance:"舞蹈",rap:"Rap",expr:"表情管理",kor:"韓語"};
 const MAIN={ys:["vocal","dance"],tr:["rap","dance"],hy:["dance","expr"],he:["expr","vocal"],hr:["vocal"]};
-window.SKILL_MAIN=MAIN;
 window.SKILL_NAMES=SK;
 function grow(id,k,v){ const s=S.skill[id]; if(!s||s[k]==null) return; const cap=capOf(id,k); s[k]=Math.min(cap,s[k]+v*Math.max(0,1-s[k]/cap)) }
 const LESSON={1:[["dance",.08]],2:[["vocal",.08]],3:[["dance",.08]],4:[["vocal",.06],["rap",.06]],5:[["dance",.04],["expr",.04]],6:["weak"]};

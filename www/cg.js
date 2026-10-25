@@ -38,7 +38,7 @@ const CG={
       親密:["被單裡的笑聲","不要一直看啦……很害羞耶。"]}};
 const src=(id,st,small)=>`assets/cg/${id}_${KEY[st]}${small?"_s":""}.webp`;
 const has=(id,st)=>!!CG[id]?.[st];
-window.CG_DATA=CG;
+
 
 /* ---------- 解鎖紀錄:S.cg[id][階段]=解鎖的遊戲日;S.cgNew=相簿裡還沒看過的 ---------- */
 function data(){ if(!S.cg){ S.cg={}; S.cgNew=[]; S.cgInit=false } return S.cg }
@@ -78,7 +78,7 @@ function show(id,st,fresh,onClose){
   el.querySelector(".cgimg").onclick=()=>{ if(el.classList.contains("bare")) cap() };
   el.querySelector("[data-close]").onclick=e=>{ e.stopPropagation(); el.classList.add("out"); setTimeout(()=>el.remove(),500); setPause("cg",false); save?.(true); onClose?.() };
 }
-window.showCG=show;
+
 
 /* ---------- 手機相簿 ---------- */
 let AM=null;

@@ -33,10 +33,9 @@ const SHOWS=[
   {d:"週六",n:"CORE STAGE",w:{digital:.5,sales:.1,views:.1,social:.1,stage:.2}},
   {d:"週日",n:"STAR GAYO",w:{digital:.55,sales:.1,views:.15,social:.1,stage:.1}},
 ];
-const RIVAL={n:"LUMIÈRE",note:"三代頂流女團,同週回歸"};
+const RIVAL={n:"NOXVEIL",note:"三代頂流女團,同週回歸"};
 const VERS={orig:{n:"原版",s:"最穩定",st:0,fresh:0},special:{n:"特別編舞版",s:"新鮮感高,體力消耗大",st:6,fresh:8},long:{n:"加長舞蹈段",s:"日和發揮空間,體力消耗大",st:5,fresh:5},goodbye:{n:"告別舞台",s:"只限最後一週,情緒拉滿",st:3,fresh:12}};
 const MICS={live:{n:"全開麥",s:"評價最高,最怕失誤"},half:{n:"部分墊音",s:"穩定與評價折衷"},lip:{n:"整首對嘴",s:"最穩,但被抓到就是輿論"}};
-const RAR={N:0,R:0,SR:0,SSR:0}; // 遊戲裡衣服不分稀有度,不加分
 const OCC={"打歌舞台":1,"演唱會":.85,"頒獎典禮":.85,"寫真":.7,"綜藝":.65,"機場":.55,"日常":.55,"日常・外出":.55,"日常・居家":.5,"日常・睡衣":.45,"練習":.5};
 
 /* ---------- 狀態 ---------- */
@@ -59,7 +58,7 @@ function ensurePlan(){ if(!S.plan) S.plan=S.prev?JSON.parse(JSON.stringify(S.pre
 /* ---------- 計算 ---------- */
 function lookScore(L,mid){
   const dist=Math.sqrt(AX.reduce((x,k)=>x+(L.a[k]-SONG.target[k])**2,0));
-  let s=100-dist*9; s=s*(OCC[L.occ]??.6)+RAR[L.r];
+  let s=100-dist*9; s=s*(OCC[L.occ]??.6);
   const used=(S.uses[mid+":"+L.id]||0); s-=Math.max(0,used-2)*5;
   return {s:Math.max(0,Math.min(100,s)),used,dist};
 }
@@ -148,7 +147,6 @@ const RETRO_G=["disco","citypop","njs"], HIP_G=["girlcrush","trap","drill","boom
 function targetOf(sum){const t={...(MOOD_T[sum.mood]||MOOD_T["自信"])}; const g=sum.genre||"";
   if(HIP_G.includes(g)){t.sweet+=1;t.retro+=1} if(RETRO_G.includes(g)) t.retro-=2; if(["ballad","orchestral","rnbballad"].includes(g)) t.lively+=1;
   for(const k of AX) t[k]=Math.max(-3,Math.min(3,t[k])); return t}
-const NAME_ID=[[/藝瑟|Yeseul/i,"ys"],[/泰梨|Taeri/i,"tr"],[/日和|Hiyori/i,"hy"],[/夏恩|Haeun/i,"he"],[/河嵐|Haram/i,"hr"]];
 
 /* ---------- 資料來源:企劃室的主打歌、造型室的衣服(都在遊戲裡) ---------- */
 let srcText="";
@@ -235,9 +233,9 @@ function render(){ if(!OPEN) return; syncSkill();
   const ban=TODAY.state==="test"?`<div class="tvban">練習模式:${window.promoInfo?.()?"目前不在宣傳期,到企劃室決定回歸日":"出道前的模擬打歌"},結果不會影響正式宣傳期</div>`
     :`<div class="tvban live">宣傳期第 ${TODAY.T.week} 週・第 ${TODAY.T.dayN} 天${TODAY.T.show?`・今天是《${TODAY.T.show}》`:""}</div>`;
   $("#tvBody").innerHTML=ban+`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
-    <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${TOTAL} 場,拿下 ${S.wins} 個一位。可以在右邊重新開始一輪宣傳期。</p></div>`:prep}</div>
+    <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${TOTAL} 場,拿下 ${S.wins} 個一位。${TODAY.state==="test"?"可以在右邊重新開始一輪模擬。":"下一次回歸日可以到 2F 企劃室決定。"}</p></div>`:prep}</div>
     <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${S.log.length}/${TOTAL}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${RIVAL.n}</b></div>
-      <div class="trow2"><label>年份<select id="tvYear">${[2015,2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始宣傳期</button></div></div>
+      ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear">${[2015,2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
       <div class="tvcard"><h4>成員狀態</h4>${M.map(m=>{const st=S.m[m.id],b=(n,v,c)=>`<span>${n}</span><span class="tbar"><i style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></i></span>`;
         return `<div class="tstat">${face(m.id)}<div><b style="color:${m.c}">${m.n}</b>${st.cond==="sick"?`<i class="tg w">感冒</i>`:st.cond==="hurt"?`<i class="tg n">舊傷</i>`:""}<div class="tbars">${b("體力",st.stamina,"#4FE0A0")}${b("喉嚨",st.throat,"#5CC8FF")}${b("心情",st.mood,"#FFC857")}${b("人氣",Math.min(100,st.pop),m.c)}</div></div></div>`}).join("")}</div>
       <p class="tnote">${esc(srcText)}</p></div></div>`;
@@ -250,8 +248,9 @@ function bind(){ const B=$("#tvBody"), p=S.plan;
   const g=$("#tvGroup"); if(g) g.onchange=e=>{if(e.target.value){M.forEach(m=>p.looks[m.id]=e.target.value);save();render()}};
   const r=$("#tvReuse"); if(r) r.onclick=()=>{S.plan=JSON.parse(JSON.stringify(S.prev));ensurePlan();save();render()};
   const go=$("#tvGo"); if(go) go.onclick=()=>{const res=perform(); applyResult(res); render(); showResult(res)};
-  $("#tvYear").onchange=e=>{S.year=+e.target.value;save();render()};
-  $("#tvRestart").onclick=()=>{if(!confirm("確定重新開始宣傳期?目前的場次紀錄會清掉。"))return; const y=S.year;S=fresh();S.year=y;save();render()};
+  // 年份與重新開始只在練習模式出現(正式宣傳期的年份跟著時間軸,重新開始會讓一位與粉絲重複計算)
+  const yr=$("#tvYear"); if(yr) yr.onchange=e=>{S.year=+e.target.value;save();render()};
+  const rs=$("#tvRestart"); if(rs) rs.onclick=()=>{if(!confirm("確定重新開始模擬?練習模式的場次紀錄會清掉。"))return; const y=S.year;S=fresh();S.year=y;save();render()};
 }
 function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales","實體銷量"],["views","播放"],["social","社群熱度"],["stage","舞台評價"]];
   el.innerHTML=`<div class="tvbox${r.win?" won":""}"><div class="verd"><div class="grade">${r.grade}</div><div><div class="crown">${r.win?"一位!":"這場第二名"}</div>
