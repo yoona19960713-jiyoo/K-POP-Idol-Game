@@ -18,7 +18,7 @@ async function toJpegB64(file){
   const c=document.createElement("canvas"); c.width=Math.round(bmp.width*s); c.height=Math.round(bmp.height*s);
   c.getContext("2d").drawImage(bmp,0,0,c.width,c.height); return c.toDataURL("image/jpeg",0.85).split(",")[1];
 }
-async function aiJSON(prompt,files,signal){
+async function aiJSON(prompt,files,signal,schema){
   const key=apiKey(); if(!key) throw {code:"no_key"};
   const parts=[{text:prompt}];
   for(const f of files||[]) parts.push({inline_data:{mime_type:"image/jpeg",data:await toJpegB64(f)}});
@@ -26,7 +26,7 @@ async function aiJSON(prompt,files,signal){
   try{
     res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model())}:generateContent`,{method:"POST",signal,
       headers:{"Content-Type":"application/json","x-goog-api-key":key},
-      body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json"}})});
+      body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json",...(schema?{responseSchema:schema}:{}),temperature:1}})});
   }catch(e){ if(e?.name==="AbortError") throw {code:"cancelled"}; throw {code:"network"} }
   const j=await res.json().catch(()=>({}));
   if(!res.ok){
@@ -41,9 +41,10 @@ async function aiJSON(prompt,files,signal){
     }
     if(res.status===401||res.status===403||/API key/i.test(msg)) throw {code:"bad_key",message:msg};
     if(res.status===404){
-      if(model()!==DEFAULT_MODEL){ localStorage.setItem(KEY_M,DEFAULT_MODEL); return aiJSON(prompt,files,signal); } // 模型被停用時自動改回預設
+      if(model()!==DEFAULT_MODEL){ localStorage.setItem(KEY_M,DEFAULT_MODEL); return aiJSON(prompt,files,signal,schema); } // 模型被停用時自動改回預設
       throw {code:"bad_model",message:msg};
     }
+    if(res.status===400&&schema&&/schema|response_schema|responseSchema|Invalid JSON payload|not supported/i.test(msg)) return aiJSON(prompt,files,signal,null);   // 這個模型不支援 schema
     if(/location/i.test(msg)) throw {code:"region",message:msg};
     throw {code:"server",message:msg};
   }
@@ -115,12 +116,18 @@ function analyse(sn){
   const ids=new Set(MB.map(m=>m.id));
   for(const [k,n] of Object.entries(N)){
     if(!Array.isArray(n.L)) w.push(`節點 ${k} 沒有台詞`);
-    for(const l of n.L||[]) if(!ids.has(l[0])) w.push(`節點 ${k} 有不認得的說話者 ${l[0]}`);
+    for(const l of n.L||[]) if(l[0]!==""&&!ids.has(l[0])) w.push(`節點 ${k} 有不認得的說話者 ${l[0]}`);
     for(const c of n.C||[]){ if(!STYLES.includes(c.s)) w.push(`選項「${(c.t||"").slice(0,10)}」的回應方式不合法`);
       if(c.next&&!N[c.next]) w.push(`選項指向不存在的節點 ${c.next}`);
       if(c.to&&!ids.has(c.to)) w.push(`選項對象 ${c.to} 不存在`);
       if((c.g||0)>4||(c.g||0)<-2) w.push(`選項「${(c.t||"").slice(0,10)}」的影響強度 ${c.g} 超出 -2~4`); }
   }
+  // 品質檢查:太長的台詞、解說情緒的套話、整句重複
+  const CLICHE=["心裡暖暖的","謝謝你一直陪著我","其實我想說的是","你讓我覺得很溫暖","有你真好","我會一直陪在你身邊"], seenT=new Set();
+  for(const [k,n] of Object.entries(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>c.r||[])]){ const t=String(l[1]||"");
+    if(t.length>60) w.push(`節點 ${k} 有一句台詞超過 60 字`);
+    const cl=CLICHE.find(x=>t.includes(x)); if(cl) w.push(`節點 ${k} 用了套話「${cl}」`);
+    if(t.length>6&&seenT.has(t)) w.push(`節點 ${k} 有重複的台詞`); seenT.add(t) }
   const memo={}; const depth=(k,seen)=>{if(seen.has(k)||!N[k])return 0; seen.add(k); let m=0; for(const c of N[k].C||[]) m=Math.max(m,1+(c.next?depth(c.next,new Set(seen)):0)); return m};
   const d=depth("start",new Set()); const branch=Object.values(N).filter(n=>(n.C||[]).filter(c=>c.next).length>=2).length;
   if(sn.type==="long"||sn.type==="pairlong"){ if(d<8) w.push(`最長只有 ${d} 個來回,長對話要 8~10 個`); if(d>11) w.push(`最長 ${d} 個來回,超過 10 個`); if(branch<2) w.push(`只有 ${branch} 個分岔點,長對話至少要 2 個`) }
@@ -128,47 +135,111 @@ function analyse(sn){
   return {depth:d,branch,warn:w};
 }
 
-/* ---------- 生成提示詞 ---------- */
+/* ---------- 劇本生成 v2(2026-10-25):更細緻的人物設定、寫作守則、範例,以及用 responseSchema 鎖住格式 ---------- */
+/* 稱呼:年紀 藝瑟(96.8)>夏恩(96.10)>泰梨(96.12)>日和(97.2)>河嵐(97.5) */
+const ADDR="稱呼規則:五人都叫玩家「代表」。藝瑟、夏恩、泰梨同年,互相直接叫名字;日和與河嵐叫三位姊姊「藝瑟歐尼」「夏恩歐尼」「泰梨歐尼」;河嵐叫日和「日和歐尼」;日和叫河嵐「河嵐醬」;藝瑟常叫河嵐「我們老么」。";
+const SAMPLE={
+ ys:["(還不熟時)「代表好!今天也辛苦了~啊,我先去看一下河嵐,她晚餐又沒吃。」","(熟了)「代表~你看你看,這是新出的周邊!……不准笑,這是情報收集。」","(撐不住時)「……我沒事啦。真的。只是,讓我在這裡坐一下就好。」"],
+ tr:["(還不熟時)「……嗯。」「知道了。」","(熟了)「這段的拍子,就像等紅燈的時候突然想跳舞——……算了,當我沒說。」","(害羞時)「……算了,我來。」(耳朵先紅)"],
+ hy:["「代表!這句韓語是什麼意思?『心裡癢癢的』……是生病嗎?」","「大丈夫です!……啊,就是『沒事』的意思。」","「好喜歡~這個,還有這個,還有代表今天的領帶!」"],
+ he:["「先吃飯再說啦!今天的大醬湯我放了很多豆腐喔。」","(被稱讚臉)「哎呀,臉又不能吃~倒是你,午餐吃了沒?」","(累的時候,笑得更用力)「我很好啊!超級好!」"],
+ hr:["「交給我!這段高音我唱給你聽——」","「欸欸欸代表你看!濟州寄來的橘子,一人一顆,不准跟我搶!」","(真的難過時)她突然安靜下來,把吉他抱得更緊,一句話也不說。"]};
+const DETAIL={ys:"粉紅色小物、兔子玩偶、追女團的周邊收藏本、隊長筆記本、酒量好、被反過來照顧時手足無措",tr:"黑膠唱片、分一邊的耳機、便利商店泡麵、洛杉磯、冷笑話、講到舞蹈和歌詞話變多、夾英文",
+ hy:"芭蕾把桿、玉子燒、圍巾、舊傷的腳踝、用韓劇台詞學韓語、日文英文混著說",he:"廚房是她的地盤、泡菜鍋、海鮮煎餅、大邱烤肉店、慶尚道口音、被當普通人對待會很開心",hr:"吉他、濟州的橘子、擬聲詞、大嗓門、半語、唱歌時像變了一個人、難過時突然安靜"};
+const STAGE_VOICE={戒備:"用敬語、句子短、不太看代表的眼睛,說完正事就想走。",信任:"開始會多說一兩句工作上的煩惱,偶爾開個小玩笑,但不談私事。",
+ 夥伴:"會說私事、會抱怨、會撒一點嬌、會主動找代表;偶爾露出脆弱的一面再自己收回去。",心動:"欲言又止、偷看、話說到一半改口、被碰到會僵住;絕對不說破喜歡。",
+ 戀人:"私下語氣變軟、會撒嬌、會吃醋、會怕被別人發現;人前裝沒事,人後只對代表說真心話。",親密:"自然的親暱與默契,枕邊話、清晨的慵懶;親密場面一律淡出帶過。",多人親密:"三人之間有默契也有小小的醋意,彼此照顧;親密場面一律淡出帶過。"};
+const CRAFT=`【寫作守則(最重要)】
+1. 台詞要短:大多 25 字以內,最長不超過 45 字;一句只講一件事。真人說話會停頓(……)、說半句、改口、用語氣詞,不會一口氣講完整段道理。
+2. 不說教、不解說情緒:不要寫「其實我想說的是」「你讓我覺得很溫暖」「謝謝你一直陪著我」這類把感覺直接講出來的台詞。用動作和小細節表現:旁白(who 用 narr)寫她的動作,例如(她把毛巾蓋在頭上)(耳朵紅了)。每個節點最多一兩句旁白。
+3. 要具體:每個片段至少一個只屬於她的細節(物件、食物、歌、習慣、身體感覺、天氣),不要空泛的「好累」「好開心」。
+4. 要有轉折:片段開頭和結尾,她的心情或兩人的距離要有一點不一樣。
+5. 選項 2~3 個,語氣明顯不同、都是代表會自然說的話或做的動作;沒有一眼就看得出的標準答案。每個選項的回應都要有內容,不能只是一句「謝謝」。
+6. 用錯方式時,她用自己的方式反應,不會直接說「你讓我不舒服」:泰梨會沉默或轉回去練舞,河嵐會突然安靜,日和會笑著帶過,夏恩會笑得更用力,藝瑟會把話題轉到別人身上。
+7. 不要每段都用「代表,你來了」開頭;不要每段都在稱讚代表;不要每段都以擁抱或道謝收尾。
+8. 時期要對:練習生期還沒出道,不能有打歌、粉絲見面會、一位;練習生的日常是月評、宵禁、體重管理、手機上繳、宿舍。
+9. 表情要跟那一句的情緒一致:苦笑用 smile 或 sad,不要用 laugh;害羞用 shy;生悶氣用 angry。旁白的表情一律填 neutral。`;
+const EX_SINGLE={at:"practice",sl:[4],who:["tr"],sc:"深夜十二點,練習室只亮著鏡子前那排燈。泰梨一個人對著鏡子,把同一段八拍重複了第十幾次。",w:3,cd:4,nodes:[
+ {key:"start",lines:[{who:"narr",text:"(音樂停了。她在鏡子裡看到你,動作頓了一下。)",expr:"neutral"},{who:"tr",text:"……代表。這麼晚還沒走?",expr:"neutral"},{who:"tr",text:"再五分鐘就好。這個轉身,一直慢半拍。",expr:"sad"}],
+  choices:[{text:"「我幫妳數拍子。」",style:"陪著",to:"tr",g:2,next:"b"},
+   {text:"「轉身前,左肩先收一點試試?」",style:"出手幫忙",to:"tr",g:0,reply:[{who:"tr",text:"……我知道怎麼跳。",expr:"angry"},{who:"narr",text:"(她轉回鏡子,背對著你繼續練。)",expr:"neutral"}]},
+   {text:"「五分鐘喔。我計時。」",style:"開玩笑",to:"tr",g:1,reply:[{who:"tr",text:"……那你要倒數得很慢。",expr:"smile"}]}]},
+ {key:"b",lines:[{who:"narr",text:"(你在鏡子旁坐下,拍著手打拍子。五、六、七、八——)",expr:"neutral"},{who:"tr",text:"……成功了。",expr:"smile"},{who:"tr",text:"剛剛那拍,你拍得比節拍器還準。",expr:"smile"}],
+  choices:[{text:"「明天也來幫妳數?」",style:"陪著",to:"tr",g:2,set:"trCountBeat",reply:[{who:"tr",text:"……隨便你。",expr:"shy"},{who:"narr",text:"(她轉身去拿水,耳朵紅了。)",expr:"neutral"}]},
+   {text:"「是妳自己跳對的。」",style:"鼓勵",to:"tr",g:1,reply:[{who:"tr",text:"嗯。……但還是謝了。",expr:"smile"}]}]}]};
+const EX_PAIR={at:"dorm",sl:[3,4],who:["hr","hy"],sc:"深夜的宿舍廚房,河嵐和日和蹲在冰箱前,為了最後一盒布丁小聲猜拳。",w:3,cd:4,nodes:[
+ {key:"start",lines:[{who:"hr",text:"剪刀石頭——欸!日和歐尼妳慢出!",expr:"angry"},{who:"hy",text:"慢出?那是什麼?日本沒有這個規則喔~",expr:"laugh"},{who:"hr",text:"騙人!代表你評評理!",expr:"angry"}],
+  choices:[{text:"「一人一半。」",style:"轉移話題",to:"hr",g:1,reply:[{who:"hr",text:"……好啦。但我要有焦糖的那半。",expr:"smile"},{who:"hy",text:"はい、河嵐醬先選~",expr:"smile"}]},
+   {text:"(打開冰箱下層,拿出藏著的另一盒。)",style:"出手幫忙",to:"hr",g:2,reply:[{who:"hr",text:"哇——代表藏私房布丁!",expr:"laugh"},{who:"hy",text:"代表、すごい!好喜歡~",expr:"laugh"}]}]}]};
+/* 回傳格式:用 Gemini 的 responseSchema 鎖住(選項、說話者、表情、地點都是固定的值),不會再有格式錯誤 */
+function SCHEMA(places,who){
+  const line={type:"OBJECT",properties:{who:{type:"STRING",enum:[...who,"narr"]},text:{type:"STRING"},expr:{type:"STRING",enum:EXPRS}},required:["who","text","expr"],propertyOrdering:["who","text","expr"]};
+  const choice={type:"OBJECT",properties:{text:{type:"STRING"},style:{type:"STRING",enum:STYLES},to:{type:"STRING",enum:who},g:{type:"INTEGER"},mood:{type:"INTEGER"},stress:{type:"INTEGER"},heart:{type:"INTEGER"},set:{type:"STRING"},next:{type:"STRING"},reply:{type:"ARRAY",items:line}},
+    required:["text","style","to","g"],propertyOrdering:["text","style","to","g","mood","stress","heart","set","next","reply"]};
+  const node={type:"OBJECT",properties:{key:{type:"STRING"},lines:{type:"ARRAY",items:line},choices:{type:"ARRAY",items:choice}},required:["key","lines"],propertyOrdering:["key","lines","choices"]};
+  const sn={type:"OBJECT",properties:{at:{type:"STRING",enum:places},sl:{type:"ARRAY",items:{type:"INTEGER"}},who:{type:"ARRAY",items:{type:"STRING",enum:who}},sc:{type:"STRING"},w:{type:"INTEGER"},cd:{type:"INTEGER"},nodes:{type:"ARRAY",items:node}},
+    required:["at","sl","who","sc","nodes"],propertyOrdering:["at","sl","who","sc","w","cd","nodes"]};
+  return {type:"OBJECT",properties:{snippets:{type:"ARRAY",items:sn}},required:["snippets"]} }
+/* 回傳 → 遊戲用的格式(nodes 物件、[說話者,台詞,表情] 陣列),順便修正常見的小錯 */
+function toInternal(s0,main,stage){
+  if(s0?.nodes&&!Array.isArray(s0.nodes)) return s0;      // 已經是舊格式
+  const arr=Array.isArray(s0?.nodes)?s0.nodes:[]; if(!arr.length) return null;
+  const ids=new Set(MB.map(m=>m.id)), clamp=(v,a,b)=>Math.max(a,Math.min(b,Math.round(+v||0)));
+  const ln=l=>{ const who=l?.who==="narr"?"":(ids.has(l?.who)?l.who:main), text=String(l?.text||"").trim(); if(!text) return null;
+    return who?[who,text,EXPRS.includes(l?.expr)?l.expr:"neutral"]:["",text] };
+  const keys=new Set(), N={}; arr.forEach((n,i)=>{ let k=String(n?.key||"").trim()||("n"+i); if(i===0&&!arr.some(x=>x?.key==="start")) k="start"; while(keys.has(k)) k+="_"; keys.add(k);
+    N[k]={L:(n.lines||[]).map(ln).filter(Boolean),C:(n.choices||[]).map(c=>{ const o={t:String(c?.text||"").trim(),s:STYLES.includes(c?.style)?c.style:"陪著",to:ids.has(c?.to)?c.to:main,g:clamp(c?.g,-2,4)};
+      if(c?.mood) o.mood=clamp(c.mood,-6,6); if(c?.stress) o.stress=clamp(c.stress,-6,6);
+      if(c?.heart&&!["戒備"].includes(stage)) o.heart=clamp(c.heart,0,2); if(c?.set&&/^[a-zA-Z][a-zA-Z0-9]{1,30}$/.test(c.set)) o.set=c.set;
+      if(c?.next) o.next=String(c.next).trim(); const r=(c?.reply||[]).map(ln).filter(Boolean); if(r.length) o.r=r; return o }).filter(c=>c.t)} });
+  for(const n of Object.values(N)) for(const c of n.C) if(c.next&&!N[c.next]) delete c.next;    // 指向不存在的節點 → 在這裡結束
+  if(!N.start) return null;
+  return {...s0,nodes:N} }
+function parseSnippets(r,main,stage){ const arr=Array.isArray(r)?r:(r?.snippets||[]); return arr.map(s=>toInternal(s,main,stage)).filter(s=>s?.nodes?.start) }
 function buildPrompt(p,existing){
   const t=TYPES[p.type]; const who=t.kind==="pair"?(p.pair==="all"?MB.map(m=>m.id):p.pair.split("-")):[p.member];
   const romance=ROMANCE.includes(p.stage);
-  // 戀愛與親密階段:角色是原創人物,不提原型
-  const voices=who.map(id=>`【${id}】${romance?VOICE[id].replace(/(原型[^)]*)/g,""):VOICE[id]}\n她對回應方式的反應倍率(負數是反效果):${Object.entries(PREF[id]).map(([k,v])=>k+v).join("、")}`).join("\n\n");
-  return `你是一款韓國女團養成遊戲的編劇。玩家是一位財閥出身的娛樂公司代表(成員叫他/她「代表」,性別不指定),旗下五位女團成員都是成年人(故事開始時 18 歲)。請用繁體中文寫遊戲的日常片段。
+  const bio=id=>`【${mb(id).n}(id ${id})】${romance?VOICE[id].replace(/(原型[^)]*)/g,""):VOICE[id]}
+說話樣本(只學語氣,不要照抄):${SAMPLE[id].join(" ")}
+可以用的具體細節:${DETAIL[id]}
+她對代表的回應方式的反應倍率(負數是反效果):${Object.entries(PREF[id]).map(([k,v])=>k+v).join("、")}`;
+  const ex=t.kind==="pair"?EX_PAIR:EX_SINGLE;
+  return `你是一款韓國女團養成戀愛遊戲的資深編劇,擅長寫有溫度、有生活感、角色辨識度很高的對話。玩家是財閥出身的娛樂公司代表(成員叫他/她「代表」,性別不指定),旗下五位女團成員都是成年人(故事開始時 18 歲)。請用台灣慣用的繁體中文寫遊戲的日常片段。
 
 【這批要寫的】
 種類:${t.n}(${t.len})
 ${t.kind==="pair"?`主角組合:${pairName(p.pair)}`:`主角:${mb(p.member).n}(id ${p.member})`}
-${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}`:`成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
-時期:${p.period}——${PERIOD_DESC[p.period]}${romance?"\n角色都是原創人物,不要提到或影射任何真實的人、團體或公司;戀情是兩人(或多人)之間的祕密,出道後公開戀愛會被粉絲反彈,所以要注意被拍到、被成員撞見的緊張感。":""}
-數量:${p.count} 個,彼此情境要明顯不同。
-可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")};${t.places.filter(k=>PLACE_NOTE[k]).map(k=>`\n${PLACES[k]}的樣子:${PLACE_NOTE[k]}`).join("")}
-時段(sl,數字):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
+${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}\n這個階段的說話方式:${STAGE_VOICE[p.stage]||""}`:`以成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
+時期:${p.period}——${PERIOD_DESC[p.period]}${romance?"\n角色都是原創人物,不要提到或影射任何真實的人、團體或公司;戀情是祕密,出道後公開戀愛會被粉絲反彈,要有怕被拍到、被成員撞見的緊張感。":""}
+數量:${p.count} 個,情境、地點、時段、情緒要明顯不同。
+可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")}${t.places.filter(k=>PLACE_NOTE[k]).map(k=>`\n${PLACES[k]}的樣子:${PLACE_NOTE[k]}`).join("")}
+時段(sl,數字,可以多個):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
 ${p.hint?`玩家補充:${p.hint}\n`:""}
-【成員設定與口吻,必須嚴格遵守】
-${voices}
-
+【成員設定(必須嚴格遵守)】
+${who.map(bio).join("\n\n")}
+${ADDR}
 其他成員 id:${MB.map(m=>`${m.id}=${m.n}`).join("、")}。
 
-【世界設定,提到業界時只能用這些原創名稱】
+【世界設定(提到業界時只能用這些原創名稱)】
 ${WORLD_BASE}
-這個時期的狀況:${WORLD_PERIOD[p.period]}
-玩家團體的團名尚未決定,台詞裡用「我們」「我們團」稱呼,不要自己取團名。
+這個時期:${WORLD_PERIOD[p.period]}
+玩家團體的團名尚未決定,台詞裡用「我們」「我們團」。
 
-【寫作規則】
-- 口吻要像她本人,會因關係階段改變語氣;每句台詞自然、口語、有生活感,不要說教。
-- 選項是代表說的話或做的動作(用「」包住說的話,或寫動作),每個選項標一種回應方式 s,只能是:${STYLES.join("、")}。
-- 每個選項的她的回應 r 要反映她對這種回應方式的真實反應(依上面的倍率,負數就寫成她不舒服或拉開距離)。
-- 影響強度 g 是整數 -2~4;心情 mood、壓力 stress 可省略或填 -6~6 的整數;只有特別心動的時刻才填 heart 1~2,而且只在信任、夥伴以上階段。
-- 可以用 set 記下一個英文小寫駝峰的記憶旗標(例如 hyAnkleAsk),讓之後的劇情記得這件事。
-- 每句台詞的格式是 [說話者 id, 台詞, 表情];表情只能是 neutral(平常)、smile(微笑)、laugh(大笑)、sad(難過)、angry(生氣)、shy(害羞),要符合那一句的情緒;選項的 r 裡的台詞也一樣有表情。
-- 多輪對話用 nodes 樹狀結構:每個節點有 L(台詞陣列)和 C(選項陣列),選項用 next 指向下一個節點的鍵名,沒有 next 就結束,結束時可以用 r 寫她最後的反應。
-- ${t.kind==="pair"?"L 裡可以有多位成員輪流說話。":"L 裡以主角為主,其他成員可以偶爾出現。"}
-- 以情感為主,不寫露骨內容;不要出現真實的人名、團名、公司名或節目名,一律用上面的原創名稱。
+${CRAFT}
+
+【格式】
+- 每個片段:at 地點、sl 時段、who 出場成員、sc 一句畫面旁白、w 權重 1~5、cd 冷卻天數 2~7、nodes 節點陣列。
+- 第一個節點 key 是 start。每個節點有 lines(台詞)與 choices(代表的選項);選項用 next 指向另一個節點的 key,沒有 next 就在這裡結束,結束時用 reply 寫她最後的反應。
+- 台詞 who 是說話的成員 id,旁白用 narr;expr 只能是 neutral、smile、laugh、sad、angry、shy。
+- 選項 style 只能是:${STYLES.join("、")};to 是這個選項影響的成員;g 是影響強度,整數 -2~4,依她對這種回應方式的倍率決定。mood、stress 可省略或填 -6~6;heart 只在特別心動的時刻填 1~2,而且只在信任以上的階段。set 可記一個英文小寫駝峰的旗標,讓之後的劇情記得。
+- ${t.kind==="pair"?"lines 裡多位成員輪流說話,成員之間要真的互相回應。":"lines 以主角為主,其他成員可以偶爾出現。"}${t.kind==="single"&&p.type!=="long"?"":""}
+${p.type==="away"?"- 這種片段沒有選項:只有 start 一個節點,choices 留空陣列。":""}
 ${existing.length?`- 這一格已經有以下情境,請避免重複:\n${existing.map(x=>"  · "+x).join("\n")}`:""}
 
-【只回覆 JSON】
-{"snippets":[{"at":"practice","sl":[3,4],"who":["${who[0]}"],"sc":"一句描述畫面的旁白","w":3,"cd":4,"nodes":{"start":{"L":[["${who[0]}","台詞","neutral"]],"C":[{"t":"「代表說的話」","s":"陪著","to":"${who[0]}","g":2,"next":"b"},{"t":"(動作)","s":"開玩笑","to":"${who[0]}","g":1,"r":[["${who[0]}","她的反應","smile"]]}]},"b":{"L":[["${who[0]}","台詞","neutral"]],"C":[{"t":"「……」","s":"鼓勵","to":"${who[0]}","g":3,"set":"someFlag","r":[["${who[0]}","她最後的反應","shy"]]}]}}}]}`;
+【範例(只示範品質與格式,內容不要照抄)】
+${JSON.stringify({snippets:[ex]})}
+
+只回覆 JSON,格式同上。`;
 }
 
 
@@ -207,8 +278,8 @@ const sleep=ms=>new Promise(r=>{const t0=Date.now(); aWait=Date.now()+ms; const 
 async function produce(task){
   const t=TYPES[task.type];
   const existing=lib().filter(x=>x.type===task.type&&(t.kind==="pair"?x.pair===task.pair:(x.member===task.member&&x.stage===task.stage))).slice(-25).map(x=>x.sc);
-  const r=await aiJSON(buildPrompt(task,existing),[]);
-  const arr=Array.isArray(r)?r:(r.snippets||[]); let ok=0,bad=[];
+  const r=await aiJSON(buildPrompt(task,existing),[],undefined,SCHEMA(t.places,MB.map(m=>m.id)));
+  const arr=parseSnippets(r,t.kind==="pair"?(task.pair==="all"?"ys":task.pair.split("-")[0]):task.member,task.stage); let ok=0,bad=[];
   if(!arr.some(x=>x?.nodes?.start)) throw {code:"invalid_json",message:"回傳裡沒有可用的片段"};
   for(const s0 of arr){ if(!s0?.nodes?.start) continue;
     const sn={code:`${task.type}-${t.kind==="pair"?task.pair:task.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
@@ -319,6 +390,7 @@ async function open(){ shell(); if(!items.length) items=Object.values(await IDB.
   void $("#makerFac").offsetWidth; $("#makerFac").classList.remove("hide"); $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll() }
 function close(){ $("#makerFac").classList.add("hide"); setPause("maker",false); OPEN=false }
 window.openMaker=open;
+window.makerDebug={buildPrompt,SCHEMA,parseSnippets,analyse,EX_SINGLE,EX_PAIR};
 const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"]];
 function renderAll(){ if(!OPEN) return;
   $("#mkTabs").innerHTML=TABS.map(([k,n])=>`<button data-mt="${k}" aria-selected="${k===tab}">${n}${k==="review"&&reviewQ_().length?`<i>${reviewQ_().length}</i>`:""}</button>`).join("");
@@ -365,7 +437,7 @@ async function generate(params){
   const t=TYPES[params.type];
   const existing=lib().filter(x=>x.type===params.type&&(t.kind==="pair"?x.pair===params.pair:(x.member===params.member&&x.stage===params.stage))).slice(-25).map(x=>x.sc);
   ctl=new AbortController(); mErr=false; mStatus=`生成中…${t.n}通常需要${params.type==="long"?"半分鐘到一分鐘":"十幾秒"}。`; renderAll();
-  try{ const r=await aiJSON(buildPrompt(params,existing),[],ctl.signal); const arr=Array.isArray(r)?r:(r.snippets||[]); let n=0;
+  try{ const r=await aiJSON(buildPrompt(params,existing),[],ctl.signal,SCHEMA(t.places,MB.map(m=>m.id))); const arr=parseSnippets(r,t.kind==="pair"?(params.pair==="all"?"ys":params.pair.split("-")[0]):params.member,params.stage); let n=0;
     for(const s0 of arr){ if(!s0?.nodes?.start) continue;
       await saveItem({code:`${params.type}-${t.kind==="pair"?params.pair:params.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
         type:params.type,k:t.n,member:t.kind==="single"?params.member:"",pair:t.kind==="pair"?params.pair:"",stage:t.kind==="single"?params.stage:"",period:params.period,
@@ -393,8 +465,9 @@ function reviewHTML(){ const Q=reviewQ_(), pass=Q.filter(x=>!analyse(x).warn.len
   return `<div class="mrow" style="justify-content:space-between"><p class="mnote">每個片段都可以展開對話樹、試玩、編輯;確認後才會收進內容庫,遊戲才會抽到。${pass&&bad?`有提醒的 ${bad} 個不會一起收入(格式有問題,遊戲可能播不完),請個別編輯或丟掉。`:""}</p>${pass?`<button class="mbtn pri" id="okAll" ${BULK?"disabled":""}>一鍵通過:格式通過的 ${pass} 個全部收入</button>`:""}</div>
     ${Q.length?Q.slice(0,30).map(sn=>cardHTML(sn,"review")).join("")+(Q.length>30?`<p class="mnote">還有 ${Q.length-30} 個,先處理上面的。</p>`:""):`<p class="mempty">還沒有待審的片段。</p>`}` }
 let LIBLIST=[];
+function libIO(){ return `<div class="mrow"><button class="mbtn" id="mkExport">匯出全部片段(JSON)</button><button class="mbtn" id="mkImport">匯入修訂後的片段</button><input type="file" id="mkImportF" accept=".json,application/json" hidden><span class="mnote">匯出請用電腦版;修訂好的檔案匯入後會覆蓋同代號的片段並同步到雲端。</span></div>` }
 function libHTML(){ const list=LIBLIST=lib().filter(x=>(!fM||x.member===fM||(x.pair||"").includes(fM))&&(!fT||x.type===fT)&&(!fS||(fS==="__auto"?x.status==="auto":x.stage===fS))&&(!fQ||JSON.stringify(x.nodes).includes(fQ)||String(x.sc).includes(fQ))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  return `<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
+  return libIO()+`<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
     <select id="fT"><option value="">全部種類</option>${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${fT===k?"selected":""}>${t.n}</option>`).join("")}</select>
     <select id="fS"><option value="">全部階段</option>${STAGES.map(s=>`<option ${fS===s?"selected":""}>${s}</option>`).join("")}<option value="__auto" ${fS==="__auto"?"selected":""}>只看未審</option></select>
     <input type="text" id="fQ" value="${esc(fQ)}" placeholder="搜尋台詞" class="grow"></div>
@@ -419,6 +492,15 @@ function keyHTML(){ const m=model(), known=["gemini-flash-latest","gemini-flash-
     <details><summary>怎麼取得金鑰?</summary><ol class="mnote"><li>用 Google 帳號登入 aistudio.google.com</li><li>左側點「Get API key」</li><li>按「Create API key」,複製那串文字</li><li>貼到上面,按儲存,再按測試連線</li></ol></details></div>` }
 function bind(B){
   const q=s=>B.querySelector(s);
+  if(q("#mkExport")){ q("#mkExport").onclick=()=>{ const d=new Date(), name=`完美女團_劇本內容庫_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}.json`;
+      const blob=new Blob([JSON.stringify({app:"kpop-scripts",version:2,exportedAt:Date.now(),items},null,1)],{type:"application/json"}), u=URL.createObjectURL(blob), a=document.createElement("a");
+      a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); toast2(`已匯出 ${items.length} 個片段`) };
+    q("#mkImport").onclick=()=>q("#mkImportF").click();
+    q("#mkImportF").onchange=async e=>{ const f=e.target.files?.[0]; if(!f) return; let o; try{ o=JSON.parse(await f.text()) }catch(_){ toast2("檔案不是正確的 JSON"); return }
+      const list=(Array.isArray(o)?o:o.items||[]).filter(x=>x?.code&&x?.nodes?.start); if(!list.length){ toast2("檔案裡沒有可用的片段"); return }
+      if(!confirm(`匯入 ${list.length} 個片段?同代號的會被覆蓋。`)) return; let n=0;
+      for(const it of list){ const old=items.find(x=>x.code===it.code); await saveItem({...(old||{}),...it,status:it.status||old?.status||"ok"}); n++ }
+      toast2(`已匯入 ${n} 個片段`) } }
   if(q("#mkAuto")){ q("#mkAuto").onclick=()=>{ running=!running; if(running){aState="";autoLoop()} renderAll() };
     q("#aRpm").onchange=e=>{A.rpm=Math.max(1,Math.min(60,+e.target.value||1));saveA()}; q("#aDay").onchange=e=>{A.day=Math.max(1,+e.target.value||1);saveA()};
     q("#aAuto").onchange=e=>{A.autoAccept=e.target.checked;saveA()}; q("#aFb").onchange=e=>{A.fallback=e.target.checked;saveA()} }
