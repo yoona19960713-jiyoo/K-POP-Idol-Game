@@ -44,7 +44,7 @@ function fresh(){return {year:2016,idx:0,wins:0,log:[],uses:{},camCount:{},prev:
   m:Object.fromEntries(M.map(m=>[m.id,{stamina:90,throat:90,mood:70,pop:20,cond:""}])),plan:null,last:null}}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.m) S=fresh();
-const save=(bump=true)=>{if(bump){S.updatedAt=Date.now();schedulePush()} try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const save=(bump=true)=>{if(bump){S.updatedAt=Date.now();schedulePush()} try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){window.logErr?.("stage",e)}};
 const TOTAL=24;
 const weekOf=i=>Math.floor(i/6)+1, showOf=i=>SHOWS[i%6];
 let seed=0; const rnd=()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648};
@@ -169,10 +169,10 @@ function loadLinked(){
 let pT=0;
 function schedulePush(){clearTimeout(pT); pT=setTimeout(push,4000)}
 async function push(){ if(!syAuth()||!syCfg()) return; try{ const t=await syToken();
-  await syJSON(syBase()+"/stage/state",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({fields:{json:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt||Date.now())}}})}) }catch(e){} }
+  await syJSON(syBase()+"/stage/state",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({fields:{json:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt||Date.now())}}})}) }catch(e){window.logErr?.("stage",e)} }
 async function sync(){ if(!syAuth()||!syCfg()) return;
   const d=await syGet("stage/state"); const remoteAt=d?+d.fields.updatedAt.integerValue:0, localAt=+(S.updatedAt||0);
-  if(remoteAt>localAt){ try{S=JSON.parse(d.fields.json.stringValue);S.updatedAt=remoteAt;save(false);if(OPEN) render()}catch(e){} }
+  if(remoteAt>localAt){ try{S=JSON.parse(d.fields.json.stringValue);S.updatedAt=remoteAt;save(false);if(OPEN) render()}catch(e){window.logErr?.("stage",e)} }
   else if(localAt>remoteAt||!d){ if(!S.updatedAt){S.updatedAt=Date.now();save(false)} await push() } }
 (window.SYNC_HOOKS=window.SYNC_HOOKS||[]).push(sync);
 

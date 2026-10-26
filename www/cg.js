@@ -88,7 +88,7 @@ function scan(){
   if(first){ S.cgInit=true; if(n) setTimeout(()=>toast2(`手機「相簿」收進了 ${n} 張戀愛紀念照`),1500); save?.(true) }
 }
 /* 沒有任何畫面開著時才顯示(對話、手機、設施、事件卡都會暫停時間) */
-setInterval(()=>{ try{ scan(); if(QUEUE.length&&!paused()&&!document.querySelector(".bigev:not(.out),#cgView")){ const q=QUEUE.shift(); q[0]==="duo"?showDuo(q[1],true):show(q[0],q[1],true) } }catch(e){} },1200);
+every(1200,()=>{ try{ scan(); if(QUEUE.length&&!paused()&&!document.querySelector(".bigev:not(.out),#cgView")){ const q=QUEUE.shift(); q[0]==="duo"?showDuo(q[1],true):show(q[0],q[1],true) } }catch(e){window.logErr?.("cg",e)} });
 
 /* ---------- 全螢幕顯示 ---------- */
 function view(o,fresh,onClose){

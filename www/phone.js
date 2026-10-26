@@ -208,7 +208,7 @@ function bind(B){
     const to=c.to&&byId(c.to)?c.to:f.id, before=S.m[to]?.xp||0; applyChoice({...c,to}); const dt=(S.m[to]?.xp||0)-before; if(dt>0) pfx(`${byId(to).n} 好感 +${dt}`,byId(to).c);
     f.reply=stripQ(c.t); f.r=[...(c.r||[])]; f.choice=null; save(); render() });
 }
-setInterval(()=>{ if($("#phone")?.classList.contains("on")) status() },2000);
+every(2000,()=>{ if($("#phone")?.classList.contains("on")) status() });
 /* 有直式合照(assets/bg/wall_group.webp)時才出現在選項裡,並自動當預設桌布 */
 let HAS_PORTRAIT=false; { const im=new Image(); im.onload=()=>{HAS_PORTRAIT=true}; im.src=WALLS.portrait }
 function curWall(){ const p=ph(); return !p.wallSet&&HAS_PORTRAIT?"portrait":(p.wall||"title") }

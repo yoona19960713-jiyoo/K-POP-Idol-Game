@@ -155,7 +155,7 @@ async function makeThumb(ref){
       blob=r?.blob||null }
     if(!blob){ const src=await getBlob(ref,true); if(!src) return "";       // 不支援背景執行緒的瀏覽器:在主畫面做
       const raw=await (await fetch(src)).blob();
-      let bmp=null; try{ bmp=await createImageBitmap(raw,{resizeHeight:THUMB_H,resizeQuality:"high"}) }catch(e){}
+      let bmp=null; try{ bmp=await createImageBitmap(raw,{resizeHeight:THUMB_H,resizeQuality:"high"}) }catch(e){window.logErr?.("wardrobe",e)}
       if(!bmp){ bmp=await createImageBitmap(raw).catch(()=>null) } if(!bmp) return "";
       const H=Math.min(THUMB_H,bmp.height), W=Math.round(bmp.width*H/bmp.height);
       const c=document.createElement("canvas"); c.width=W; c.height=H; c.getContext("2d").drawImage(bmp,0,0,W,H); bmp.close?.();
@@ -202,13 +202,25 @@ async function pushDoc(col,it){
 }
 /* 沒登入或網路斷了先放待上傳區,下次同步再送 */
 async function saveDoc(col,it){
-  if(syAuth()&&syCfg()){ try{ const slim=await pushDoc(col,it); if(col==="items") {ITEMS[it.code]=slim; await IDB.set("items",ITEMS)} return true }catch(e){} }
+  if(syAuth()&&syCfg()){ try{ const slim=await pushDoc(col,it); if(col==="items") {ITEMS[it.code]=slim; await IDB.set("items",ITEMS)} return true }catch(e){window.logErr?.("wardrobe",e)} }
   const ob=await IDB.get("outbox")||[]; const i=ob.findIndex(x=>x.col===col&&x.it.code===it.code); if(i>=0) ob[i]={col,it}; else ob.push({col,it}); await IDB.set("outbox",ob);
   if(col==="items"){ITEMS[it.code]=it; await IDB.set("items",ITEMS)} return false;
 }
 window.pushOutbox=async()=>{ if(!syAuth()||!syCfg()) return; const ob=await IDB.get("outbox")||[]; if(!ob.length) return; const left=[];
   for(const x of ob){ try{ const slim=await pushDoc(x.col,x.it); if(x.col==="items") ITEMS[x.it.code]=slim }catch(e){left.push(x)} }
   await IDB.set("outbox",left); await IDB.set("items",ITEMS) };
+
+/* ---------- 造型改版(同代號再匯入,2026-10-26) ----------
+   保留已經生好的圖、遊戲立繪與舊圖,只改寫文字;描述或姿勢有變的成員標成「改版待生圖」(redo,prevOutfit=舊圖對應的描述),
+   排進設計工作台;收下新圖之前,卡片與遊戲裡照用舊版;收下時舊圖照原本的機制進 prev(連舊描述),可以「改回舊圖」 */
+function reviseLook(old,neu){ const out={...old,...neu,createdAt:old.createdAt||neu.createdAt,updatedAt:Date.now(),members:{}};
+  const poseCh=(neu.pose||"stand")!==(old.pose||"stand");
+  for(const [slot,n] of Object.entries(neu.members||{})){ const o=old.members?.[slot];
+    if(!o?.img){ out.members[slot]={...(o||{}),...n,img:o?.img||"",status:o?.status||0}; continue }
+    const ch=poseCh||(n.outfit||"")!==(o.outfit||"");
+    out.members[slot]={...o,outfit:n.outfit||o.outfit,twist:n.twist??o.twist,...(ch?{redo:1,prevOutfit:o.redo?(o.prevOutfit||""):(o.outfit||"")}:{})} }
+  for(const [slot,o] of Object.entries(old.members||{})) if(!out.members[slot]) out.members[slot]=o;
+  return out }
 
 /* ---------- 直接收:Claude 創作室送來的造型或長對話 ---------- */
 async function takeImport(){
@@ -220,13 +232,14 @@ async function takeImport(){
     const o=JSON.parse(new TextDecoder().decode(bytes)); const col=o.app==="kpop-clothes"?"items":o.app==="kpop-scripts"?"scripts":null;
     if(!col||!Array.isArray(o.items)) throw 0;
     if(col==="items") ensureMeta();
-    let n=0,off=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
+    let n=0,off=0,rv=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
       // 造型可以用成員代號(ys、tr、hy、he、hr)標示,這裡換成衣帽間的成員欄位,不怕欄位順序不同
       if(col==="items"&&it.members){ const ms={}; for(const [k,v] of Object.entries(it.members)) ms[byId(k)?(slotOf(k)||DEFAULT_SLOT[k]):k]=v; it.members=ms;
         if(it.target&&byId(it.target)) it.target=slotOf(it.target)||DEFAULT_SLOT[it.target];
         it.kind=it.kind||"look"; for(const v of Object.values(it.members)){ v.img=v.img||""; v.status=v.status||0 } }
-      if(!(await saveDoc(col,it))) off++; n++ }
-    const what=col==="items"?`${n} 套造型,已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
+      let doc=it; if(col==="items"&&ITEMS[it.code]&&!ITEMS[it.code].deleted){ doc=reviseLook(ITEMS[it.code],it); rv++ }
+      if(!(await saveDoc(col,doc))) off++; n++ }
+    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""},已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
     setTimeout(()=>toast2(`收到 Claude 創作室送來的 ${what}`+(off?"(還沒登入雲端,登入後會自動上傳)":"")),900);
     if(col==="items"&&window.renderFacility) renderFacility();
   }catch(e){ setTimeout(()=>toast2("收到的資料無法讀取"),900) }
@@ -272,10 +285,10 @@ let RUNNING=false, STOP=false;
 let PENDING={};     // id → {code,slot,img,at}
 const jobId=(code,slot)=>code+"@"+slot;
 const hasBase=slot=>!!WMETA.find(x=>x.id===slot)?.gen;
-function noBaseCount(){let n=0; for(const lk of wLooks()) for(const [slot,o] of Object.entries(lk.members||{})) if(midOf(slot)&&!o?.img&&o?.outfit&&!hasBase(slot)) n++; return n}
+function noBaseCount(){let n=0; for(const lk of wLooks()) for(const [slot,o] of Object.entries(lk.members||{})) if(midOf(slot)&&(!o?.img||o?.redo)&&o?.outfit&&!hasBase(slot)) n++; return n}
 function todoList(){ const out=[];
   for(const lk of wLooks()) for(const [slot,o] of Object.entries(lk.members||{})){ if(!midOf(slot)||!hasBase(slot)) continue;
-    if(!o?.img&&o?.outfit&&!PENDING[jobId(lk.code,slot)]) out.push({code:lk.code,slot}) }
+    if((!o?.img||o?.redo)&&o?.outfit&&!PENDING[jobId(lk.code,slot)]) out.push({code:lk.code,slot}) }
   return out }
 async function runQueue(){
   if(RUNNING) return; RUNNING=true; STOP=false; renderFacility();
@@ -295,8 +308,8 @@ async function approve(id,quiet){
   const p=PENDING[id]; if(!p) return; const lk=JSON.parse(JSON.stringify(ITEMS[p.code]||{})); if(!lk.code) return;
   // 還原其他成員已有的圖片參照即可(pushDoc 只會上傳 data: 開頭的新圖)
   const old=lk.members[p.slot]||{};
-  const prev=old.img?{img:old.img,model:old.model||"",sprites:old.sprites||null,at:old.spriteAt||0}:(old.prev||null);   // 舊圖不刪,可以改回
-  lk.members[p.slot]={...old,img:p.img,model:p.model||"",status:1,prev}; delete lk.members[p.slot].sprites; lk.updatedAt=Date.now();
+  const prev=old.img?{img:old.img,model:old.model||"",sprites:old.sprites||null,at:old.spriteAt||0,outfit:old.redo?(old.prevOutfit||""):(old.outfit||"")}:(old.prev||null);   // 舊圖不刪,可以改回
+  lk.members[p.slot]={...old,img:p.img,model:p.model||"",status:1,prev}; delete lk.members[p.slot].sprites; delete lk.members[p.slot].redo; delete lk.members[p.slot].prevOutfit; lk.updatedAt=Date.now();
   delete PENDING[id]; await IDB.set("pending",PENDING);
   const ok=await saveDoc("items",lk); if(!quiet) toast2(ok?"已收進衣櫃,並同步到雲端":"已收進衣櫃(還沒同步,登入後會自動上傳)");
   JOBS=JOBS.filter(j=>j.id!==id); renderFacility();
@@ -313,7 +326,7 @@ async function approveAll(){
   if(!confirm(`把待審的 ${ids.length} 張全部收下?\n日常服會逐張自動去背、做換臉層,張數多時要等一下。`)) return;
   BULK=true; let n=0,off=0,sf=0; renderFacility();
   for(const id of ids){ if(!PENDING[id]) continue; toast2(`全部收下中… ${n+1}/${ids.length}`);
-    try{ const r=await approve(id,true); if(r){ n++; if(!r.ok) off++; if(r.spriteFail) sf++ } }catch(e){} }
+    try{ const r=await approve(id,true); if(r){ n++; if(!r.ok) off++; if(r.spriteFail) sf++ } }catch(e){window.logErr?.("wardrobe",e)} }
   BULK=false; renderFacility();
   toast2(`已收下 ${n} 張`+(off?`(${off} 張還沒同步,登入後會自動上傳)`:"")+(sf?`;${sf} 張立繪處理失敗,請到卡片詳情按「處理成遊戲立繪」`:""));
 }
@@ -359,7 +372,7 @@ async function gemJSON(prompt,files,signal){
   const j=await r.json().catch(()=>({}));
   if(!r.ok){ if(r.status===429) throw {code:"rate"}; if(r.status===401||r.status===403) throw {code:"bad_key"}; throw {code:"server",msg:j?.error?.message} }
   const c=j.candidates?.[0]; if(j.promptFeedback?.blockReason||!c||["SAFETY","PROHIBITED_CONTENT","BLOCKLIST"].includes(c.finishReason)) throw {code:"blocked"};
-  const t=(c.content?.parts||[]).map(p=>p.text||"").join(""); try{return JSON.parse(t)}catch(e){const m=t.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){}} throw {code:"invalid_json"}}
+  const t=(c.content?.parts||[]).map(p=>p.text||"").join(""); try{return JSON.parse(t)}catch(e){const m=t.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){window.logErr?.("wardrobe",_)}} throw {code:"invalid_json"}}
 }
 const G_ERR={no_key:"還沒設定 Gemini 金鑰:選單 → 製作者模式 → 金鑰",bad_key:"Gemini 金鑰無效",rate:"Gemini 次數到上限,稍等再試",blocked:"被 Gemini 的安全機制擋下,改一下說明再試",invalid_json:"設計結果格式不完整,再按一次",network:"連不上 Gemini",server:"Gemini 暫時出錯",cancelled:"已停止"};
 function wDesignPrompt(hasPhotos,hint,type,targets,occ,seasons){
@@ -465,7 +478,7 @@ function editLook(code){
     lk.updatedAt=Date.now(); const ok=await saveDoc("items",lk); toast2(ok?"已儲存並同步":"已儲存(還沒同步)"); ensureWear(true); openDetail(code,Object.keys(lk.members)[0]); renderFacility() };
   $("#eDel").onclick=async()=>{ if(!confirm(`確定刪除「${lk.name}」?雲端的這套造型也會一起刪除。`)) return;
     delete ITEMS[code]; await IDB.set("items",ITEMS);
-    try{ await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}) }catch(e){}
+    try{ await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}) }catch(e){window.logErr?.("wardrobe",e)}
     d.classList.add("hide"); toast2("已刪除"); ensureWear(true); renderFacility() };
 }
 
@@ -553,7 +566,7 @@ function cardHTML(lk,mid){
   return `<button class="wcard" data-look="${esc(lk.code)}" data-slot="${slot}">
     <span class="wframe"></span><span class="wimg" data-ref="${has?esc(o.img):""}">${has?"":`<span class="wnone">尚未生圖</span>`}</span>
     ${m?`<span class="wwho" style="--mc:${m.c}">${lk.type==="group"?"全員":m.n}</span>`:""}
-    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
+    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}${Object.values(lk.members||{}).some(x=>x?.redo)?`<span class="wrev">改版待生圖</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
 function renderCloset(){
   const mems=[["all","全員"],...M.map(m=>[m.id,m.n,m.c])];
   let list=wLooks().filter(l=>(fCat==="all"||wCatOf(l.occasion)===fCat)&&(fMem==="all"||Object.keys(l.members||{}).some(s=>midOf(s)===fMem)));
@@ -610,6 +623,7 @@ async function openDetail(code,slot){
       <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}・${poseOf(lk.pose)[1]}</p>
       <div class="fchips">${slots.map(s=>{const mm=byId(midOf(s));return `<button class="fchip${s===slot?" on":""}" data-ds="${s}" style="--mc:${mm.c}">${mm.n}${lk.members[s]?.img?"":" ・未生圖"}</button>`}).join("")}</div>
       ${lk.concept?`<p class="dcon">${esc(lk.concept)}</p>`:""}
+      ${o.redo?`<p class="dcon drev">這套改版了:新的描述還沒生圖,遊戲裡先穿舊版。到「設計工作台」按「全部開始生圖」;收下新圖後舊圖會保留,可以改回。</p>`:""}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
         <button class="fbtn" id="dRegen">重新生圖</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dHalf">半身照</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
       ${wIsDaily(lk.occasion)&&o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">已處理,遊戲裡會依地點換穿</span>`:`<span class="no">還沒處理</span>`}
@@ -629,7 +643,7 @@ async function openDetail(code,slot){
   const di=$("#dImg"); if(di&&o.img){ di.style.cursor="zoom-in"; di.onclick=view("full") }
   const rs=$("#dRestore"); if(rs) rs.onclick=async()=>{ if(!confirm("改回舊圖?現在的圖會變成「舊圖」,之後還能再換回來。")) return;
     const lk2=JSON.parse(JSON.stringify(ITEMS[code])), m2=lk2.members[slot], pv=m2.prev;
-    lk2.members[slot]={...m2,img:pv.img,model:pv.model||"",sprites:pv.sprites||undefined,prev:{img:m2.img,model:m2.model||"",sprites:m2.sprites||null}};
+    lk2.members[slot]={...m2,img:pv.img,model:pv.model||"",sprites:pv.sprites||undefined,...(pv.outfit?{outfit:pv.outfit}:{}),prev:{img:m2.img,model:m2.model||"",sprites:m2.sprites||null,outfit:m2.outfit||""}};
     if(!lk2.members[slot].sprites) delete lk2.members[slot].sprites; lk2.updatedAt=Date.now();
     delete (window.DYN||{})[code+"@"+midOf(slot)]; await saveDoc("items",lk2); ensureWear(true); toast2("已改回舊圖"); openDetail(code,slot); renderFacility() };
   const pb=$("#dProc"); if(pb) pb.onclick=async()=>{ pb.disabled=true; pb.textContent="處理中…(約幾秒)";
@@ -657,10 +671,6 @@ function lookListJSON(){
   const by={}; for(const it of items) by[it.occasion]=(by[it.occasion]||0)+1;
   return {app:"kpop-clothes-list",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),count:items.length,byOccasion:by,
     note:"完美女團造型室的衣櫃清單(依場合排序)。members 用成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。img=已有圖,model=生圖模型,sprite=已做成遊戲立繪(日常類才有),prev=有保留的舊圖。",items} }
-async function copyText(t){
-  try{ await navigator.clipboard.writeText(t); return true }catch(e){}
-  try{ const a=document.createElement("textarea"); a.value=t; a.setAttribute("readonly",""); a.style.cssText="position:fixed;left:-9999px;top:0;opacity:0";
-    document.body.appendChild(a); a.select(); const ok=document.execCommand("copy"); a.remove(); return ok }catch(e){ return false } }
 async function exportLooks(){
   const o=lookListJSON(); if(!o.count){ toast2("衣櫃裡還沒有造型"); return }
   const txt=JSON.stringify(o,null,1), d=new Date(), name=`完美女團_造型清單_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;

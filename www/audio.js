@@ -8,7 +8,7 @@
    ===================================================================== */
 (()=>{
 const KEY="kpopGame.audio", FADE=1.5;
-const cfg={master:90,music:70,sfx:80,voice:100}; try{ Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||"{}")) }catch(e){}
+const cfg={master:90,music:70,sfx:80,voice:100}; try{ Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||"{}")) }catch(e){window.logErr?.("audio",e)}
 let AC=null, unlocked=false, LIST=null, curScene="", want="";
 const bus={};
 const gainOf=v=>{ const x=Math.max(0,Math.min(100,+v||0))/100; return x*x };
@@ -56,9 +56,9 @@ function resolve(){ const on=s=>{ const e=document.querySelector(s); return !!(e
   const v=typeof V!=="undefined"?V:null;   // game.js 的全域變數(不在 window 上)
   if(document.querySelector("#visit.on")) return ROOM[v?.room]||(String(v?.room||"").startsWith("bed")?"dorm":"map_day");
   const light=typeof SLOTS!=="undefined"&&typeof S!=="undefined"?SLOTS[S.slot]?.light:"day"; return light==="night"||light==="dawn"?"map_night":"map_day" }
-setInterval(()=>{ try{ setScene(resolve()) }catch(e){} },1000);
+every(1000,()=>{ try{ setScene(resolve()) }catch(e){window.logErr?.("audio",e)} });
 /* 第一次觸碰才能出聲(瀏覽器與 Android 的自動播放限制) */
-const unlock=()=>{ if(unlocked) return; unlocked=true; try{ ctx(); AC.resume?.() }catch(e){} const k=curScene; curScene=""; if(k) setScene(k) };
+const unlock=()=>{ if(unlocked) return; unlocked=true; try{ ctx(); AC.resume?.() }catch(e){window.logErr?.("audio",e)} const k=curScene; curScene=""; if(k) setScene(k) };
 document.addEventListener("pointerdown",unlock,{once:false,passive:true});
 /* App 切到背景時暫停音樂 */
 document.addEventListener("visibilitychange",()=>{ if(!AC) return; const p=P[cur];
@@ -72,12 +72,12 @@ window.voice=url=>{ try{ ctx(); const a=new Audio(url), s=AC.createMediaElementS
 /* ---------- 音效:assets/sfx/名稱.m4a,快取後播放,音高隨機 ±4% ---------- */
 const BUF={};
 window.sfx=async(name,vol=1)=>{ try{ ctx(); if(!(name in BUF)) BUF[name]=fetch("assets/sfx/"+name+".m4a").then(r=>r.ok?r.arrayBuffer():null).then(b=>b?AC.decodeAudioData(b):null).catch(()=>null);
-  const b=await BUF[name]; if(!b) return; const s=AC.createBufferSource(), g=AC.createGain(); s.buffer=b; s.playbackRate.value=.96+Math.random()*.08; g.gain.value=vol; s.connect(g); g.connect(bus.sfx); s.start() }catch(e){} };
+  const b=await BUF[name]; if(!b) return; const s=AC.createBufferSource(), g=AC.createGain(); s.buffer=b; s.playbackRate.value=.96+Math.random()*.08; g.gain.value=vol; s.connect(g); g.connect(bus.sfx); s.start() }catch(e){window.logErr?.("audio",e)} };
 
 /* ---------- 選單裡的音量 ---------- */
 function note(){ const n=$("#bgmNote"); if(!n) return; const c=LIST?Object.values(LIST).reduce((a,L)=>a+(L?.length||0),0):0;
   n.textContent=c?`背景音樂:已放入 ${c} 首,依畫面自動切換。`:"背景音樂:還沒有曲目(照「音樂生成清單」生成後放進 assets/bgm)。" }
 for(const [id,k] of [["volMaster","master"],["volMusic","music"],["volSfx","sfx"],["volVoice","voice"]]){ const el=document.getElementById(id); if(!el) continue;
-  el.value=cfg[k]; el.oninput=()=>{ cfg[k]=+el.value; try{ ctx() }catch(e){} apply(); localStorage.setItem(KEY,JSON.stringify(cfg)) } }
+  el.value=cfg[k]; el.oninput=()=>{ cfg[k]=+el.value; try{ ctx() }catch(e){window.logErr?.("audio",e)} apply(); localStorage.setItem(KEY,JSON.stringify(cfg)) } }
 note();
 })();

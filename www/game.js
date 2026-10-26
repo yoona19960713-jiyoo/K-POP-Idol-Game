@@ -3,6 +3,25 @@
    K-POP Idol Game ・ 遊戲本體
    主畫面(公司地圖、時段、行動)+ 拜訪對話。日常服從造型室的衣櫃換穿,劇情從內容庫(製作者模式)抽片段。
    ===================================================================== */
+/* ===== 第二輪優化(2026-10-26)=====
+   錯誤紀錄:遊戲出錯時記在這台裝置(kpopGame.errlog,最多 60 筆,同樣的錯誤只計次),選單「錯誤紀錄」看得到、可以複製給 Claude */
+const ERRK="kpopGame.errlog";
+window.logErr=(where,e)=>{ try{ const m=String(e?.message||e?.code||e?.reason||e||"").slice(0,240); if(!m||m==="undefined") return;
+  const L=JSON.parse(localStorage.getItem(ERRK)||"[]"), w=String(where||"").slice(0,60), last=L[L.length-1];
+  if(last&&last.w===w&&last.m===m){ last.n=(last.n||1)+1; last.t=Date.now() }
+  else L.push({t:Date.now(),w,m,s:String(e?.stack||"").split("\n").slice(1,3).map(x=>x.trim()).join(" | ").slice(0,240),v:window.APP_VERSION||""});
+  localStorage.setItem(ERRK,JSON.stringify(L.slice(-60))) }catch(_){ /* 記錄本身失敗就算了(避免無限遞迴) */ } };
+window.addEventListener("error",ev=>logErr((ev.filename||"").split("/").pop()+":"+(ev.lineno||0),ev.error||ev.message));
+window.addEventListener("unhandledrejection",ev=>logErr("promise",ev.reason));
+/* 統一排程:全部定時工作共用 tick 的 250ms 計時器;App 在背景(document.hidden)時不跑(bg:true 例外) */
+const TASKS=[]; window.every=(ms,fn,o)=>{ TASKS.push({ms,fn,at:0,bg:!!o?.bg}) };
+function runTasks(){ const now=performance.now(), hid=document.hidden;
+  for(const t of TASKS){ if(hid&&!t.bg) continue; if(now-t.at<t.ms-5) continue; t.at=now; try{ t.fn() }catch(e){ logErr("排程",e) } } }
+/* 複製文字(APK 也能用):先試剪貼簿 API,不行再用隱藏的文字框 */
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true }catch(e){window.logErr?.("game",e)}
+  try{ const a=document.createElement("textarea"); a.value=t; a.setAttribute("readonly",""); a.style.cssText="position:fixed;left:-9999px;top:0;opacity:0";
+    document.body.appendChild(a); a.select(); const ok=document.execCommand("copy"); a.remove(); return ok }catch(e){ return false } }
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -95,21 +114,22 @@ if(!S||!S.m) S=fresh();
 const SAVE_VER=2, MIGRATE={2:s=>{ /* v1 → v2:只加版本號,欄位不變 */ }};
 function migrate(s){ let v=+s.v||1; while(v<SAVE_VER){ v++; try{ MIGRATE[v]?.(s) }catch(e){ console.error("migrate",v,e) } } s.v=SAVE_VER; return s }
 migrate(S);
+try{ const o=JSON.parse(localStorage.getItem("kpopGame.t")||"null"); if(o&&o.d===S.day&&o.s===S.slot&&o.t>S.t) S.t=o.t }catch(e){window.logErr?.("game",e)}
 /* updatedAt 只在有進度時更新(換時段、拜訪、做選擇),用來判斷雲端與本機哪份較新;時間流動只存本機 */
 /* 存檔:寫入失敗(多半是手機的網頁儲存空間滿了)會提示,並改存到 IndexedDB 的備份區,下次啟動會自動接回 */
 let saveFail=false;
-function save(progress){ if(progress) S.updatedAt=Date.now(); const js=JSON.stringify(S);
+function save(progress){ if(progress){ S.updatedAt=Date.now(); try{ localStorage.setItem("kpopGame.sySeq",String((+localStorage.getItem("kpopGame.sySeq")||0)+1)) }catch(e){} } const js=JSON.stringify(S);
   try{ localStorage.setItem(KEY,js); if(saveFail){ saveFail=false; window.toast2?.("存檔恢復正常了") } }
   catch(e){ if(!saveFail){ saveFail=true; setTimeout(()=>window.toast2?.("存檔失敗:手機的網頁儲存空間可能滿了。進度先存到備份區,建議登入雲端同步"),0) } }
   backupTick(js) }
 /* 自動備份:每 30 分鐘一份,保留最近 6 份 + 最近 3 天每天一份(選單「存檔備份」可以回到其中一份) */
 let bakAt=+localStorage.getItem("kpopGame.bakAt")||0, bakBusy=false;
-async function backupTick(js,force){ if(saveFail&&IDB.db) IDB.set("saveFallback",js);
+async function backupTick(js,force,why){ if(saveFail&&IDB.db) IDB.set("saveFallback",js);
   if(bakBusy||!IDB.db||(!force&&Date.now()-bakAt<30*60e3)) return; bakBusy=true;
-  try{ const L=(await IDB.get("saveBackups"))||[]; L.unshift({t:Date.now(),day:S.day,json:js});
+  try{ const L=(await IDB.get("saveBackups"))||[]; L.unshift({t:Date.now(),day:why?(()=>{try{return JSON.parse(js).day}catch(e){return S.day}})():S.day,json:js,why:why||""});
     const keep=L.slice(0,6), days=new Set(keep.map(b=>new Date(b.t).toDateString()));
     for(const b of L.slice(6)){ const d=new Date(b.t).toDateString(); if(!days.has(d)&&days.size<9){ keep.push(b); days.add(d) } if(keep.length>=9) break }
-    await IDB.set("saveBackups",keep); bakAt=Date.now(); localStorage.setItem("kpopGame.bakAt",String(bakAt)) }catch(e){} bakBusy=false }
+    await IDB.set("saveBackups",keep); bakAt=Date.now(); localStorage.setItem("kpopGame.bakAt",String(bakAt)) }catch(e){window.logErr?.("game",e)} bakBusy=false }
 
 /* ---------- 本機快取(IndexedDB):片段庫與衣櫃 ---------- */
 const IDB={db:null,
@@ -130,15 +150,25 @@ const SY_ERR={INVALID_LOGIN_CREDENTIALS:"Email 或密碼錯誤。",INVALID_PASSW
   API_KEY_INVALID:"Firebase 設定的 apiKey 不正確。",PERMISSION_DENIED:"Firestore 安全規則擋住了,請確認規則已發布。",NOT_FOUND:"找不到 Firestore 資料庫。",TOKEN_EXPIRED:"登入已過期,請重新登入。",network:"連不上雲端,請確認網路。"};
 const syMsg=e=>{const c=String(e?.code||e||"");for(const k in SY_ERR) if(c.includes(k)) return SY_ERR[k];return "同步失敗:"+c.slice(0,80)};
 async function syJSON(url,opt){let r;try{r=await fetch(url,opt)}catch(e){throw {code:"network"}}
-  const j=await r.json().catch(()=>({})); if(!r.ok) throw {code:String(j?.error?.message||j?.error?.status||"HTTP "+r.status),status:r.status}; return j}
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw {code:String(j?.error?.message||j?.error?.status||"HTTP "+r.status),status:r.status,st:String(j?.error?.status||"")}; return j}
 async function syToken(){const a=syAuth(),c=syCfg(); if(!a||!c) throw {code:"未登入"}; if(syTok&&syTok.exp>Date.now()) return syTok.id;
   const j=await syJSON(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(a.refreshToken)});
   a.refreshToken=j.refresh_token; localStorage.setItem(SY_AUTH,JSON.stringify(a)); syTok={id:j.id_token,exp:Date.now()+(+j.expires_in-60)*1000}; return syTok.id}
 const syBase=()=>{const c=syCfg(),a=syAuth();return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(c.projectId)}/databases/(default)/documents/users/${a.uid}`};
 async function syGet(path){const t=await syToken();try{return await syJSON(syBase()+"/"+path,{headers:{Authorization:"Bearer "+t}})}catch(e){if(e.status===404) return null;throw e}}
 async function syPatch(path,fields){const t=await syToken();return syJSON(syBase()+"/"+path,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},body:JSON.stringify({fields})})}
-async function syQuery(col,since){const t=await syToken();return syJSON(syBase()+":runQuery",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},
-  body:JSON.stringify({structuredQuery:{from:[{collectionId:col}],where:{fieldFilter:{field:{fieldPath:"updatedAt"},op:"GREATER_THAN",value:{integerValue:String(since||0)}}}}})})}
+/* 增量下載(第二輪優化):多抓 10 分鐘的重疊(各裝置時鐘有誤差也不會漏);一次 300 筆分頁(內容庫上萬段時不會一次下載整包)。
+   分頁查詢失敗(例如雲端要求索引)就退回原本一次查完的寫法 */
+async function syQuery(col,since){ since=Math.max(0,(+since||0)-600000);
+  const t=await syToken(), url=syBase()+":runQuery", H={"Content-Type":"application/json",Authorization:"Bearer "+t};
+  const base={from:[{collectionId:col}],where:{fieldFilter:{field:{fieldPath:"updatedAt"},op:"GREATER_THAN",value:{integerValue:String(since)}}}};
+  const out=[]; let cur=null;
+  try{ for(let pg=0;pg<400;pg++){ const sq={...base,orderBy:[{field:{fieldPath:"updatedAt"},direction:"ASCENDING"},{field:{fieldPath:"__name__"},direction:"ASCENDING"}],limit:300};
+      if(cur) sq.startAt={values:[{integerValue:cur.u},{referenceValue:cur.n}],before:false};
+      const rows=await syJSON(url,{method:"POST",headers:H,body:JSON.stringify({structuredQuery:sq})}), docs=rows.filter(r=>r.document); out.push(...docs);
+      if(docs.length<300) return out; const L=docs[docs.length-1].document; cur={u:L.fields.updatedAt.integerValue,n:L.name} } return out }
+  catch(e){ if(out.length||!/index|order|cursor|INVALID_ARGUMENT|FAILED_PRECONDITION/i.test(String(e.code||"")+String(e.st||""))) throw e;
+    logErr("同步分頁",e); return (await syJSON(url,{method:"POST",headers:H,body:JSON.stringify({structuredQuery:base})})).filter(r=>r.document) } }
 function syStatus(t,err){const e=$("#syStatus");if(e){e.textContent=t;e.classList.toggle("err",!!err)} $("#syncDot").textContent=err?"同步失敗":t.startsWith("同步中")?"同步中…":""}
 
 /* 從衣帽間與劇本工坊拉新資料(只拉上次之後有變動的) */
@@ -148,14 +178,14 @@ async function pullCollection(col,store,keep,slim){
   for(const r of rows){const d=r.document; if(!d) continue; const code=decodeURIComponent(d.name.split("/").pop()), up=+d.fields.updatedAt?.integerValue||0; max=Math.max(max,up);
     if(d.fields.deleted?.booleanValue){ if(store[code]){delete store[code];n++} continue }
     let it; try{it=JSON.parse(d.fields.json.stringValue)}catch(e){continue}
-    if(keep(it)){store[code]=slim(it,code);n++} else if(store[code]){delete store[code];n++} }
+    if(keep(it)){ const v=slim(it,code); if(JSON.stringify(store[code])!==JSON.stringify(v)){store[code]=v;n++} } else if(store[code]){delete store[code];n++} }
   localStorage.setItem(k,String(max)); return n}
 async function pullContent(){
   // 衣帽間成員欄位對應
   try{const meta=await syGet("meta/state"); const raw=meta?JSON.parse(meta.fields.json.stringValue):null; const mm=raw?.members||[];
     if(raw) await IDB.set("wmetaRaw",raw);
     const map={}; for(const m of mm){const hit=M.find(x=>x.re.test((m.name||"")+" "+(m.en||""))); if(hit) map[m.id]=hit.id} if(Object.keys(map).length){WMEM=map;await IDB.set("wmem",WMEM)}
-    if(mm.length){WMETA=mm; await IDB.set("wmeta",WMETA)}}catch(e){}
+    if(mm.length){WMETA=mm; await IDB.set("wmeta",WMETA)}}catch(e){window.logErr?.("game",e)}
   // 舊版只存了精簡資料(沒有服裝描述),第一次換新版時整批重新下載
   if(localStorage.getItem("kpopGame.itemsFmt")!=="2"){ITEMS={}; localStorage.removeItem("kpopGame.pull.items")}
   const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
@@ -164,20 +194,58 @@ async function pullContent(){
     at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
   await IDB.set("scripts",SCRIPTS); localStorage.setItem("kpopGame.pulledOnce","1");
   return a+b}
-/* 遊戲存檔:啟動時取較新的那份;遊戲中只上傳 */
-async function pullSave(){const d=await syGet("game/state"); if(!d) return false; const at=+d.fields.updatedAt.integerValue;
-  if(at>(S.updatedAt||0)){const o=JSON.parse(d.fields.json.stringValue); if(o&&o.m){S=migrate(o); try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){} return true}} return false}
-async function pushSave(){if(!syAuth()||!syCfg()||!S.updatedAt) return; try{syLastPush=Date.now(); save(); await syPatch("game/state",{json:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt)}}); syStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}))}catch(e){syStatus(syMsg(e),true)}}
+/* 遊戲存檔與兩台裝置的覆蓋保護(第二輪優化)
+   記住這台最後一次看到的雲端版本(Firestore 的 updateTime,kpopGame.syUT);這台有沒有還沒上傳的進度用本機計數判斷
+   (kpopGame.sySeq 每次有進度 +1,kpopGame.syPushed 是上次上傳或讀雲端時的值),不比較各裝置的時鐘。
+   上傳時要求雲端還是那一版(currentDocument.updateTime 前提);不是就代表別台存過:
+   這台沒有新進度 → 直接讀雲端(先備份本機);兩邊都有新進度 → 跳出選擇。啟動、App 回到前景時也檢查。 */
+const SY_UT="kpopGame.syUT", SY_PS="kpopGame.syPushed";
+const syUT=()=>localStorage.getItem(SY_UT)||"", seqNow=()=>+localStorage.getItem("kpopGame.sySeq")||0, seqPushed=()=>+localStorage.getItem(SY_PS)||0;
+function syMark(ut,seq){ if(ut) localStorage.setItem(SY_UT,ut); localStorage.setItem(SY_PS,String(seq||0)) }
+let syConflict=false;
+const cloudSave=d=>{ try{ const o=JSON.parse(d.fields.json.stringValue); return o&&o.m?o:null }catch(e){ return null } };
+async function adoptCloud(d,o,why){ await backupTick(JSON.stringify(S),true,why||"讀取雲端進度前的本機進度");
+  S=migrate(o); try{ localStorage.setItem(KEY,JSON.stringify(S)) }catch(e){window.logErr?.("game",e)} syMark(d.updateTime,seqNow()) }
+/* 雲端那份跟這台不同時怎麼辦。回傳 "adopt"=已改用雲端、"ask"=跳出選擇、false=沒事(呼叫端照常上傳) */
+async function cloudChanged(d){ const o=cloudSave(d); if(!o) return false;
+  const cAt=+d.fields.updatedAt?.integerValue||0, mine=S.updatedAt||0, known=syUT();
+  if(!known){ if(cAt>mine){ await adoptCloud(d,o); return "adopt" } syMark(d.updateTime,seqPushed()); return false }   // 第一次:照舊規則,較新的那份為準
+  if(d.updateTime===known) return false;                                   // 雲端沒被別台改過
+  if(seqNow()<=seqPushed()){ await adoptCloud(d,o); return "adopt" }        // 這台沒有新進度:直接讀雲端
+  showConflict(d,o,cAt); return "ask" }
+async function pullSave(){ const d=await syGet("game/state"); if(!d) return false; const r=await cloudChanged(d); return r==="adopt"?true:r }
+async function pushSave(force){ if(!syAuth()||!syCfg()||!S.updatedAt) return; if(syConflict&&!force) return;
+  try{ syLastPush=Date.now(); save(); let ut=syUT();
+    if(!ut){ const d=await syGet("game/state"); if(d){ const r=await cloudChanged(d); if(r){ if(r==="adopt"){ ensureWear(true); renderAll(); toast2("已讀取雲端較新的進度") } return } ut=syUT() } }
+    const at=S.updatedAt, seq=seqNow(), r=await syPatch("game/state"+(ut?"?currentDocument.updateTime="+encodeURIComponent(ut):""),{json:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(at)}});
+    syMark(r?.updateTime,seq); syStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"})) }
+  catch(e){ if(e.st==="FAILED_PRECONDITION"||(e.st==="NOT_FOUND"&&syUT())){   // 雲端被別台改過(或刪掉了):重新看一次
+      let d=null; try{ d=await syGet("game/state") }catch(_){window.logErr?.("game",_)}
+      if(!d){ localStorage.removeItem(SY_UT); if(!force) return pushSave(true); return }
+      const r=await cloudChanged(d); if(r==="adopt"){ ensureWear(true); renderAll(); toast2("另一台裝置有較新的進度,已讀取(這台原本的進度在選單的存檔備份)") } return }
+    syStatus(syMsg(e),true); logErr("上傳存檔",e) } }
+function showConflict(d,o,cAt){ if(syConflict) return; syConflict=true; setPause("sync",true);
+  const ft=t=>t?new Date(t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+  const gd=x=>{ const y=dateOf(x.day||0); return `${y.getFullYear()}.${y.getMonth()+1}.${y.getDate()}・${SLOTS[x.slot]?.n||""}` };
+  const el=document.createElement("div"); el.className="syconf"; el.id="syConf";
+  el.innerHTML=`<div class="sybox"><h3>兩台裝置的進度不一樣</h3><p>雲端有另一台裝置存的進度,這台也有還沒上傳的進度。選一份繼續,另一份會先放進選單的「存檔備份」,之後還能回去。</p>
+    <div class="sych"><button data-k="cloud"><b>用雲端的進度</b><span>遊戲 ${gd(o)}</span><small>存於 ${ft(cAt)}</small></button>
+    <button data-k="here"><b>用這台的進度</b><span>遊戲 ${gd(S)}</span><small>存於 ${ft(S.updatedAt)}</small></button></div></div>`;
+  $("#stage").appendChild(el);
+  el.querySelectorAll("[data-k]").forEach(b=>b.onclick=async()=>{ el.querySelectorAll("button").forEach(x=>x.disabled=true); const k=b.dataset.k;
+    if(k==="cloud"){ await adoptCloud(d,o,"改用雲端進度前的本機進度"); ensureWear(true); renderAll(); toast2("已改用雲端的進度(這台原本的進度在存檔備份)") }
+    else { await backupTick(d.fields.json.stringValue,true,"被這台覆蓋前的雲端進度"); syMark(d.updateTime,seqPushed()) }
+    el.remove(); syConflict=false; setPause("sync",false); if(k==="here") pushSave(true) }) }
 function schedulePush(){if(!syAuth()) return; clearTimeout(pushT); pushT=setTimeout(pushSave,Math.max(3000,20000-(Date.now()-syLastPush)))}
 async function syncAll(manual,atStart){
   if(!syAuth()||!syCfg()){ if(manual) toast2("請先登入雲端同步"); renderSources(); return }
   if(syBusy) return; syBusy=true; syStatus("同步中…");
   try{ if(window.pushOutbox) await pushOutbox(); const n=await pullContent(); let adopted=false;
-    for(const h of window.SYNC_HOOKS||[]){ try{ await h() }catch(e){} }
+    for(const h of window.SYNC_HOOKS||[]){ try{ await h() }catch(e){window.logErr?.("game",e)} }
     if(atStart||manual){ adopted=await pullSave() }
     if(!adopted) await pushSave();
     syStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}));
-    if(adopted){ensureWear(); renderAll(); toast2("已讀取雲端存檔")} else if(n){ensureWear(true); renderAll()}
+    if(adopted===true){ensureWear(); renderAll(); toast2("已讀取雲端存檔")} else if(n){ensureWear(true); renderAll()}
     if(manual) toast2(n?`同步完成,更新了 ${n} 筆資料`:"同步完成"); }
   catch(e){syStatus(syMsg(e),true); if(manual) toast2(syMsg(e))}
   finally{syBusy=false; renderSources()}
@@ -319,9 +387,11 @@ const SEASON_ART={map:["dawn","day","evening","night"],river:["dawn","day","even
 function seasonKey(){const m=dateOf(S.day).getMonth()+1;return m>=3&&m<=5?"spring":m>=9&&m<=11?"autumn":(m===12||m<=2)?"winter":""}
 function seasonArt(dir,name,light){const s=seasonKey();return `assets/${dir}/${name}_${light}${s&&(SEASON_ART[name]||[]).includes(light)?"_"+s:""}.webp`}
 window.seasonKey=seasonKey;
-function setArt(id,url){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.u;if(cur===url) return;
-  if(!cur){a.style.backgroundImage=`url(${url})`;a.dataset.u=url;return}
-  b.style.backgroundImage=`url(${url})`;b.classList.remove("next");setTimeout(()=>{a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.classList.add("next")},1250)}
+/* 換圖:同一棟換時段時交叉淡入;換建築(instant)直接換,不會從上一棟的圖淡過去。淡入中再換圖會取消前一次 */
+const ART_T={};
+function setArt(id,url,instant){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.u; if(cur===url&&!ART_T[id]) return; clearTimeout(ART_T[id]); ART_T[id]=0;
+  if(!cur||instant){a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.style.backgroundImage=`url(${url})`;b.classList.add("next");return}
+  b.style.backgroundImage=`url(${url})`;b.classList.remove("next");ART_T[id]=setTimeout(()=>{ART_T[id]=0;a.style.backgroundImage=`url(${url})`;a.dataset.u=url;b.classList.add("next")},1250)}
 
 /* 場景圖預先解碼:進建築、進房間時不會先黑一下(手機上解碼大圖較慢)。閒置時逐張處理,這個時段和下一個時段都先備好 */
 const WARMED=new Set(); let warmQ=[], warming=false, warmKey="";
@@ -340,7 +410,7 @@ function renderHud(){const d=dateOf(S.day); warmArt();
   hudSet("date",`${pad(d.getMonth()+1)}.${pad(d.getDate())}`); hudSet("wday",`${d.getFullYear()}・${WD[d.getDay()]}`); hudSet("dayN",window.debutText?debutText():`第 ${S.day+1} 天`);
   hudSet("slotName",SLOTS[S.slot].n); hudSet("hm",hm());
   const pct=Math.round(200*Math.min(S.t,SLOT_SEC)/SLOT_SEC)/2, segKey=S.slot+"|"+pct;
-  if(HUDC.seg!==segKey){ HUDC.seg=segKey; [...$("#segs").children].forEach((e,i)=>{const c=i<S.slot?"done":i===S.slot?"on":""; if(e.className!==c) e.className=c; e.firstChild.style.width=i===S.slot?pct+"%":"0"}) }
+  if(HUDC.seg!==segKey){ HUDC.seg=segKey; [...$("#segs").children].forEach((e,i)=>{const c=i<S.slot?"done":i===S.slot?"on":""; if(e.className!==c) e.className=c; e.firstChild.style.transform=`scaleX(${i===S.slot?pct/100:0})`}) }
   const apKey=S.acts; if(HUDC.ap!==apKey){ HUDC.ap=apKey; [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)) }
   hudSet("actN",String(S.acts)); hudSet("badge",String(S.unread||""))}
 
@@ -365,14 +435,15 @@ function openSpot(id){const sp=SPOTS.find(s=>s.id===id); if(!sp) return;
   if(sp.kind==="locked"){ if(sp.id==="tv"){ if(window.promoActive?.()) openStageRoom(); else tvChooser(); return} toast2(`${sp.n}:${sp.note}`);return}
   if(sp.kind==="place"){visit(sp.id);return}
   enter(sp.id)}
-function enter(b){const sp=SPOTS.find(s=>s.id===b);
+let exitT=0, lastInside=null;
+function enter(b){clearTimeout(exitT); const sp=SPOTS.find(s=>s.id===b);
   const w=$("#world"); w.style.transformOrigin=`${sp.rect[0]+sp.rect[2]/2}% ${sp.rect[1]+sp.rect[3]/2}%`; w.classList.add("zoom");
   view=b; renderInside(); renderNews(); const i=$("#inside"); i.classList.add("enter"); i.classList.remove("hide"); requestAnimationFrame(()=>requestAnimationFrame(()=>i.classList.remove("enter")));
   renderWhere()}
-function exitToMap(){const i=$("#inside"); i.classList.add("enter"); setTimeout(()=>{i.classList.add("hide");i.classList.remove("enter")},350);
+function exitToMap(){const i=$("#inside"); i.classList.add("enter"); clearTimeout(exitT); exitT=setTimeout(()=>{i.classList.add("hide");i.classList.remove("enter")},350);
   view="map"; renderWorld(); $("#world").classList.remove("zoom"); renderWhere(); renderNews()}
 function renderInside(){if(view==="map") return; const B=INSIDE[view];
-  setArt("insideArt",`assets/scene/${view}_${L()}.webp`);
+  setArt("insideArt",`assets/scene/${view}_${L()}.webp`,lastInside!==view); lastInside=view;
   $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
     const p=PL[rm.pid], open=p.open.includes(S.slot), vis=S.visited.includes(rm.pid);
     const ppl=open?who(rm.pid):[];
@@ -440,8 +511,18 @@ function toast(t,s){const e=$("#toast");$("#toastT").textContent=t;$("#toastS").
 let last=performance.now();
 function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
   if(!paused()){S.t+=dt; if(S.t>=SLOT_SEC) endSlot("time"); else renderHud()}}
-setInterval(()=>{if(!paused()) save()},3000);
-document.addEventListener("visibilitychange",()=>{$("#stage").classList.toggle("paused",paused()); save(); if(document.hidden) pushSave()});
+/* 存檔排程(第二輪優化):每 3 秒只記時間(小鍵 kpopGame.t);整份存檔改成閒置時每 30 秒一次(內容庫一萬段時整份 JSON 化+寫入約 20 ms,
+   以前每 3 秒一次會讓動畫掉格)。有進度的動作(換時段、拜訪、選擇…)照舊立刻整份存;切到背景、關掉頁面時也整份存 */
+function saveT(){ try{ localStorage.setItem("kpopGame.t",JSON.stringify({d:S.day,s:S.slot,t:Math.round(S.t*100)/100})) }catch(e){} }
+every(3000,()=>{ if(!paused()) saveT() });
+every(30000,()=>{ if(!paused()) (window.requestIdleCallback?requestIdleCallback(()=>save(),{timeout:3000}):save()) });
+window.addEventListener("pagehide",()=>save());
+let hiddenAt=0;
+document.addEventListener("visibilitychange",()=>{ $("#stage").classList.toggle("paused",paused()); save();
+  if(document.hidden){ hiddenAt=Date.now(); pushSave(); return }
+  /* 離開超過 20 秒再回來:看一下雲端有沒有別台裝置的新進度 */
+  if(hiddenAt&&Date.now()-hiddenAt>20000&&syAuth()&&syCfg()&&!syBusy&&!syConflict) syGet("game/state").then(async d=>{ if(!d) return;
+    const r=await cloudChanged(d); if(r==="adopt"){ ensureWear(true); renderAll(); toast2("已讀取另一台裝置的最新進度(這台原本的進度在存檔備份)") } }).catch(e=>logErr("回到前景",e)) });
 
 function absentReports(r){const out=[];
   for(const p of PLACES){if(S.visited.includes(p.id)) continue; const ppl=who(p.id); if(!ppl.length||r()>.45) continue;
@@ -570,11 +651,11 @@ const BLINK_EX=new Set(["neutral","smile"]);   // 閉眼小塊是從平常的臉
 const fading=img=>img.getAnimations().some(x=>x instanceof CSSTransition&&x.transitionProperty==="filter"&&x.playState==="running");
 function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")||fading(img)) return;
   const o=ovlMake(img,byId(img.dataset.id)?.f,"blink","blink"); if(o) setTimeout(()=>o.remove(),120) }
-setInterval(()=>{ if(!V||document.hidden) return; const now=performance.now();
+every(200,()=>{ if(!V||document.hidden) return; const now=performance.now();
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
     const t=+img.dataset.nb||0; if(!t){img.dataset.nb=now+1200+Math.random()*3000; return}
     if(now<t) return; blinkOnce(img); if(Math.random()<.18) setTimeout(()=>blinkOnce(img),230);
-    img.dataset.nb=now+2600+Math.random()*3800 }) },200);
+    img.dataset.nb=now+2600+Math.random()*3800 }) });
 
 /* ---- 返回鍵(右上角):誤點進場景時可以退出。還沒跟成員聊過 → 存檔還原到進來之前,不花行動;聊過之後 → 直接離開 ---- */
 function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"); b.id="vback"; b.className="vback"; $("#visit").appendChild(b); b.onclick=backOut }
@@ -621,7 +702,7 @@ const RD_TW={slow:1.6,normal:1,fast:.5}, RD_AU={slow:1.6,normal:1,fast:.55};
 let skip=false, readSet=null, readDirty=false;
 function readKey(id,t){ let h=2166136261; for(const ch of (D?.sn?.code||"")+"|"+id+"|"+t) h=Math.imul(h^ch.charCodeAt(0),16777619); return (h>>>0).toString(36) }
 function readL(){ if(!readSet){ try{ readSet=new Set(JSON.parse(localStorage.getItem("kpopGame.readL")||"[]")) }catch(e){ readSet=new Set() } } return readSet }
-function markRead(k){ const R=readL(); if(R.has(k)) return; R.add(k); if(!readDirty){ readDirty=true; setTimeout(()=>{ readDirty=false; try{ localStorage.setItem("kpopGame.readL",JSON.stringify([...readL()].slice(-20000))) }catch(e){} },2000) } }
+function markRead(k){ const R=readL(); if(R.has(k)) return; R.add(k); if(!readDirty){ readDirty=true; setTimeout(()=>{ readDirty=false; try{ localStorage.setItem("kpopGame.readL",JSON.stringify([...readL()].slice(-20000))) }catch(e){window.logErr?.("game",e)} },2000) } }
 function stopSkip(){ skip=false; $("#skipBtn")?.setAttribute("aria-pressed","false") }
 function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
@@ -693,7 +774,7 @@ setDlg.addEventListener("close",()=>setPause("menu",false));
 function renderSet(){const c=syCfg(),a=syAuth();
   $("#cfgInfo").textContent=c?`已設定專案:${c.projectId}`:""; $("#cfgBox").classList.toggle("hidden",!!a);
   $("#inBox").classList.toggle("hidden",!!a); $("#outBox").classList.toggle("hidden",!a); $("#who").textContent=a?`已登入:${a.email}`:"";
-  $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources(); renderBak()}
+  $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources(); renderBak(); renderErr()}
 function renderSources(){if(!$("#srcList")) return;
   const sc=cloudSnips(), lib=sc.length, byType={}; sc.forEach(s=>byType[s.type]=(byType[s.type]||0)+1);
   const items=Object.values(ITEMS), daily=items.filter(l=>l.occasion==="練習"||String(l.occasion).startsWith("日常"));
@@ -714,7 +795,7 @@ $("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if
   if(!jobs.length){toast2("還沒有日常衣櫃的造型");return}
   if(!confirm(`用新版去背重新處理 ${jobs.length} 張日常立繪?手機上每張約 5~10 秒,處理時可以繼續玩。`)) return;
   b.disabled=true; let ok=0;
-  for(const [i,[code,slot]] of jobs.entries()){ b.textContent=`處理中 ${i+1}/${jobs.length}…`; try{ await processSprites(code,slot); ok++ }catch(e){} }
+  for(const [i,[code,slot]] of jobs.entries()){ b.textContent=`處理中 ${i+1}/${jobs.length}…`; try{ await processSprites(code,slot); ok++ }catch(e){window.logErr?.("game",e)} }
   b.disabled=false; b.textContent="用新版去背重新處理全部日常立繪"; toast2(`完成:${ok}/${jobs.length} 張已重新處理`) });
 $("#makerBtn").onclick=()=>{setDlg.close(); window.openMaker&&openMaker()};
 $("#signOut").onclick=()=>{localStorage.removeItem(SY_AUTH);syTok=null;renderSet();syStatus("");toast2("已登出,本機進度保留")};
@@ -736,7 +817,7 @@ $("#updLater").onclick=()=>{updDismissed=+(updLatest?.build||0);$("#updDlg").clo
 $("#updGo").onclick=async()=>{save(); await pushSave();
   if(isNative){const url=window.PAGES_URL+"KPOP-Game.apk?v="+(updLatest?.build||Date.now());const w=window.open(url,"_blank");if(!w) location.href=url;return}
   $("#updGo").disabled=true;$("#updGo").textContent="更新中…";try{const files=["index.html","manifest.webmanifest",...[...document.scripts].map(s=>s.getAttribute("src")).filter(Boolean)];   // 頁面上所有的程式檔,新增檔案也不會漏
-    await Promise.all(files.map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){}location.reload()};
+    await Promise.all(files.map(u=>fetch(u,{cache:"reload"}).catch(()=>{})))}catch(e){window.logErr?.("game",e)}location.reload()};
 $("#updCheck").onclick=()=>checkUpdate(true);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&Date.now()-updLastCheck>30*60*1000) checkUpdate(false)});
 
@@ -745,13 +826,13 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
    養成的初始化(growthInit)和雲端同步的掛勾(歌曲、打歌、劇本)會被跳過 */
 async function boot(){
   await IDB.open();
-  try{ const fb=await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){}
+  try{ const fb=await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){window.logErr?.("game",e)}
   SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
   if(window.growthInit) growthInit();
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
   $("#boot").classList.add("done");
-  last=performance.now(); setInterval(tick,250);
+  last=performance.now(); setInterval(()=>{ tick(); runTasks() },250);
   setTimeout(()=>checkUpdate(false),3000);
   titleReady();
 }
@@ -788,7 +869,7 @@ function titleReady(){
   push();
   addEventListener("popstate",()=>{
     clearTimeout(t);
-    for(const f of steps){ try{ if(f()){ push(); return } }catch(e){} }
+    for(const f of steps){ try{ if(f()){ push(); return } }catch(e){window.logErr?.("game",e)} }
     // 都沒開:先不補上一頁,2 秒內再按一次 WebView 就沒有上一頁可退,App 會離開;沒再按就補回來
     toast2("再按一次返回鍵離開遊戲"); t=setTimeout(push,2000);
   });
@@ -820,21 +901,21 @@ function wxFrame(t){ wxRaf=0; if(WXK==="clear") return;
   if(!cs.length){ wxLast=0; wxRaf=setTimeout(()=>{wxRaf=requestAnimationFrame(wxFrame)},500); return }   // 看不到時每 0.5 秒看一下就好
   const dt=wxLast?Math.min(.05,(t-wxLast)/1000):0; wxLast=t;
   for(const c of cs){
-    const dpr=Math.min(2,devicePixelRatio||1), w=c.clientWidth, h=c.clientHeight; if(!w||!h) continue;
+    const dpr=Math.min(1.25,devicePixelRatio||1), w=c.clientWidth, h=c.clientHeight; if(!w||!h) continue;
     if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c._p=null }
     const x=c.getContext("2d"), W=c.width, H=c.height, k=w/700;          // k:依舞台大小縮放雨絲長度與速度
     if(!c._p||c._k!==WXK){ c._k=WXK; const n=WXK==="rain"?Math.round(w*h/2400):Math.round(w*h/5200);
       c._p=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,v:.75+Math.random()*.5,s:.6+Math.random()*.8,ph:Math.random()*6.28})) }
     x.clearRect(0,0,W,H);
-    if(WXK==="rain"){ x.fillStyle="rgba(46,58,92,.14)"; x.fillRect(0,0,W,H);          // 陰天
+    if(WXK==="rain"){ /* 陰天色改成 canvas 的 CSS 底色(feel.css),不用每格重塗 */
       x.strokeStyle="rgba(222,232,255,.42)"; x.lineWidth=1.1*dpr; x.beginPath();
       for(const p of c._p){ const sp=1050*k*dpr*p.v, L=22*k*dpr*p.s; p.y+=sp*dt; p.x+=sp*.18*dt;
         if(p.y>H+L){p.y=-L; p.x=Math.random()*W*1.2-W*.1} x.moveTo(p.x,p.y); x.lineTo(p.x-L*.18,p.y-L) } x.stroke() }
-    else { x.fillStyle="rgba(214,226,255,.07)"; x.fillRect(0,0,W,H); x.fillStyle="rgba(255,255,255,.9)";
+    else { x.fillStyle="rgba(255,255,255,.9)";
       for(const p of c._p){ const sp=42*k*dpr*p.v; p.y+=sp*dt; p.ph+=dt*1.4; p.x+=Math.sin(p.ph)*18*k*dpr*dt;
         if(p.y>H+6){p.y=-6; p.x=Math.random()*W} x.globalAlpha=.55+.4*p.s/1.4; x.beginPath(); x.arc(p.x,p.y,(1+p.s*1.6)*k*dpr,0,6.283); x.fill() }
       x.globalAlpha=1 } }
-  wxRaf=setTimeout(()=>{wxRaf=requestAnimationFrame(wxFrame)},26) }   // 約每秒 30 格,雨絲已經夠順
+  wxRaf=setTimeout(()=>{wxRaf=requestAnimationFrame(wxFrame)},33) }   // 約每秒 30 格,雨絲已經夠順
 
 /* ===== 天氣劇情(2026-10-24):只在對應天氣出現的內建片段、初雪事件、入場的天氣描寫、成員心情與去處 ===== */
 const WX_SNIPS=[
@@ -946,7 +1027,7 @@ function reactTo(c){ const id=c.to||D?.main; if(!id||!byId(id)||!V) return;
   const e=g>=2?(deep?"shy":"laugh"):g===1?"smile":"sad"; setExpr(id,e);
   const img=imgOf(id); if(img&&!RM.matches) animPortrait(img,g>=1?[{translate:"0 0"},{translate:"0 -1.1%"},{translate:"0 0"}]:[{translate:"0 0"},{translate:"0 .7%"},{translate:"0 0"}],{duration:g>=1?420:520,easing:"ease-out"}) }
 /* 待機小動作:沒在說話的成員每隔 7~14 秒偶爾看過來笑一下,或輕輕換個重心 */
-setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return; const now=performance.now();
+every(300,()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return; const now=performance.now();
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
     const t=+img.dataset.it||0; if(!t){img.dataset.it=now+5000+Math.random()*6000; return} if(now<t) return;
     img.dataset.it=now+7000+Math.random()*7000;
@@ -958,16 +1039,16 @@ setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return;
       img.dataset.idle="1"; img.dataset.ex=look; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,look));
       setTimeout(()=>{ if(img.isConnected&&img.dataset.idle==="1"&&img.dataset.ex===look){ img.dataset.idle=""; img.dataset.ex="neutral"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"neutral")) } },2200+Math.random()*1200) }
     else animPortrait(img,[{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
-  }) },300);
+  }) });
 /* 回饋分級(參考 game-feel 技能):s 小(只有畫面上的數字跳動)、m 中(輕震+柔光)、l 大(震動節奏+全畫面閃光);設定裡可以關震動 */
-window.feedback=lv=>{ if(localStorage.getItem("kpopGame.haptic")!=="0"&&lv!=="s") try{ navigator.vibrate?.(lv==="l"?[40,70,60]:25) }catch(e){}
+window.feedback=lv=>{ if(localStorage.getItem("kpopGame.haptic")!=="0"&&lv!=="s") try{ navigator.vibrate?.(lv==="l"?[40,70,60]:25) }catch(e){window.logErr?.("game",e)}
   if(lv==="s"||RM.matches) return; const f=document.createElement("div"); f.className="fbk "+lv; $("#stage").appendChild(f); setTimeout(()=>f.remove(),lv==="l"?1400:1000) };
 (()=>{ const s=$("#rdSpeed"), a=$("#rdAuto"), h=$("#hapOn"), keep=()=>localStorage.setItem("kpopGame.read",JSON.stringify(RD));
   if(s){ s.value=RD.speed; s.onchange=()=>{ RD.speed=s.value; keep() } } if(a){ a.value=RD.auto; a.onchange=()=>{ RD.auto=a.value; keep() } }
   if(h){ h.checked=localStorage.getItem("kpopGame.haptic")!=="0"; h.onchange=()=>{ localStorage.setItem("kpopGame.haptic",h.checked?"1":"0"); if(h.checked) feedback("m") } } })();
 /* 選單「存檔備份」 */
 async function renderBak(){ const ul=$("#bakList"); if(!ul) return; const L=(await IDB.get("saveBackups"))||[];
-  ul.innerHTML=L.length?L.map((b,i)=>`<li><span>${new Date(b.t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}・遊戲 ${(()=>{const d=dateOf(b.day);return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`})()}</span><button class="b" data-bak="${i}">回到這份</button></li>`).join(""):"<li>還沒有備份(遊玩 30 分鐘後會自動備份)。</li>";
+  ul.innerHTML=L.length?L.map((b,i)=>`<li><span>${new Date(b.t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}・遊戲 ${(()=>{const d=dateOf(b.day);return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`})()}${b.why?`<br><small>${esc(b.why)}</small>`:""}</span><button class="b" data-bak="${i}">回到這份</button></li>`).join(""):"<li>還沒有備份(遊玩 30 分鐘後會自動備份)。</li>";
   ul.querySelectorAll("[data-bak]").forEach(b=>b.onclick=async()=>{ const x=L[+b.dataset.bak]; if(!x||!confirm("回到這份備份?目前的進度會被取代(目前的進度會先另外備份一份)。")) return;
     await backupTick(JSON.stringify(S),true); const o=migrate(JSON.parse(x.json)); o.updatedAt=Date.now(); S=o; save(); location.reload() }) }
 $("#bakNow")&&($("#bakNow").onclick=async()=>{ await backupTick(JSON.stringify(S),true); toast2("已備份"); renderBak() });
@@ -977,7 +1058,30 @@ function blip(id){ if(localStorage.getItem("kpopGame.blip")==="0"||!V) return; c
   try{ const A=window.audioCtx?.(); const ac=A?.ctx||(AC=AC||new (window.AudioContext||window.webkitAudioContext)()); if(ac.state==="suspended") ac.resume();   // 走聲音系統的「音效」音量
     const t=ac.currentTime, o=ac.createOscillator(), g=ac.createGain(); o.type="triangle"; o.frequency.value=f*(.96+Math.random()*.08);
     g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.05,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+.075);
-    o.connect(g); g.connect(A?.sfx||ac.destination); o.start(t); o.stop(t+.09) }catch(e){} }
+    o.connect(g); g.connect(A?.sfx||ac.destination); o.start(t); o.stop(t+.09) }catch(e){window.logErr?.("game",e)} }
 (()=>{ const b=$("#blipOn"); if(!b) return; b.checked=localStorage.getItem("kpopGame.blip")!=="0";
   b.onchange=()=>{ localStorage.setItem("kpopGame.blip",b.checked?"1":"0"); if(b.checked) blip("hr") } })();
 
+
+/* ===== 選單「錯誤紀錄」(第二輪優化) ===== */
+function renderErr(){ const ul=$("#errList"); if(!ul) return; let L=[]; try{ L=JSON.parse(localStorage.getItem(ERRK)||"[]") }catch(e){window.logErr?.("game",e)}
+  ul.innerHTML=L.length?L.slice().reverse().slice(0,20).map(x=>`<li><span>${new Date(x.t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}・${esc(x.w)}${x.n>1?` ×${x.n}`:""}<br><small>${esc(x.m)}</small></span></li>`).join(""):"<li>沒有錯誤紀錄。</li>";
+  const n=$("#errN"); if(n) n.textContent=L.length?`(${L.length} 筆)`:"" }
+$("#errCopy")&&($("#errCopy").onclick=async()=>{ const t=localStorage.getItem(ERRK)||"[]"; toast2(await copyText(`完美女團 錯誤紀錄(版本 ${window.APP_VERSION||"開發版"})\n`+t)?"已複製錯誤紀錄,可以直接貼給 Claude":"複製失敗") });
+$("#errClear")&&($("#errClear").onclick=()=>{ if(!confirm("清除錯誤紀錄?")) return; localStorage.removeItem(ERRK); renderErr() });
+
+/* ===== 觸控範圍放大(第二輪優化):手指點在小按鈕旁邊的空白處時,改按 12px 內最近的小按鈕(短邊 <40px);外觀完全不變(只對觸控,滑鼠不變) ===== */
+(()=>{ const ACT="button,a[href],input,select,textarea,label,summary,[role=button],[data-go],[data-app],[data-chat]";
+  const act=el=>{ for(let e=el;e&&e.nodeType===1&&e!==document.body&&e!==document.documentElement;e=e.parentElement){ if(e.onclick||e.matches(ACT)) return e } return null };
+  const OFF=[[0,-12],[0,12],[-12,0],[12,0],[-9,-9],[9,-9],[-9,9],[9,9],[0,-6],[0,6],[-6,0],[6,0]];
+  let pend=null;
+  document.addEventListener("pointerdown",ev=>{ pend=null; if(ev.pointerType==="mouse"||!ev.isPrimary||act(ev.target)) return;
+    const x=ev.clientX,y=ev.clientY; let best=null,bd=1e9;
+    for(const [dx,dy] of OFF){ const el=document.elementFromPoint(x+dx,y+dy), a=el&&act(el); if(!a||a.disabled||/^(INPUT|SELECT|TEXTAREA|LABEL)$/.test(a.tagName)) continue;
+      const r=a.getBoundingClientRect(); if(Math.min(r.width,r.height)>=40) continue;   // 大的目標(地圖建築、房間、卡片)不需要放大
+      const cx=Math.max(r.left,Math.min(x,r.right)), cy=Math.max(r.top,Math.min(y,r.bottom)), d=Math.hypot(cx-x,cy-y);
+      if(d<bd){ bd=d; best=a } }
+    if(best&&bd<=12) pend={el:best,x,y} },{capture:true,passive:true});
+  document.addEventListener("click",ev=>{ const p=pend; pend=null; if(!p||!p.el.isConnected||act(ev.target)) return;
+    if(Math.hypot(ev.clientX-p.x,ev.clientY-p.y)>10) return;
+    ev.preventDefault(); ev.stopPropagation(); p.el.click() },{capture:true}) })();

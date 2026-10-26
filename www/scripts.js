@@ -53,7 +53,7 @@ async function aiJSON(prompt,files,signal,schema){
   const c=j.candidates?.[0];
   if(!c||c.finishReason==="SAFETY"||c.finishReason==="PROHIBITED_CONTENT"||c.finishReason==="BLOCKLIST") throw {code:"blocked"};
   const text=(c.content?.parts||[]).map(p=>p.text||"").join("");
-  try{return JSON.parse(text)}catch(e){const m=text.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){}} throw {code:"invalid_json"}}
+  try{return JSON.parse(text)}catch(e){const m=text.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){window.logErr?.("scripts",_)}} throw {code:"invalid_json"}}
 }
 
 const ERR={no_key:"還沒設定 Gemini API 金鑰,請到右上角「設定」貼上。",bad_key:"金鑰無效或沒有權限,請到設定重新貼上並測試連線。",bad_model:"找不到這個模型名稱,請到設定改回推薦的模型。",rate_minute:"每分鐘次數到上限了,等一分鐘再試。",rate_day:"今天的免費額度用完了,台灣時間下午三、四點後會重置。",blocked:"這次的內容被 Gemini 的安全機制擋下,換張圖或改一下說明再試。",network:"連不上 Gemini,請確認網路。",region:"目前所在地區無法使用 Gemini API。",server:"Gemini 暫時出錯,稍後再試。",not_granted:"沒有允許這個頁面使用 Claude,分析功能無法使用。",sampling_disabled:"這個帳號目前無法使用 Claude。",rate_limited:"使用次數暫時太多,請稍後再試。",image_rejected:"有圖片無法讀取,請換一張(JPG、PNG、WebP)。",images_unavailable:"這個檢視無法傳送圖片。",refused:"這次的內容無法分析,換張圖或改一下說明再試。",invalid_json:"分析結果格式不完整,請再按一次。",prompt_too_large:"說明太長了,請縮短。",session_expired:"請重新登入後再試。"};
@@ -289,11 +289,11 @@ ${JSON.stringify({snippets:[ex]})}
 
 /* ---------- 自動生產:排程、速度與每日額度控管 ---------- */
 const AK="kpopScripts.auto";
-let A={rpm:4,day:200,autoAccept:true,fallback:true}; try{A={...A,...JSON.parse(localStorage.getItem(AK)||"{}")}}catch(e){}
-const saveA=()=>{try{localStorage.setItem(AK,JSON.stringify(A))}catch(e){}};
+let A={rpm:4,day:200,autoAccept:true,fallback:true}; try{A={...A,...JSON.parse(localStorage.getItem(AK)||"{}")}}catch(e){window.logErr?.("scripts",e)}
+const saveA=()=>{try{localStorage.setItem(AK,JSON.stringify(A))}catch(e){window.logErr?.("scripts",e)}};
 const ptDate=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
-function usage(){let u={};try{u=JSON.parse(localStorage.getItem(AK+".use")||"{}")}catch(e){} if(u.d!==ptDate()) u={d:ptDate(),n:0,made:0,fail:0}; if(!u.why) u.why={}; return u}
-function setUsage(u){try{localStorage.setItem(AK+".use",JSON.stringify(u))}catch(e){}}
+function usage(){let u={};try{u=JSON.parse(localStorage.getItem(AK+".use")||"{}")}catch(e){window.logErr?.("scripts",e)} if(u.d!==ptDate()) u={d:ptDate(),n:0,made:0,fail:0}; if(!u.why) u.why={}; return u}
+function setUsage(u){try{localStorage.setItem(AK+".use",JSON.stringify(u))}catch(e){window.logErr?.("scripts",e)}}
 /* 額度用完就換下一個模型(每個模型的免費額度分開算):主模型 → 設定裡的備用模型 → Flash-Lite */
 const modelList=()=>{ const m=localStorage.getItem(KEY_M)||DEFAULT_MODEL, main=RETIRED.includes(m)?DEFAULT_MODEL:m;
   return [...new Set([main,...(A.fallback?String(A.extra||"").split(/[,,、\s]+/).map(x=>x.trim()).filter(Boolean):[]),...(A.fallback?["gemini-flash-lite-latest"]:[])])] };
@@ -367,7 +367,7 @@ ${JSON.stringify(list.map((sn,i)=>({i,主角:mb(sn.member)?.n||pairName(sn.pair|
   catch(e){ if(e?.code==="rate_day"){ const u=usage(); (u.outM=u.outM||{})[model()]=true; setUsage(u) } }   // 評分失敗就只看格式,不浪費已經寫好的片段
 }
 async function autoLoop(){
-  try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){}
+  try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){window.logErr?.("scripts",e)}
   while(running){
     const u=usage();
     if(!pickModel(u)) u.out=true;
@@ -397,7 +397,7 @@ async function autoLoop(){
       else { aState=(ERR[e?.code]||"這次失敗了")+" 30 秒後重試。"; await sleep(30000) }
     }
   }
-  modelOverride=""; try{await wakeLock?.release?.()}catch(e){} wakeLock=null; renderAuto();
+  modelOverride=""; try{await wakeLock?.release?.()}catch(e){window.logErr?.("scripts",e)} wakeLock=null; renderAuto();
 }
 const WHY={rate_minute:"每分鐘超量",rate_day:"每日額度用完",blocked:"被安全機制擋下",invalid_json:"回傳格式不完整",server:"Gemini 暫時出錯",network:"網路中斷",other:"其他"};
 function fmtMs(ms){ms=Math.max(0,ms);const h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);return h?`${h} 小時 ${m} 分`:m?`${m} 分 ${s} 秒`:`${s} 秒`}
@@ -418,7 +418,7 @@ async function saveItem(it,checkDup){ const body={...it,updatedAt:Date.now()}; i
   const i=items.findIndex(x=>x.code===body.code); if(i>=0) items[i]=body; else items.push(body);
   await persist(); toGame(body); await IDB.set("scripts",SCRIPTS); saveDoc("scripts",body); renderAll() }
 async function removeItem(code){ items=items.filter(x=>x.code!==code); await persist(); delete SCRIPTS[code]; await IDB.set("scripts",SCRIPTS);
-  let done=false; if(syAuth()&&syCfg()){ try{ await syPatchPath(`scripts/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}); done=true }catch(e){} }
+  let done=false; if(syAuth()&&syCfg()){ try{ await syPatchPath(`scripts/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}); done=true }catch(e){window.logErr?.("scripts",e)} }
   if(!done){ const t=await IDB.get("scriptsTombs")||[]; t.push(code); await IDB.set("scriptsTombs",t) } renderAll() }
 /* 一次收很多個:本機一次寫完,雲端在背景逐個上傳(沒登入就排進待上傳區) */
 let BULK=false;
@@ -441,7 +441,7 @@ async function sync(){
     const i=items.findIndex(x=>x.code===code);
     if(d.fields.deleted?.booleanValue){ if(i>=0){items.splice(i,1);ch++} continue }
     let it; try{it=JSON.parse(d.fields.json.stringValue)}catch(e){continue}
-    if(i<0) items.push(it); else if((it.updatedAt||0)>=(items[i].updatedAt||0)) items[i]=it; ch++ }
+    if(i<0){ items.push(it); ch++ } else if((it.updatedAt||0)>(items[i].updatedAt||0)){ items[i]=it; ch++ } }
   localStorage.setItem(K,String(max)); if(ch){ await persist(); await renameOld(); if(OPEN) renderAll() }
 }
 (window.SYNC_HOOKS=window.SYNC_HOOKS||[]).push(sync);
@@ -597,7 +597,7 @@ async function reviseBatch(list){
     const {revTry,revFail,...base}=sn; await saveItem({...base,sc:out.sc||sn.sc,nodes:out.nodes,rev:3,revisedAt:Date.now()}); ok++ }
   return ok }
 async function reviseLoop(){
-  const my=++revGen; try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){}
+  const my=++revGen; try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){window.logErr?.("scripts",e)}
   while(revRunning&&my===revGen){
     const u=usage(), m=pickModel(u);
     if(!m||u.n>=A.day){ const at=new Date(Date.now()+msToReset()).toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit"});
@@ -615,7 +615,7 @@ async function reviseLoop(){
       if(e?.code==="network"||e?.code==="server"){ revState=(ERR[e.code]||"")+" 30 秒後重試。"; renderAll(); await sleep(30000); continue }
       for(const sn of batch) await failRev(sn,String(e?.message||e?.code||"")) }   // 整批壞掉(格式不完整、被擋):各記一次,下次單獨送
     await sleep(gap) }
-  if(my===revGen){ modelOverride=""; try{await wakeLock?.release?.()}catch(e){} wakeLock=null }
+  if(my===revGen){ modelOverride=""; try{await wakeLock?.release?.()}catch(e){window.logErr?.("scripts",e)} wakeLock=null }
   renderAll() }
 
 function libIO(){ return `<div class="mrow"><button class="mbtn" id="mkExport">匯出全部片段(JSON)</button><button class="mbtn" id="mkImport">匯入修訂後的片段</button><input type="file" id="mkImportF" accept=".json,application/json" hidden><span class="mnote">匯出請用電腦版;修訂好的檔案匯入後會覆蓋同代號的片段並同步到雲端。</span></div>

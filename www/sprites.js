@@ -219,7 +219,7 @@ async function makeSprites(mid,imgURL,pose){
 /* ---- 遊戲讀取:DYN[code@mid][表情] = 物件網址 ---- */
 const DYN={}, LOADING=new Set(); window.DYN=DYN;
 function toBlobURL(u){const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([a],{type:mime}))}
-let rT=0; const rerender=()=>{clearTimeout(rT); rT=setTimeout(()=>{try{renderAll()}catch(e){}},300)};
+let rT=0; const rerender=()=>{clearTimeout(rT); rT=setTimeout(()=>{try{renderAll()}catch(e){window.logErr?.("sprites",e)}},300)};
 window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) return; LOADING.add(k);
   (async()=>{ const slot=Object.keys(WMEM).find(s=>WMEM[s]===mid); const sp=ITEMS[code]?.members?.[slot]?.sprites; if(!sp) return;
     const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender()} })().finally(()=>LOADING.delete(k)) };

@@ -237,18 +237,18 @@ const SKEY="kpopGame.songs";
 try{R=JSON.parse(localStorage.getItem(SKEY))||null}catch(e){R=null}
 if(!R||!Array.isArray(R.tracks)||!R.tracks.length) R=fresh();
 let AVS=null, pushT=0, dirty=false;
-function save(bump=true){ if(bump){R.updatedAt=Date.now(); dirty=true; clearTimeout(pushT); pushT=setTimeout(()=>push(),4000)} try{localStorage.setItem(SKEY,JSON.stringify(R))}catch(e){} }
+function save(bump=true){ if(bump){R.updatedAt=Date.now(); dirty=true; clearTimeout(pushT); pushT=setTimeout(()=>push(),4000)} try{localStorage.setItem(SKEY,JSON.stringify(R))}catch(e){window.logErr?.("songs",e)} }
 async function push(){
   if(!syAuth()||!syCfg()) return;
   try{ const t=await syToken();
     await syJSON(syBase()+"/songs/state",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+t},
       body:JSON.stringify({fields:{json:{stringValue:JSON.stringify({release:R,avatars:AVS||{},summary:songSummary()})},updatedAt:{integerValue:String(R.updatedAt||Date.now())}}})});
-    dirty=false }catch(e){}
+    dirty=false }catch(e){window.logErr?.("songs",e)}
 }
 async function sync(){
   if(!syAuth()||!syCfg()) return;
   const d=await syGet("songs/state"); const remoteAt=d?+d.fields.updatedAt.integerValue:0, localAt=+(R.updatedAt||0);
-  if(d){ try{const o=JSON.parse(d.fields.json.stringValue); AVS=o.avatars||{}; if(remoteAt>localAt&&o.release?.tracks?.length){R=o.release;R.updatedAt=remoteAt;save(false);if(OPEN)render()}}catch(e){} }
+  if(d){ try{const o=JSON.parse(d.fields.json.stringValue); AVS=o.avatars||{}; if(remoteAt>localAt&&o.release?.tracks?.length){R=o.release;R.updatedAt=remoteAt;save(false);if(OPEN)render()}}catch(e){window.logErr?.("songs",e)} }
   if(localAt>remoteAt||!d) await push();
 }
 (window.SYNC_HOOKS=window.SYNC_HOOKS||[]).push(sync);

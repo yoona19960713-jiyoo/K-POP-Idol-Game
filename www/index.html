@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1A1420">
 <title>完美女團</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -1340,6 +1340,54 @@ canvas.wx.on{display:block}
 @keyframes cnsway{from{transform:translateY(0)}to{transform:translateY(-3%)}}
 
 @media (prefers-reduced-motion:reduce){.cnfig{animation:none}}
+/* ===== 第二輪優化:手感、觸控與小修(2026-10-26)。最後載入,整檔拿掉即可還原 ===== */
+/* 關掉 Android 點按時的藍色閃光(網頁感);網頁版鎖住雙指縮放與下拉重新整理 */
+*{-webkit-tap-highlight-color:transparent}
+html,body{overscroll-behavior:none}
+body{touch-action:pan-x pan-y}
+/* 按下回饋:用獨立的 scale 屬性,不會蓋掉按鈕原本用 transform 定的位置 */
+button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.965}
+.wcard:not(:disabled):active{scale:.98}
+/* 時間卡進度條:改用 transform 縮放(以前用 width 過場,每 0.7 秒觸發一次排版與玻璃面板重繪) */
+.segs i b{position:absolute;inset:0;width:auto!important;transform-origin:0 50%;transform:scaleX(0);transition:none!important;background:var(--acc);border-radius:calc(.3*var(--u))}
+/* 雨雪:陰天色改成 canvas 的底色,不用每格重塗 */
+#stage[data-wx="rain"] canvas.wx.on{background:rgba(46,58,92,.14)}
+#stage[data-wx="snow"] canvas.wx.on{background:rgba(214,226,255,.07)}
+/* 下拉選單:拿掉瀏覽器原生外觀,換成香檳金箭頭(展開後的清單仍是手機系統選單);核取方塊、滑桿用香檳金 */
+.fac-wrap select,dialog.set select{-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%23C9A24B' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .55em center;background-size:.72em auto;padding-right:1.9em!important;cursor:pointer}
+.fac-wrap input[type=checkbox],.fac-wrap input[type=radio],.fac-wrap input[type=range],dialog.set input[type=checkbox],dialog.set input[type=range]{accent-color:#C9A24B}
+/* 錄音室:畫面外的段落先不排版、不繪製(打開錄音室的卡頓主要在這裡) */
+.th-studio .csec{content-visibility:auto;contain-intrinsic-size:auto 170px}
+/* 造型卡:改版待生圖 */
+.wrev{position:absolute;z-index:3;top:calc(1.1*var(--u));left:calc(1.1*var(--u));font:700 max(calc(.75*var(--u)),9px)/1 var(--sans);letter-spacing:.08em;color:#3A2A18;background:linear-gradient(180deg,#F3DFA8,#D9B36A);padding:calc(.3*var(--u)) calc(.55*var(--u));border-radius:calc(.3*var(--u));box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.wmod~.wrev{top:calc(3*var(--u))}
+.dcon.drev{color:#8A5A1E}
+/* 兩台裝置的進度衝突 */
+.syconf{position:absolute;inset:0;z-index:150;display:grid;place-items:center;background:rgba(14,10,20,.62);backdrop-filter:blur(4px)}
+.sybox{width:min(92%,calc(54*var(--u)));background:linear-gradient(180deg,#FFFCF4,#F4E8D2);color:#3A2A18;border:1px solid #C9A24B;border-radius:calc(1*var(--u));padding:calc(1.5*var(--u)) calc(1.8*var(--u));box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.sybox h3{margin:0 0 calc(.5*var(--u));font:700 max(calc(1.45*var(--u)),15px)/1.3 var(--serif);letter-spacing:.1em}
+.sybox p{margin:0 0 calc(1*var(--u));font-size:max(calc(.95*var(--u)),11px);line-height:1.6;color:#6A5440}
+.sych{display:grid;grid-template-columns:1fr 1fr;gap:calc(1*var(--u))}
+.sych button{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:calc(.9*var(--u)) calc(1.1*var(--u));border-radius:calc(.7*var(--u));border:1px solid #C9A24B;background:#fff;color:#3A2A18;min-height:44px;font:inherit}
+.sych b{font:700 max(calc(1.1*var(--u)),13px)/1.2 var(--serif);letter-spacing:.06em}.sych span{font-size:max(calc(.95*var(--u)),11px)}.sych small{font-size:max(calc(.8*var(--u)),10px);color:#8A7460}
+@container (max-width:899px){
+  /* 觸控目標:手機上至少約 30px(A55 上約 5.5 公釐);更小的空隙由程式的「點旁邊也算」補 */
+  .fac-tabs button{min-height:32px}
+  .fac-close{min-height:30px}
+  .fchip,.fbtn,.pbtn,.tbtn,.cbtn,.mbtn,.rtape{min-height:30px}
+  .fac-wrap select,.fac-wrap input[type=number],.fac-wrap input[type=text]{min-height:30px}
+  /* 錄音室:成員鈕、killing part、刪除、時間軸都放大 */
+  .th-studio .mb{width:30px;height:30px;font-size:12px}
+  .th-studio .kill,.th-studio .del{min-width:30px;min-height:30px}
+  .th-studio .cln{gap:6px;flex-wrap:wrap;row-gap:6px}   /* 放大後一行放不下:成員鈕整組換到第二行 */
+  .th-studio .strip,.th-studio .blk{min-height:30px}
+  /* 企劃室右欄:四張小卡在 A55 會把「可能進不了榜」「主打音源預估」拆成兩行 → 一列一項;放不下時數值自己換到下一行、靠右 */
+  .board{display:flex;flex-direction:column;gap:5px}
+  .board div{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;row-gap:1px;padding:5px 9px;transform:rotate(-.3deg)}
+  .board div:nth-child(2n){transform:rotate(.3deg)}
+  .board span{order:-1;white-space:nowrap;font-size:10px}
+  .board b{margin-left:auto;white-space:nowrap;font-size:12.5px}
+}
 </style>
 </head>
 <body>
@@ -1448,6 +1496,11 @@ canvas.wx.on{display:block}
     <p class="hint">遊玩時每 30 分鐘自動備份一次,保留最近 6 份,再加上最近幾天每天一份。存檔出問題時可以回到其中一份。</p>
     <ul id="bakList" class="bak"></ul>
     <div class="row"><button class="b" id="bakNow">立即備份</button></div>
+
+    <h3>錯誤紀錄 <small id="errN"></small></h3>
+    <p class="hint">遊戲出錯時會記在這台裝置(最多 60 筆,同樣的錯誤只記一次並計次)。遇到怪事時按「複製」,貼給 Claude。</p>
+    <ul id="errList" class="bak"></ul>
+    <div class="row"><button class="b" id="errCopy">複製</button><button class="b" id="errClear">清除</button></div>
 
     <h3>日常衣櫃</h3>
     <p class="hint">遊戲依地點換穿:練習室、錄音室、辦公室穿練習服;宿舍穿居家服(深夜有睡衣就穿睡衣);外面穿外出服。某一類還沒有衣服時穿白 T 立繪。</p>
