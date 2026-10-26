@@ -108,7 +108,7 @@ async function runConcert(c){
   async function finish(){ cancelAnimationFrame(raf);
     const att=Math.min(V0.cap,Math.round(fansMan()*40)), sold=att>=V0.cap, gain=Math.max(2,Math.round(att/500*(sold?1.3:1)));
     const res={day:c.day,venue:c.venue,title:c.title,att,sold,gain,songs:songs.length,first:!!c.first};
-    st().push(res); S.concertNext=null; S.stats=S.stats||{fans:0,wins:0,winsByYear:{},firstWin:false,awards:[]}; S.stats.fans+=gain;
+    st().push(res); window.logEvent?.("concert",{title:c.title,venue:V0.n}); S.concertNext=null; S.stats=S.stats||{fans:0,wins:0,winsByYear:{},firstWin:false,awards:[]}; S.stats.fans+=gain;
     for(const m of M){ const s=S.m[m.id]; s.mood=Math.min(100,s.mood+20); s.xp=(s.xp||0)+150 } window.addBond?.(M.map(x=>x.id),4); save(true);
     const cg=c.first?await pick(ART.firstCG):null;
     const close=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),600); setPause("concert",false); backstage(c,()=>result(res)) };
@@ -119,13 +119,14 @@ async function runConcert(c){
 /* ---- 後台:一段固定劇情(全員在場),用對話畫面演出 ---- */
 async function backstage(c,done){
   const bg=await pick(ART.backstage);
-  const sn={code:"concert-backstage-"+c.day,type:"event",who:M.map(m=>m.id),member:"ys",
+  const sn0={code:"concert-backstage-"+c.day,type:"event",who:M.map(m=>m.id),member:"ys",
     sc:"演出結束後的後台,花束堆滿了整張桌子,外面還聽得到粉絲在喊她們的名字。",nodes:{start:{L:[
       ["hr","代表!你有看到嗎?最後那首,台下全部的人都在唱!","laugh"],["he","我哭到妝都花了……不准拍照喔。","shy"],
       ["hy","手燈の海、本当にきれいだった……代表,謝謝你讓我們站上那裡。","smile"],["tr","……我第一次覺得,舞台結束的時候會捨不得。","shy"],
       ["ys","代表,一年前你說會讓我們站上最好的舞台。","smile"],["ys","今天,我們真的站上去了。","laugh"]],
     C:[{t:"「這只是開始。下一次,我們去更大的場館。」",s:"約定",to:"ys",g:2,r:[["ys","……嗯。我們說好了。","shy"],["hr","耶——巨蛋!我們要去巨蛋!","laugh"]]},
        {t:"「妳們今天,是我見過最耀眼的舞台。」",s:"稱讚",to:"he",g:2,r:[["he","代表……你這樣說,我又要哭了啦。","shy"],["tr","……謝謝。我會記住這句話。","smile"]]}]}}};
+  const sn=window.eventSnip?.("concert_backstage",sn0)||sn0;   // 內容庫有事件劇本就用,沒有才用這段內建的
   scenePlay(sn,bg,c.first?"首場演唱會・後台":"演唱會・後台",VENUES[c.venue].n,done) }
 function scenePlay(sn,bg,title,sub,done){
   if(V){ done?.(); return }

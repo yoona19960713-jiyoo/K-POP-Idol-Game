@@ -41,6 +41,7 @@ async function aiJSON(prompt,files,signal,schema){
     }
     if(res.status===401||res.status===403||/API key/i.test(msg)) throw {code:"bad_key",message:msg};
     if(res.status===404){
+      if(modelOverride) throw {code:"bad_model",message:msg};   // 備用清單裡的模型名稱打錯或已停用:跳過它
       if(model()!==DEFAULT_MODEL){ localStorage.setItem(KEY_M,DEFAULT_MODEL); return aiJSON(prompt,files,signal,schema); } // 模型被停用時自動改回預設
       throw {code:"bad_model",message:msg};
     }
@@ -101,6 +102,30 @@ const TYPES={
 const PAIRS=[];for(let i=0;i<MB.length;i++)for(let j=i+1;j<MB.length;j++)PAIRS.push(MB[i].id+"-"+MB[j].id);PAIRS.push("all");
 const pairName=p=>p==="all"?"全團":p.split("-").map(x=>mb(x).n).join("×");
 const SINGLE_TYPES=Object.keys(TYPES).filter(k=>TYPES[k].kind==="single"), PAIR_TYPES=Object.keys(TYPES).filter(k=>TYPES[k].kind==="pair");
+/* ---------- 劇本工坊 v3(2026-10-26):近況片段(出場條件 req)與事件劇本(ev);台詞裡的 {變數} 在遊戲裡換成真正的名稱 ---------- */
+TYPES.situ={n:"近況",kind:"situ",len:"1~3 個來回,她跟代表聊最近發生的事",places:["practice","dorm","office","studio","out","styling"],target:3,batch:3};
+TYPES.event={n:"事件",kind:"event",len:"依事件說明",places:["practice","dorm","office","studio"],target:6,batch:3};
+const VARS_ALL=["最新主打","演唱會","場館","一位節目","一位歌曲"];
+const SITU={
+  after_concert:{n:"演唱會後一週內",vars:["演唱會","場館"],per:["巔峰期","轉型期"],desc:"一週內才在{場館}辦完演唱會〈{演唱會}〉,她還沉浸在那天的餘韻裡:回味某個瞬間、累到全身痠痛、偷看粉絲的心得、捨不得結束。"},
+  after_win:{n:"拿下一位後幾天內",vars:["一位節目","一位歌曲"],per:["出道與上升期","巔峰期","轉型期"],desc:"前幾天在《{一位節目}》用〈{一位歌曲}〉拿下一位,她到現在的反應:還不敢相信、偷偷重看影片、想再拿一次、想把功勞分給大家。"},
+  promo:{n:"打歌期間",vars:["最新主打"],per:["出道與上升期","巔峰期","轉型期"],desc:"正在打歌〈{最新主打}〉:每天清晨化妝、電視台待機室、行程滿檔、睡眠不足,也有舞台上的小插曲。"},
+  pre_comeback:{n:"回歸前兩週",vars:[],per:["出道與上升期","巔峰期","轉型期"],desc:"再兩週就要回歸,新歌練習與拍攝進入最後階段:緊張、期待、體重管理、熬夜。"},
+  xmas:{n:"聖誕節前後",vars:[],per:PERIODS,desc:"聖誕節前後:宿舍或公司的聖誕裝飾、交換禮物、年末行程、想跟代表一起過節。"},
+  newyear:{n:"跨年前後",vars:[],per:PERIODS,desc:"跨年前後:年末舞台的忙碌、倒數、新年願望、回顧這一年。"}};
+const EVENTS={
+  concert_backstage:{n:"演唱會結束後的後台",card:false,vars:["演唱會","場館"],desc:"演唱會〈{演唱會}〉剛在{場館}結束,五個人回到後台(花束、汗水、還聽得到粉絲在喊她們的名字),跟代表分享當下的心情。start 節點 5~8 句,每位成員至少一句;最後給代表 2 個選項(代表對她們說的話),每個選項用 reply 寫 1~2 位成員的反應。"},
+  concert_rehearsal:{n:"演唱會彩排",card:false,vars:["演唱會","場館"],desc:"演唱會〈{演唱會}〉前的彩排空檔(在{場館}或練習室):有人緊張、有人出小狀況、有人互相打氣,代表來探班。start 節點 4~7 句;給代表 2 個選項,用 reply 寫反應。"},
+  first_win:{n:"出道後第一個一位(事件卡)",card:true,vars:["一位節目","一位歌曲"],desc:"代表不在電視台的那天,她們在《{一位節目}》用〈{一位歌曲}〉拿下出道後第一個一位,一回到宿舍就衝過來抱住代表。"},
+  debut:{n:"出道日(事件卡)",card:true,vars:["最新主打"],desc:"出道 Showcase 當天,出道曲是〈{最新主打}〉,五個人在後台對代表說的話。"},
+  comeback:{n:"回歸日(事件卡)",card:true,vars:["最新主打"],desc:"回歸第一天,新歌是〈{最新主打}〉,五個人對代表說的話。"}};
+const v3Block=p=>{ const o=p.type==="situ"?SITU[p.req]:p.type==="event"?EVENTS[p.ev]:null; if(!o) return "";
+  return `【${p.type==="situ"?"情境":"事件"}】${o.n}:${o.desc}
+${p.type==="situ"?"這種片段只會在這個情境成立時出現,所以可以直接提到這件事。":"這段會在遊戲裡發生這件事的當下演出,代表在場。"}
+${o.vars.length?`可以用的變數:${o.vars.map(v=>`{${v}}`).join("、")}。照這樣原封不動寫在台詞或旁白裡(例如「〈{${o.vars[0]}}〉」),遊戲會換成真正的名稱;只能用這些變數,不要自己編歌名、節目名或場館名。`:"不要提到具體的歌名、節目名或場館名。"}
+${o.card?"這是事件卡:每個片段只有 start 一個節點,lines 放 3~5 句成員台詞(不要 narr 旁白,不同成員各說一句),choices 留空陣列。":""}
+` };
+const v3Label=sn=>sn.ev?EVENTS[sn.ev]?.n||sn.ev:sn.req?SITU[sn.req]?.n||sn.req:"";
 
 /* ---------- 世界設定(依《世界設定與時間軸》;只能用這些原創名稱) ---------- */
 const WORLD_BASE="公司:星環娛樂(老牌大公司)、黑鑽(嘻哈 girl crush)、晨光(親民、選秀組團)、方舟音樂(粉絲經營崛起)、楓葉娛樂(藝瑟的前公司)。打歌節目:週二 SHOW PULSE、週三 CHAMPION LIVE、週四 COUNTDOWN M、週五 MUSIC VAULT、週六 CORE STAGE、週日 STAR GAYO。頒獎:NOTE AWARDS(12 月,海外舉辦)、旋律音樂獎(12 月)、金盤獎(1 月)、首爾歌謠大賞(1 月)。音源平台 Melodi,排行榜圓音榜,入口網站 Nexa(熱搜與留言),八卦媒體 D-Scope。頂級製作人團隊 Lighthouse。";
@@ -132,6 +157,8 @@ function analyse(sn){
   const d=depth("start",new Set()); const branch=Object.values(N).filter(n=>(n.C||[]).filter(c=>c.next).length>=2).length;
   if(sn.type==="long"||sn.type==="pairlong"){ if(d<8) w.push(`最長只有 ${d} 個來回,長對話要 8~10 個`); if(d>11) w.push(`最長 ${d} 個來回,超過 10 個`); if(branch<2) w.push(`只有 ${branch} 個分岔點,長對話至少要 2 個`) }
   if(sn.type==="away"&&(N.start.C||[]).length) w.push("你不在場時的片段不應該有選項");
+  const badV=[...JSON.stringify([sn.sc||"",N]).matchAll(/\{([^{}\s"]{1,8})\}/g)].map(m=>m[1]).find(v=>!VARS_ALL.includes(v)); if(badV) w.push(`用了不認得的變數 {${badV}}`);
+  if(sn.type==="event"&&EVENTS[sn.ev]?.card&&((N.start.C||[]).length||(N.start.L||[]).some(l=>!l[0]))) w.push("事件卡只能有成員台詞,不要旁白與選項");
   return {depth:d,branch,warn:w};
 }
 
@@ -172,13 +199,14 @@ const EX_PAIR={at:"dorm",sl:[3,4],who:["hr","hy"],sc:"深夜的宿舍廚房,河�
   choices:[{text:"「一人一半。」",style:"轉移話題",to:"hr",g:1,reply:[{who:"hr",text:"……好啦。但我要有焦糖的那半。",expr:"smile"},{who:"hy",text:"はい、河嵐醬先選~",expr:"smile"}]},
    {text:"(打開冰箱下層,拿出藏著的另一盒。)",style:"出手幫忙",to:"hr",g:2,reply:[{who:"hr",text:"哇——代表藏私房布丁!",expr:"laugh"},{who:"hy",text:"代表、すごい!好喜歡~",expr:"laugh"}]}]}]};
 /* 回傳格式:用 Gemini 的 responseSchema 鎖住(選項、說話者、表情、地點都是固定的值),不會再有格式錯誤 */
-function SCHEMA(places,who){
+function SCHEMA(places,who,ref){   // ref:AI 修訂一次送好幾個時,用來對回原本的片段
   const line={type:"OBJECT",properties:{who:{type:"STRING",enum:[...who,"narr"]},text:{type:"STRING"},expr:{type:"STRING",enum:EXPRS}},required:["who","text","expr"],propertyOrdering:["who","text","expr"]};
   const choice={type:"OBJECT",properties:{text:{type:"STRING"},style:{type:"STRING",enum:STYLES},to:{type:"STRING",enum:who},g:{type:"INTEGER"},mood:{type:"INTEGER"},stress:{type:"INTEGER"},heart:{type:"INTEGER"},set:{type:"STRING"},next:{type:"STRING"},reply:{type:"ARRAY",items:line}},
     required:["text","style","to","g"],propertyOrdering:["text","style","to","g","mood","stress","heart","set","next","reply"]};
   const node={type:"OBJECT",properties:{key:{type:"STRING"},lines:{type:"ARRAY",items:line},choices:{type:"ARRAY",items:choice}},required:["key","lines"],propertyOrdering:["key","lines","choices"]};
   const sn={type:"OBJECT",properties:{at:{type:"STRING",enum:places},sl:{type:"ARRAY",items:{type:"INTEGER"}},who:{type:"ARRAY",items:{type:"STRING",enum:who}},sc:{type:"STRING"},w:{type:"INTEGER"},cd:{type:"INTEGER"},nodes:{type:"ARRAY",items:node}},
     required:["at","sl","who","sc","nodes"],propertyOrdering:["at","sl","who","sc","w","cd","nodes"]};
+  if(ref){ sn.properties.ref={type:"STRING"}; sn.required.unshift("ref"); sn.propertyOrdering.unshift("ref") }
   return {type:"OBJECT",properties:{snippets:{type:"ARRAY",items:sn}},required:["snippets"]} }
 /* 回傳 → 遊戲用的格式(nodes 物件、[說話者,台詞,表情] 陣列),順便修正常見的小錯 */
 function toInternal(s0,main,stage){
@@ -196,25 +224,29 @@ function toInternal(s0,main,stage){
   if(!N.start) return null;
   return {...s0,nodes:N} }
 function parseSnippets(r,main,stage){ const arr=Array.isArray(r)?r:(r?.snippets||[]); return arr.map(s=>toInternal(s,main,stage)).filter(s=>s?.nodes?.start) }
+/* 同一格(避免重複情境、算目前有幾個):事件看 ev;近況看情境與主角;其他照舊 */
+function sameCell(x,p){ const t=TYPES[p.type]; if(x.type!==p.type) return false;
+  return t.kind==="event"?x.ev===p.ev:t.kind==="situ"?(x.req===p.req&&x.member===p.member&&(!p.period||x.period===p.period)):t.kind==="pair"?x.pair===p.pair:(x.member===p.member&&x.stage===p.stage) }
+const mainOf=p=>{ const t=TYPES[p.type]; return t.kind==="event"?"ys":t.kind==="pair"?(p.pair==="all"?"ys":p.pair.split("-")[0]):p.member };
 function buildPrompt(p,existing){
-  const t=TYPES[p.type]; const who=t.kind==="pair"?(p.pair==="all"?MB.map(m=>m.id):p.pair.split("-")):[p.member];
+  const t=TYPES[p.type]; const who=t.kind==="event"?MB.map(m=>m.id):t.kind==="pair"?(p.pair==="all"?MB.map(m=>m.id):p.pair.split("-")):[p.member];
   const romance=ROMANCE.includes(p.stage);
   const bio=id=>`【${mb(id).n}(id ${id})】${romance?VOICE[id].replace(/(原型[^)]*)/g,""):VOICE[id]}
 說話樣本(只學語氣,不要照抄):${SAMPLE[id].join(" ")}
 可以用的具體細節:${DETAIL[id]}
 她對代表的回應方式的反應倍率(負數是反效果):${Object.entries(PREF[id]).map(([k,v])=>k+v).join("、")}`;
-  const ex=t.kind==="pair"?EX_PAIR:EX_SINGLE;
+  const ex=t.kind==="pair"||t.kind==="event"?EX_PAIR:EX_SINGLE;
   return `你是一款韓國女團養成戀愛遊戲的資深編劇,擅長寫有溫度、有生活感、角色辨識度很高的對話。玩家是財閥出身的娛樂公司代表(成員叫他/她「代表」,性別不指定),旗下五位女團成員都是成年人(故事開始時 18 歲)。請用台灣慣用的繁體中文寫遊戲的日常片段。
 
 【這批要寫的】
 種類:${t.n}(${t.len})
-${t.kind==="pair"?`主角組合:${pairName(p.pair)}`:`主角:${mb(p.member).n}(id ${p.member})`}
-${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}\n這個階段的說話方式:${STAGE_VOICE[p.stage]||""}`:`以成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
-時期:${p.period}——${PERIOD_DESC[p.period]}${romance?"\n角色都是原創人物,不要提到或影射任何真實的人、團體或公司;戀情是祕密,出道後公開戀愛會被粉絲反彈,要有怕被拍到、被成員撞見的緊張感。":""}
+${t.kind==="event"?"出場:全員(五位成員都在)":t.kind==="pair"?`主角組合:${pairName(p.pair)}`:`主角:${mb(p.member).n}(id ${p.member})`}
+${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}\n這個階段的說話方式:${STAGE_VOICE[p.stage]||""}`:t.kind==="situ"?"她對代表的關係:不限定,這種片段會在信任到夥伴之間任何時候出現;語氣自然親近,不寫戀愛情節。":t.kind==="event"?"五位成員都在場,語氣依各自的個性;不寫戀愛情節(事件會在任何關係階段發生)。":`以成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
+${p.period?`時期:${p.period}——${PERIOD_DESC[p.period]}`:"時期:出道之後(可能在任何一年發生,不要寫特定年份的新聞)。"}${romance?"\n角色都是原創人物,不要提到或影射任何真實的人、團體或公司;戀情是祕密,出道後公開戀愛會被粉絲反彈,要有怕被拍到、被成員撞見的緊張感。":""}
 數量:${p.count} 個,情境、地點、時段、情緒要明顯不同。
 可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")}${t.places.filter(k=>PLACE_NOTE[k]).map(k=>`\n${PLACES[k]}的樣子:${PLACE_NOTE[k]}`).join("")}
 時段(sl,數字,可以多個):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
-${p.hint?`玩家補充:${p.hint}\n`:""}
+${p.hint?`玩家補充:${p.hint}\n`:""}${v3Block(p)}
 【成員設定(必須嚴格遵守)】
 ${who.map(bio).join("\n\n")}
 ${ADDR}
@@ -222,7 +254,7 @@ ${ADDR}
 
 【世界設定(提到業界時只能用這些原創名稱)】
 ${WORLD_BASE}
-這個時期:${WORLD_PERIOD[p.period]}
+${p.period?`這個時期:${WORLD_PERIOD[p.period]}`:"時期:出道之後的任何一年。"}
 玩家團體的團名尚未決定,台詞裡用「我們」「我們團」。
 
 ${CRAFT}
@@ -232,7 +264,7 @@ ${CRAFT}
 - 第一個節點 key 是 start。每個節點有 lines(台詞)與 choices(代表的選項);選項用 next 指向另一個節點的 key,沒有 next 就在這裡結束,結束時用 reply 寫她最後的反應。
 - 台詞 who 是說話的成員 id,旁白用 narr;expr 只能是 neutral、smile、laugh、sad、angry、shy。
 - 選項 style 只能是:${STYLES.join("、")};to 是這個選項影響的成員;g 是影響強度,整數 -2~4,依她對這種回應方式的倍率決定。mood、stress 可省略或填 -6~6;heart 只在特別心動的時刻填 1~2,而且只在信任以上的階段。set 可記一個英文小寫駝峰的旗標,讓之後的劇情記得。
-- ${t.kind==="pair"?"lines 裡多位成員輪流說話,成員之間要真的互相回應。":"lines 以主角為主,其他成員可以偶爾出現。"}${t.kind==="single"&&p.type!=="long"?"":""}
+- ${t.kind==="pair"||t.kind==="event"?"lines 裡多位成員輪流說話,成員之間要真的互相回應。":"lines 以主角為主,其他成員可以偶爾出現。"}${t.kind==="single"&&p.type!=="long"?"":""}
 ${p.type==="away"?"- 這種片段沒有選項:只有 start 一個節點,choices 留空陣列。":""}
 ${existing.length?`- 這一格已經有以下情境,請避免重複:\n${existing.map(x=>"  · "+x).join("\n")}`:""}
 
@@ -250,6 +282,10 @@ const saveA=()=>{try{localStorage.setItem(AK,JSON.stringify(A))}catch(e){}};
 const ptDate=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
 function usage(){let u={};try{u=JSON.parse(localStorage.getItem(AK+".use")||"{}")}catch(e){} if(u.d!==ptDate()) u={d:ptDate(),n:0,made:0,fail:0}; if(!u.why) u.why={}; return u}
 function setUsage(u){try{localStorage.setItem(AK+".use",JSON.stringify(u))}catch(e){}}
+/* 額度用完就換下一個模型(每個模型的免費額度分開算):主模型 → 設定裡的備用模型 → Flash-Lite */
+const modelList=()=>{ const m=localStorage.getItem(KEY_M)||DEFAULT_MODEL, main=RETIRED.includes(m)?DEFAULT_MODEL:m;
+  return [...new Set([main,...(A.fallback?String(A.extra||"").split(/[,,、\s]+/).map(x=>x.trim()).filter(Boolean):[]),...(A.fallback?["gemini-flash-lite-latest"]:[])])] };
+function pickModel(u){ u.outM=u.outM||{}; const L=modelList(), m=L.find(x=>!u.outM[x]); modelOverride=m&&m!==L[0]?m:""; return m||"" }
 function msToReset(){const now=new Date(); const pt=new Date(now.toLocaleString("en-US",{timeZone:"America/Los_Angeles"})); const nx=new Date(pt); nx.setHours(24,0,30,0); return nx-pt}
 /* 各關係階段在各時期的比例(戒備多在早期,戀人多在後期) */
 const PW={戒備:[.6,.3,.1,0],信任:[.4,.35,.15,.1],夥伴:[.2,.3,.3,.2],心動:[.1,.3,.35,.25],戀人:[0,.25,.4,.35],親密:[0,.15,.35,.35],多人親密:[0,.05,.25,.3],pair:[.3,.25,.25,.2]};
@@ -259,6 +295,9 @@ const PAIR_ORDER=["between","away","group"];
 function nextTask(){
   const L=lib(); const cnt={}; for(const x of L){const k=cellKey(x)+"|"+x.period; cnt[k]=(cnt[k]||0)+1}
   const pend={}; for(const x of reviewQ_()){const k=cellKey(x)+"|"+x.period; pend[k]=(pend[k]||0)+1}
+  const rq=reviewQ_();
+  for(const ev of Object.keys(EVENTS)){ const have=[...L,...rq].filter(x=>x.type==="event"&&x.ev===ev).length, g=TYPES.event.target-have;
+    if(g>0) return {type:"event",ev,member:"",pair:"all",stage:"",period:"",count:Math.min(TYPES.event.batch,g),hint:""} }
   for(let pi=0;pi<PERIODS.length;pi++){ const per=PERIODS[pi];
     for(const st of STAGES){ for(const ty of TYPE_ORDER){
       // 五位成員輪流:先找缺最多的那位
@@ -270,6 +309,9 @@ function nextTask(){
       for(const p of PAIRS){const tgt=Math.round(TYPES[ty].target*(p==="all"?5:1)*PW.pair[pi]); const have=(cnt[ty+"|"+p+"||"+per]||0)+(pend[ty+"|"+p+"||"+per]||0); if(tgt-have>gap){gap=tgt-have;best=p}}
       if(best) return {type:ty,member:"",pair:best,stage:"",period:per,count:Math.min(TYPES[ty].batch,gap),hint:""};
     }
+    for(const k of Object.keys(SITU)){ if(!SITU[k].per.includes(per)) continue; let best=null,gap=0;
+      for(const m of MB){ const have=[...L,...rq].filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id&&x.period===per).length; if(TYPES.situ.target-have>gap){gap=TYPES.situ.target-have;best=m.id} }
+      if(best) return {type:"situ",req:k,member:best,pair:"",stage:"",period:per,count:Math.min(TYPES.situ.batch,gap),hint:""} }
   }
   return null;
 }
@@ -277,14 +319,14 @@ let running=false, wakeLock=null, lastCalls=[], aState="", aWait=0, aTick=0;
 const sleep=ms=>new Promise(r=>{const t0=Date.now(); aWait=Date.now()+ms; const iv=setInterval(()=>{ if(!running||Date.now()>=aWait){clearInterval(iv);r()} },500)});
 async function produce(task){
   const t=TYPES[task.type];
-  const existing=lib().filter(x=>x.type===task.type&&(t.kind==="pair"?x.pair===task.pair:(x.member===task.member&&x.stage===task.stage))).slice(-25).map(x=>x.sc);
+  const existing=lib().filter(x=>sameCell(x,task)).slice(-25).map(x=>x.sc);
   const r=await aiJSON(buildPrompt(task,existing),[],undefined,SCHEMA(t.places,MB.map(m=>m.id)));
-  const arr=parseSnippets(r,t.kind==="pair"?(task.pair==="all"?"ys":task.pair.split("-")[0]):task.member,task.stage); let ok=0,bad=[];
+  const arr=parseSnippets(r,mainOf(task),task.stage); let ok=0,bad=[];
   if(!arr.some(x=>x?.nodes?.start)) throw {code:"invalid_json",message:"回傳裡沒有可用的片段"};
   for(const s0 of arr){ if(!s0?.nodes?.start) continue;
-    const sn={code:`${task.type}-${t.kind==="pair"?task.pair:task.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
-      type:task.type,k:t.n,member:task.member,pair:task.pair,stage:task.stage,period:task.period,
-      at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[task.member],
+    const sn={code:`${task.type}-${task.ev||task.req||""}${task.ev||task.req?"-":""}${t.kind==="pair"?task.pair:task.member||"all"}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
+      type:task.type,k:t.n,member:task.member,pair:task.pair,stage:task.stage,period:task.period,ev:task.ev||"",req:task.req||"",
+      at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:t.kind==="event"?MB.map(m=>m.id):Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[task.member],
       sc:String(s0.sc||""),w:+s0.w||3,cd:+s0.cd||4,nodes:s0.nodes,createdAt:Date.now(),params:{...task}};
     const pass=!analyse(sn).warn.length;
     if(pass&&A.autoAccept){sn.status="auto"; await saveItem(sn); ok++} else bad.push(sn) }
@@ -294,16 +336,13 @@ async function autoLoop(){
   try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){}
   while(running){
     const u=usage();
-    const main=(()=>{const m=localStorage.getItem(KEY_M)||DEFAULT_MODEL; return RETIRED.includes(m)?DEFAULT_MODEL:m})(), FB="gemini-flash-lite-latest";
-    if(!u.outM) u.outM={};
-    modelOverride = !u.outM[main] ? "" : (A.fallback&&main!==FB&&!u.outM[FB] ? FB : "");
-    if(u.outM[main]&&!(A.fallback&&main!==FB&&!u.outM[FB])) u.out=true;
+    if(!pickModel(u)) u.out=true;
     if(u.n>=A.day||u.out){ aState=u.out?"Google 回報今天的免費額度用完了,等額度重置後自動繼續。":`今天的上限 ${A.day} 次用完了,等額度重置後自動繼續。`; await sleep(msToReset()); continue }
     const task=nextTask(); if(!task){ aState="目標全部完成了!"; running=false; break }
     const gap=60000/Math.max(1,A.rpm); lastCalls=lastCalls.filter(t=>Date.now()-t<60000);
     if(lastCalls.length>=A.rpm){ aState="控制速度中…"; await sleep(60000-(Date.now()-lastCalls[0])+500); continue }
     const last=lastCalls[lastCalls.length-1]||0; if(Date.now()-last<gap){ aState="控制速度中…"; await sleep(gap-(Date.now()-last)); continue }
-    aState=(modelOverride?"(備用模型)":"")+`產生中:${TYPES[task.type].n}・${task.pair?pairName(task.pair):mb(task.member).n}${task.stage?"・"+task.stage:""}・${task.period}`;
+    aState=(modelOverride?"(備用模型)":"")+`產生中:${TYPES[task.type].n}${task.ev||task.req?"・"+v3Label(task):""}・${task.pair?pairName(task.pair):mb(task.member).n}${task.stage?"・"+task.stage:""}${task.period?"・"+task.period:""}`;
     lastCalls.push(Date.now()); u.n++; setUsage(u);
     try{
       let res=await produce(task); let tries=0;
@@ -319,6 +358,7 @@ async function autoLoop(){
       u4.last=`${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit"})} ${WHY[why]||why}${e?.message?":"+String(e.message).slice(0,120):""}`; setUsage(u4);
       if(e?.code==="rate_minute"){ aState="每分鐘次數到上限,稍等一下…"; await sleep(Math.max(15,(e.wait||60)+5)*1000) }
       else if(e?.code==="rate_day"){ }
+      else if(e?.code==="bad_model"&&modelOverride){ const u5=usage(); (u5.outM=u5.outM||{})[model()]=true; setUsage(u5) }   // 備用模型名稱不對:跳過換下一個
       else if(["no_key","bad_key","bad_model","region"].includes(e?.code)){ aState=ERR[e.code]; running=false }
       else { aState=(ERR[e?.code]||"這次失敗了")+" 30 秒後重試。"; await sleep(30000) }
     }
@@ -338,7 +378,7 @@ function cleanExpr(nodes){ for(const n of Object.values(nodes||{})){ for(const l
   for(const c of n.C||[]) for(const l of c.r||[]) if(l.length>2&&!EXPRS.includes(l[2])) l.length=2 } return nodes }
 async function persist(){ const o={}; for(const x of items) o[x.code]=x; await IDB.set("scriptsAll",o) }
 function toGame(sn){ // 遊戲玩的時候用的精簡內容庫
-  if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]={code:sn.code,type:sn.type,member:sn.member||"",pair:sn.pair||"",stage:sn.stage||"",period:sn.period||"",room:sn.room||"",wx:sn.wx||"",at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,nodes:sn.nodes||{}};
+  if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]={code:sn.code,type:sn.type,member:sn.member||"",pair:sn.pair||"",stage:sn.stage||"",period:sn.period||"",room:sn.room||"",wx:sn.wx||"",ev:sn.ev||"",req:sn.req||"",at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,nodes:sn.nodes||{}};
   else delete SCRIPTS[sn.code] }
 async function saveItem(it){ const body={...it,updatedAt:Date.now()}; if(body.nodes) cleanExpr(body.nodes);
   const i=items.findIndex(x=>x.code===body.code); if(i>=0) items[i]=body; else items.push(body);
@@ -375,7 +415,7 @@ async function sync(){
 /* =====================================================================
    畫面:製作者模式(編輯部的稿紙桌)
    ===================================================================== */
-let OPEN=false, tab="auto", P={type:"encounter",member:"ys",pair:"ys-tr",stage:"戒備",period:"練習生期",count:5,hint:""}, ctl=null, mStatus="", mErr=false;
+let OPEN=false, tab="auto", P={type:"encounter",member:"ys",pair:"ys-tr",stage:"戒備",period:"練習生期",count:5,hint:"",ev:"concert_backstage",req:"after_concert"}, ctl=null, mStatus="", mErr=false;
 let fM="",fT="",fS="",fQ="";
 function shell(){
   if($("#makerFac")) return;
@@ -407,7 +447,8 @@ function autoHTML(){
     <h3>自動生產</h3>
     <p class="mnote">依覆蓋率由最常用的開始補:練習生期優先、關係階段由淺到深、五位成員輪流。會自己控管每分鐘次數與每日上限,碰到上限就等待,額度重置後自動繼續。製作者模式關掉後仍會在背景繼續,但遊戲要保持開著。長對話改由 Claude 創作室負責。</p>
     <div class="mrow"><label>每分鐘最多<input type="number" id="aRpm" min="1" max="60" value="${A.rpm}">次</label><label>每天最多<input type="number" id="aDay" min="1" max="10000" value="${A.day}">次</label></div>
-    <label class="mck"><input type="checkbox" id="aFb" ${A.fallback?"checked":""}> 主模型今天額度用完時,改用 Flash-Lite 繼續</label>
+    <label class="mck"><input type="checkbox" id="aFb" ${A.fallback?"checked":""}> 今天額度用完時自動換模型繼續(主模型 → 備用模型 → Flash-Lite;每個模型的免費額度分開算)</label>
+    <div class="mrow"><span class="mnote">備用模型</span><input id="aExtra" class="grow" value="${esc(A.extra||"")}" placeholder="例如 gemini-2.5-flash, gemini-2.5-flash-lite(用逗號分隔)"></div>
     <label class="mck"><input type="checkbox" id="aAuto" ${A.autoAccept?"checked":""}> 格式通過的直接收進內容庫(標為「未審」);沒通過的重試,仍不行才放進待審</label>
     <button class="mbtn ${running?"danger":"pri"} big" id="mkAuto">${running?"停止自動生產":"開始自動生產"}</button></div>
     <div class="msheet log"><h3>生產紀錄</h3>
@@ -420,12 +461,14 @@ function autoHTML(){
 }
 /* 手動產生 */
 function makeHTML(){ const t=TYPES[P.type];
-  const have=lib().filter(x=>x.type===P.type&&(t.kind==="pair"?x.pair===P.pair:(x.member===P.member&&x.stage===P.stage))).length;
+  const have=lib().filter(x=>sameCell(x,P)).length;
   return `<div class="msheet"><h3>手動產生一批</h3>
     <h4>種類</h4><div class="mchips">${chipsH(Object.keys(TYPES),P.type,"ty",k=>TYPES[k].n)}</div>
-    ${t.kind==="single"?`<h4>主角</h4><div class="mchips">${chipsH(MB.map(m=>m.id),P.member,"mm",id=>mb(id).n)}</div>
+    ${t.kind==="event"?`<h4>事件</h4><div class="mchips">${chipsH(Object.keys(EVENTS),P.ev,"ev",k=>EVENTS[k].n)}</div>`
+      :t.kind==="situ"?`<h4>情境</h4><div class="mchips">${chipsH(Object.keys(SITU),P.req,"sq",k=>SITU[k].n)}</div><h4>主角</h4><div class="mchips">${chipsH(MB.map(m=>m.id),P.member,"mm",id=>mb(id).n)}</div>`
+      :t.kind==="single"?`<h4>主角</h4><div class="mchips">${chipsH(MB.map(m=>m.id),P.member,"mm",id=>mb(id).n)}</div>
       <h4>她對代表的關係階段</h4><div class="mchips">${chipsH(STAGES,P.stage,"st")}</div>`:`<h4>組合</h4><div class="mchips">${chipsH(PAIRS,P.pair,"pp",pairName)}</div>`}
-    <h4>時期</h4><div class="mchips">${chipsH(PERIODS,P.period,"pe")}</div>
+    ${t.kind==="event"?"":`<h4>時期</h4><div class="mchips">${chipsH(t.kind==="situ"?SITU[P.req].per:PERIODS,P.period,"pe")}</div>`}
     <div class="mrow"><label>數量<input type="number" id="tCount" min="1" max="8" value="${P.count}"></label><label class="grow">補充說明<input type="text" id="tHint" value="${esc(P.hint)}" placeholder="例如:月評前一晚、下雨天、她剛被老師罵"></label></div>
     <p class="mnote">這一格目前有 ${have} 個,目標 ${t.target} 個。</p>
     <div class="mrow"><button class="mbtn pri" id="go" ${ctl?"disabled":""}>產生</button>${ctl?`<button class="mbtn" id="stop">停止</button>`:""}</div>
@@ -434,13 +477,15 @@ function makeHTML(){ const t=TYPES[P.type];
 async function generate(params){
   if(!apiKey()){tab="key";renderAll();toast2("先設定 Gemini API 金鑰");return}
   const t=TYPES[params.type];
-  const existing=lib().filter(x=>x.type===params.type&&(t.kind==="pair"?x.pair===params.pair:(x.member===params.member&&x.stage===params.stage))).slice(-25).map(x=>x.sc);
+  if(t.kind==="event") params={...params,member:"",pair:"all",stage:"",period:""}; else if(t.kind==="situ") params={...params,pair:"",stage:""};
+  const existing=lib().filter(x=>sameCell(x,params)).slice(-25).map(x=>x.sc);
   ctl=new AbortController(); mErr=false; mStatus=`生成中…${t.n}通常需要${params.type==="long"?"半分鐘到一分鐘":"十幾秒"}。`; renderAll();
-  try{ const r=await aiJSON(buildPrompt(params,existing),[],ctl.signal,SCHEMA(t.places,MB.map(m=>m.id))); const arr=parseSnippets(r,t.kind==="pair"?(params.pair==="all"?"ys":params.pair.split("-")[0]):params.member,params.stage); let n=0;
+  try{ const r=await aiJSON(buildPrompt(params,existing),[],ctl.signal,SCHEMA(t.places,MB.map(m=>m.id))); const arr=parseSnippets(r,mainOf(params),params.stage); let n=0;
     for(const s0 of arr){ if(!s0?.nodes?.start) continue;
-      await saveItem({code:`${params.type}-${t.kind==="pair"?params.pair:params.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
-        type:params.type,k:t.n,member:t.kind==="single"?params.member:"",pair:t.kind==="pair"?params.pair:"",stage:t.kind==="single"?params.stage:"",period:params.period,
-        at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[params.member],
+      await saveItem({code:`${params.type}-${t.kind==="event"?params.ev+"-all":t.kind==="situ"?params.req+"-"+params.member:t.kind==="pair"?params.pair:params.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
+        type:params.type,k:t.n,member:t.kind==="single"||t.kind==="situ"?params.member:"",pair:t.kind==="pair"||t.kind==="event"?params.pair:"",stage:t.kind==="single"?params.stage:"",period:params.period,
+        ev:t.kind==="event"?params.ev:"",req:t.kind==="situ"?params.req:"",
+        at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:t.kind==="event"?MB.map(m=>m.id):Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[params.member],
         sc:String(s0.sc||""),w:+s0.w||3,cd:+s0.cd||4,nodes:s0.nodes,status:"review",createdAt:Date.now(),params:{...params}}); n++ }
     mStatus=n?`產生了 ${n} 個,請到「待審」看。`:"這次沒有產生可用的片段,請再試一次。";
   }catch(e){ if(e?.code==="cancelled") mStatus="已停止。"; else {mStatus=ERR[e?.code]||"生成失敗,請再試一次。"; mErr=true} }
@@ -453,7 +498,7 @@ function treeHTML(sn){ const N=sn.nodes||{}; const order=["start",...Object.keys
     ${(n.C||[]).map(c=>`<div class="topt"><span class="sty">${esc(c.s)}${c.to&&mb(c.to)?"→"+mb(c.to).n:""}・${c.g>0?"+":""}${c.g||0}${c.heart?"・心動+"+c.heart:""}${c.set?"・旗標 "+esc(c.set):""}</span>${esc(c.t)}
       ${c.next?`<span class="nx">→ ${esc(c.next)}</span>`:(c.r||[]).map(l=>ln(l,"r")).join("")||`<span class="nx">結束</span>`}</div>`).join("")}</div>`}).join("") }
 function cardHTML(sn,mode){ const a=analyse(sn), who=sn.pair?pairName(sn.pair):mb(sn.member)?.n;
-  return `<div class="mcardx" data-code="${esc(sn.code)}"><div class="mch"><div><b>${esc(TYPES[sn.type]?.n||sn.type)}・${esc(who||"")}${sn.stage?"・"+esc(sn.stage):""}・${esc(sn.period||"")}</b>
+  return `<div class="mcardx" data-code="${esc(sn.code)}"><div class="mch"><div><b>${esc(TYPES[sn.type]?.n||sn.type)}${v3Label(sn)?"・"+esc(v3Label(sn)):""}・${esc(who||(sn.type==="event"?"全團":""))}${sn.stage?"・"+esc(sn.stage):""}${sn.period?"・"+esc(sn.period):""}</b>
     <small>${esc(PLACES[sn.at]||sn.at)}・${(sn.sl||[]).map(x=>SLOTS[x]).join("、")}・最長 ${a.depth} 個來回・${a.branch} 個分岔點</small></div>
     <span class="vs ${a.warn.length?"bad":"ok"}">${a.warn.length?"有 "+a.warn.length+" 個提醒":(sn.status==="auto"?"未審・格式通過":"格式通過")}</span></div>
     <p class="mscene">${esc(sn.sc)}</p>${a.warn.length?`<ul class="mwarn">${a.warn.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
@@ -470,10 +515,11 @@ let LIBLIST=[];
 function toSchemaShape(sn){ return {at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,
   nodes:Object.entries(sn.nodes||{}).map(([key,n])=>({key,lines:(n.L||[]).map(l=>({who:l[0]||"narr",text:l[1],expr:l[2]||"neutral"})),
     choices:(n.C||[]).map(c=>({text:c.t,style:c.s,to:c.to||sn.member||"ys",g:+c.g||0,...(c.next?{next:c.next}:{}),...(c.r?{reply:c.r.map(l=>({who:l[0]||"narr",text:l[1],expr:l[2]||"neutral"}))}:{})}))}))} }
-function revisePrompt(sn){
-  const id=sn.member||(sn.who||[])[0]||"ys", romance=ROMANCE.includes(sn.stage), who=[...new Set([id,...(sn.who||[])])].filter(x=>mb(x));
-  return `你是一款韓國女團養成戀愛遊戲的資深編劇。下面是遊戲裡一個舊片段,寫得不夠細緻、不夠像本人。請依照人物設定與寫作守則改寫它。
-種類:${TYPES[sn.type]?.n||sn.type};主角:${mb(id).n};關係階段:${sn.stage||""}——${STAGE_DESC[sn.stage]||""} ${STAGE_VOICE[sn.stage]||""};時期:${sn.period||"練習生期"}——${PERIOD_DESC[sn.period]||""}
+function revisePrompt(list){
+  const sn=list[0], id=sn.member||(sn.who||[])[0]||"ys", romance=ROMANCE.includes(sn.stage), who=[...new Set(list.flatMap(x=>[x.member||(x.who||[])[0]||"ys",...(x.who||[])]))].filter(x=>mb(x));
+  return `你是一款韓國女團養成戀愛遊戲的資深編劇。下面有 ${list.length} 個遊戲裡的舊片段,寫得不夠細緻、不夠像本人。請依照人物設定與寫作守則,逐一改寫。
+主角:${mb(id).n};關係階段:${sn.stage||""}——${STAGE_DESC[sn.stage]||""} ${STAGE_VOICE[sn.stage]||""};時期:${sn.period||"練習生期"}——${PERIOD_DESC[sn.period]||""}
+${list.map((x,i)=>`第 ${i+1} 個的種類:${TYPES[x.type]?.n||x.type}`).join("\n")}
 ${who.map(x=>`【${mb(x).n}(id ${x})】${romance?VOICE[x].replace(/(原型[^)]*)/g,""):VOICE[x]}
 說話樣本(只學語氣):${SAMPLE[x].join(" ")}
 具體細節:${DETAIL[x]}`).join("\n\n")}
@@ -481,42 +527,62 @@ ${ADDR}
 ${CRAFT}
 
 【改寫規則】
+- 回覆的 snippets 要剛好 ${list.length} 個,順序跟原本一樣,一個改寫一個;每個片段的 ref 照原樣保留;不要合併、省略或多寫。
 - 結構完全不變:節點的 key 與順序、每個節點的選項數量與順序、每個選項的 style、to、g、next 都照原樣;只改 sc、台詞、旁白(who 用 narr)與選項的 text。
 - 每個節點 1~5 句;太長的台詞拆短、說教或解說情緒的改成動作與細節;日和只夾一兩個簡單的日文詞(例如 大丈夫です、はい、すごい),不要整句日文或韓文。
 - 選項 text 可以潤飾得更自然,但意思和態度不變;reply 是她對那個選項的反應,要符合她對那種回應方式的感受。
-- 劇情內容、發生的事、地點與時段都保留,不要換成別的故事。
+- 劇情內容、發生的事、地點與時段都保留,不要換成別的故事;不同片段之間不要寫成一樣的句子。
 
 【原本的片段】
-${JSON.stringify({snippets:[toSchemaShape(sn)]})}
+${JSON.stringify({snippets:list.map((x,i)=>({ref:"r"+(i+1),...toSchemaShape(x)}))})}
 
 只回覆改寫後的 JSON,格式同上。` }
 function sameShape(a,b){ const ka=Object.keys(a.nodes), kb=Object.keys(b.nodes); if(ka.join()!==kb.join()) return false;
   return ka.every(k=>{ const ca=a.nodes[k].C||[], cb=b.nodes[k].C||[]; return ca.length===cb.length&&ca.every((c,i)=>c.s===cb[i].s&&(c.next||"")===(cb[i].next||"")) }) }
-let revRunning=false, revState="";
+let revRunning=false, revState="", revGen=0;
 const revTodo=()=>lib().filter(x=>(+x.rev||0)<3&&x.nodes?.start);
-async function reviseOne(sn){
-  const r=await aiJSON(revisePrompt(sn),[],undefined,SCHEMA([sn.at||"practice"],MB.map(m=>m.id)));
-  const out=parseSnippets(r,sn.member||(sn.who||[])[0]||"ys",sn.stage)[0]; if(!out) throw {code:"invalid_json"};
-  if(!sameShape(sn,out)) throw {code:"invalid_json",message:"結構跟原本不同"};
-  for(const [k,n] of Object.entries(out.nodes)) n.C.forEach((c,i)=>{ const o=sn.nodes[k].C[i]; c.to=o.to; c.g=o.g; ["mood","stress","heart","set"].forEach(f=>{ if(o[f]!=null) c[f]=o[f]; else delete c[f] }) });
-  const w=analyse({...sn,nodes:out.nodes}).warn.filter(x=>!/超過 60 字|重複/.test(x)); if(w.length) throw {code:"invalid_json",message:w[0]};
-  await saveItem({...sn,sc:out.sc||sn.sc,nodes:out.nodes,rev:3,revisedAt:Date.now()}) }
+/* 一批:同一位主角、同一個關係階段與時期(人物設定只送一次),最多 A.revN 個、原文合計約 1.6 萬字;改失敗過的單獨送 */
+function revBatch(todo){ const a=todo.find(x=>!(+x.revTry))||todo[0]; if(+a.revTry) return [a];
+  const key=x=>[x.member||(x.who||[])[0]||"ys",x.stage||"",x.period||""].join("|"), k=key(a), out=[]; let len=0;
+  for(const x of todo){ if(+x.revTry||key(x)!==k) continue; const l=JSON.stringify(toSchemaShape(x)).length; if(out.length&&(out.length>=(+A.revN||8)||len+l>16000)) break; out.push(x); len+=l }
+  return out }
+async function failRev(sn,msg){ const t=(+sn.revTry||0)+1; await saveItem(t>=2?{...sn,rev:3,revTry:t,revFail:msg}:{...sn,revTry:t}) }   // 失敗兩次才跳過、保留原文
+async function reviseBatch(list){
+  const sn0=list[0], r=await aiJSON(revisePrompt(list),[],undefined,SCHEMA([...new Set(list.map(x=>x.at||"practice"))],MB.map(m=>m.id),true));
+  const raw=Array.isArray(r)?r:(r?.snippets||[]), outs=raw.map(s=>{ try{ return toInternal(s,sn0.member||(sn0.who||[])[0]||"ys",sn0.stage) }catch(e){ return null } });
+  let ok=0;
+  for(let i=0;i<list.length;i++){ const sn=list[i];
+    const free=o=>o&&!o._used&&o.nodes?.start, byRef=outs.find(o=>free(o)&&o.ref==="r"+(i+1));
+    let out=byRef?(sameShape(sn,byRef)?byRef:null):(free(outs[i])&&!outs[i].ref&&sameShape(sn,outs[i])?outs[i]:null);   // 先用 ref 對回原片段;沒有 ref 才看順序
+    if(!out){ await failRev(sn,"結構跟原本不同"); continue } out._used=true;
+    for(const [k,n] of Object.entries(out.nodes)) n.C.forEach((c,j)=>{ const o=sn.nodes[k].C[j]; c.to=o.to; c.g=o.g; ["mood","stress","heart","set"].forEach(f=>{ if(o[f]!=null) c[f]=o[f]; else delete c[f] }) });
+    const w=analyse({...sn,nodes:out.nodes}).warn.filter(x=>!/超過 60 字|重複/.test(x)); if(w.length){ await failRev(sn,w[0]); continue }
+    const {revTry,revFail,...base}=sn; await saveItem({...base,sc:out.sc||sn.sc,nodes:out.nodes,rev:3,revisedAt:Date.now()}); ok++ }
+  return ok }
 async function reviseLoop(){
-  while(revRunning){
-    const u=usage(); if(u.n>=A.day||u.out){ revState="今天的額度用完了,明天繼續。"; revRunning=false; break }
-    const sn=revTodo()[0]; if(!sn){ revState="全部修訂完成!"; revRunning=false; break }
-    const gap=60000/Math.max(1,A.rpm); lastCalls=lastCalls.filter(t=>Date.now()-t<60000);
+  const my=++revGen; try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){}
+  while(revRunning&&my===revGen){
+    const u=usage(), m=pickModel(u);
+    if(!m||u.n>=A.day){ const at=new Date(Date.now()+msToReset()).toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit"});
+      revState=`${m?`今天的上限 ${A.day} 次`:"今天每個模型的免費額度"}都用完了,台灣時間 ${at} 重置後自動繼續(這個畫面要開著)。今天修好 ${u.rev||0} 個。`; renderAll(); await sleep(msToReset()); continue }
+    const todo=revTodo(); if(!todo.length){ revState="全部修訂完成!"; revRunning=false; break }
+    const batch=revBatch(todo), gap=60000/Math.max(1,A.rpm); lastCalls=lastCalls.filter(t=>Date.now()-t<60000);
     if(lastCalls.length>=A.rpm){ revState="控制速度中…"; await sleep(60000-(Date.now()-lastCalls[0])+500); continue }
-    revState=`修訂中:${mb(sn.member)?.n||""}・${TYPES[sn.type]?.n||""}・${(sn.sc||"").slice(0,18)}…(剩 ${revTodo().length} 個)`; renderAll();
+    revState=`修訂中(${model()}${modelOverride?",備用":""}):${mb(batch[0].member)?.n||""}・一次 ${batch.length} 個(還剩 ${todo.length} 個,今天修好 ${u.rev||0} 個)`; renderAll();
     lastCalls.push(Date.now()); u.n++; setUsage(u);
-    try{ await reviseOne(sn) }catch(e){ if(e?.code==="rate_minute"){ await sleep(65000); continue } if(e?.code==="rate_day"){ revState="今天的額度用完了"; revRunning=false; break }
+    try{ const ok=await reviseBatch(batch); const u2=usage(); u2.rev=(u2.rev||0)+ok; setUsage(u2) }
+    catch(e){ const u3=usage();
+      if(e?.code==="rate_minute"){ u3.n=Math.max(0,u3.n-1); setUsage(u3); revState="每分鐘次數到上限,稍等一下…"; renderAll(); await sleep(Math.max(15,(e.wait||60)+5)*1000); continue }
+      if(e?.code==="rate_day"||(e?.code==="bad_model"&&modelOverride)){ u3.n=Math.max(0,u3.n-1); (u3.outM=u3.outM||{})[model()]=true; setUsage(u3); continue }   // 這個模型今天用完(或名稱不對),換下一個
       if(["no_key","bad_key","bad_model","region"].includes(e?.code)){ revState=ERR[e.code]; revRunning=false; break }
-      await saveItem({...sn,rev:3,revFail:String(e?.message||e?.code||"")}) }      // 修不了的先跳過,保留原文
+      if(e?.code==="network"||e?.code==="server"){ revState=(ERR[e.code]||"")+" 30 秒後重試。"; renderAll(); await sleep(30000); continue }
+      for(const sn of batch) await failRev(sn,String(e?.message||e?.code||"")) }   // 整批壞掉(格式不完整、被擋):各記一次,下次單獨送
     await sleep(gap) }
+  if(my===revGen){ modelOverride=""; try{await wakeLock?.release?.()}catch(e){} wakeLock=null }
   renderAll() }
 
 function libIO(){ return `<div class="mrow"><button class="mbtn" id="mkExport">匯出全部片段(JSON)</button><button class="mbtn" id="mkImport">匯入修訂後的片段</button><input type="file" id="mkImportF" accept=".json,application/json" hidden><span class="mnote">匯出請用電腦版;修訂好的檔案匯入後會覆蓋同代號的片段並同步到雲端。</span></div>
-  <div class="mrow"><button class="mbtn ${revRunning?"danger":""}" id="mkRevise">${revRunning?"停止 AI 修訂":"用新守則請 Gemini 逐一修訂"}</button><span class="mnote">還沒修訂的 ${revTodo().length} 個;${revState?esc(revState):"每分鐘、每天次數沿用自動生產的設定;結構不動,只改台詞與措辭。"}</span></div>` }
+  <div class="mrow"><button class="mbtn ${revRunning?"danger":""}" id="mkRevise">${revRunning?"停止 AI 修訂":"用新守則請 Gemini 逐一修訂"}</button><span class="mnote">還沒修訂的 ${revTodo().length} 個;${revState?esc(revState):"一次送同一位成員的好幾個片段(最多 8 個),額度用完自動換模型;速度與備用模型沿用自動生產的設定。結構不動,只改台詞與措辭。"}</span></div>` }
 function libHTML(){ const list=LIBLIST=lib().filter(x=>(!fM||x.member===fM||(x.pair||"").includes(fM))&&(!fT||x.type===fT)&&(!fS||(fS==="__auto"?x.status==="auto":x.stage===fS))&&(!fQ||JSON.stringify(x.nodes).includes(fQ)||String(x.sc).includes(fQ))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
   return libIO()+`<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
     <select id="fT"><option value="">全部種類</option>${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${fT===k?"selected":""}>${t.n}</option>`).join("")}</select>
@@ -532,6 +598,12 @@ function coverHTML(){ const L=lib(), cnt={}; for(const x of L){const k=cellKey(x
   h+=`</tbody></table></div><h3>雙人與全團</h3><div class="mtbl"><table><thead><tr><th>組合</th>${PAIR_TYPES.map(k=>`<th>${TYPES[k].n}</th>`).join("")}</tr></thead><tbody>`;
   for(const p of PAIRS){ h+=`<tr><td>${pairName(p)}</td>`+PAIR_TYPES.map(k=>{const n=cnt[k+"|"+p+"|"]||0,t=p==="all"?TYPES[k].target*5:TYPES[k].target; total+=t; done+=Math.min(n,t);
       return `<td><button class="cell" style="${heat(n,t)}" data-pcell="${k}|${p}">${n}/${t}</button></td>`}).join("")+`</tr>` }
+  h+=`</tbody></table></div><h3>事件劇本(各事件的版本數)</h3><div class="mtbl"><table><thead><tr><th>事件</th><th>版本</th></tr></thead><tbody>`
+    +Object.keys(EVENTS).map(k=>{ const n=L.filter(x=>x.type==="event"&&x.ev===k).length,t=TYPES.event.target; total+=t; done+=Math.min(n,t);
+      return `<tr><td>${EVENTS[k].n}</td><td><button class="cell" style="${heat(n,t)}" data-ecell="${k}">${n}/${t}</button></td></tr>` }).join("")
+    +`</tbody></table></div><h3>近況(情境 × 成員,各時期合計)</h3><div class="mtbl"><table><thead><tr><th>情境</th>${MB.map(m=>`<th style="color:${m.c}">${m.n}</th>`).join("")}</tr></thead><tbody>`
+    +Object.keys(SITU).map(k=>`<tr><td>${SITU[k].n}</td>`+MB.map(m=>{ const n=L.filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id).length,t=TYPES.situ.target*SITU[k].per.length; total+=t; done+=Math.min(n,t);
+      return `<td><button class="cell" style="${heat(n,t)}" data-scell="${k}|${m.id}">${n}/${t}</button></td>` }).join("")+`</tr>`).join("");
   return `<p class="mnote">整體進度 ${done}/${total}(${Math.round(done/total*100)}%)。點任一格可以直接到「手動產生」那一格。</p>`+h+`</tbody></table></div>` }
 function keyHTML(){ const m=model(), known=["gemini-flash-latest","gemini-flash-lite-latest"].includes(m);
   return `<div class="msheet"><h3>Gemini API 金鑰</h3><p class="mnote">金鑰只存在這台裝置,不會上傳。</p>
@@ -547,7 +619,7 @@ function bind(B){
       const blob=new Blob([JSON.stringify({app:"kpop-scripts",version:2,exportedAt:Date.now(),items},null,1)],{type:"application/json"}), u=URL.createObjectURL(blob), a=document.createElement("a");
       a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000); toast2(`已匯出 ${items.length} 個片段`) };
     q("#mkImport").onclick=()=>q("#mkImportF").click();
-    q("#mkRevise").onclick=()=>{ if(!apiKey()){ toast2("先設定 Gemini API 金鑰"); return } revRunning=!revRunning; if(revRunning){ revState=""; reviseLoop() } renderAll() };
+    q("#mkRevise").onclick=()=>{ if(!apiKey()){ toast2("先設定 Gemini API 金鑰"); return } revRunning=!revRunning; if(revRunning){ revState=""; reviseLoop() } else revGen++; renderAll() };
     q("#mkImportF").onchange=async e=>{ const f=e.target.files?.[0]; if(!f) return; let o; try{ o=JSON.parse(await f.text()) }catch(_){ toast2("檔案不是正確的 JSON"); return }
       const list=(Array.isArray(o)?o:o.items||[]).filter(x=>x?.code&&x?.nodes?.start); if(!list.length){ toast2("檔案裡沒有可用的片段"); return }
       if(!confirm(`匯入 ${list.length} 個片段?同代號的會被覆蓋。`)) return; let n=0;
@@ -555,10 +627,12 @@ function bind(B){
       toast2(`已匯入 ${n} 個片段`) } }
   if(q("#mkAuto")){ q("#mkAuto").onclick=()=>{ running=!running; if(running){aState="";autoLoop()} renderAll() };
     q("#aRpm").onchange=e=>{A.rpm=Math.max(1,Math.min(60,+e.target.value||1));saveA()}; q("#aDay").onchange=e=>{A.day=Math.max(1,+e.target.value||1);saveA()};
-    q("#aAuto").onchange=e=>{A.autoAccept=e.target.checked;saveA()}; q("#aFb").onchange=e=>{A.fallback=e.target.checked;saveA()} }
+    q("#aAuto").onchange=e=>{A.autoAccept=e.target.checked;saveA()}; q("#aFb").onchange=e=>{A.fallback=e.target.checked;saveA()}; q("#aExtra").onchange=e=>{A.extra=e.target.value.trim();saveA()} }
   B.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{P.type=b.dataset.ty;P.count=TYPES[P.type].batch;renderAll()});
   B.querySelectorAll("[data-mm]").forEach(b=>b.onclick=()=>{P.member=b.dataset.mm;renderAll()});
   B.querySelectorAll("[data-pp]").forEach(b=>b.onclick=()=>{P.pair=b.dataset.pp;renderAll()});
+  B.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{P.ev=b.dataset.ev;renderAll()});
+  B.querySelectorAll("[data-sq]").forEach(b=>b.onclick=()=>{P.req=b.dataset.sq; if(!SITU[P.req].per.includes(P.period)) P.period=SITU[P.req].per[0]; renderAll()});
   B.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{P.stage=b.dataset.st;renderAll()});
   B.querySelectorAll("[data-pe]").forEach(b=>b.onclick=()=>{P.period=b.dataset.pe;renderAll()});
   if(q("#tCount")){ q("#tCount").onchange=e=>P.count=Math.max(1,Math.min(8,+e.target.value||1)); q("#tHint").oninput=e=>P.hint=e.target.value }
@@ -575,6 +649,8 @@ function bind(B){
   if(q("#fQ")){ q("#fQ").onchange=e=>{fQ=e.target.value.trim();renderAll()} }
   B.querySelectorAll("[data-cell]").forEach(b=>b.onclick=()=>{const [k,m,s]=b.dataset.cell.split("|");P={...P,type:k,member:m,stage:s,count:TYPES[k].batch};tab="make";renderAll()});
   B.querySelectorAll("[data-pcell]").forEach(b=>b.onclick=()=>{const [k,p]=b.dataset.pcell.split("|");P={...P,type:k,pair:p,count:TYPES[k].batch};tab="make";renderAll()});
+  B.querySelectorAll("[data-ecell]").forEach(b=>b.onclick=()=>{P={...P,type:"event",ev:b.dataset.ecell,count:TYPES.event.batch};tab="make";renderAll()});
+  B.querySelectorAll("[data-scell]").forEach(b=>b.onclick=()=>{const [k,m]=b.dataset.scell.split("|");P={...P,type:"situ",req:k,member:m,period:SITU[k].per.includes(P.period)?P.period:SITU[k].per[0],count:TYPES.situ.batch};tab="make";renderAll()});
   if(q("#keySave")){ const saveK=()=>{const k=q("#keyIn").value.trim(); if(k) localStorage.setItem(KEY_K,k); const m=q("#modelIn").value==="custom"?q("#modelCustom").value.trim():q("#modelIn").value; if(m) localStorage.setItem(KEY_M,m)};
     q("#modelIn").onchange=()=>q("#modelCustom").classList.toggle("hidden",q("#modelIn").value!=="custom");
     q("#keyShow").onclick=()=>{const k=q("#keyIn");k.type=k.type==="password"?"text":"password"};

@@ -143,7 +143,7 @@ async function pullContent(){
   if(localStorage.getItem("kpopGame.itemsFmt")!=="2"){ITEMS={}; localStorage.removeItem("kpopGame.pull.items")}
   const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
   await IDB.set("items",ITEMS); localStorage.setItem("kpopGame.itemsFmt","2");
-  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",room:it.room||"",wx:it.wx||"",
+  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",room:it.room||"",wx:it.wx||"",ev:it.ev||"",req:it.req||"",
     at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
   await IDB.set("scripts",SCRIPTS); localStorage.setItem("kpopGame.pulledOnce","1");
   return a+b}
@@ -169,10 +169,35 @@ async function syncAll(manual,atStart){
 /* ---------- 劇本片段 ---------- */
 const cloudSnips=()=>Object.values(SCRIPTS);
 const snips=()=>[...cloudSnips(),...WX_SNIPS];
-const ENTRY=["encounter","practice","request","friction","surprise","worry","between","pairlong","long","chat"];
-const TALK=["topic","chat","worry","request","encounter"];
-const OFFICE=["chat","request","surprise","long","worry"];
+const ENTRY=["encounter","practice","request","friction","surprise","worry","between","pairlong","long","chat","situ"];
+const TALK=["topic","chat","worry","request","encounter","situ"];
+const OFFICE=["chat","request","surprise","long","worry","situ"];
 const PAIR_TYPES=["between","group","pairlong","away"];
+/* ---------- 劇本工坊 v3:事件紀錄、情境變數、出場條件、事件劇本 ----------
+   片段可以帶 req(出場條件,例如演唱會後一週內)與 {變數}(遊戲執行時換成真正的名稱);變數缺資料的片段不會出場。
+   大事件(演唱會後台、第一個一位、出道、回歸)先從內容庫挑 type:"event"、ev 相同的片段,沒有才用程式內建的那段。 */
+window.logEvent=(k,d={})=>{ S.evLog=[...(S.evLog||[]),{k,day:S.day,d}].slice(-60) };
+const lastEv=k=>{ const L=S.evLog||[]; for(let i=L.length-1;i>=0;i--) if(L[i].k===k) return L[i]; return null };
+const VENUE_N={hall:"星環 Live Hall",arena:"漢江體育館",dome:"首爾巨蛋"};
+const lastConcert=()=>{ const e=lastEv("concert"); if(e) return {day:e.day,title:e.d.title,venue:e.d.venue}; const c=(S.concerts||[]).slice(-1)[0]; return c?{day:c.day,title:c.title,venue:VENUE_N[c.venue]||c.venue}:null };
+const STORY_VARS={最新主打:()=>S.promo?.title||(S.promoHist||[]).slice(-1)[0]?.title||null, 演唱會:()=>lastConcert()?.title||null, 場館:()=>lastConcert()?.venue||null,
+  一位節目:()=>lastEv("win")?.d.show||null, 一位歌曲:()=>lastEv("win")?.d.song||null};
+const sinceDays=e=>e?S.day-e.day:Infinity, mdNow=()=>{ const d=dateOf(S.day); return (d.getMonth()+1)*100+d.getDate() };
+const STORY_REQ={after_concert:()=>sinceDays(lastConcert())<=7, after_win:()=>sinceDays(lastEv("win"))<=5, promo:()=>!!window.promoInfo?.()?.active,
+  pre_comeback:()=>S.comeback!=null&&S.comeback-S.day>=0&&S.comeback-S.day<=14, xmas:()=>{ const x=mdNow(); return x>=1218&&x<=1226 }, newyear:()=>{ const x=mdNow(); return x>=1229||x<=103 }};
+window.STORY_VARS=Object.keys(STORY_VARS); window.STORY_REQ=Object.keys(STORY_REQ);
+const VAR_RE=/\{([^{}\s"]{1,8})\}/g, varCache=new WeakMap();
+function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stringify([sn.sc||"",sn.nodes||{}]).matchAll(VAR_RE)].map(m=>m[1]))]; varCache.set(sn,v) } return v }
+function reqOk(sn){ if(sn.req&&[].concat(sn.req).some(k=>!STORY_REQ[k]?.())) return false; return varsOf(sn).every(k=>STORY_VARS[k]?.()!=null) }
+function fillVars(sn){ if(!varsOf(sn).length) return sn;
+  const rep=t=>typeof t==="string"?t.replace(VAR_RE,(m,k)=>STORY_VARS[k]?.()??m):t, L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
+  const nodes={}; for(const [k,n] of Object.entries(sn.nodes||{})) nodes[k]={...n,L:L(n.L),C:(n.C||[]).map(c=>({...c,t:rep(c.t),...(c.r?{r:L(c.r)}:{})}))};
+  return {...sn,sc:rep(sn.sc),nodes} }
+window.eventSnip=(ev,fallback)=>{ const list=snips().filter(sn=>sn.type==="event"&&sn.ev===ev&&sn.nodes?.start&&(!sn.period||sn.period===periodNow())&&reqOk(sn));
+  if(!list.length) return fallback; const fresh=list.filter(sn=>S.seen[sn.code]==null), sn=pickW(fresh.length?fresh:list);
+  return {...sn,who:sn.who?.length?sn.who:M.map(m=>m.id),member:sn.member||"ys"} };
+window.eventLines=(ev,fallback)=>{ const sn=window.eventSnip(ev,null); if(!sn) return fallback; S.seen[sn.code]=S.day;
+  const L=(fillVars(sn).nodes.start.L||[]).filter(l=>l[0]&&byId(l[0])).slice(0,5); return L.length?L:fallback };
 function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage||sn.stage==="*") return true; const id=sn.member||sn.who[0], cur=stageOf(id);
   const R=window.STAGE_RANK||[], deep=R.indexOf("戀人");
   if(sn.stage==="多人親密") return cur==="多人親密"&&(sn.who||[]).filter(x=>x!==id).every(x=>(window.multiPartners?.(id)||[]).includes(x));
@@ -180,9 +205,10 @@ function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage|
   return sn.stage===cur}
 function pool({sp,room,slot,present,types,member}){
   return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&sn.who?.length
-    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())
+    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())
     &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start)}
-function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)); let x=r()*w.reduce((a,b)=>a+b,0);
+/* 近況片段(有出場條件)只在情境成立時出現,出現時權重 ×3 */
+function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)*(sn.req?3:1)); let x=r()*w.reduce((a,b)=>a+b,0);
   for(let i=0;i<list.length;i++){x-=w[i];if(x<=0) return list[i]} return list[list.length-1]}
 
 /* ---------- 衣櫃 ---------- */
@@ -395,9 +421,9 @@ document.addEventListener("visibilitychange",()=>{$("#stage").classList.toggle("
 
 function absentReports(r){const out=[];
   for(const p of PLACES){if(S.visited.includes(p.id)) continue; const ppl=who(p.id); if(!ppl.length||r()>.45) continue;
-    const ids=ppl.map(m=>m.id), cs=snips().filter(sn=>sn.type==="away"&&sn.at===p.sp&&(!sn.sl?.length||sn.sl.includes(S.slot))&&sn.who?.length&&sn.who.every(id=>ids.includes(id))&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4)));
+    const ids=ppl.map(m=>m.id), cs=snips().filter(sn=>sn.type==="away"&&sn.at===p.sp&&(!sn.sl?.length||sn.sl.includes(S.slot))&&sn.who?.length&&sn.who.every(id=>ids.includes(id))&&reqOk(sn)&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4)));
     const sn=pickW(cs,r);
-    if(sn){S.seen[sn.code]=S.day; const txt=[sn.sc,...(sn.nodes?.start?.L||[]).map(l=>l[0]?`${byId(l[0])?.n||""}:「${l[1]}」`:l[1])].filter(Boolean).join(" ");
+    if(sn){S.seen[sn.code]=S.day; const f=fillVars(sn), txt=[f.sc,...(f.nodes?.start?.L||[]).map(l=>l[0]?`${byId(l[0])?.n||""}:「${l[1]}」`:l[1])].filter(Boolean).join(" ");
       out.push(`<b>${p.n}</b>:${esc(txt)}`); continue}
     const pool=(ABSENT[baseOf(p.id)]||[]).filter(t=>!t.includes("{b}")||ppl.length>=2); if(!pool.length) continue;
     const t=pool[Math.floor(r()*pool.length)],a=ppl[0],b=ppl[1];
@@ -550,6 +576,7 @@ window.testPlay=function(sn,onDone){
 };
 /* ---- 對話引擎:劇本工坊的節點格式 {start:{L:[[說話者,台詞,表情?]],C:[{t,s,to,g,next,r,set,mood,stress,heart}]}} ---- */
 function play(sn,onEnd){
+  sn=fillVars(sn);   // {變數} 換成真正的名稱
   if(window.addBond&&!V?.test&&(sn.who||[]).length>1) addBond(sn.who,sn.type==="friction"?2.5:1.5);
   if(!sn.demoLine&&!String(sn.code).startsWith("demo-line")) S.seen[sn.code]=S.day;
   D={sn,onEnd,q:[],main:sn.member||sn.who?.[0]};
