@@ -263,4 +263,7 @@ function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales
     <div class="golive"><button class="tbtn go" id="tvNext">${S.idx<TOTAL?"準備下一場":"看宣傳期總結"}</button></div></div>`;
   el.classList.remove("hide"); $("#tvNext").onclick=()=>{el.classList.add("hide");render()} }
 
+/* 造型被改版取代、舊的刪掉時(wardrobe.js deleteLook),打歌準備單裡選的舊造型改成新版 */
+window.stageRemapLook=(o,n)=>{ let ch=0; for(const p of [S.plan,S.prev]) if(p?.looks) for(const k in p.looks) if(p.looks[k]===o){ p.looks[k]=n; ch++ }
+  if(ch) save(); return ch };
 })();

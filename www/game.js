@@ -135,7 +135,8 @@ async function backupTick(js,force,why){ if(saveFail&&IDB.db) IDB.set("saveFallb
 const IDB={db:null,
   open(){return new Promise(ok=>{try{const r=indexedDB.open("kpopGame",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>{this.db=r.result;ok()};r.onerror=()=>ok()}catch(e){ok()}})},
   get(k){return new Promise(ok=>{if(!this.db) return ok(null);const q=this.db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>ok(q.result??null);q.onerror=()=>ok(null)})},
-  set(k,v){return new Promise(ok=>{if(!this.db) return ok();const t=this.db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=()=>ok();t.onerror=()=>ok()})}};
+  set(k,v){return new Promise(ok=>{if(!this.db) return ok();const t=this.db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=()=>ok();t.onerror=()=>ok()})},
+  del(k){return new Promise(ok=>{if(!this.db) return ok();const t=this.db.transaction("kv","readwrite");t.objectStore("kv").delete(k);t.oncomplete=()=>ok();t.onerror=()=>ok()})}};
 let SCRIPTS={};   // code → 片段(只留已收錄的)
 let ITEMS={};     // code → 衣帽間造型(精簡)
 let WMEM={};      // 衣帽間成員欄位 m1..m5 → ys..hr

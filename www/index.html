@@ -1388,6 +1388,19 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
   .board span{order:-1;white-space:nowrap;font-size:10px}
   .board b{margin-left:auto;white-space:nowrap;font-size:12.5px}
 }
+/* 衣櫃:總數那一行的按鈕群;改版整理清單 */
+.fsumrow{flex-wrap:wrap;row-gap:calc(.5*var(--u))}
+.fsumrow .fbtns{display:flex;gap:calc(.6*var(--u));flex-wrap:wrap;margin-left:auto}
+.wrev.wold{background:linear-gradient(180deg,#E6E1EA,#BDB4C6);color:#3A2F46}
+.rplist{list-style:none;margin:calc(.6*var(--u)) 0;padding:0;display:flex;flex-direction:column;gap:calc(.5*var(--u));max-height:calc(26*var(--u));overflow:auto}
+.rplist label{display:flex;gap:calc(.8*var(--u));align-items:flex-start;padding:calc(.6*var(--u)) calc(.8*var(--u));border-radius:calc(.5*var(--u));background:rgba(255,255,255,.6);border:1px solid rgba(184,149,90,.35)}
+.rplist input{margin-top:3px;width:18px;height:18px;flex:none}
+.rplist .rpt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rplist b{font:700 max(calc(1.05*var(--u)),12px)/1.3 var(--serif)}
+.rplist small{font-size:max(calc(.8*var(--u)),10px);color:var(--soft)}
+.rplist .rpto{font-size:max(calc(.9*var(--u)),11px)}
+.rplist em{font-style:normal;font-size:max(calc(.85*var(--u)),10px);font-weight:700}
+.rplist em.ok{color:#3D7A3A}.rplist em.no{color:#A8433A}
 </style>
 </head>
 <body>

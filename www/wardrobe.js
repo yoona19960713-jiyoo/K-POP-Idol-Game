@@ -206,7 +206,68 @@ async function saveDoc(col,it){
   const ob=await IDB.get("outbox")||[]; const i=ob.findIndex(x=>x.col===col&&x.it.code===it.code); if(i>=0) ob[i]={col,it}; else ob.push({col,it}); await IDB.set("outbox",ob);
   if(col==="items"){ITEMS[it.code]=it; await IDB.set("items",ITEMS)} return false;
 }
-window.pushOutbox=async()=>{ if(!syAuth()||!syCfg()) return; const ob=await IDB.get("outbox")||[]; if(!ob.length) return; const left=[];
+/* ---------- 刪除造型(2026-10-26,衣櫃的刪除、改版取代共用) ----------
+   本機刪掉 → 雲端寫墓碑(沒登入或沒網路先排隊,下次同步再送)→ 待上傳、待審、換衣快取一起清 →
+   存檔裡指向它的地方(每日穿搭、打歌準備單、演唱會造型)改指新版 → 沒有別的造型或底模用到的圖片,本機與雲端一起刪 */
+const blobRefs=o=>new Set((JSON.stringify(o||{}).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));
+async function tombLook(code){ try{ if(!syAuth()||!syCfg()) throw {code:"未登入"};
+    await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}); return true }
+  catch(e){ const t=await IDB.get("itemTombs")||[]; if(!t.includes(code)){ t.push(code); await IDB.set("itemTombs",t) } return false } }
+async function dropBlobs(hashes){ if(!hashes.size) return 0; const used=blobRefs([Object.values(ITEMS),WMETA]), up=new Set(await IDB.get("blobsUp")||[]); let n=0;
+  for(const h of hashes){ if(used.has(h)) continue; BLOBMEM.delete(h); await IDB.del("blob:"+h); n++;
+    if(syAuth()&&syCfg()&&up.has(h)){ try{ const d0=await syGet(`blobs/${h}-0`), parts=+d0?.fields?.n?.integerValue||1, t=await syToken();
+        for(let i=0;i<parts;i++) await syJSON(syBase()+`/blobs/${h}-${i}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}}); up.delete(h) }catch(e){ window.logErr?.("刪除雲端圖片",e) } } }
+  await IDB.set("blobsUp",[...up]); return n }
+async function deleteLook(code,o={}){ const lk=ITEMS[code]; if(!lk) return false; const to=o.to&&ITEMS[o.to]?o.to:null, refs=blobRefs(lk);
+  delete ITEMS[code]; await IDB.set("items",ITEMS);
+  const ob=await IDB.get("outbox")||[], ob2=ob.filter(x=>!(x.col==="items"&&x.it?.code===code)); if(ob2.length!==ob.length) await IDB.set("outbox",ob2);
+  for(const id of Object.keys(PENDING)) if(id.startsWith(code+"@")) delete PENDING[id]; await IDB.set("pending",PENDING); JOBS=JOBS.filter(j=>j.code!==code);
+  for(const s of Object.keys(lk.members||{})){ const mid=midOf(s); if(mid&&window.DYN) delete window.DYN[code+"@"+mid] }
+  const cloud=await tombLook(code);
+  let lost=false;
+  if(S.wear?.m) for(const [mid,wm] of Object.entries(S.wear.m)) for(const k in wm) if(wm[k]===code){ if(to&&ITEMS[to].members?.[slotOf(mid)]?.sprites) wm[k]=to; else { wm[k]=null; lost=true } }
+  if(S.lastWear) for(const wm of Object.values(S.lastWear)) for(const k in wm||{}) if(wm[k]===code) wm[k]=to;
+  if(S.concertNext?.look===code) S.concertNext.look=to;
+  if(to) window.stageRemapLook?.(code,to);
+  save(); if(lost) ensureWear(true);
+  await dropBlobs(refs).catch(e=>window.logErr?.("刪除圖片",e));
+  return cloud }
+
+/* ---------- 改版取代(2026-10-26):服裝對話匯入的改版造型帶 replaces(被取代的舊造型代號,字串或陣列) ----------
+   新版每位成員都收下新圖(日常服還要處理好遊戲立繪)之後,自動刪除 replaces 指向的舊造型(雲端一起);團體服要全員都好才刪 */
+const reps=it=>[].concat(it?.replaces||[]).filter(c=>c&&c!==it.code);
+const repMembers=it=>Object.entries(it?.members||{}).filter(([s,o])=>midOf(s)&&o?.outfit);
+function replaceReady(it){ const ms=repMembers(it); return !!ms.length&&ms.every(([,o])=>o.img&&!o.redo&&(!wIsDaily(it.occasion)||o.sprites)) }
+function readyNote(it){ if(!it) return "新版不見了"; const ms=repMembers(it), noImg=ms.filter(([,o])=>!o.img||o.redo).length, noSpr=wIsDaily(it.occasion)?ms.filter(([,o])=>o.img&&!o.redo&&!o.sprites).length:0;
+  return noImg?`新版還有 ${noImg} 人沒生圖或還沒收下`:noSpr?`新版還有 ${noSpr} 人的遊戲立繪沒處理`:"新版已完成" }
+async function checkReplaces(code,quiet){ const it=ITEMS[code]; if(!it||!reps(it).length||!replaceReady(it)) return 0; const names=[];
+  for(const old of reps(it)){ const o=ITEMS[old]; if(!o||o.deleted) continue; names.push(o.name||old); await deleteLook(old,{to:code}) }
+  if(names.length&&!quiet) toast2(`舊造型「${names.join("、")}」已被「${it.name||code}」取代,已刪除(雲端一起)`);
+  if(names.length) renderFacility(); return names.length }
+function replacedList(){ const by={};
+  for(const it of wLooks()) for(const old of reps(it)) if(ITEMS[old]&&!ITEMS[old].deleted) (by[old]=by[old]||[]).push(it.code);
+  return Object.entries(by).map(([old,news])=>{ const best=news.find(c=>replaceReady(ITEMS[c]))||news[0]; return {old,to:best,ready:replaceReady(ITEMS[best]),note:readyNote(ITEMS[best])} }) }
+let REPL_SET=new Set();
+function openReplacedList(){ const L=replacedList(); if(!L.length){ toast2("沒有被改版取代的舊造型"); return }
+  const d=$("#facDetail");
+  d.innerHTML=`<div class="dcard edit"><button class="fac-close dx" id="rpClose">取消</button><div class="dtext full">
+    <small>衣櫃・改版整理</small><h2>刪除已被改版取代的舊造型</h2>
+    <p class="fnote">這些舊造型都有新的改版(匯入時帶了 replaces)。刪除後雲端也會一起刪;存檔裡用到它的地方(每日穿搭、打歌準備單、演唱會造型)會改成新版。新版還沒完成的標紅字,不想刪就取消勾選。</p>
+    <ul class="rplist">${L.map((x,i)=>{ const o=ITEMS[x.old], n=ITEMS[x.to]; return `<li><label><input type="checkbox" data-rp="${i}" checked><span class="rpt">
+      <b>${esc(o.name||x.old)}</b><small>${esc(x.old)}・${esc(o.occasion||"")}</small><span class="rpto">→ 改版「${esc(n?.name||x.to)}」</span><em class="${x.ready?"ok":"no"}">${esc(x.note)}</em></span></label></li>` }).join("")}</ul>
+    <div class="frow"><button class="fbtn pri" id="rpGo">刪除勾選的 <span id="rpN">${L.length}</span> 套</button></div></div></div>`;
+  d.classList.remove("hide");
+  const cnt=()=>d.querySelectorAll("[data-rp]:checked").length;
+  $("#rpClose").onclick=()=>d.classList.add("hide");
+  d.querySelectorAll("[data-rp]").forEach(c=>c.onchange=()=>{ $("#rpN").textContent=cnt(); $("#rpGo").disabled=!cnt() });
+  $("#rpGo").onclick=async()=>{ const pick=[...d.querySelectorAll("[data-rp]:checked")].map(c=>L[+c.dataset.rp]); if(!pick.length) return;
+    d.querySelectorAll("button,input").forEach(x=>x.disabled=true); let n=0,off=0;
+    for(const x of pick){ toast2(`刪除中… ${n+1}/${pick.length}`); try{ if(!(await deleteLook(x.old,{to:x.to}))) off++; n++ }catch(e){ window.logErr?.("刪除舊造型",e) } }
+    d.classList.add("hide"); renderFacility(); toast2(`已刪除 ${n} 套被改版取代的舊造型`+(off?`(${off} 套的雲端刪除還沒送出,登入或連上網路後會自動補送)`:",雲端也一起刪了")) } }
+
+window.pushOutbox=async()=>{ if(!syAuth()||!syCfg()) return;
+  const tb=await IDB.get("itemTombs")||[]; if(tb.length){ const keep=[]; for(const c of tb){ try{ await syPatchPath(`items/${encodeURIComponent(c)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}) }catch(e){ keep.push(c) } } await IDB.set("itemTombs",keep) }
+  const ob=await IDB.get("outbox")||[]; if(!ob.length) return; const left=[];
   for(const x of ob){ try{ const slim=await pushDoc(x.col,x.it); if(x.col==="items") ITEMS[x.it.code]=slim }catch(e){left.push(x)} }
   await IDB.set("outbox",left); await IDB.set("items",ITEMS) };
 
@@ -232,14 +293,15 @@ async function takeImport(){
     const o=JSON.parse(new TextDecoder().decode(bytes)); const col=o.app==="kpop-clothes"?"items":o.app==="kpop-scripts"?"scripts":null;
     if(!col||!Array.isArray(o.items)) throw 0;
     if(col==="items") ensureMeta();
-    let n=0,off=0,rv=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
+    let n=0,off=0,rv=0,rp=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
       // 造型可以用成員代號(ys、tr、hy、he、hr)標示,這裡換成衣帽間的成員欄位,不怕欄位順序不同
       if(col==="items"&&it.members){ const ms={}; for(const [k,v] of Object.entries(it.members)) ms[byId(k)?(slotOf(k)||DEFAULT_SLOT[k]):k]=v; it.members=ms;
         if(it.target&&byId(it.target)) it.target=slotOf(it.target)||DEFAULT_SLOT[it.target];
         it.kind=it.kind||"look"; for(const v of Object.values(it.members)){ v.img=v.img||""; v.status=v.status||0 } }
+      if(col==="items"&&reps(it).length) rp++;
       let doc=it; if(col==="items"&&ITEMS[it.code]&&!ITEMS[it.code].deleted){ doc=reviseLook(ITEMS[it.code],it); rv++ }
       if(!(await saveDoc(col,doc))) off++; n++ }
-    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""},已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
+    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""}${rp?`(${rp} 套是取代舊造型的改版:新圖收下後會自動刪除舊的那套)`:""},已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
     setTimeout(()=>toast2(`收到 Claude 創作室送來的 ${what}`+(off?"(還沒登入雲端,登入後會自動上傳)":"")),900);
     if(col==="items"&&window.renderFacility) renderFacility();
   }catch(e){ setTimeout(()=>toast2("收到的資料無法讀取"),900) }
@@ -317,18 +379,19 @@ async function approve(id,quiet){
   if(wIsDaily(lk.occasion)&&window.processSprites){ if(!quiet) toast2("正在處理成遊戲立繪…");
     try{ await processSprites(p.code,p.slot); if(!quiet) toast2(`${byId(midOf(p.slot))?.n}換上「${lk.name}」了:已去背並做好換臉層,可在卡片詳情看六種表情`) }
     catch(e){ spriteFail=true; if(!quiet) toast2("立繪處理失敗:"+(e.message||"請在卡片詳情按「處理成遊戲立繪」再試")) } renderFacility() }
-  return {ok,spriteFail};
+  const replaced=await checkReplaces(p.code,quiet).catch(e=>{ window.logErr?.("改版取代",e); return 0 });
+  return {ok,spriteFail,replaced};
 }
 /* 一鍵全部收下:依序收下每一張(日常服照樣自動去背、做換臉層),最後一次回報結果 */
 let BULK=false;
 async function approveAll(){
   if(BULK) return; const ids=Object.keys(PENDING); if(!ids.length) return;
   if(!confirm(`把待審的 ${ids.length} 張全部收下?\n日常服會逐張自動去背、做換臉層,張數多時要等一下。`)) return;
-  BULK=true; let n=0,off=0,sf=0; renderFacility();
+  BULK=true; let n=0,off=0,sf=0,rd=0; renderFacility();
   for(const id of ids){ if(!PENDING[id]) continue; toast2(`全部收下中… ${n+1}/${ids.length}`);
-    try{ const r=await approve(id,true); if(r){ n++; if(!r.ok) off++; if(r.spriteFail) sf++ } }catch(e){window.logErr?.("wardrobe",e)} }
+    try{ const r=await approve(id,true); if(r){ n++; if(!r.ok) off++; if(r.spriteFail) sf++; rd+=r.replaced||0 } }catch(e){window.logErr?.("wardrobe",e)} }
   BULK=false; renderFacility();
-  toast2(`已收下 ${n} 張`+(off?`(${off} 張還沒同步,登入後會自動上傳)`:"")+(sf?`;${sf} 張立繪處理失敗,請到卡片詳情按「處理成遊戲立繪」`:""));
+  toast2(`已收下 ${n} 張`+(rd?`;刪除了 ${rd} 套被改版取代的舊造型`:"")+(off?`(${off} 張還沒同步,登入後會自動上傳)`:"")+(sf?`;${sf} 張立繪處理失敗,請到卡片詳情按「處理成遊戲立繪」`:""));
 }
 async function retry(id){ delete PENDING[id]; await IDB.set("pending",PENDING); const j=JOBS.find(x=>x.id===id); if(j){j.state="wait";j.err=""} else {const [code,slot]=id.split("@"); JOBS.push({id,code,slot,state:"wait"})} renderFacility(); runQueue() }
 async function discard(id){ delete PENDING[id]; await IDB.set("pending",PENDING); JOBS=JOBS.filter(j=>j.id!==id); renderFacility() }
@@ -477,9 +540,7 @@ function editLook(code){
     d.querySelectorAll("[data-ou]").forEach(t=>lk.members[t.dataset.ou].outfit=t.value); d.querySelectorAll("[data-tw]").forEach(t=>lk.members[t.dataset.tw].twist=t.value);
     lk.updatedAt=Date.now(); const ok=await saveDoc("items",lk); toast2(ok?"已儲存並同步":"已儲存(還沒同步)"); ensureWear(true); openDetail(code,Object.keys(lk.members)[0]); renderFacility() };
   $("#eDel").onclick=async()=>{ if(!confirm(`確定刪除「${lk.name}」?雲端的這套造型也會一起刪除。`)) return;
-    delete ITEMS[code]; await IDB.set("items",ITEMS);
-    try{ await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}) }catch(e){window.logErr?.("wardrobe",e)}
-    d.classList.add("hide"); toast2("已刪除"); ensureWear(true); renderFacility() };
+    const ok=await deleteLook(code); d.classList.add("hide"); toast2(ok?"已刪除(雲端一起)":"已刪除(雲端的刪除登入或連上網路後會自動補送)"); renderFacility() };
 }
 
 /* ---- 成員生圖底模 ---- */
@@ -566,14 +627,15 @@ function cardHTML(lk,mid){
   return `<button class="wcard" data-look="${esc(lk.code)}" data-slot="${slot}">
     <span class="wframe"></span><span class="wimg" data-ref="${has?esc(o.img):""}">${has?"":`<span class="wnone">尚未生圖</span>`}</span>
     ${m?`<span class="wwho" style="--mc:${m.c}">${lk.type==="group"?"全員":m.n}</span>`:""}
-    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}${Object.values(lk.members||{}).some(x=>x?.redo)?`<span class="wrev">改版待生圖</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
+    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}${Object.values(lk.members||{}).some(x=>x?.redo)?`<span class="wrev">改版待生圖</span>`:REPL_SET.has(lk.code)?`<span class="wrev wold">已有改版</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
 function renderCloset(){
+  const RL=replacedList(); REPL_SET=new Set(RL.map(x=>x.old));
   const mems=[["all","全員"],...M.map(m=>[m.id,m.n,m.c])];
   let list=wLooks().filter(l=>(fCat==="all"||wCatOf(l.occasion)===fCat)&&(fMem==="all"||Object.keys(l.members||{}).some(s=>midOf(s)===fMem)));
   list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)||String(b.code).localeCompare(String(a.code)));
   const have=list.filter(l=>Object.values(l.members||{}).some(o=>o?.img)).length;
   return `<div class="fbar"><div class="fchips">${chipRow(mems,fMem,"fm")}</div><div class="fchips">${chipRow(W_CATS,fCat,"fc")}</div></div>
-    <div class="fsumrow"><p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到造型:到選單按「立即同步」":"。還沒讀到造型:請先在選單登入雲端同步")}</p>${wLooks().length?`<button class="fbtn" id="fExport" title="衣櫃全部造型的清單(JSON),給服裝批次設計對話比對用">${isNative?"複製造型清單":"匯出造型清單"}</button>`:""}</div>
+    <div class="fsumrow"><p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到造型:到選單按「立即同步」":"。還沒讀到造型:請先在選單登入雲端同步")}</p><span class="fbtns">${RL.length?`<button class="fbtn" id="fReplOld">刪除已被改版取代的舊造型(${RL.length})</button>`:""}${wLooks().length?`<button class="fbtn" id="fExport" title="衣櫃全部造型的清單(JSON),給服裝批次設計對話比對用">${isNative?"複製造型清單":"匯出造型清單"}</button>`:""}</span></div>
     <div class="wgrid">${list.map(l=>cardHTML(l,fMem==="all"?null:fMem)).join("")||`<p class="fempty">這個分類還沒有造型</p>`}</div>`}
 function renderStudio(){
   const o=oai(), todo=todoList(), pend=Object.entries(PENDING), waiting=JOBS.filter(j=>j.state==="wait"||j.state==="run").length, errs=JOBS.filter(j=>j.state==="err");
@@ -604,6 +666,7 @@ async function renderFacility(){
   body.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{ if(!BULK) approve(b.dataset.ok) });
   const oa=$("#fOkAll"); if(oa) oa.onclick=approveAll;
   const ex=$("#fExport"); if(ex) ex.onclick=exportLooks;
+  const ro=$("#fReplOld"); if(ro) ro.onclick=openReplacedList;
   body.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>retry(b.dataset.retry));
   body.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>discard(b.dataset.no));
   const st=$("#fStart"); if(st) st.onclick=()=>{ for(const t of todoList()){const id=jobId(t.code,t.slot); if(!JOBS.some(j=>j.id===id)) JOBS.push({id,...t,state:"wait"})} runQueue() };
@@ -623,6 +686,8 @@ async function openDetail(code,slot){
       <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}・${poseOf(lk.pose)[1]}</p>
       <div class="fchips">${slots.map(s=>{const mm=byId(midOf(s));return `<button class="fchip${s===slot?" on":""}" data-ds="${s}" style="--mc:${mm.c}">${mm.n}${lk.members[s]?.img?"":" ・未生圖"}</button>`}).join("")}</div>
       ${lk.concept?`<p class="dcon">${esc(lk.concept)}</p>`:""}
+      ${reps(lk).filter(c=>ITEMS[c]).length?`<p class="dcon drev">改版自「${reps(lk).filter(c=>ITEMS[c]).map(c=>esc(ITEMS[c].name||c)).join("、")}」:${lk.type==="group"?"全員":""}新圖都收下${wIsDaily(lk.occasion)?"、遊戲立繪處理好":""}之後,舊的那套會自動刪除(雲端一起)。</p>`:""}
+      ${(()=>{ const by=wLooks().filter(x=>reps(x).includes(lk.code)); return by.length?`<p class="dcon drev">這套已經有改版「${by.map(x=>esc(x.name||x.code)).join("、")}」(${esc(readyNote(by[0]))}),改版完成後會自動刪除。</p>`:"" })()}
       ${o.redo?`<p class="dcon drev">這套改版了:新的描述還沒生圖,遊戲裡先穿舊版。到「設計工作台」按「全部開始生圖」;收下新圖後舊圖會保留,可以改回。</p>`:""}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
         <button class="fbtn" id="dRegen">重新生圖</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dHalf">半身照</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
@@ -647,7 +712,7 @@ async function openDetail(code,slot){
     if(!lk2.members[slot].sprites) delete lk2.members[slot].sprites; lk2.updatedAt=Date.now();
     delete (window.DYN||{})[code+"@"+midOf(slot)]; await saveDoc("items",lk2); ensureWear(true); toast2("已改回舊圖"); openDetail(code,slot); renderFacility() };
   const pb=$("#dProc"); if(pb) pb.onclick=async()=>{ pb.disabled=true; pb.textContent="處理中…(約幾秒)";
-    try{ await processSprites(code,slot); toast2("已重新去背並做好換臉層"); openDetail(code,slot) }catch(e){ toast2("處理失敗:"+(e.message||"")); pb.disabled=false; pb.textContent="再試一次" } };
+    try{ await processSprites(code,slot); const rd=await checkReplaces(code,true); toast2("已重新去背並做好換臉層"+(rd?`;被這套取代的 ${rd} 套舊造型已刪除`:"")); if(ITEMS[code]) openDetail(code,slot) }catch(e){ toast2("處理失敗:"+(e.message||"")); pb.disabled=false; pb.textContent="再試一次" } };
   const box=$("#dSpr"); if(box&&o.sprites){ const mid=midOf(slot); window.needDyn&&needDyn(code,mid);
     const show=()=>{const d=window.DYN?.[code+"@"+mid]; if(d) box.innerHTML=["neutral","smile","laugh","sad","angry","shy"].map(e=>`<img src="${d[e]}" alt="">`).join(""); else setTimeout(show,400)}; show() }
   if(o.img){ const src=await getBlob(o.img); if(src&&fDetail?.code===code&&fDetail?.slot===slot){ $("#dImg").style.backgroundImage=`url(${src})`;
@@ -667,7 +732,7 @@ function lookListJSON(){
       ms[mid]={outfit:o?.outfit||"",twist:o?.twist||"",img:!!o?.img,model:o?.img?(o.model||""):"",sprite:!!o?.sprites,prev:!!o?.prev?.img} }
     return {code:l.code,name:l.name||"",type:l.type||"solo",target:l.target?(midOf(l.target)||l.target):"",occasion:l.occasion||"",
       seasons:Array.isArray(l.seasons)?l.seasons:[],pose:l.pose||"stand",concept:l.concept||"",base:l.base||"",tags:Array.isArray(l.tags)?l.tags:[],
-      attrs:l.attrs||{},source:l.source||"",updated:l.updatedAt?new Date(l.updatedAt).toISOString().slice(0,10):"",members:ms} });
+      attrs:l.attrs||{},source:l.source||"",replaces:reps(l),updated:l.updatedAt?new Date(l.updatedAt).toISOString().slice(0,10):"",members:ms} });
   const by={}; for(const it of items) by[it.occasion]=(by[it.occasion]||0)+1;
   return {app:"kpop-clothes-list",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),count:items.length,byOccasion:by,
     note:"完美女團造型室的衣櫃清單(依場合排序)。members 用成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。img=已有圖,model=生圖模型,sprite=已做成遊戲立繪(日常類才有),prev=有保留的舊圖。",items} }
