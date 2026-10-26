@@ -230,7 +230,7 @@ function suggest(T){
 
 function songSummary(){const T=R.tracks.find(x=>x.id===R.title)||R.tracks[0]; const C=computeTrack(T); const hl={};
   T.secs.forEach(sec=>sec.lines.forEach(l=>{if(l.t==="high") l.who.forEach(id=>hl[id]=(hl[id]||0)+1)}));
-  return {title:{name:T.name||"未命名",score:C.score,killer:C.killer[0]||"",center:C.center||"",highLines:hl,genre:T.g[0],mood:T.mood},release:R.name,type:R.type}}
+  return {title:{name:T.name||"未命名",score:C.score,killer:C.killer[0]||"",center:C.center||"",highLines:hl,genre:T.g[0],mood:T.mood},release:R.name,type:R.type,tracks:R.tracks.map(x=>x.name).filter(Boolean)}}
 
 /* ---------- 存檔與雲端(users/{uid}/songs/state,與歌曲企劃室同一份) ---------- */
 const SKEY="kpopGame.songs";
@@ -263,7 +263,7 @@ function shell(){
   const el=document.createElement("section"); el.id="songFac"; el.className="fac-wrap hide";
   el.innerHTML=`<div class="fac-bg"></div><div class="fac-veil"></div>
     <header class="fac-head"><div class="fac-title"><small id="sfSub"></small><b id="sfTitle"></b></div>
-      <nav class="fac-tabs"><button data-sf="planning">企劃室</button><button data-sf="recording">錄音室</button></nav>
+      <nav class="fac-tabs"><button data-sf="planning">企劃室</button><button data-sf="concert" hidden>演唱會</button><button data-sf="recording">錄音室</button></nav>
       <button class="fac-close" id="sfClose">離開</button></header>
     <div class="fac-body" id="sfBody"></div>`;
   $("#stage").appendChild(el);
@@ -271,14 +271,15 @@ function shell(){
   $("#sfClose").onclick=close;
 }
 function open(kind){ shell(); OPEN=kind; setPause("song",true);
-  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap "+(kind==="planning"?"th-office":"th-studio")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
-  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${kind==="planning"?"office":"studio"}_${SLOTS[S.slot].light}.webp)`;
-  $("#sfTitle").textContent=kind==="planning"?"企劃室":"錄音室"; $("#sfSub").textContent=kind==="planning"?"COMPANY ・ 2F ・ PLANNING":"COMPANY ・ 3F ・ RECORDING";
+  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap "+(kind==="recording"?"th-studio":"th-office")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
+  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${kind==="recording"?"studio":"office"}_${SLOTS[S.slot].light}.webp)`;
+  $("#sfTitle").textContent=kind==="planning"?"企劃室":kind==="concert"?"演唱會企劃":"錄音室"; $("#sfSub").textContent=kind==="recording"?"COMPANY ・ 3F ・ RECORDING":kind==="concert"?"COMPANY ・ 2F ・ CONCERT":"COMPANY ・ 2F ・ PLANNING";
+  const ct=el.querySelector('[data-sf="concert"]'); if(ct) ct.hidden=!(window.concertUnlocked?.()||S.concertNext);
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));
   render() }
 function close(){ $("#songFac").classList.add("hide"); setPause("song",false); OPEN=null; if(dirty) push() }
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
-function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():renderRec() }
+function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():OPEN==="concert"?window.concertPlanRender?.($("#sfBody"),render):renderRec() }
 const note=([k,t])=>`<li class="sn ${k}">${t}</li>`;
 
 /* ---------- 企劃室 ---------- */

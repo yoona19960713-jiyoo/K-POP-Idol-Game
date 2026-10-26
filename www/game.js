@@ -143,7 +143,7 @@ async function pullContent(){
   if(localStorage.getItem("kpopGame.itemsFmt")!=="2"){ITEMS={}; localStorage.removeItem("kpopGame.pull.items")}
   const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
   await IDB.set("items",ITEMS); localStorage.setItem("kpopGame.itemsFmt","2");
-  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",room:it.room||"",wx:it.wx||"",ev:it.ev||"",req:it.req||"",
+  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",room:it.room||"",wx:it.wx||"",ev:it.ev||"",req:it.req||"",arc:it.arc||"",part:+it.part||0,parts:+it.parts||0,
     at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
   await IDB.set("scripts",SCRIPTS); localStorage.setItem("kpopGame.pulledOnce","1");
   return a+b}
@@ -169,9 +169,9 @@ async function syncAll(manual,atStart){
 /* ---------- 劇本片段 ---------- */
 const cloudSnips=()=>Object.values(SCRIPTS);
 const snips=()=>[...cloudSnips(),...WX_SNIPS];
-const ENTRY=["encounter","practice","request","friction","surprise","worry","between","pairlong","long","chat","situ"];
-const TALK=["topic","chat","worry","request","encounter","situ"];
-const OFFICE=["chat","request","surprise","long","worry","situ"];
+const ENTRY=["encounter","practice","request","friction","surprise","worry","between","pairlong","long","chat","situ","arc"];
+const TALK=["topic","chat","worry","request","encounter","situ","arc"];
+const OFFICE=["chat","request","surprise","long","worry","situ","arc"];
 const PAIR_TYPES=["between","group","pairlong","away"];
 /* ---------- 劇本工坊 v3:事件紀錄、情境變數、出場條件、事件劇本 ----------
    片段可以帶 req(出場條件,例如演唱會後一週內)與 {變數}(遊戲執行時換成真正的名稱);變數缺資料的片段不會出場。
@@ -188,6 +188,13 @@ const STORY_REQ={after_concert:()=>sinceDays(lastConcert())<=7, after_win:()=>si
 window.STORY_VARS=Object.keys(STORY_VARS); window.STORY_REQ=Object.keys(STORY_REQ);
 const VAR_RE=/\{([^{}\s"]{1,8})\}/g, varCache=new WeakMap();
 function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stringify([sn.sc||"",sn.nodes||{}]).matchAll(VAR_RE)].map(m=>m[1]))]; varCache.set(sn,v) } return v }
+/* 連續劇情:第 N 段要等第 N-1 段看過、隔一天以上才會出現 */
+function arcOk(sn){ if(!sn.arc||!(+sn.part>1)) return true; const prev=snips().find(x=>x.arc===sn.arc&&+x.part===+sn.part-1), d=prev&&S.seen[prev.code]; return d!=null&&S.day-d>=1 }
+/* 舞台指示(劇本裡的 ["@","bg:kitchen"] 這類):換背景、成員進場離場;sfx 先記著給之後的聲音系統 */
+const DIR_BG=["practice","studio","office","styling","living","kitchen","river","store","van","backstage"];
+function stageDir(t){ const [k,v]=String(t||"").split(":");
+  if(k==="bg"&&DIR_BG.includes(v)) $("#vbg").style.backgroundImage=`url(${seasonArt("bg",v,SLOTS[S.slot].light)})`;
+  else if((k==="enter"||k==="exit")&&V&&byId(v)){ V.present=k==="enter"?[...new Set([...V.present,v])]:V.present.filter(x=>x!==v); drawPeople() } }
 function reqOk(sn){ if(sn.req&&[].concat(sn.req).some(k=>!STORY_REQ[k]?.())) return false; return varsOf(sn).every(k=>STORY_VARS[k]?.()!=null) }
 function fillVars(sn){ if(!varsOf(sn).length) return sn;
   const rep=t=>typeof t==="string"?t.replace(VAR_RE,(m,k)=>STORY_VARS[k]?.()??m):t, L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
@@ -205,10 +212,10 @@ function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage|
   return sn.stage===cur}
 function pool({sp,room,slot,present,types,member}){
   return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&sn.who?.length
-    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())
+    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&arcOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())
     &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start)}
-/* 近況片段(有出場條件)只在情境成立時出現,出現時權重 ×3 */
-function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)*(sn.req?3:1)); let x=r()*w.reduce((a,b)=>a+b,0);
+/* 近況片段(有出場條件)只在情境成立時出現,出現時權重 ×3;連續劇情的下一段 ×4,讓故事接得上 */
+function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)*(sn.req?3:1)*(+sn.part>1&&S.seen[sn.code]==null?4:1)); let x=r()*w.reduce((a,b)=>a+b,0);
   for(let i=0;i<list.length;i++){x-=w[i];if(x<=0) return list[i]} return list[list.length-1]}
 
 /* ---------- 衣櫃 ---------- */
@@ -423,7 +430,7 @@ function absentReports(r){const out=[];
   for(const p of PLACES){if(S.visited.includes(p.id)) continue; const ppl=who(p.id); if(!ppl.length||r()>.45) continue;
     const ids=ppl.map(m=>m.id), cs=snips().filter(sn=>sn.type==="away"&&sn.at===p.sp&&(!sn.sl?.length||sn.sl.includes(S.slot))&&sn.who?.length&&sn.who.every(id=>ids.includes(id))&&reqOk(sn)&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4)));
     const sn=pickW(cs,r);
-    if(sn){S.seen[sn.code]=S.day; const f=fillVars(sn), txt=[f.sc,...(f.nodes?.start?.L||[]).map(l=>l[0]?`${byId(l[0])?.n||""}:「${l[1]}」`:l[1])].filter(Boolean).join(" ");
+    if(sn){S.seen[sn.code]=S.day; const f=fillVars(sn), txt=[f.sc,...(f.nodes?.start?.L||[]).filter(l=>l[0]!=="@").map(l=>l[0]?`${byId(l[0])?.n||""}:「${l[1]}」`:l[1])].filter(Boolean).join(" ");
       out.push(`<b>${p.n}</b>:${esc(txt)}`); continue}
     const pool=(ABSENT[baseOf(p.id)]||[]).filter(t=>!t.includes("{b}")||ppl.length>=2); if(!pool.length) continue;
     const t=pool[Math.floor(r()*pool.length)],a=ppl[0],b=ppl[1];
@@ -589,7 +596,7 @@ function step(){
   if(it.k==="node"){const n=D.sn.nodes[it.key]; if(!n){step();return}
     for(const l of n.L||[]) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
     if((n.C||[]).length) D.q.push({k:"choices",C:n.C}); step(); return}
-  if(it.k==="line"){showText(it.id,it.text,false,it.e);return}
+  if(it.k==="line"){ if(it.id==="@"){ stageDir(it.text); step(); return } showText(it.id,it.text,false,it.e);return}
   if(it.k==="choices"){showChoices(it.C);return}}
 function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
@@ -631,6 +638,7 @@ function choose(c){
 function applyChoice(c){
   const id=c.to||D?.main; if(!S.m[id]) return;
   const xp=applyGain(id,c,(i,t)=>fx(i,t));
+  if(c.bw&&c.bv&&window.addBond&&byId(c.bw)) addBond([id,c.bw],c.bv);   // 這個選擇讓兩位成員之間的默契改變
   if(xp>0&&V&&(V.room==="practice"||V.room==="studio")) coachGrowth(id,V.room);
   save(!V?.test)}
 function fx(id,t){const m=byId(id),e=document.createElement("span");e.style.setProperty("--c",m?.c||"#E85C8A");e.textContent=`${m?.n||""} ${t}`;$("#fx").appendChild(e);setTimeout(()=>e.remove(),2700)}

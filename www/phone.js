@@ -23,8 +23,13 @@ function recount(){ const p=ph(); let n=0; for(const k of Object.keys(p.threads)
 /* ---------- 時段切換時:收到訊息、群組、社群貼文 ---------- */
 function okSnip(sn){ return (!sn.sl?.length||sn.sl.includes(S.slot))&&stageOk(sn)&&(!sn.period||sn.period===periodNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start }
 function pushLines(key,lines){ const p=ph(), t=p.threads[key]=p.threads[key]||[], st=stamp();
-  for(const l of lines||[]) if(l&&l[1]) t.push({w:l[0]||"",t:l[1],e:EXN[l[2]]?l[2]:"",...st});
+  for(const l of lines||[]) if(l&&l[1]&&l[0]!=="@") t.push({w:l[0]||"",t:l[1],e:EXN[l[2]]?l[2]:"",...st});
   if(t.length>80) t.splice(0,t.length-80) }
+/* 其他模組發的貼文(例如演唱會後):o={id,lines,sc?,img?(完整路徑),big?,code?} */
+window.phonePost=o=>{ const p=ph(), r=Math.random, pop=Math.max(5,(S.m[o.id]?.trust||10)), k=o.big?6:1;
+  p.feed.unshift({code:o.code||("post-"+S.day+"-"+o.id),id:o.id,sc:o.sc||"",lines:o.lines||[],likes:Math.round((800+r()*2200)*(1+pop/40)*k),cm:Math.round((40+r()*260)*(1+pop/60)*k),...stamp(),seen:false,choice:null,
+    ...(o.img?{photo:null,img:o.img}:{})});
+  p.feed=p.feed.slice(0,40); if(!o.img) fillPhotos(); recount(); save?.(true) };
 window.phoneIncoming=r=>{
   const p=ph();
   // 個人訊息
@@ -166,21 +171,21 @@ function fillPhotos(){ const p=ph(); if(!SLP().length) return false; let ch=fals
   for(let i=p.feed.length-1;i>=0;i--){ const f=p.feed[i]; if(f.photo!==undefined&&(f.photo===null||SLP().some(x=>x.key===f.photo))) continue;
     f.photo=pickPhoto(f,[p.feed[i+1]?.photo,p.feed[i+2]?.photo].filter(Boolean)); ch=true }
   return ch }
-function viewPhoto(i){ const f=ph().feed[i]; if(!f?.photo) return; const m=byId(f.id)||M[0];
+function viewPhoto(i){ const f=ph().feed[i]; if(!f?.photo&&!f?.img) return; const m=byId(f.id)||M[0], src=f.img||slSrc(f.photo);
   document.getElementById("slView")?.remove();
   const el=document.createElement("div"); el.id="slView"; el.className="slview"; el.style.setProperty("--c",m.c);
-  el.innerHTML=`<div class="slbg" style="background-image:url(${slSrc(f.photo)})"></div>
-    <figure><img src="${slSrc(f.photo)}" alt=""><figcaption>${face(m.id,"sm")}<div><b>${esc(m.n)}</b><small>@perfect_${m.f} ・ ${whenTxt(f)}</small></div><span>♡ ${f.likes.toLocaleString()}</span></figcaption></figure>
+  el.innerHTML=`<div class="slbg" style="background-image:url(${src})"></div>
+    <figure><img src="${src}" alt=""><figcaption>${face(m.id,"sm")}<div><b>${esc(m.n)}</b><small>@perfect_${m.f} ・ ${whenTxt(f)}</small></div><span>♡ ${f.likes.toLocaleString()}</span></figcaption></figure>
     <button class="slx" aria-label="關閉">✕</button>`;
   const close=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),300) };
   el.onclick=close; $("#stage").appendChild(el) }
 function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); if(fillPhotos()) save(); recount();
   const era=dateOf(S.day).getFullYear()>=2020?"粉絲通訊":"STARLOG";
   return head(era)+`<div class="pscroll feed">${p.feed.length?p.feed.map((f,i)=>{const m=byId(f.id)||M[0];
-    const ln=(f.lines||[]).filter(l=>l[1]);
+    const ln=(f.lines||[]).filter(l=>l[1]&&l[0]!=="@");
     return `<article class="ppost"><header>${face(m.id,"sm")}<div><b>${m.n}</b><small>@perfect_${m.f} ・ ${whenTxt(f)}</small></div></header>
       ${f.sc?`<p class="psc">${esc(f.sc)}</p>`:""}${ln.map(l=>l[0]===f.id||!byId(l[0])?`<p>${esc(l[1])}</p>`:`<p class="pfan"><b style="color:${byId(l[0]).c}">${byId(l[0]).n}</b> ${esc(l[1])}</p>`).join("")}
-      ${f.photo?`<button class="pphoto" data-photo="${i}" aria-label="放大照片"><img src="${slSrc(f.photo)}" alt="" loading="lazy"></button>`:""}
+      ${f.img||f.photo?`<button class="pphoto" data-photo="${i}" aria-label="放大照片"><img src="${f.img||slSrc(f.photo)}" alt="" loading="lazy"></button>`:""}
       <footer><span>♡ ${f.likes.toLocaleString()}</span><span>💬 ${f.cm.toLocaleString()}</span>${f.liked?`<span class="on">你按了讚</span>`:`<button data-like="${i}">按讚</button>`}</footer>
       ${f.choice?(()=>{const sn=snipBy(f.code),n=sn?.nodes?.[f.choice]; return n?.C?.length?`<div class="popts in">${n.C.map((c,j)=>`<button data-cmt="${i}:${j}">${esc(stripQ(c.t))}</button>`).join("")}</div>`:""})():""}
       ${f.reply?`<p class="pmy">你:${esc(f.reply)}</p>`:""}${(f.r||[]).map(l=>`<p class="pfan"><b style="color:${byId(l[0])?.c}">${byId(l[0])?.n||""}</b> ${esc(l[1])}</p>`).join("")}</article>`}).join("")

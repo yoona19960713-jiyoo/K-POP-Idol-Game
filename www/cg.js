@@ -57,6 +57,12 @@ const duoOk=k=>{ const [a,b]=k.split("-"); return !!window.multiPartners?.(a)?.i
 const EXTRA={concert_first:{tag:"首場演唱會",t:"謝幕,和一整片的手燈海",line:"五個人牽著手,對著看不到盡頭的光海,深深地鞠了一躬。",lock:"首場演唱會謝幕時收進相簿",c:"#FF2E63"}};
 const extraSrc=(k,small)=>`assets/cg/${k}${small?"_s":""}.webp`;
 const DUO_C="#C9A24B";
+/* 每場自己辦的演唱會一張紀念卡(場館照片 + 標題),代號 concert@遊戲日 */
+const memKeys=()=>(S.concerts||[]).filter(c=>!c.first).map(c=>"concert@"+c.day);
+const memOf=k=>{ const day=+String(k).split("@")[1], c=(S.concerts||[]).find(x=>x.day===day); if(!c) return null; const v=window.concertVenue?.(c.venue)||{n:c.venue,art:"assets/bg/ev_stage.webp"};
+  return {tag:"演唱會",t:`〈${c.title}〉`,line:`${v.n}・${(c.att||0).toLocaleString()} 名觀眾${c.sold?"・全場售罄":""}${c.grade?`・演出評價 ${c.grade}`:""}`,img:v.art,th:v.art.replace(".webp","_s.webp"),c:"#FF2E63",lock:"",dl:`完美女團_演唱會_${c.title}`} };
+const exKeys=()=>[...Object.keys(EXTRA),...memKeys()];
+const exInfo=k=>EXTRA[k]?{...EXTRA[k],img:extraSrc(k),th:extraSrc(k,true),dl:`完美女團_${EXTRA[k].tag}`}:memOf(k);
 
 
 /* ---------- 解鎖紀錄:S.cg[id][階段]=解鎖的遊戲日;S.cgNew=相簿裡還沒看過的 ---------- */
@@ -78,7 +84,7 @@ function scan(){
   S.cgDuo=S.cgDuo||{}; S.cgEx=S.cgEx||{};
   for(const k of Object.keys(DUO)){ if(S.cgDuo[k]!=null||!duoOk(k)) continue;
     S.cgDuo[k]=S.day; (S.cgNew=S.cgNew||[]).push("duo|"+k); n++; if(!first) QUEUE.push(["duo",k]) }
-  for(const k of S.cgExtra||[]){ if(!EXTRA[k]||S.cgEx[k]!=null) continue; S.cgEx[k]=S.day; (S.cgNew=S.cgNew||[]).push("extra|"+k) }   // 演出當下已經看過,只標 NEW
+  for(const k of [...(S.cgExtra||[]).filter(k=>EXTRA[k]),...memKeys()]){ if(S.cgEx[k]!=null) continue; S.cgEx[k]=S.day; (S.cgNew=S.cgNew||[]).push("extra|"+k) }   // 演出當下已經看過,只標 NEW
   if(first){ S.cgInit=true; if(n) setTimeout(()=>toast2(`手機「相簿」收進了 ${n} 張戀愛紀念照`),1500); save?.(true) }
 }
 /* 沒有任何畫面開著時才顯示(對話、手機、設施、事件卡都會暫停時間) */
@@ -105,26 +111,26 @@ function show(id,st,fresh,onClose){ const m=byId(id), [t,line]=CG[id][st];
 function showDuo(k,fresh,onClose){ const [a,b]=k.split("-").map(byId), [t,L]=DUO[k];
   view({img:duoSrc(k),c:a.c,kind:"戀愛紀念",who:`<b>${esc(a.n)} × ${esc(b.n)}</b><i>多人親密</i>`,t,dl:`完美女團_${a.n}x${b.n}_多人親密`,
     line:`<p class="cgduo">${L.map(([w,x])=>{ const m=byId(w); return `<span style="--q:${m.c}"><em>${esc(m.n)}</em>${esc(x)}</span>` }).join("")}</p>`},fresh,onClose) }
-function showExtra(k,fresh,onClose){ const e=EXTRA[k];
-  view({img:extraSrc(k),c:e.c,kind:"特別回憶",who:`<b>完美女團</b><i>${esc(e.tag)}</i>`,t:e.t,line:`<p>${esc(e.line)}</p>`,dl:`完美女團_${e.tag}`},fresh,onClose) }
+function showExtra(k,fresh,onClose){ const e=exInfo(k); if(!e) return;
+  view({img:e.img,c:e.c,kind:"特別回憶",who:`<b>完美女團</b><i>${esc(e.tag)}</i>`,t:e.t,line:`<p>${esc(e.line)}</p>`,dl:e.dl},fresh,onClose) }
 
 
 /* ---------- 手機相簿 ---------- */
 let AM=null;
 window.cgNewCount=()=>(data(),(S.cgNew||[]).length);
 window.cgAlbumHTML=()=>{ data(); S.cgDuo=S.cgDuo||{}; S.cgEx=S.cgEx||{};
-  const cur=AM||M[0].id, dk=Object.keys(DUO), ek=Object.keys(EXTRA), dGot=dk.filter(k=>S.cgDuo[k]!=null), eGot=ek.filter(k=>S.cgEx[k]!=null);
+  const cur=AM||M[0].id, dk=Object.keys(DUO), ek=exKeys(), dGot=dk.filter(k=>S.cgDuo[k]!=null), eGot=ek.filter(k=>S.cgEx[k]!=null);
   const total=M.reduce((a,m)=>a+ORDER.filter(st=>has(m.id,st)).length,0)+dk.length+ek.length,
         got=M.reduce((a,m)=>a+ORDER.filter(st=>unlocked(m.id,st)).length,0)+dGot.length+eGot.length;
   const isNew=k=>(S.cgNew||[]).includes(k);
   const chip=(id,c,label,g,all,nw)=>`<button class="cgchip${id===cur?" on":""}" data-cgm="${id}" style="--c:${c}">${label}<small>${g}/${all}</small>${nw?`<i></i>`:""}</button>`;
   const chips=M.map(m=>chip(m.id,m.c,esc(m.n),ORDER.filter(st=>unlocked(m.id,st)).length,5,ORDER.some(st=>isNew(m.id+"|"+st)))).join("")
-    +chip("duo",DUO_C,"雙人",dGot.length,dk.length,dk.some(k=>isNew("duo|"+k)))+chip("extra",EXTRA.concert_first.c,"回憶",eGot.length,ek.length,ek.some(k=>isNew("extra|"+k)));
+    +chip("duo",DUO_C,"雙人",dGot.length,dk.length,dk.some(k=>isNew("duo|"+k)))+chip("extra","#FF2E63","回憶",eGot.length,ek.length,ek.some(k=>isNew("extra|"+k)));
   const card=(key,th,meta,t)=>`<button class="cgcard" data-cgv="${key}"><span class="cgth" style="background-image:url(${th})"></span><span class="cgmeta"><i>${meta}</i><b>${esc(t)}</b>${isNew(key)?`<em>NEW</em>`:""}</span></button>`;
   const lock=(meta,txt)=>`<div class="cgcard lock"><span class="cgth"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span><span class="cgmeta"><i>${meta}</i><b>${txt}</b></span></div>`;
   const cards=cur==="duo"?dk.map(k=>{ const [a,b]=k.split("-").map(byId), meta=`${esc(a.n)} × ${esc(b.n)}`;
         return S.cgDuo[k]!=null?card("duo|"+k,duoSrc(k,true),meta,DUO[k][0]):lock(meta,`兩人都到「親密」、默契 80(目前 ${Math.round(bondOf(a.id,b.id))})`) }).join("")
-    :cur==="extra"?ek.map(k=>S.cgEx[k]!=null?card("extra|"+k,extraSrc(k,true),esc(EXTRA[k].tag),EXTRA[k].t):lock(esc(EXTRA[k].tag),esc(EXTRA[k].lock))).join("")
+    :cur==="extra"?[...ek].reverse().map(k=>{ const e=exInfo(k); return e?(S.cgEx[k]!=null?card("extra|"+k,e.th,esc(e.tag),e.t):lock(esc(e.tag),esc(e.lock))):"" }).join("")
     :ORDER.filter(st=>has(cur,st)).map(st=>unlocked(cur,st)?card(cur+"|"+st,src(cur,st,true),esc(st),CG[cur][st][0]):lock(esc(st),`關係到「${esc(st)}」時解鎖`)).join("");
   return `<div class="phead"><button class="pback" data-go="home">‹</button><b>相簿</b><span>${got}/${total}</span></div>
     <div class="cgchips">${chips}</div><div class="pscroll cgscroll">${cards}</div>` };

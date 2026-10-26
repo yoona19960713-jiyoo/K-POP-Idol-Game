@@ -106,6 +106,11 @@ const SINGLE_TYPES=Object.keys(TYPES).filter(k=>TYPES[k].kind==="single"), PAIR_
 TYPES.situ={n:"近況",kind:"situ",len:"1~3 個來回,她跟代表聊最近發生的事",places:["practice","dorm","office","studio","out","styling"],target:3,batch:3};
 TYPES.event={n:"事件",kind:"event",len:"依事件說明",places:["practice","dorm","office","studio"],target:6,batch:3};
 const VARS_ALL=["最新主打","演唱會","場館","一位節目","一位歌曲"];
+/* v3 ③:連續劇情(2~4 段、跨好幾天,前一段看過、隔一天以上才出下一段)、舞台指示(換背景、進場、離場、音效標記)、選項影響成員之間的默契 */
+TYPES.arc={n:"連續劇情",kind:"arc",len:"分成 2~4 段、跨好幾天的連續劇情;每段 2~3 個來回",places:["practice","dorm","studio","office","out","styling"],target:1,batch:1};
+const DIR_BG={practice:"練習室",studio:"錄音室",office:"辦公室",styling:"造型室",living:"宿舍客廳",kitchen:"宿舍廚房",river:"漢江",store:"便利商店",van:"保母車",backstage:"後台"};
+const okDir=t=>{ const [k,v]=String(t||"").split(":"); return k==="bg"?!!DIR_BG[v]:(k==="enter"||k==="exit")?!!mb(v):k==="sfx"?/^[a-z_]{2,16}$/.test(v||""):false };
+const NO_DIR=["msg","social","group","away"];
 const SITU={
   after_concert:{n:"演唱會後一週內",vars:["演唱會","場館"],per:["巔峰期","轉型期"],desc:"一週內才在{場館}辦完演唱會〈{演唱會}〉,她還沉浸在那天的餘韻裡:回味某個瞬間、累到全身痠痛、偷看粉絲的心得、捨不得結束。"},
   after_win:{n:"拿下一位後幾天內",vars:["一位節目","一位歌曲"],per:["出道與上升期","巔峰期","轉型期"],desc:"前幾天在《{一位節目}》用〈{一位歌曲}〉拿下一位,她到現在的反應:還不敢相信、偷偷重看影片、想再拿一次、想把功勞分給大家。"},
@@ -141,7 +146,7 @@ function analyse(sn){
   const ids=new Set(MB.map(m=>m.id));
   for(const [k,n] of Object.entries(N)){
     if(!Array.isArray(n.L)) w.push(`節點 ${k} 沒有台詞`);
-    for(const l of n.L||[]) if(l[0]!==""&&!ids.has(l[0])) w.push(`節點 ${k} 有不認得的說話者 ${l[0]}`);
+    for(const l of n.L||[]) if(l[0]==="@"){ if(!okDir(l[1])) w.push(`節點 ${k} 有不認得的舞台指示 ${l[1]}`) } else if(l[0]!==""&&!ids.has(l[0])) w.push(`節點 ${k} 有不認得的說話者 ${l[0]}`);
     for(const c of n.C||[]){ if(!STYLES.includes(c.s)) w.push(`選項「${(c.t||"").slice(0,10)}」的回應方式不合法`);
       if(c.next&&!N[c.next]) w.push(`選項指向不存在的節點 ${c.next}`);
       if(c.to&&!ids.has(c.to)) w.push(`選項對象 ${c.to} 不存在`);
@@ -149,7 +154,7 @@ function analyse(sn){
   }
   // 品質檢查:太長的台詞、解說情緒的套話、整句重複
   const CLICHE=["心裡暖暖的","謝謝你一直陪著我","其實我想說的是","你讓我覺得很溫暖","有你真好","我會一直陪在你身邊"], seenT=new Set();
-  for(const [k,n] of Object.entries(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>c.r||[])]){ const t=String(l[1]||"");
+  for(const [k,n] of Object.entries(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>c.r||[])].filter(l=>l[0]!=="@")){ const t=String(l[1]||"");
     if(t.length>60) w.push(`節點 ${k} 有一句台詞超過 60 字`);
     const cl=CLICHE.find(x=>t.includes(x)); if(cl) w.push(`節點 ${k} 用了套話「${cl}」`);
     if(t.length>6&&seenT.has(t)) w.push(`節點 ${k} 有重複的台詞`); seenT.add(t) }
@@ -157,6 +162,7 @@ function analyse(sn){
   const d=depth("start",new Set()); const branch=Object.values(N).filter(n=>(n.C||[]).filter(c=>c.next).length>=2).length;
   if(sn.type==="long"||sn.type==="pairlong"){ if(d<8) w.push(`最長只有 ${d} 個來回,長對話要 8~10 個`); if(d>11) w.push(`最長 ${d} 個來回,超過 10 個`); if(branch<2) w.push(`只有 ${branch} 個分岔點,長對話至少要 2 個`) }
   if(sn.type==="away"&&(N.start.C||[]).length) w.push("你不在場時的片段不應該有選項");
+  if(sn.dupOf) w.push(`和內容庫裡的「${String(sn.dupOf).slice(0,16)}」太像`);
   const badV=[...JSON.stringify([sn.sc||"",N]).matchAll(/\{([^{}\s"]{1,8})\}/g)].map(m=>m[1]).find(v=>!VARS_ALL.includes(v)); if(badV) w.push(`用了不認得的變數 {${badV}}`);
   if(sn.type==="event"&&EVENTS[sn.ev]?.card&&((N.start.C||[]).length||(N.start.L||[]).some(l=>!l[0]))) w.push("事件卡只能有成員台詞,不要旁白與選項");
   return {depth:d,branch,warn:w};
@@ -200,9 +206,9 @@ const EX_PAIR={at:"dorm",sl:[3,4],who:["hr","hy"],sc:"深夜的宿舍廚房,河�
    {text:"(打開冰箱下層,拿出藏著的另一盒。)",style:"出手幫忙",to:"hr",g:2,reply:[{who:"hr",text:"哇——代表藏私房布丁!",expr:"laugh"},{who:"hy",text:"代表、すごい!好喜歡~",expr:"laugh"}]}]}]};
 /* 回傳格式:用 Gemini 的 responseSchema 鎖住(選項、說話者、表情、地點都是固定的值),不會再有格式錯誤 */
 function SCHEMA(places,who,ref){   // ref:AI 修訂一次送好幾個時,用來對回原本的片段
-  const line={type:"OBJECT",properties:{who:{type:"STRING",enum:[...who,"narr"]},text:{type:"STRING"},expr:{type:"STRING",enum:EXPRS}},required:["who","text","expr"],propertyOrdering:["who","text","expr"]};
-  const choice={type:"OBJECT",properties:{text:{type:"STRING"},style:{type:"STRING",enum:STYLES},to:{type:"STRING",enum:who},g:{type:"INTEGER"},mood:{type:"INTEGER"},stress:{type:"INTEGER"},heart:{type:"INTEGER"},set:{type:"STRING"},next:{type:"STRING"},reply:{type:"ARRAY",items:line}},
-    required:["text","style","to","g"],propertyOrdering:["text","style","to","g","mood","stress","heart","set","next","reply"]};
+  const line={type:"OBJECT",properties:{who:{type:"STRING",enum:[...who,"narr"]},text:{type:"STRING"},expr:{type:"STRING",enum:EXPRS},dir:{type:"STRING"}},required:["who","text","expr"],propertyOrdering:["who","text","expr","dir"]};
+  const choice={type:"OBJECT",properties:{text:{type:"STRING"},style:{type:"STRING",enum:STYLES},to:{type:"STRING",enum:who},g:{type:"INTEGER"},mood:{type:"INTEGER"},stress:{type:"INTEGER"},heart:{type:"INTEGER"},set:{type:"STRING"},bw:{type:"STRING",enum:who},bv:{type:"INTEGER"},next:{type:"STRING"},reply:{type:"ARRAY",items:line}},
+    required:["text","style","to","g"],propertyOrdering:["text","style","to","g","mood","stress","heart","set","bw","bv","next","reply"]};
   const node={type:"OBJECT",properties:{key:{type:"STRING"},lines:{type:"ARRAY",items:line},choices:{type:"ARRAY",items:choice}},required:["key","lines"],propertyOrdering:["key","lines","choices"]};
   const sn={type:"OBJECT",properties:{at:{type:"STRING",enum:places},sl:{type:"ARRAY",items:{type:"INTEGER"}},who:{type:"ARRAY",items:{type:"STRING",enum:who}},sc:{type:"STRING"},w:{type:"INTEGER"},cd:{type:"INTEGER"},nodes:{type:"ARRAY",items:node}},
     required:["at","sl","who","sc","nodes"],propertyOrdering:["at","sl","who","sc","w","cd","nodes"]};
@@ -213,12 +219,14 @@ function toInternal(s0,main,stage){
   if(s0?.nodes&&!Array.isArray(s0.nodes)) return s0;      // 已經是舊格式
   const arr=Array.isArray(s0?.nodes)?s0.nodes:[]; if(!arr.length) return null;
   const ids=new Set(MB.map(m=>m.id)), clamp=(v,a,b)=>Math.max(a,Math.min(b,Math.round(+v||0)));
-  const ln=l=>{ const who=l?.who==="narr"?"":(ids.has(l?.who)?l.who:main), text=String(l?.text||"").trim(); if(!text) return null;
+  const ln=l=>{ if(l?.dir){ const d=String(l.dir).trim(); return okDir(d)?["@",d]:null }   // 舞台指示
+    const who=l?.who==="narr"?"":(ids.has(l?.who)?l.who:main), text=String(l?.text||"").trim(); if(!text) return null;
     return who?[who,text,EXPRS.includes(l?.expr)?l.expr:"neutral"]:["",text] };
   const keys=new Set(), N={}; arr.forEach((n,i)=>{ let k=String(n?.key||"").trim()||("n"+i); if(i===0&&!arr.some(x=>x?.key==="start")) k="start"; while(keys.has(k)) k+="_"; keys.add(k);
     N[k]={L:(n.lines||[]).map(ln).filter(Boolean),C:(n.choices||[]).map(c=>{ const o={t:String(c?.text||"").trim(),s:STYLES.includes(c?.style)?c.style:"陪著",to:ids.has(c?.to)?c.to:main,g:clamp(c?.g,-2,4)};
       if(c?.mood) o.mood=clamp(c.mood,-6,6); if(c?.stress) o.stress=clamp(c.stress,-6,6);
       if(c?.heart&&!["戒備"].includes(stage)) o.heart=clamp(c.heart,0,2); if(c?.set&&/^[a-zA-Z][a-zA-Z0-9]{1,30}$/.test(c.set)) o.set=c.set;
+      if(c?.bw&&ids.has(c.bw)&&c.bw!==o.to&&c?.bv) o.bw=c.bw, o.bv=clamp(c.bv,-2,3);
       if(c?.next) o.next=String(c.next).trim(); const r=(c?.reply||[]).map(ln).filter(Boolean); if(r.length) o.r=r; return o }).filter(c=>c.t)} });
   for(const n of Object.values(N)) for(const c of n.C) if(c.next&&!N[c.next]) delete c.next;    // 指向不存在的節點 → 在這裡結束
   if(!N.start) return null;
@@ -226,8 +234,9 @@ function toInternal(s0,main,stage){
 function parseSnippets(r,main,stage){ const arr=Array.isArray(r)?r:(r?.snippets||[]); return arr.map(s=>toInternal(s,main,stage)).filter(s=>s?.nodes?.start) }
 /* 同一格(避免重複情境、算目前有幾個):事件看 ev;近況看情境與主角;其他照舊 */
 function sameCell(x,p){ const t=TYPES[p.type]; if(x.type!==p.type) return false;
+  if(t.kind==="arc") return x.member===p.member&&x.stage===p.stage&&(!p.period||x.period===p.period);
   return t.kind==="event"?x.ev===p.ev:t.kind==="situ"?(x.req===p.req&&x.member===p.member&&(!p.period||x.period===p.period)):t.kind==="pair"?x.pair===p.pair:(x.member===p.member&&x.stage===p.stage) }
-const mainOf=p=>{ const t=TYPES[p.type]; return t.kind==="event"?"ys":t.kind==="pair"?(p.pair==="all"?"ys":p.pair.split("-")[0]):p.member };
+const mainOf=p=>{ const t=TYPES[p.type]; return t.kind==="event"?"ys":t.kind==="arc"?p.member:t.kind==="pair"?(p.pair==="all"?"ys":p.pair.split("-")[0]):p.member };
 function buildPrompt(p,existing){
   const t=TYPES[p.type]; const who=t.kind==="event"?MB.map(m=>m.id):t.kind==="pair"?(p.pair==="all"?MB.map(m=>m.id):p.pair.split("-")):[p.member];
   const romance=ROMANCE.includes(p.stage);
@@ -241,9 +250,9 @@ function buildPrompt(p,existing){
 【這批要寫的】
 種類:${t.n}(${t.len})
 ${t.kind==="event"?"出場:全員(五位成員都在)":t.kind==="pair"?`主角組合:${pairName(p.pair)}`:`主角:${mb(p.member).n}(id ${p.member})`}
-${t.kind==="single"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}\n這個階段的說話方式:${STAGE_VOICE[p.stage]||""}`:t.kind==="situ"?"她對代表的關係:不限定,這種片段會在信任到夥伴之間任何時候出現;語氣自然親近,不寫戀愛情節。":t.kind==="event"?"五位成員都在場,語氣依各自的個性;不寫戀愛情節(事件會在任何關係階段發生)。":`以成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
+${t.kind==="single"||t.kind==="arc"?`她對代表的關係階段:${p.stage}——${STAGE_DESC[p.stage]}\n這個階段的說話方式:${STAGE_VOICE[p.stage]||""}`:t.kind==="situ"?"她對代表的關係:不限定,這種片段會在信任到夥伴之間任何時候出現;語氣自然親近,不寫戀愛情節。":t.kind==="event"?"五位成員都在場,語氣依各自的個性;不寫戀愛情節(事件會在任何關係階段發生)。":`以成員之間的互動為主;代表在場時的語氣依一般信任階段。`}
 ${p.period?`時期:${p.period}——${PERIOD_DESC[p.period]}`:"時期:出道之後(可能在任何一年發生,不要寫特定年份的新聞)。"}${romance?"\n角色都是原創人物,不要提到或影射任何真實的人、團體或公司;戀情是祕密,出道後公開戀愛會被粉絲反彈,要有怕被拍到、被成員撞見的緊張感。":""}
-數量:${p.count} 個,情境、地點、時段、情緒要明顯不同。
+${t.kind==="arc"?`段數:${p.count} 段(同一個故事,依序發生)。`:`數量:${p.count} 個,情境、地點、時段、情緒要明顯不同。`}
 可用地點(at):${t.places.map(k=>`${k}=${PLACES[k]}`).join("、")}${t.places.filter(k=>PLACE_NOTE[k]).map(k=>`\n${PLACES[k]}的樣子:${PLACE_NOTE[k]}`).join("")}
 時段(sl,數字,可以多個):0 清晨、1 上午、2 下午、3 晚上、4 深夜。
 ${p.hint?`玩家補充:${p.hint}\n`:""}${v3Block(p)}
@@ -266,6 +275,9 @@ ${CRAFT}
 - 選項 style 只能是:${STYLES.join("、")};to 是這個選項影響的成員;g 是影響強度,整數 -2~4,依她對這種回應方式的倍率決定。mood、stress 可省略或填 -6~6;heart 只在特別心動的時刻填 1~2,而且只在信任以上的階段。set 可記一個英文小寫駝峰的旗標,讓之後的劇情記得。
 - ${t.kind==="pair"||t.kind==="event"?"lines 裡多位成員輪流說話,成員之間要真的互相回應。":"lines 以主角為主,其他成員可以偶爾出現。"}${t.kind==="single"&&p.type!=="long"?"":""}
 ${p.type==="away"?"- 這種片段沒有選項:只有 start 一個節點,choices 留空陣列。":""}
+${NO_DIR.includes(p.type)?"":`- 需要時可以在 lines 裡放舞台指示(不是台詞,一個片段最多 3 個,不要每段都用):{"who":"narr","text":"","expr":"neutral","dir":"bg:地點"} 中途換場景(地點只能是 ${Object.entries(DIR_BG).map(([k,v])=>k+"="+v).join("、")});dir:"enter:成員id" 讓一位成員進場、"exit:成員id" 讓她離場(進場的人要寫在 who 裡);dir:"sfx:音效英文小寫"(例如 door、rain、phone、knock,之後的聲音系統用)。`}
+${t.kind==="pair"||t.kind==="event"||t.kind==="arc"?"- 選項可以加 bw(另一位成員 id)與 bv(-2~3):這個選擇讓 to 和 bw 兩人之間的默契改變,例如幫兩人和好 +2、偏袒其中一方 -1;只在兩位成員都在場時用。":""}
+${t.kind==="arc"?`- 這是連續劇情:snippets 依序是第 1 段、第 2 段……(共 ${p.count} 段),每段都是獨立的片段,發生在不同天(後一段至少隔一天);後一段要接著前一段的發展(例如起因 → 轉折 → 收尾),可以提到前一段發生的事。每段的 sc 開頭不用寫「第幾段」。`:""}
 ${existing.length?`- 這一格已經有以下情境,請避免重複:\n${existing.map(x=>"  · "+x).join("\n")}`:""}
 
 【範例(只示範品質與格式,內容不要照抄)】
@@ -309,6 +321,8 @@ function nextTask(){
       for(const p of PAIRS){const tgt=Math.round(TYPES[ty].target*(p==="all"?5:1)*PW.pair[pi]); const have=(cnt[ty+"|"+p+"||"+per]||0)+(pend[ty+"|"+p+"||"+per]||0); if(tgt-have>gap){gap=tgt-have;best=p}}
       if(best) return {type:ty,member:"",pair:best,stage:"",period:per,count:Math.min(TYPES[ty].batch,gap),hint:""};
     }
+    for(const st of STAGES){ if(PW[st][pi]<.25) continue; const m=MB.find(m=>![...L,...rq].some(x=>x.type==="arc"&&x.member===m.id&&x.stage===st&&x.period===per));
+      if(m) return {type:"arc",member:m.id,pair:"",stage:st,period:per,count:3,hint:""} }
     for(const k of Object.keys(SITU)){ if(!SITU[k].per.includes(per)) continue; let best=null,gap=0;
       for(const m of MB){ const have=[...L,...rq].filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id&&x.period===per).length; if(TYPES.situ.target-have>gap){gap=TYPES.situ.target-have;best=m.id} }
       if(best) return {type:"situ",req:k,member:best,pair:"",stage:"",period:per,count:Math.min(TYPES.situ.batch,gap),hint:""} }
@@ -323,14 +337,34 @@ async function produce(task){
   const r=await aiJSON(buildPrompt(task,existing),[],undefined,SCHEMA(t.places,MB.map(m=>m.id)));
   const arr=parseSnippets(r,mainOf(task),task.stage); let ok=0,bad=[];
   if(!arr.some(x=>x?.nodes?.start)) throw {code:"invalid_json",message:"回傳裡沒有可用的片段"};
-  for(const s0 of arr){ if(!s0?.nodes?.start) continue;
-    const sn={code:`${task.type}-${task.ev||task.req||""}${task.ev||task.req?"-":""}${t.kind==="pair"?task.pair:task.member||"all"}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
+  const news=[];
+  const arcId=t.kind==="arc"?`arc-${task.member}-${Date.now().toString(36)}`:"", parts=arr.filter(x=>x?.nodes?.start).length; let part=0;
+  for(const s0 of arr){ if(!s0?.nodes?.start) continue; part++;
+    const sn={...(arcId?{arc:arcId,part,parts}:{}),code:`${task.type}-${task.ev||task.req||""}${task.ev||task.req?"-":""}${t.kind==="pair"?task.pair:task.member||"all"}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
       type:task.type,k:t.n,member:task.member,pair:task.pair,stage:task.stage,period:task.period,ev:task.ev||"",req:task.req||"",
       at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:t.kind==="event"?MB.map(m=>m.id):Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[task.member],
       sc:String(s0.sc||""),w:+s0.w||3,cd:+s0.cd||4,nodes:s0.nodes,createdAt:Date.now(),params:{...task}};
-    const pass=!analyse(sn).warn.length;
+    markDup(sn,news); news.push(sn) }
+  if(A.score&&news.some(sn=>!analyse(sn).warn.length)) await scoreSnips(news.filter(sn=>!analyse(sn).warn.length));
+  for(const sn of news){ const pass=!analyse(sn).warn.length&&(sn.score==null||sn.score>=(+A.minScore||7));
     if(pass&&A.autoAccept){sn.status="auto"; await saveItem(sn); ok++} else bad.push(sn) }
   return {ok,bad,total:arr.length};
+}
+/* v3 ④:去重複(和同一格的內容庫比字詞重疊)與 AI 評分(多用一次額度,設定裡打開) */
+const textOf=sn=>Object.values(sn.nodes||{}).flatMap(n=>[...(n.L||[]),...(n.C||[]).flatMap(c=>[[0,c.t],...(c.r||[])])]).filter(l=>l[0]!=="@").map(l=>l[1]).join("").replace(/[\s,。!?、…「」『』~—,.!?]/g,"");
+const grams=s=>{ const g=new Set(); for(let i=0;i<s.length-1;i++) g.add(s.slice(i,i+2)); return g };
+function simOf(a,b){ const A1=grams(a),B1=grams(b); if(!A1.size||!B1.size) return 0; let n=0; for(const x of A1) if(B1.has(x)) n++; return n/(A1.size+B1.size-n) }
+/* 和內容庫、待審裡同一格的片段比,字詞重疊超過一半就標重複 */
+function markDup(sn,others=[]){ const me=textOf(sn); if(me.length<20) return;
+  for(const x of [...lib(),...reviewQ_()].filter(x=>sameCell(x,sn)).concat(others)){ if(x.code===sn.code||(sn.arc&&x.arc===sn.arc)) continue; if(simOf(me,textOf(x))>.5){ sn.dupOf=x.sc||x.code; return } } }
+async function scoreSnips(list){ try{ lastCalls.push(Date.now()); const u=usage(); u.n++; setUsage(u);
+    const r=await aiJSON(`你是嚴格的韓國女團戀愛遊戲編劇審稿人。依下面的寫作守則替每個片段打 1~10 分:8 分以上是像本人、有畫面、有轉折、台詞自然;6 分以下是套話、說教、解說情緒、不像她、選項沒有差別。
+${CRAFT}
+【要評的片段】(i 是編號)
+${JSON.stringify(list.map((sn,i)=>({i,主角:mb(sn.member)?.n||pairName(sn.pair||"all"),種類:TYPES[sn.type]?.n,sc:sn.sc,lines:Object.values(sn.nodes).flatMap(n=>(n.L||[]).filter(l=>l[0]!=="@").map(l=>(mb(l[0])?.n||"旁白")+":"+l[1])),選項:Object.values(sn.nodes).flatMap(n=>(n.C||[]).map(c=>c.t))})))}
+只回覆 JSON:{"scores":[{"i":0,"score":7,"why":"一句理由"}]}`,[],undefined,{type:"OBJECT",properties:{scores:{type:"ARRAY",items:{type:"OBJECT",properties:{i:{type:"INTEGER"},score:{type:"INTEGER"},why:{type:"STRING"}},required:["i","score"]}}},required:["scores"]});
+    for(const s of r?.scores||[]){ const sn=list[+s.i]; if(sn){ sn.score=Math.max(1,Math.min(10,Math.round(+s.score||0))); sn.why=String(s.why||"").slice(0,60) } } }
+  catch(e){ if(e?.code==="rate_day"){ const u=usage(); (u.outM=u.outM||{})[model()]=true; setUsage(u) } }   // 評分失敗就只看格式,不浪費已經寫好的片段
 }
 async function autoLoop(){
   try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){}
@@ -378,9 +412,9 @@ function cleanExpr(nodes){ for(const n of Object.values(nodes||{})){ for(const l
   for(const c of n.C||[]) for(const l of c.r||[]) if(l.length>2&&!EXPRS.includes(l[2])) l.length=2 } return nodes }
 async function persist(){ const o={}; for(const x of items) o[x.code]=x; await IDB.set("scriptsAll",o) }
 function toGame(sn){ // 遊戲玩的時候用的精簡內容庫
-  if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]={code:sn.code,type:sn.type,member:sn.member||"",pair:sn.pair||"",stage:sn.stage||"",period:sn.period||"",room:sn.room||"",wx:sn.wx||"",ev:sn.ev||"",req:sn.req||"",at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,nodes:sn.nodes||{}};
+  if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]={code:sn.code,type:sn.type,member:sn.member||"",pair:sn.pair||"",stage:sn.stage||"",period:sn.period||"",room:sn.room||"",wx:sn.wx||"",ev:sn.ev||"",req:sn.req||"",arc:sn.arc||"",part:+sn.part||0,parts:+sn.parts||0,at:sn.at,sl:sn.sl||[],who:sn.who||[],sc:sn.sc||"",w:+sn.w||3,cd:+sn.cd||4,nodes:sn.nodes||{}};
   else delete SCRIPTS[sn.code] }
-async function saveItem(it){ const body={...it,updatedAt:Date.now()}; if(body.nodes) cleanExpr(body.nodes);
+async function saveItem(it,checkDup){ const body={...it,updatedAt:Date.now()}; if(body.nodes) cleanExpr(body.nodes); if(checkDup) markDup(body);
   const i=items.findIndex(x=>x.code===body.code); if(i>=0) items[i]=body; else items.push(body);
   await persist(); toGame(body); await IDB.set("scripts",SCRIPTS); saveDoc("scripts",body); renderAll() }
 async function removeItem(code){ items=items.filter(x=>x.code!==code); await persist(); delete SCRIPTS[code]; await IDB.set("scripts",SCRIPTS);
@@ -450,6 +484,7 @@ function autoHTML(){
     <label class="mck"><input type="checkbox" id="aFb" ${A.fallback?"checked":""}> 今天額度用完時自動換模型繼續(主模型 → 備用模型 → Flash-Lite;每個模型的免費額度分開算)</label>
     <div class="mrow"><span class="mnote">備用模型</span><input id="aExtra" class="grow" value="${esc(A.extra||"")}" placeholder="例如 gemini-2.5-flash, gemini-2.5-flash-lite(用逗號分隔)"></div>
     <label class="mck"><input type="checkbox" id="aAuto" ${A.autoAccept?"checked":""}> 格式通過的直接收進內容庫(標為「未審」);沒通過的重試,仍不行才放進待審</label>
+    <label class="mck"><input type="checkbox" id="aScore" ${A.score?"checked":""}> 寫完再請 Gemini 照守則評分(每批多用一次額度),${+A.minScore||7} 分以上才自動收下,其他進待審;和內容庫太像的一律進待審</label>
     <button class="mbtn ${running?"danger":"pri"} big" id="mkAuto">${running?"停止自動生產":"開始自動生產"}</button></div>
     <div class="msheet log"><h3>生產紀錄</h3>
     <p>狀態:<b>${running?(aState||"準備中…"):"未啟動"}</b>${running&&aWait>Date.now()?`(${fmtMs(aWait-Date.now())})`:""}</p>
@@ -464,7 +499,8 @@ function makeHTML(){ const t=TYPES[P.type];
   const have=lib().filter(x=>sameCell(x,P)).length;
   return `<div class="msheet"><h3>手動產生一批</h3>
     <h4>種類</h4><div class="mchips">${chipsH(Object.keys(TYPES),P.type,"ty",k=>TYPES[k].n)}</div>
-    ${t.kind==="event"?`<h4>事件</h4><div class="mchips">${chipsH(Object.keys(EVENTS),P.ev,"ev",k=>EVENTS[k].n)}</div>`
+    ${t.kind==="arc"?`<h4>主角</h4><div class="mchips">${chipsH(MB.map(m=>m.id),P.member,"mm",id=>mb(id).n)}</div><h4>她對代表的關係階段</h4><div class="mchips">${chipsH(STAGES,P.stage,"st")}</div><p class="mnote">數量是這段連續劇情要分成幾段(2~4)。</p>`
+      :t.kind==="event"?`<h4>事件</h4><div class="mchips">${chipsH(Object.keys(EVENTS),P.ev,"ev",k=>EVENTS[k].n)}</div>`
       :t.kind==="situ"?`<h4>情境</h4><div class="mchips">${chipsH(Object.keys(SITU),P.req,"sq",k=>SITU[k].n)}</div><h4>主角</h4><div class="mchips">${chipsH(MB.map(m=>m.id),P.member,"mm",id=>mb(id).n)}</div>`
       :t.kind==="single"?`<h4>主角</h4><div class="mchips">${chipsH(MB.map(m=>m.id),P.member,"mm",id=>mb(id).n)}</div>
       <h4>她對代表的關係階段</h4><div class="mchips">${chipsH(STAGES,P.stage,"st")}</div>`:`<h4>組合</h4><div class="mchips">${chipsH(PAIRS,P.pair,"pp",pairName)}</div>`}
@@ -481,24 +517,25 @@ async function generate(params){
   const existing=lib().filter(x=>sameCell(x,params)).slice(-25).map(x=>x.sc);
   ctl=new AbortController(); mErr=false; mStatus=`生成中…${t.n}通常需要${params.type==="long"?"半分鐘到一分鐘":"十幾秒"}。`; renderAll();
   try{ const r=await aiJSON(buildPrompt(params,existing),[],ctl.signal,SCHEMA(t.places,MB.map(m=>m.id))); const arr=parseSnippets(r,mainOf(params),params.stage); let n=0;
+    const arcId=t.kind==="arc"?`arc-${params.member}-${Date.now().toString(36)}`:"", parts=arr.filter(x=>x?.nodes?.start).length; let part=0;
     for(const s0 of arr){ if(!s0?.nodes?.start) continue;
       await saveItem({code:`${params.type}-${t.kind==="event"?params.ev+"-all":t.kind==="situ"?params.req+"-"+params.member:t.kind==="pair"?params.pair:params.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,
-        type:params.type,k:t.n,member:t.kind==="single"||t.kind==="situ"?params.member:"",pair:t.kind==="pair"||t.kind==="event"?params.pair:"",stage:t.kind==="single"?params.stage:"",period:params.period,
+        type:params.type,k:t.n,member:t.kind==="single"||t.kind==="situ"||t.kind==="arc"?params.member:"",pair:t.kind==="pair"||t.kind==="event"?params.pair:"",stage:t.kind==="single"||t.kind==="arc"?params.stage:"",period:params.period,
         ev:t.kind==="event"?params.ev:"",req:t.kind==="situ"?params.req:"",
         at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:t.kind==="event"?MB.map(m=>m.id):Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[params.member],
-        sc:String(s0.sc||""),w:+s0.w||3,cd:+s0.cd||4,nodes:s0.nodes,status:"review",createdAt:Date.now(),params:{...params}}); n++ }
+        sc:String(s0.sc||""),w:+s0.w||3,cd:+s0.cd||4,nodes:s0.nodes,status:"review",createdAt:Date.now(),params:{...params},...(arcId?{arc:arcId,part:++part,parts}:{})},true); n++ }
     mStatus=n?`產生了 ${n} 個,請到「待審」看。`:"這次沒有產生可用的片段,請再試一次。";
   }catch(e){ if(e?.code==="cancelled") mStatus="已停止。"; else {mStatus=ERR[e?.code]||"生成失敗,請再試一次。"; mErr=true} }
   finally{ ctl=null; renderAll() }
 }
 /* 卡片與對話樹 */
 function treeHTML(sn){ const N=sn.nodes||{}; const order=["start",...Object.keys(N).filter(k=>k!=="start")];
-  const ln=(l,cls="")=>`<div class="tln ${cls}"><b style="color:${mb(l[0])?.c||"inherit"}">${esc(mb(l[0])?.n||l[0])}</b>${esc(l[1])}${l[2]?`<i class="ex">${{neutral:"平常",smile:"微笑",laugh:"大笑",sad:"難過",angry:"生氣",shy:"害羞"}[l[2]]||""}</i>`:""}</div>`;
+  const ln=(l,cls="")=>l[0]==="@"?`<div class="tln dir">〔${esc({bg:"換場景",enter:"進場",exit:"離場",sfx:"音效"}[String(l[1]).split(":")[0]]||"指示")}:${esc(DIR_BG[String(l[1]).split(":")[1]]||mb(String(l[1]).split(":")[1])?.n||String(l[1]).split(":")[1])}〕</div>`:`<div class="tln ${cls}"><b style="color:${mb(l[0])?.c||"inherit"}">${esc(mb(l[0])?.n||l[0])}</b>${esc(l[1])}${l[2]?`<i class="ex">${{neutral:"平常",smile:"微笑",laugh:"大笑",sad:"難過",angry:"生氣",shy:"害羞"}[l[2]]||""}</i>`:""}</div>`;
   return order.filter(k=>N[k]).map(k=>{const n=N[k]; return `<div class="tnode"><div class="tk">${k==="start"?"開始":esc(k)}</div>${(n.L||[]).map(l=>ln(l)).join("")}
-    ${(n.C||[]).map(c=>`<div class="topt"><span class="sty">${esc(c.s)}${c.to&&mb(c.to)?"→"+mb(c.to).n:""}・${c.g>0?"+":""}${c.g||0}${c.heart?"・心動+"+c.heart:""}${c.set?"・旗標 "+esc(c.set):""}</span>${esc(c.t)}
+    ${(n.C||[]).map(c=>`<div class="topt"><span class="sty">${esc(c.s)}${c.to&&mb(c.to)?"→"+mb(c.to).n:""}・${c.g>0?"+":""}${c.g||0}${c.heart?"・心動+"+c.heart:""}${c.set?"・旗標 "+esc(c.set):""}${c.bw?`・${mb(c.to)?.n||""}×${mb(c.bw)?.n||""} 默契${c.bv>0?"+":""}${c.bv}`:""}</span>${esc(c.t)}
       ${c.next?`<span class="nx">→ ${esc(c.next)}</span>`:(c.r||[]).map(l=>ln(l,"r")).join("")||`<span class="nx">結束</span>`}</div>`).join("")}</div>`}).join("") }
 function cardHTML(sn,mode){ const a=analyse(sn), who=sn.pair?pairName(sn.pair):mb(sn.member)?.n;
-  return `<div class="mcardx" data-code="${esc(sn.code)}"><div class="mch"><div><b>${esc(TYPES[sn.type]?.n||sn.type)}${v3Label(sn)?"・"+esc(v3Label(sn)):""}・${esc(who||(sn.type==="event"?"全團":""))}${sn.stage?"・"+esc(sn.stage):""}${sn.period?"・"+esc(sn.period):""}</b>
+  return `<div class="mcardx" data-code="${esc(sn.code)}"><div class="mch"><div><b>${esc(TYPES[sn.type]?.n||sn.type)}${sn.arc?`(第 ${sn.part}/${sn.parts} 段)`:""}${v3Label(sn)?"・"+esc(v3Label(sn)):""}${sn.score!=null?`・評分 ${sn.score}`:""}・${esc(who||(sn.type==="event"?"全團":""))}${sn.stage?"・"+esc(sn.stage):""}${sn.period?"・"+esc(sn.period):""}</b>
     <small>${esc(PLACES[sn.at]||sn.at)}・${(sn.sl||[]).map(x=>SLOTS[x]).join("、")}・最長 ${a.depth} 個來回・${a.branch} 個分岔點</small></div>
     <span class="vs ${a.warn.length?"bad":"ok"}">${a.warn.length?"有 "+a.warn.length+" 個提醒":(sn.status==="auto"?"未審・格式通過":"格式通過")}</span></div>
     <p class="mscene">${esc(sn.sc)}</p>${a.warn.length?`<ul class="mwarn">${a.warn.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
@@ -591,16 +628,20 @@ function libHTML(){ const list=LIBLIST=lib().filter(x=>(!fM||x.member===fM||(x.p
     <div class="mrow" style="justify-content:space-between"><p class="mnote">內容庫共 ${lib().length} 個,符合條件 ${list.length} 個${list.length>40?",只顯示最新 40 個":""}。</p>${(()=>{const u=list.filter(x=>x.status==="auto").length; return u?`<button class="mbtn pri" id="okAuto" ${BULK?"disabled":""}>一鍵通過:${fM||fT||fS&&fS!=="__auto"||fQ?"符合條件的":""}未審 ${u} 個全部標為審過</button>`:""})()}</div>
     ${list.slice(0,40).map(sn=>cardHTML(sn,"lib")).join("")||`<p class="mempty">還沒有內容。</p>`}` }
 function heat(n,t){const r=Math.min(1,n/t);return `--h:${Math.round(r*100)}%`}
-function coverHTML(){ const L=lib(), cnt={}; for(const x of L){const k=cellKey(x); cnt[k]=(cnt[k]||0)+1} let total=0,done=0;
-  let h=`<h3>單人片段(成員 × 關係階段 × 種類)</h3><div class="mtbl"><table><thead><tr><th>成員</th><th>階段</th>${SINGLE_TYPES.map(k=>`<th>${TYPES[k].n}</th>`).join("")}</tr></thead><tbody>`;
-  for(const m of MB) for(const s of STAGES){ h+=`<tr><td style="color:${m.c}">${m.n}</td><td>${s}</td>`+SINGLE_TYPES.map(k=>{const n=cnt[k+"|"+m.id+"|"+s]||0,t=TYPES[k].target; total+=t; done+=Math.min(n,t);
+let CP="";   // 覆蓋率看哪個時期("" = 全部)
+const tgtOf=(k,st,pal)=>{ if(!CP) return pal?TYPES[k].target*(pal==="all"?5:1):TYPES[k].target; const pi=PERIODS.indexOf(CP); return Math.round(TYPES[k].target*(pal?(pal==="all"?5:1)*PW.pair[pi]:PW[st][pi])) };
+function coverHTML(){ const L=lib().filter(x=>!CP||x.period===CP), cnt={}; for(const x of L){const k=cellKey(x); cnt[k]=(cnt[k]||0)+1} let total=0,done=0;
+  let h=`<div class="mchips">${["",...PERIODS].map(p=>`<button class="mchip${CP===p?" on":""}" data-cp="${p}">${p||"全部時期"}</button>`).join("")}</div><h3>單人片段(成員 × 關係階段 × 種類${CP?"・"+CP:""})</h3><div class="mtbl"><table><thead><tr><th>成員</th><th>階段</th>${SINGLE_TYPES.map(k=>`<th>${TYPES[k].n}</th>`).join("")}</tr></thead><tbody>`;
+  for(const m of MB) for(const s of STAGES){ h+=`<tr><td style="color:${m.c}">${m.n}</td><td>${s}</td>`+SINGLE_TYPES.map(k=>{const n=cnt[k+"|"+m.id+"|"+s]||0,t=tgtOf(k,s); total+=t; done+=Math.min(n,t);
       return `<td><button class="cell" style="${heat(n,t)}" data-cell="${k}|${m.id}|${s}">${n}/${t}</button></td>`}).join("")+`</tr>` }
   h+=`</tbody></table></div><h3>雙人與全團</h3><div class="mtbl"><table><thead><tr><th>組合</th>${PAIR_TYPES.map(k=>`<th>${TYPES[k].n}</th>`).join("")}</tr></thead><tbody>`;
-  for(const p of PAIRS){ h+=`<tr><td>${pairName(p)}</td>`+PAIR_TYPES.map(k=>{const n=cnt[k+"|"+p+"|"]||0,t=p==="all"?TYPES[k].target*5:TYPES[k].target; total+=t; done+=Math.min(n,t);
+  for(const p of PAIRS){ h+=`<tr><td>${pairName(p)}</td>`+PAIR_TYPES.map(k=>{const n=cnt[k+"|"+p+"|"]||0,t=tgtOf(k,"",p); total+=t; done+=Math.min(n,t);
       return `<td><button class="cell" style="${heat(n,t)}" data-pcell="${k}|${p}">${n}/${t}</button></td>`}).join("")+`</tr>` }
   h+=`</tbody></table></div><h3>事件劇本(各事件的版本數)</h3><div class="mtbl"><table><thead><tr><th>事件</th><th>版本</th></tr></thead><tbody>`
     +Object.keys(EVENTS).map(k=>{ const n=L.filter(x=>x.type==="event"&&x.ev===k).length,t=TYPES.event.target; total+=t; done+=Math.min(n,t);
       return `<tr><td>${EVENTS[k].n}</td><td><button class="cell" style="${heat(n,t)}" data-ecell="${k}">${n}/${t}</button></td></tr>` }).join("")
+    +`</tbody></table></div><h3>連續劇情(成員 × 關係階段,以第 1 段計)</h3><div class="mtbl"><table><thead><tr><th>階段</th>${MB.map(m=>`<th style="color:${m.c}">${m.n}</th>`).join("")}</tr></thead><tbody>`
+    +STAGES.map(st=>`<tr><td>${st}</td>`+MB.map(m=>{ const n=L.filter(x=>x.type==="arc"&&x.member===m.id&&x.stage===st&&+x.part===1).length; return `<td>${n}</td>` }).join("")+`</tr>`).join("")
     +`</tbody></table></div><h3>近況(情境 × 成員,各時期合計)</h3><div class="mtbl"><table><thead><tr><th>情境</th>${MB.map(m=>`<th style="color:${m.c}">${m.n}</th>`).join("")}</tr></thead><tbody>`
     +Object.keys(SITU).map(k=>`<tr><td>${SITU[k].n}</td>`+MB.map(m=>{ const n=L.filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id).length,t=TYPES.situ.target*SITU[k].per.length; total+=t; done+=Math.min(n,t);
       return `<td><button class="cell" style="${heat(n,t)}" data-scell="${k}|${m.id}">${n}/${t}</button></td>` }).join("")+`</tr>`).join("");
@@ -627,8 +668,8 @@ function bind(B){
       toast2(`已匯入 ${n} 個片段`) } }
   if(q("#mkAuto")){ q("#mkAuto").onclick=()=>{ running=!running; if(running){aState="";autoLoop()} renderAll() };
     q("#aRpm").onchange=e=>{A.rpm=Math.max(1,Math.min(60,+e.target.value||1));saveA()}; q("#aDay").onchange=e=>{A.day=Math.max(1,+e.target.value||1);saveA()};
-    q("#aAuto").onchange=e=>{A.autoAccept=e.target.checked;saveA()}; q("#aFb").onchange=e=>{A.fallback=e.target.checked;saveA()}; q("#aExtra").onchange=e=>{A.extra=e.target.value.trim();saveA()} }
-  B.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{P.type=b.dataset.ty;P.count=TYPES[P.type].batch;renderAll()});
+    q("#aAuto").onchange=e=>{A.autoAccept=e.target.checked;saveA()}; q("#aFb").onchange=e=>{A.fallback=e.target.checked;saveA()}; q("#aExtra").onchange=e=>{A.extra=e.target.value.trim();saveA()}; q("#aScore").onchange=e=>{A.score=e.target.checked;saveA()} }
+  B.querySelectorAll("[data-ty]").forEach(b=>b.onclick=()=>{P.type=b.dataset.ty;P.count=P.type==="arc"?3:TYPES[P.type].batch;renderAll()});
   B.querySelectorAll("[data-mm]").forEach(b=>b.onclick=()=>{P.member=b.dataset.mm;renderAll()});
   B.querySelectorAll("[data-pp]").forEach(b=>b.onclick=()=>{P.pair=b.dataset.pp;renderAll()});
   B.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{P.ev=b.dataset.ev;renderAll()});
@@ -649,6 +690,7 @@ function bind(B){
   if(q("#fQ")){ q("#fQ").onchange=e=>{fQ=e.target.value.trim();renderAll()} }
   B.querySelectorAll("[data-cell]").forEach(b=>b.onclick=()=>{const [k,m,s]=b.dataset.cell.split("|");P={...P,type:k,member:m,stage:s,count:TYPES[k].batch};tab="make";renderAll()});
   B.querySelectorAll("[data-pcell]").forEach(b=>b.onclick=()=>{const [k,p]=b.dataset.pcell.split("|");P={...P,type:k,pair:p,count:TYPES[k].batch};tab="make";renderAll()});
+  B.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>{CP=b.dataset.cp;renderAll()});
   B.querySelectorAll("[data-ecell]").forEach(b=>b.onclick=()=>{P={...P,type:"event",ev:b.dataset.ecell,count:TYPES.event.batch};tab="make";renderAll()});
   B.querySelectorAll("[data-scell]").forEach(b=>b.onclick=()=>{const [k,m]=b.dataset.scell.split("|");P={...P,type:"situ",req:k,member:m,period:SITU[k].per.includes(P.period)?P.period:SITU[k].per[0],count:TYPES.situ.batch};tab="make";renderAll()});
   if(q("#keySave")){ const saveK=()=>{const k=q("#keyIn").value.trim(); if(k) localStorage.setItem(KEY_K,k); const m=q("#modelIn").value==="custom"?q("#modelCustom").value.trim():q("#modelIn").value; if(m) localStorage.setItem(KEY_M,m)};

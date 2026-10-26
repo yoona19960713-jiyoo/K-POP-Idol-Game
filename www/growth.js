@@ -136,7 +136,7 @@ const fmtD=day=>{const d=dateOf(day);return `${d.getFullYear()}/${d.getMonth()+1
 window.fmtGameDay=fmtD;
 
 function startPromo(kind){ const sum=window.songSummary?songSummary():null;
-  S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",n:(S.promoHist||[]).length+1};
+  S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",tracks:sum?.tracks||[],n:(S.promoHist||[]).length+1};   // tracks:演唱會歌單可以選收錄曲
   S.promoHist=[...(S.promoHist||[]),{...S.promo}]; window.logEvent?.("promo",{title:S.promo.title}); save(true);
   window.stageNewPromo?.(S.promo) }
 function bigEvent(kind){
