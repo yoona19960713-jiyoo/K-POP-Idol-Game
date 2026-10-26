@@ -58,6 +58,9 @@ jobs:
           # 遊戲固定橫向、全螢幕
           sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/' android/app/src/main/AndroidManifest.xml
           grep -n screenOrientation android/app/src/main/AndroidManifest.xml
+          # 震動權限:重要時刻的手機震動(navigator.vibrate)
+          grep -q 'android.permission.VIBRATE' android/app/src/main/AndroidManifest.xml || sed -i 's|</manifest>|    <uses-permission android:name="android.permission.VIBRATE" />\n</manifest>|' android/app/src/main/AndroidManifest.xml
+          grep -n VIBRATE android/app/src/main/AndroidManifest.xml
           # 沉浸式全螢幕:隱藏狀態列與導覽列(從邊緣滑動可暫時叫出),舞台才能用滿整個螢幕高度
           MA=$(find android/app/src/main/java -name MainActivity.java | head -1)
           PKG=$(grep -m1 '^package' "$MA")
