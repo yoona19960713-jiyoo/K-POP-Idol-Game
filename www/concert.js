@@ -154,7 +154,7 @@ function result(r){
   el.innerHTML=`<div class="bg-shot" style="background-image:url(${V0.art}),url(${V0.fb})"></div><div class="bg-veil"></div><div class="bigcard"><small>CONCERT REPORT ・ ${fmt(r.day)}</small>
     <h2>〈${esc(r.title)}〉<span class="nw">圓滿落幕</span></h2>${r.grade?`<div class="cgrow"><span class="cgrade g${r.grade}">${r.grade}</span><b>演出評價 ${r.score} 分</b><small>彩排完成度、成員心情、歌單安排</small></div>`:""}<p class="lead">${V0.n}・${r.att.toLocaleString()} 名觀眾${r.sold?"・<b>全場售罄</b>":""}・共 ${r.songs} 首歌。演唱會的影片在網路上被轉傳,粉絲增加了 <b>${r.gain} 萬</b>。五個人的心情和默契都大大提升了。</p>
     <button class="fbtn pri" id="cnDone">收進回憶</button></div>`;
-  $("#stage").appendChild(el); setPause("bigev",true);
+  $("#stage").appendChild(el); setPause("bigev",true); window.feedback?.(r.grade==="S"||r.first?"l":"m");
   $("#cnDone").onclick=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),600); setPause("bigev",false); renderAll() } }
 
 /* =====================================================================

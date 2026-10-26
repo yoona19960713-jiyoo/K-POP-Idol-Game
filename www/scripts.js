@@ -620,8 +620,27 @@ async function reviseLoop(){
 
 function libIO(){ return `<div class="mrow"><button class="mbtn" id="mkExport">匯出全部片段(JSON)</button><button class="mbtn" id="mkImport">匯入修訂後的片段</button><input type="file" id="mkImportF" accept=".json,application/json" hidden><span class="mnote">匯出請用電腦版;修訂好的檔案匯入後會覆蓋同代號的片段並同步到雲端。</span></div>
   <div class="mrow"><button class="mbtn ${revRunning?"danger":""}" id="mkRevise">${revRunning?"停止 AI 修訂":"用新守則請 Gemini 逐一修訂"}</button><span class="mnote">還沒修訂的 ${revTodo().length} 個;${revState?esc(revState):"一次送同一位成員的好幾個片段(最多 8 個),額度用完自動換模型;速度與備用模型沿用自動生產的設定。結構不動,只改台詞與措辭。"}</span></div>` }
+/* 全庫檢查(參考 dialogue-systems 技能「走過每一條分支」):格式檢查之外,再找走不到的節點、繞不出去的節點、缺段的連續劇情 */
+function walkIssues(sn){ const N=sn.nodes||{}, keys=Object.keys(N), out=[]; if(!N.start) return ["沒有 start 節點"];
+  const seen=new Set(), q=["start"]; while(q.length){ const k=q.shift(); if(seen.has(k)||!N[k]) continue; seen.add(k); for(const c of N[k].C||[]) if(c.next) q.push(c.next) }
+  const un=keys.filter(k=>!seen.has(k)); if(un.length) out.push(`走不到的節點:${un.join("、")}`);
+  const ok=new Set(keys.filter(k=>!(N[k].C||[]).length||(N[k].C||[]).some(c=>!c.next||!N[c.next]))); let ch=true;
+  while(ch){ ch=false; for(const k of keys) if(!ok.has(k)&&(N[k].C||[]).some(c=>ok.has(c.next))){ ok.add(k); ch=true } }
+  const loop=[...seen].filter(k=>!ok.has(k)); if(loop.length) out.push(`繞不出去的節點(永遠走不到結尾):${loop.join("、")}`);
+  return out }
+let CHK=null;
+function libCheck(){ const L=lib(), rows=[], arcs={};
+  for(const sn of L){ const w=[...analyse(sn).warn.filter(x=>!/超過 60 字/.test(x)),...walkIssues(sn)]; if(sn.arc) (arcs[sn.arc]=arcs[sn.arc]||[]).push(sn); if(w.length) rows.push([sn,w]) }
+  for(const ps of Object.values(arcs)){ const n=Math.max(...ps.map(x=>+x.parts||0)), have=new Set(ps.map(x=>+x.part)); for(let i=1;i<=n;i++) if(!have.has(i)){ rows.push([ps[0],[`連續劇情缺第 ${i} 段(被刪掉或還在待審)`]]); break } }
+  const by={}; for(const [,w] of rows) for(const x of w){ const k=x.replace(/[「〈(:].*$/,"").replace(/節點 \S+ /,"節點 ").replace(/\d+/g,"N").trim().slice(0,18); by[k]=(by[k]||0)+1 }
+  return {rows,by,total:L.length,at:Date.now()} }
+function chkHTML(){ if(!CHK) return ""; const {rows,by,total}=CHK;
+  return `<div class="mcard chk"><div class="mrow" style="justify-content:space-between"><b>全庫檢查:${total} 個片段,${rows.length} 個有問題</b><button class="mbtn" id="chkX">收起</button></div>
+    ${rows.length?`<p class="mnote">${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${v}`).join("・")}</p>
+    <ul class="chkl">${rows.slice(0,60).map(([sn,w])=>`<li><button class="mbtn" data-chk="${esc(sn.code)}">看這段</button><b>${esc(TYPES[sn.type]?.n||sn.type)}・${esc(mb(sn.member)?.n||pairName(sn.pair||"all"))}</b> ${esc(String(sn.sc||"").slice(0,24))}<br><small>${w.map(esc).join(";")}</small></li>`).join("")}</ul>
+    ${rows.length>60?`<p class="mnote">只列出前 60 個。</p>`:""}`:`<p class="mnote">全部沒問題。</p>`}</div>` }
 function libHTML(){ const list=LIBLIST=lib().filter(x=>(!fM||x.member===fM||(x.pair||"").includes(fM))&&(!fT||x.type===fT)&&(!fS||(fS==="__auto"?x.status==="auto":x.stage===fS))&&(!fQ||JSON.stringify(x.nodes).includes(fQ)||String(x.sc).includes(fQ))).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-  return libIO()+`<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
+  return libIO()+`<div class="mrow"><button class="mbtn" id="mkCheck">全庫檢查</button><span class="mnote">AI 修訂或大量產生之後,掃一遍整個內容庫的格式與分支。</span></div>${chkHTML()}<div class="mrow"><select id="fM"><option value="">全部成員</option>${MB.map(m=>`<option value="${m.id}" ${fM===m.id?"selected":""}>${m.n}</option>`).join("")}</select>
     <select id="fT"><option value="">全部種類</option>${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${fT===k?"selected":""}>${t.n}</option>`).join("")}</select>
     <select id="fS"><option value="">全部階段</option>${STAGES.map(s=>`<option ${fS===s?"selected":""}>${s}</option>`).join("")}<option value="__auto" ${fS==="__auto"?"selected":""}>只看未審</option></select>
     <input type="text" id="fQ" value="${esc(fQ)}" placeholder="搜尋台詞" class="grow"></div>
@@ -688,6 +707,9 @@ function bind(B){
     card.querySelector("[data-drop]").onclick=async()=>{ if(!confirm("確定刪除這個片段?")) return; await removeItem(code); toast2("已刪除") } });
   ["fM","fT","fS"].forEach(id=>{const e=q("#"+id); if(e) e.onchange=()=>{({fM,fT,fS}={fM:q("#fM").value,fT:q("#fT").value,fS:q("#fS").value}); renderAll()}});
   if(q("#fQ")){ q("#fQ").onchange=e=>{fQ=e.target.value.trim();renderAll()} }
+  if(q("#mkCheck")) q("#mkCheck").onclick=()=>{ CHK=libCheck(); renderAll() };
+  if(q("#chkX")) q("#chkX").onclick=()=>{ CHK=null; renderAll() };
+  B.querySelectorAll("[data-chk]").forEach(b=>b.onclick=()=>{ const sn=lib().find(x=>x.code===b.dataset.chk); if(!sn) return; fM="";fT="";fS=""; fQ=String(sn.sc||"").slice(0,14); renderAll() });
   B.querySelectorAll("[data-cell]").forEach(b=>b.onclick=()=>{const [k,m,s]=b.dataset.cell.split("|");P={...P,type:k,member:m,stage:s,count:TYPES[k].batch};tab="make";renderAll()});
   B.querySelectorAll("[data-pcell]").forEach(b=>b.onclick=()=>{const [k,p]=b.dataset.pcell.split("|");P={...P,type:k,pair:p,count:TYPES[k].batch};tab="make";renderAll()});
   B.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>{CP=b.dataset.cp;renderAll()});

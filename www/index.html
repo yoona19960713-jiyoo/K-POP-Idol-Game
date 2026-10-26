@@ -1176,6 +1176,20 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .photoview{--c:#B98A43}
 /* 「只看圖」時文字一定要全部消失:.cgcap 有進場動畫(動畫值會蓋過一般樣式),所以這裡關掉動畫並強制隱藏 */
 .cgview.bare :is(.cgcap,.cgshade,.cgbtns,.cgcap *){animation:none!important;opacity:0!important;visibility:hidden;transition:opacity .35s,visibility 0s .35s}
+/* 回饋分級:中=柔光、大=全畫面閃光(動畫減弱時不顯示) */
+.fbk{position:absolute;inset:0;pointer-events:none;z-index:95;animation:fbk 1s ease-out forwards}
+.fbk.m{background:radial-gradient(circle at 50% 62%,rgba(255,214,150,.32),transparent 62%)}
+.fbk.l{background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.8),rgba(255,214,160,.3) 48%,transparent 76%);animation-duration:1.4s}
+@keyframes fbk{from{opacity:1}to{opacity:0}}
+/* 選單:音量滑桿、存檔備份 */
+.set .vol{display:grid;grid-template-columns:1fr 1fr;gap:.5em 1.2em;margin:.4em 0}
+.set .vol label{display:flex;align-items:center;gap:.6em;white-space:nowrap}
+.set .vol input[type=range]{flex:1;min-width:0;accent-color:#C9A24B}
+.set .bak{list-style:none;padding:0;margin:.4em 0;display:flex;flex-direction:column;gap:.35em}
+.set .bak li{display:flex;align-items:center;justify-content:space-between;gap:.8em}
+/* 劇本工坊:全庫檢查 */
+.chk{margin:.4em 0}.chkl{list-style:none;padding:0;margin:.4em 0;display:flex;flex-direction:column;gap:.45em;max-height:18em;overflow:auto}
+.chkl li{line-height:1.5}.chkl li .mbtn{float:right;margin-left:.6em}.chkl small{color:#A8433A}
 
 
 /* ===== 主畫面 HUD 精緻化(2026-10-24):沿用對話框的香檳金細線與星形,整個遊戲同一套裝飾語言 ===== */
@@ -1373,7 +1387,7 @@ canvas.wx.on{display:block}
     <div class="vbox" id="vbox">
       <div class="panel"></div>
       <div class="vname" id="vname">旁白</div>
-      <div class="dia"><button class="dbtn" id="autoBtn" aria-pressed="false"><span><b>▶</b>Auto</span></button><button class="dbtn" id="logBtn"><span><b>≡</b>Log</span></button></div>
+      <div class="dia"><button class="dbtn" id="autoBtn" aria-pressed="false"><span><b>▶</b>Auto</span></button><button class="dbtn" id="skipBtn" aria-pressed="false"><span><b>▶▶</b>Skip</span></button><button class="dbtn" id="logBtn"><span><b>≡</b>Log</span></button></div>
       <div class="vtext" id="vtext"></div>
       <div class="vnext">▼</div>
     </div>
@@ -1414,7 +1428,22 @@ canvas.wx.on{display:block}
     <ul id="srcList"></ul>
 
     <h3>聲音</h3>
+    <div class="vol"><label>總音量<input type="range" id="volMaster" min="0" max="100"></label><label>音樂<input type="range" id="volMusic" min="0" max="100"></label><label>音效<input type="range" id="volSfx" min="0" max="100"></label><label>語音<input type="range" id="volVoice" min="0" max="100"></label></div>
     <label class="row tg"><input type="checkbox" id="blipOn" checked> 說話時的提示音(每位成員音色不同)</label>
+    <p class="hint" id="bgmNote"></p>
+
+    <h3>閱讀</h3>
+    <div class="row"><span>文字速度</span><select id="rdSpeed" class="b"><option value="slow">慢</option><option value="normal">普通</option><option value="fast">快</option><option value="instant">瞬間</option></select>
+      <span>Auto 速度</span><select id="rdAuto" class="b"><option value="slow">慢</option><option value="normal">普通</option><option value="fast">快</option></select></div>
+    <p class="hint">對話框的「Skip」只快轉看過的台詞,遇到沒看過的台詞或選項就會停下來。</p>
+
+    <h3>震動</h3>
+    <label class="row tg"><input type="checkbox" id="hapOn" checked> 重要時刻手機輕輕震動(關係升階、拿下一位、解鎖 CG、出道與回歸、演唱會)</label>
+
+    <h3>存檔備份</h3>
+    <p class="hint">遊玩時每 30 分鐘自動備份一次,保留最近 6 份,再加上最近幾天每天一份。存檔出問題時可以回到其中一份。</p>
+    <ul id="bakList" class="bak"></ul>
+    <div class="row"><button class="b" id="bakNow">立即備份</button></div>
 
     <h3>日常衣櫃</h3>
     <p class="hint">遊戲依地點換穿:練習室、錄音室、辦公室穿練習服;宿舍穿居家服(深夜有睡衣就穿睡衣);外面穿外出服。某一類還沒有衣服時穿白 T 立繪。</p>
@@ -1453,6 +1482,7 @@ canvas.wx.on{display:block}
 
 <script src="version.js"></script>
 <script src="game.js"></script>
+<script src="audio.js"></script>
 <script src="assets/poses.js"></script>
 <script src="wardrobe.js"></script>
 <script src="songs.js"></script>

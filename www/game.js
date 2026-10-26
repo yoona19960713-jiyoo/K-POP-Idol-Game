@@ -91,8 +91,25 @@ function fresh(){return {v:1,day:0,slot:0,t:0,acts:5,visited:[],
   where:{},flags:{},seen:{},absent:[],unread:0,wear:null,lastWear:{},updatedAt:0}}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.m) S=fresh();
+/* 存檔版本(參考 save-systems 技能):之後改資料結構時,把 SAVE_VER 加 1,在 MIGRATE 寫一步把舊存檔轉成新格式;讀檔、讀雲端存檔、回復備份都會跑 */
+const SAVE_VER=2, MIGRATE={2:s=>{ /* v1 → v2:只加版本號,欄位不變 */ }};
+function migrate(s){ let v=+s.v||1; while(v<SAVE_VER){ v++; try{ MIGRATE[v]?.(s) }catch(e){ console.error("migrate",v,e) } } s.v=SAVE_VER; return s }
+migrate(S);
 /* updatedAt 只在有進度時更新(換時段、拜訪、做選擇),用來判斷雲端與本機哪份較新;時間流動只存本機 */
-function save(progress){if(progress) S.updatedAt=Date.now();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+/* 存檔:寫入失敗(多半是手機的網頁儲存空間滿了)會提示,並改存到 IndexedDB 的備份區,下次啟動會自動接回 */
+let saveFail=false;
+function save(progress){ if(progress) S.updatedAt=Date.now(); const js=JSON.stringify(S);
+  try{ localStorage.setItem(KEY,js); if(saveFail){ saveFail=false; window.toast2?.("存檔恢復正常了") } }
+  catch(e){ if(!saveFail){ saveFail=true; setTimeout(()=>window.toast2?.("存檔失敗:手機的網頁儲存空間可能滿了。進度先存到備份區,建議登入雲端同步"),0) } }
+  backupTick(js) }
+/* 自動備份:每 30 分鐘一份,保留最近 6 份 + 最近 3 天每天一份(選單「存檔備份」可以回到其中一份) */
+let bakAt=+localStorage.getItem("kpopGame.bakAt")||0, bakBusy=false;
+async function backupTick(js,force){ if(saveFail&&IDB.db) IDB.set("saveFallback",js);
+  if(bakBusy||!IDB.db||(!force&&Date.now()-bakAt<30*60e3)) return; bakBusy=true;
+  try{ const L=(await IDB.get("saveBackups"))||[]; L.unshift({t:Date.now(),day:S.day,json:js});
+    const keep=L.slice(0,6), days=new Set(keep.map(b=>new Date(b.t).toDateString()));
+    for(const b of L.slice(6)){ const d=new Date(b.t).toDateString(); if(!days.has(d)&&days.size<9){ keep.push(b); days.add(d) } if(keep.length>=9) break }
+    await IDB.set("saveBackups",keep); bakAt=Date.now(); localStorage.setItem("kpopGame.bakAt",String(bakAt)) }catch(e){} bakBusy=false }
 
 /* ---------- 本機快取(IndexedDB):片段庫與衣櫃 ---------- */
 const IDB={db:null,
@@ -149,7 +166,7 @@ async function pullContent(){
   return a+b}
 /* 遊戲存檔:啟動時取較新的那份;遊戲中只上傳 */
 async function pullSave(){const d=await syGet("game/state"); if(!d) return false; const at=+d.fields.updatedAt.integerValue;
-  if(at>(S.updatedAt||0)){const o=JSON.parse(d.fields.json.stringValue); if(o&&o.m){S=o; try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){} return true}} return false}
+  if(at>(S.updatedAt||0)){const o=JSON.parse(d.fields.json.stringValue); if(o&&o.m){S=migrate(o); try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){} return true}} return false}
 async function pushSave(){if(!syAuth()||!syCfg()||!S.updatedAt) return; try{syLastPush=Date.now(); save(); await syPatch("game/state",{json:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(S.updatedAt)}}); syStatus("已同步 "+new Date().toLocaleTimeString("zh-TW",{hour:"2-digit",minute:"2-digit"}))}catch(e){syStatus(syMsg(e),true)}}
 function schedulePush(){if(!syAuth()) return; clearTimeout(pushT); pushT=setTimeout(pushSave,Math.max(3000,20000-(Date.now()-syLastPush)))}
 async function syncAll(manual,atStart){
@@ -528,7 +545,7 @@ function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
   play(sn,menu)}
-function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto();
+function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); stopSkip();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
 
 /* ---- 眨眼疊加層(2026-10-24 做,2026-10-25 改成只存小塊;說話時嘴巴開合在 2026-10-25 依使用者決定拿掉)----
@@ -564,7 +581,7 @@ function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"
   const free=V&&!V.test&&V.talked.size===0; b.hidden=!V||!!V.test||!!V.event; b.innerHTML=free?`<span>‹ 返回</span><small>不花行動</small>`:`<span>‹ 離開</span>` }
 function backOut(){ if(!V||V.test||V.event) return; const free=V.talked.size===0;
   if(free){ const o=JSON.parse(V.snap); for(const k of Object.keys(S)) if(!(k in o)) delete S[k]; Object.assign(S,o) }
-  D=null; clearInterval(typing); typing=null; stopAuto(); $("#vopts").innerHTML="";
+  D=null; clearInterval(typing); typing=null; stopAuto(); stopSkip(); $("#vopts").innerHTML="";
   $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; save(true);
   if(free) toast2("已返回,這次沒有花掉行動");
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()} }
@@ -598,6 +615,14 @@ function step(){
     if((n.C||[]).length) D.q.push({k:"choices",C:n.C}); step(); return}
   if(it.k==="line"){ if(it.id==="@"){ stageDir(it.text); step(); return } showText(it.id,it.text,false,it.e);return}
   if(it.k==="choices"){showChoices(it.C);return}}
+/* 閱讀設定(參考 visual-novel 技能):文字速度、Auto 速度;Skip 只快轉看過的台詞(看過的記在這台裝置) */
+const RD=(()=>{ try{ return {speed:"normal",auto:"normal",...JSON.parse(localStorage.getItem("kpopGame.read")||"{}")} }catch(e){ return {speed:"normal",auto:"normal"} } })();
+const RD_TW={slow:1.6,normal:1,fast:.5}, RD_AU={slow:1.6,normal:1,fast:.55};
+let skip=false, readSet=null, readDirty=false;
+function readKey(id,t){ let h=2166136261; for(const ch of (D?.sn?.code||"")+"|"+id+"|"+t) h=Math.imul(h^ch.charCodeAt(0),16777619); return (h>>>0).toString(36) }
+function readL(){ if(!readSet){ try{ readSet=new Set(JSON.parse(localStorage.getItem("kpopGame.readL")||"[]")) }catch(e){ readSet=new Set() } } return readSet }
+function markRead(k){ const R=readL(); if(R.has(k)) return; R.add(k); if(!readDirty){ readDirty=true; setTimeout(()=>{ readDirty=false; try{ localStorage.setItem("kpopGame.readL",JSON.stringify([...readL()].slice(-20000))) }catch(e){} },2000) } }
+function stopSkip(){ skip=false; $("#skipBtn")?.setAttribute("aria-pressed","false") }
 function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
   $("#vname").innerHTML=me?"代表":m?`${m.n}<i class="en">${m.f.toUpperCase()}</i>`:"旁白"; $("#vname").style.setProperty("--nc",me?"var(--acc)":m?m.c:"#9b8aa0");
@@ -607,6 +632,9 @@ function showText(id,text,still,e){
   const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
   fitText(el,text);
   if(still){el.textContent=text; typing=null; return}
+  const rk=readKey(id,text), seen=readL().has(rk); markRead(rk); if(skip&&!seen) stopSkip();
+  if(RD.speed==="instant"||(skip&&seen)){ el.textContent=text; typing=null; $("#vbox").classList.add("wait");
+    if(skip) setTimeout(()=>{ if(skip&&D&&!typing&&!$("#vopts .choice")) step() },90); else queueAuto(); return }
   let i=0; const chars=[...String(text)]; el.textContent="";
   let tk=0;
   const PAUSE=ch=>/[。!?!?]/.test(ch)?300:/[,、;:,;:]/.test(ch)?150:ch==="…"?110:/[—~~]/.test(ch)?120:0;
@@ -614,7 +642,7 @@ function showText(id,text,still,e){
     const isL=/[\p{L}\p{N}]/u.test(ch); if(isL&&++tk%3===0) blip(id);
     if(i>=chars.length){typing=null;$("#vbox").classList.add("wait");queueAuto();return}
     const nx=chars[i]||"", p=PAUSE(ch)&&!PAUSE(nx)?PAUSE(ch):(ch==="…"?60:0);   // 連續標點只在最後一個停
-    typing=setTimeout(tick,20+p) };
+    typing=setTimeout(tick,Math.round((20+p)*(RD_TW[RD.speed]||1))) };
   typing=setTimeout(tick,20)}
 function fitText(el,text){ // 長台詞:先放完整文字量,放不下就逐步縮小字(最小 76%),打字效果不會中途換行跳動
   el.style.fontSize=""; el.textContent=text; const base=parseFloat(getComputedStyle(el).fontSize);
@@ -626,7 +654,7 @@ function advance(){if(!D||$("#vopts .choice")) return;
 $("#vbox").onclick=e=>{if(e.target.closest(".dia")) return; advance()};
 document.addEventListener("keydown",e=>{if(!V) return; if(e.key===" "||e.key==="Enter"){if(document.activeElement?.closest?.("#vopts")) return; e.preventDefault(); advance()}
   if(e.key==="Escape"){if($("#vlog").classList.contains("on")) $("#vlog").classList.remove("on"); else if(!D) leave()}});
-function showChoices(C){$("#vbox").classList.remove("wait"); stopAutoTimer();
+function showChoices(C){$("#vbox").classList.remove("wait"); stopAutoTimer(); stopSkip();
   $("#vopts").innerHTML=C.map((c,i)=>`<button class="vopt choice" data-c="${i}">${esc(c.t)}${c.s?`<small>${esc(c.s)}</small>`:""}</button>`).join("");
   $("#vopts").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>choose(C[+b.dataset.c])); $("#vopts button")?.focus({preventScroll:true})}
 function choose(c){
@@ -643,10 +671,11 @@ function applyChoice(c){
   save(!V?.test)}
 function fx(id,t){const m=byId(id),e=document.createElement("span");e.style.setProperty("--c",m?.c||"#E85C8A");e.textContent=`${m?.n||""} ${t}`;$("#fx").appendChild(e);setTimeout(()=>e.remove(),2700)}
 /* Auto 與 Log */
-function queueAuto(){if(!auto||!D) return; clearTimeout(autoT); const n=($("#vtext").textContent||"").length; autoT=setTimeout(()=>{if(auto&&D&&!$("#vopts .choice")) step()},1100+n*45)}
+function queueAuto(){if(!auto||!D) return; clearTimeout(autoT); const n=($("#vtext").textContent||"").length; autoT=setTimeout(()=>{if(auto&&D&&!$("#vopts .choice")) step()},(1100+n*45)*(RD_AU[RD.auto]||1))}
 function stopAutoTimer(){clearTimeout(autoT)}
 function stopAuto(){auto=false;$("#autoBtn").setAttribute("aria-pressed","false");clearTimeout(autoT)}
 $("#autoBtn").onclick=()=>{auto=!auto;$("#autoBtn").setAttribute("aria-pressed",String(auto)); if(auto&&!typing&&D) queueAuto()};
+$("#skipBtn").onclick=e=>{ e.stopPropagation(); skip=!skip; $("#skipBtn").setAttribute("aria-pressed",String(skip)); if(skip&&D&&!typing&&!$("#vopts .choice")) step() };
 $("#logBtn").onclick=()=>{const L=$("#vlog");L.innerHTML=`<button class="x" id="logX">關閉</button>`+logLines.map(([n,t])=>`<p>${n?`<b>${esc(n)}</b>`:""}${esc(t)}</p>`).join("");L.classList.add("on");L.scrollTop=L.scrollHeight;$("#logX").onclick=()=>L.classList.remove("on")};
 
 /* ---------- 手機 ---------- */
@@ -664,7 +693,7 @@ setDlg.addEventListener("close",()=>setPause("menu",false));
 function renderSet(){const c=syCfg(),a=syAuth();
   $("#cfgInfo").textContent=c?`已設定專案:${c.projectId}`:""; $("#cfgBox").classList.toggle("hidden",!!a);
   $("#inBox").classList.toggle("hidden",!!a); $("#outBox").classList.toggle("hidden",!a); $("#who").textContent=a?`已登入:${a.email}`:"";
-  $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources()}
+  $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources(); renderBak()}
 function renderSources(){if(!$("#srcList")) return;
   const sc=cloudSnips(), lib=sc.length, byType={}; sc.forEach(s=>byType[s.type]=(byType[s.type]||0)+1);
   const items=Object.values(ITEMS), daily=items.filter(l=>l.occasion==="練習"||String(l.occasion).startsWith("日常"));
@@ -715,7 +744,9 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
    等所有程式檔都載入完(DOMContentLoaded)才開始。以前一開始就跑,手機上 IndexedDB 開得快時,growth.js 等還沒載入,
    養成的初始化(growthInit)和雲端同步的掛勾(歌曲、打歌、劇本)會被跳過 */
 async function boot(){
-  await IDB.open(); SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
+  await IDB.open();
+  try{ const fb=await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){}
+  SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
   if(window.growthInit) growthInit();
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
@@ -928,13 +959,25 @@ setInterval(()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return;
       setTimeout(()=>{ if(img.isConnected&&img.dataset.idle==="1"&&img.dataset.ex===look){ img.dataset.idle=""; img.dataset.ex="neutral"; swapExpr(img,spr(img.dataset.id,img.dataset.of||null,"neutral")) } },2200+Math.random()*1200) }
     else animPortrait(img,[{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
   }) },300);
+/* 回饋分級(參考 game-feel 技能):s 小(只有畫面上的數字跳動)、m 中(輕震+柔光)、l 大(震動節奏+全畫面閃光);設定裡可以關震動 */
+window.feedback=lv=>{ if(localStorage.getItem("kpopGame.haptic")!=="0"&&lv!=="s") try{ navigator.vibrate?.(lv==="l"?[40,70,60]:25) }catch(e){}
+  if(lv==="s"||RM.matches) return; const f=document.createElement("div"); f.className="fbk "+lv; $("#stage").appendChild(f); setTimeout(()=>f.remove(),lv==="l"?1400:1000) };
+(()=>{ const s=$("#rdSpeed"), a=$("#rdAuto"), h=$("#hapOn"), keep=()=>localStorage.setItem("kpopGame.read",JSON.stringify(RD));
+  if(s){ s.value=RD.speed; s.onchange=()=>{ RD.speed=s.value; keep() } } if(a){ a.value=RD.auto; a.onchange=()=>{ RD.auto=a.value; keep() } }
+  if(h){ h.checked=localStorage.getItem("kpopGame.haptic")!=="0"; h.onchange=()=>{ localStorage.setItem("kpopGame.haptic",h.checked?"1":"0"); if(h.checked) feedback("m") } } })();
+/* 選單「存檔備份」 */
+async function renderBak(){ const ul=$("#bakList"); if(!ul) return; const L=(await IDB.get("saveBackups"))||[];
+  ul.innerHTML=L.length?L.map((b,i)=>`<li><span>${new Date(b.t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}・遊戲 ${(()=>{const d=dateOf(b.day);return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`})()}</span><button class="b" data-bak="${i}">回到這份</button></li>`).join(""):"<li>還沒有備份(遊玩 30 分鐘後會自動備份)。</li>";
+  ul.querySelectorAll("[data-bak]").forEach(b=>b.onclick=async()=>{ const x=L[+b.dataset.bak]; if(!x||!confirm("回到這份備份?目前的進度會被取代(目前的進度會先另外備份一份)。")) return;
+    await backupTick(JSON.stringify(S),true); const o=migrate(JSON.parse(x.json)); o.updatedAt=Date.now(); S=o; save(); location.reload() }) }
+$("#bakNow")&&($("#bakNow").onclick=async()=>{ await backupTick(JSON.stringify(S),true); toast2("已備份"); renderBak() });
 /* 說話提示音:每人不同音高的輕柔短音(設定裡可以關) */
 const BLIP_HZ={ys:520,tr:390,hy:690,he:575,hr:770}; let AC=null;
 function blip(id){ if(localStorage.getItem("kpopGame.blip")==="0"||!V) return; const f=BLIP_HZ[id]; if(!f) return;
-  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended") AC.resume();
-    const t=AC.currentTime, o=AC.createOscillator(), g=AC.createGain(); o.type="triangle"; o.frequency.value=f*(.96+Math.random()*.08);
+  try{ const A=window.audioCtx?.(); const ac=A?.ctx||(AC=AC||new (window.AudioContext||window.webkitAudioContext)()); if(ac.state==="suspended") ac.resume();   // 走聲音系統的「音效」音量
+    const t=ac.currentTime, o=ac.createOscillator(), g=ac.createGain(); o.type="triangle"; o.frequency.value=f*(.96+Math.random()*.08);
     g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.05,t+.008); g.gain.exponentialRampToValueAtTime(.0001,t+.075);
-    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t+.09) }catch(e){} }
+    o.connect(g); g.connect(A?.sfx||ac.destination); o.start(t); o.stop(t+.09) }catch(e){} }
 (()=>{ const b=$("#blipOn"); if(!b) return; b.checked=localStorage.getItem("kpopGame.blip")!=="0";
   b.onchange=()=>{ localStorage.setItem("kpopGame.blip",b.checked?"1":"0"); if(b.checked) blip("hr") } })();
 

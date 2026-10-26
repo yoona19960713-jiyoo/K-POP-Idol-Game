@@ -55,7 +55,7 @@ window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; const before=s
   if(c.set) S.flags[c.set]=(S.flags[c.set]||0)+1;
   const after=stageOfXp(id);
   if(show){ if(xp) show(id,`好感 +${xp}`); if(heart) show(id,`心動 +${heart}`); if(after!==before) show(id,`關係進展:${after}`) }
-  if(after!==before) toast2(`${byId(id).n}和你的關係變成「${after}」了`);
+  if(after!==before){ toast2(`${byId(id).n}和你的關係變成「${after}」了`); window.feedback?.("m") }
   return xp };
 
 /* ---------- 團隊默契(每對成員,只會增加) ---------- */
@@ -139,7 +139,7 @@ function startPromo(kind){ const sum=window.songSummary?songSummary():null;
   S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",tracks:sum?.tracks||[],n:(S.promoHist||[]).length+1};   // tracks:演唱會歌單可以選收錄曲
   S.promoHist=[...(S.promoHist||[]),{...S.promo}]; window.logEvent?.("promo",{title:S.promo.title}); save(true);
   window.stageNewPromo?.(S.promo) }
-function bigEvent(kind){
+function bigEvent(kind){ setTimeout(()=>window.feedback?.("l"),600);
   const deb=kind==="debut", m=M, sum=window.songSummary?songSummary():null;
   const lines0=deb?[["ys","代表,我們真的……要出道了。","laugh"],["tr","……我不會讓你後悔選了我們。","shy"],["hy","二年間、ありがとうございました!啊,是謝謝代表!","laugh"],["he","今天的 Showcase 結束之後,大家一起去吃烤肉吧!","smile"],["hr","代表要坐第一排喔!我會一直看著那裡唱!","laugh"]]
     :[["he","又回到舞台上了!","laugh"],["ys","這一次也拜託你了,代表。","smile"],["hr","新歌我練到夢裡都在唱!","laugh"],["tr","……這次的舞台,我很有信心。","smile"],["hy","みんな、がんばろう!","laugh"]];
@@ -175,7 +175,7 @@ window.onShowResult=r=>{ const s=st(), promo=window.promoActive?.(); if(!promo) 
   else s.fans+=1+Math.min(3,(r.views||0)/150);
   S.promo.wins=(S.promo.wins||0)+(r.win?1:0); S.promo.shows=(S.promo.shows||0)+1; save(true);
   if(first&&r.auto) setTimeout(()=>window.showCard({tag:"FIRST WIN",bg:"assets/bg/ev_stage.webp",title:"第一個一位!",lead:`你不在電視台的那天,完美女團在《${r.sh?.n||"音樂節目"}》拿下了出道後的第一個一位。一回到宿舍,五個人就衝過來抱住你。`,
-    lines:(L0=>window.eventLines?.("first_win",L0)||L0)([["he","代表……我們拿到一位了!","sad"],["hr","代表!!我們是一位!!","laugh"],["tr","……下次,你要在台下看。","shy"]]),ok:"抱緊她們"}),1500);
+    lines:(L0=>(window.feedback?.("l"),window.eventLines?.("first_win",L0)||L0))([["he","代表……我們拿到一位了!","sad"],["hr","代表!!我們是一位!!","laugh"],["tr","……下次,你要在台下看。","shy"]]),ok:"抱緊她們"}),1500);
   return first?[["he","代表……我們拿到一位了,真的嗎?","sad"],["ys","不要哭啦,夏恩……(她自己也哭了)","sad"],["hr","代表!代表!!我們是一位!!","laugh"],["tr","……這是我這輩子最開心的一天。","shy"],["hy","代表、本當にありがとう……謝謝你。","laugh"]]:null };
 /* 一次只顯示一張事件卡,其他的排隊 */
 const CQ=[];

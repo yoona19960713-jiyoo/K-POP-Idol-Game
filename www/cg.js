@@ -99,7 +99,7 @@ function view(o,fresh,onClose){
       <div class="cgwho">${o.who}</div><h2>「${esc(o.t)}」</h2>${o.line}
       ${fresh?`<span class="cgsaved">已收進手機「相簿」,隨時可以重看</span>`:""}</div>
     <div class="cgbtns"><button class="cgb" data-hide>只看圖</button><button class="cgb" data-dl>下載・設桌布</button><button class="cgb pri" data-close>${fresh?"收進相簿":"關閉"}</button></div>`;
-  $("#stage").appendChild(el); setPause("cg",true);
+  $("#stage").appendChild(el); setPause("cg",true); if(fresh) setTimeout(()=>window.feedback?.("l"),300);
   const cap=()=>el.classList.toggle("bare");
   el.querySelector("[data-hide]").onclick=e=>{e.stopPropagation();cap(); if(!S.flags.cgBareTip){S.flags.cgBareTip=1; toast2("點一下畫面,按鈕和文字就會回來")}};
   el.querySelector("[data-dl]").onclick=e=>{e.stopPropagation(); window.saveImage?.(o.img,o.dl,true)};
