@@ -467,6 +467,10 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
   .fac-tabs button{flex:none;white-space:nowrap;letter-spacing:.08em;padding:calc(.8*var(--u)) calc(1*var(--u))}
   .fac-close{flex:none;white-space:nowrap}
 }
+/* 衣櫃:總數那一行右邊的「匯出造型清單」(給服裝批次設計對話比對用) */
+.fsumrow{display:flex;align-items:center;justify-content:space-between;gap:calc(1*var(--u));margin:calc(.2*var(--u)) 0 calc(1*var(--u))}
+.fsumrow .fsum{margin:0;min-width:0}
+.fac-wrap .fsumrow .fbtn{flex:none;padding:calc(.5*var(--u)) calc(1.1*var(--u));font-size:max(calc(.92*var(--u)),10.5px);letter-spacing:.1em}
 
 /* ===== 房間選擇(設施或拜訪) ===== */
 .chooser{position:absolute;inset:0;z-index:35;display:none;place-items:center;background:rgba(20,12,28,.45);-webkit-backdrop-filter:blur(calc(.4*var(--u)));backdrop-filter:blur(calc(.4*var(--u)))}

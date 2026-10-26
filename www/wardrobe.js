@@ -560,7 +560,7 @@ function renderCloset(){
   list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)||String(b.code).localeCompare(String(a.code)));
   const have=list.filter(l=>Object.values(l.members||{}).some(o=>o?.img)).length;
   return `<div class="fbar"><div class="fchips">${chipRow(mems,fMem,"fm")}</div><div class="fchips">${chipRow(W_CATS,fCat,"fc")}</div></div>
-    <p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到造型:到選單按「立即同步」":"。還沒讀到造型:請先在選單登入雲端同步")}</p>
+    <div class="fsumrow"><p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到造型:到選單按「立即同步」":"。還沒讀到造型:請先在選單登入雲端同步")}</p>${wLooks().length?`<button class="fbtn" id="fExport" title="衣櫃全部造型的清單(JSON),給服裝批次設計對話比對用">${isNative?"複製造型清單":"匯出造型清單"}</button>`:""}</div>
     <div class="wgrid">${list.map(l=>cardHTML(l,fMem==="all"?null:fMem)).join("")||`<p class="fempty">這個分類還沒有造型</p>`}</div>`}
 function renderStudio(){
   const o=oai(), todo=todoList(), pend=Object.entries(PENDING), waiting=JOBS.filter(j=>j.state==="wait"||j.state==="run").length, errs=JOBS.filter(j=>j.state==="err");
@@ -590,6 +590,7 @@ async function renderFacility(){
   body.querySelectorAll("[data-look]").forEach(b=>b.onclick=()=>openDetail(b.dataset.look,b.dataset.slot));
   body.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{ if(!BULK) approve(b.dataset.ok) });
   const oa=$("#fOkAll"); if(oa) oa.onclick=approveAll;
+  const ex=$("#fExport"); if(ex) ex.onclick=exportLooks;
   body.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>retry(b.dataset.retry));
   body.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>discard(b.dataset.no));
   const st=$("#fStart"); if(st) st.onclick=()=>{ for(const t of todoList()){const id=jobId(t.code,t.slot); if(!JOBS.some(j=>j.id===id)) JOBS.push({id,...t,state:"wait"})} runQueue() };
@@ -639,6 +640,34 @@ async function openDetail(code,slot){
     if(!o.model&&$("#dModel")){ const im=new Image(); im.onload=()=>{const c=document.createElement("canvas");c.width=8;c.height=8;const x=c.getContext("2d");x.drawImage(im,0,0,8,8);const a=x.getImageData(0,0,1,1).data[3];
       $("#dModel").textContent=a<20?"gpt-image-1.5(舊版透明背景)":"未記錄"}; im.src=src } } }
 }
+
+/* ---------- 匯出造型清單(2026-10-26):給「服裝批次設計」對話比對用,避免設計出重複或相近的造型 ----------
+   匯出衣櫃全部造型(不管目前的篩選):代號、名稱、給誰、場合、季節、姿勢、概念、共用設計語彙、標籤、五軸,以及每位成員的 outfit 原文、巧思、
+   有沒有圖、生圖模型、是否已做成遊戲立繪、有沒有保留舊圖。成員一律用代號 ys/tr/hy/he/hr(跟匯入格式相同)。
+   網頁版下載 JSON 檔;APK 不能下載檔案,改成複製到剪貼簿(可以直接貼到對話裡)。 */
+function lookListJSON(){
+  const occI=o=>{ const i=W_OCC.indexOf(o==="日常"?"日常・外出":o); return i<0?99:i };
+  const list=wLooks().slice().sort((a,b)=>occI(a.occasion)-occI(b.occasion)||String(a.code).localeCompare(String(b.code)));
+  const items=list.map(l=>{ const ms={};
+    for(const [slot,o] of Object.entries(l.members||{})){ const mid=midOf(slot)||slot;
+      ms[mid]={outfit:o?.outfit||"",twist:o?.twist||"",img:!!o?.img,model:o?.img?(o.model||""):"",sprite:!!o?.sprites,prev:!!o?.prev?.img} }
+    return {code:l.code,name:l.name||"",type:l.type||"solo",target:l.target?(midOf(l.target)||l.target):"",occasion:l.occasion||"",
+      seasons:Array.isArray(l.seasons)?l.seasons:[],pose:l.pose||"stand",concept:l.concept||"",base:l.base||"",tags:Array.isArray(l.tags)?l.tags:[],
+      attrs:l.attrs||{},source:l.source||"",updated:l.updatedAt?new Date(l.updatedAt).toISOString().slice(0,10):"",members:ms} });
+  const by={}; for(const it of items) by[it.occasion]=(by[it.occasion]||0)+1;
+  return {app:"kpop-clothes-list",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),count:items.length,byOccasion:by,
+    note:"完美女團造型室的衣櫃清單(依場合排序)。members 用成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。img=已有圖,model=生圖模型,sprite=已做成遊戲立繪(日常類才有),prev=有保留的舊圖。",items} }
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true }catch(e){}
+  try{ const a=document.createElement("textarea"); a.value=t; a.setAttribute("readonly",""); a.style.cssText="position:fixed;left:-9999px;top:0;opacity:0";
+    document.body.appendChild(a); a.select(); const ok=document.execCommand("copy"); a.remove(); return ok }catch(e){ return false } }
+async function exportLooks(){
+  const o=lookListJSON(); if(!o.count){ toast2("衣櫃裡還沒有造型"); return }
+  const txt=JSON.stringify(o,null,1), d=new Date(), name=`完美女團_造型清單_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  if(isNative){ toast2(await copyText(txt)?`已複製 ${o.count} 套造型的清單,可以直接貼到服裝對話`:"複製失敗:請改用網頁版的「匯出造型清單」"); return }
+  const u=URL.createObjectURL(new Blob([txt],{type:"application/json"})), a=document.createElement("a");
+  a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000);
+  toast2(`已匯出 ${o.count} 套造型的清單(${name})`) }
 
 /* ---------- 選單:AI 生圖設定 ---------- */
 function oaiSettingsInit(){
