@@ -1012,6 +1012,9 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .cgwho i{font:500 max(calc(1*var(--u)),11px)/1 var(--serif);font-style:normal;letter-spacing:.3em;padding:calc(.3*var(--u)) calc(.7*var(--u));border-radius:calc(2*var(--u));background:color-mix(in srgb,var(--c) 70%,transparent)}
 .cgcap h2{margin:calc(.4*var(--u)) 0 calc(.5*var(--u));font:700 max(calc(2.3*var(--u)),18px)/1.25 var(--serif);letter-spacing:.12em}
 .cgcap p{margin:0;font:500 max(calc(1.25*var(--u)),13px)/1.6 var(--serif);letter-spacing:.06em;color:rgba(255,255,255,.92)}
+/* 多人親密:兩人各一句,名字用各自的代表色 */
+.cgcap p.cgduo span{display:block}
+.cgcap p.cgduo em{font-style:normal;font-weight:700;color:color-mix(in srgb,var(--q) 55%,#fff);margin-right:calc(.6*var(--u))}
 .cgsaved{display:inline-block;margin-top:calc(1*var(--u));font-size:max(calc(.85*var(--u)),10px);letter-spacing:.1em;color:rgba(255,255,255,.75)}
 .cgbtns{position:absolute;right:calc(3*var(--u));bottom:calc(3.2*var(--u));display:flex;gap:calc(.8*var(--u));transition:opacity .4s}
 .cgb{font:600 max(calc(1*var(--u)),11px)/1 var(--serif);letter-spacing:.16em;padding:calc(.8*var(--u)) calc(1.6*var(--u));border-radius:calc(2*var(--u));border:calc(.08*var(--u)) solid rgba(255,255,255,.55);color:#fff;background:rgba(20,10,24,.35);-webkit-backdrop-filter:blur(calc(.6*var(--u)));backdrop-filter:blur(calc(.6*var(--u)))}
@@ -1023,7 +1026,11 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .cgchips{display:flex;gap:calc(.4*var(--u));padding:calc(.7*var(--u)) calc(1*var(--u));overflow-x:auto;background:rgba(255,255,255,.7);border-bottom:calc(.06*var(--u)) solid #E7DFEA}
 .cgchip{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:calc(.2*var(--u));padding:calc(.5*var(--u)) calc(.2*var(--u));border-radius:calc(.8*var(--u));font:700 max(calc(.85*var(--u)),10px)/1 var(--serif);color:#5B5060;background:#fff;border:calc(.08*var(--u)) solid #E7DFEA}
 .cgchip small{font:600 max(calc(.7*var(--u)),8px)/1 var(--num);color:#9A8FA0}
-.cgchip.on{background:var(--c);border-color:var(--c);color:#fff}.cgchip.on small{color:rgba(255,255,255,.85)}
+.cgchip.on{background:var(--c);border-color:var(--c);color:#fff}
+/* 加了「雙人」「回憶」之後一排有 7 個:名字不換行,放不下時整排可以左右滑 */
+.cgchip{flex:1 0 auto;white-space:nowrap;padding-left:calc(.45*var(--u));padding-right:calc(.45*var(--u))}
+.cgchip i{top:calc(.15*var(--u));right:calc(.15*var(--u))}
+.cgchips{scrollbar-width:none}.cgchips::-webkit-scrollbar{display:none}.cgchip.on small{color:rgba(255,255,255,.85)}
 .cgchip i{position:absolute;top:calc(.3*var(--u));right:calc(.4*var(--u));width:calc(.6*var(--u));height:calc(.6*var(--u));border-radius:50%;background:#E0457B;box-shadow:0 0 0 calc(.12*var(--u)) #fff}
 .cgscroll{display:flex;flex-direction:column;gap:calc(.9*var(--u));padding-top:calc(1*var(--u))}
 .cgcard{position:relative;display:block;flex-shrink:0;width:100%;padding:0;border:0;border-radius:calc(1*var(--u));overflow:hidden;background:#fff;text-align:left;box-shadow:0 calc(.2*var(--u)) calc(.8*var(--u)) rgba(60,30,60,.12)}
