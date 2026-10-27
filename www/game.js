@@ -543,7 +543,7 @@ function endSlot(reason){
   if(window.growthOnSlotEnd) growthOnSlotEnd();
   window.choreoOnSlotEnd?.(who("practice").map(m=>m.id));   // 待在練習室的成員自己練主打的編舞
   S.slot++; if(S.slot>4){S.slot=0;S.day++; wxDaily()}
-  S.t=0; S.acts=5; S.visited=[]; assign(); ensureWear(); newMessage(r);
+  S.t=0; S.acts=5; S.visited=[]; assign(); window.lifeOnSlot?.(); ensureWear(); newMessage(r);
   renderAll(); save(true); pushSave();
   toast(SLOTS[S.slot].n,reason==="time"?"時間到了,進入下一個時段":reason==="acts"?"行動用完了,進入下一個時段":"你結束了這個時段")}
 $("#endBtn").onclick=()=>endSlot("manual");
@@ -621,9 +621,11 @@ function menu(){
 function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*pool.length)];
   return {code:"demo-line-"+id,type:"topic",who:[id],member:id,nodes:{start:{L:[[id,t,e]],C:[]}},demoLine:true}}
 function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid];
-  const sn=pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
+  const inv=window.lifeInviteScene?.(id,V.pid);   // 真人化:她約你來的,就演約會的片段
+  const sn=inv||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
-  play(sn,menu)}
+  if(!inv) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
+  play(sn,()=>{ window.lifeAfterTalk?.(id); menu() })}
 function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
@@ -686,7 +688,7 @@ function play(sn,onEnd){
   sn=fillVars(sn);   // {變數} 換成真正的名稱
   if(window.addBond&&!V?.test&&(sn.who||[]).length>1) addBond(sn.who,sn.type==="friction"?2.5:1.5);
   if(!sn.demoLine&&!String(sn.code).startsWith("demo-line")) S.seen[sn.code]=S.day;
-  D={sn,onEnd,q:[],main:sn.member||sn.who?.[0]};
+  D={sn,onEnd,q:[],main:sn.member||sn.who?.[0],opener:window.__opener||null}; window.__opener=null;
   $("#vopts").innerHTML=""; $("#vbox").classList.remove("locked");
   if(sn.sc) D.q.push({k:"line",id:"",text:sn.sc});
   D.q.push({k:"node",key:"start"}); step()}
@@ -694,7 +696,8 @@ function step(){
   if(!D) return; const it=D.q.shift();
   if(!it){const f=D.onEnd;D=null;setExpr(null);f&&f();return}
   if(it.k==="node"){const n=D.sn.nodes[it.key]; if(!n){step();return}
-    for(const l of n.L||[]) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
+    let LL=n.L||[]; if(it.key==="start"&&D.opener){ const o=D.opener; D.opener=null; let k=LL.findIndex(l=>l[0]===D.main); if(k<0) k=LL.length; LL=[...LL.slice(0,k),[D.main,o.t,o.e],...LL.slice(k)] }   // 開場句放在她第一句之前
+    for(const l of LL) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
     if((n.C||[]).length) D.q.push({k:"choices",C:n.C}); step(); return}
   if(it.k==="line"){ if(it.id==="@"){ stageDir(it.text); step(); return } showText(it.id,it.text,false,it.e);return}
   if(it.k==="choices"){showChoices(it.C);return}}
@@ -709,7 +712,7 @@ function stopSkip(){ skip=false; $("#skipBtn")?.setAttribute("aria-pressed","fal
 function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
   $("#vname").innerHTML=me?"代表":m?`${m.n}<i class="en">${m.f.toUpperCase()}</i>`:"旁白"; $("#vname").style.setProperty("--nc",me?"var(--acc)":m?m.c:"#9b8aa0");
-  if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)) setExpr(id,EXPR.includes(e)?e:guessExpr(text)); else if(!m) setExpr(null);
+  if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)){ const ex=EXPR.includes(e)?e:guessExpr(text); setExpr(id,ex); window.lifeLineMotion?.(id,ex) } else if(!m) setExpr(null);
   $("#vbox").dataset.m=me?"me":m?m.id:"narr";
   logLines.push([me?"代表":m?m.n:"",text]);
   const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
@@ -748,7 +751,7 @@ function choose(c){
   step()}
 function applyChoice(c){
   const id=c.to||D?.main; if(!S.m[id]) return;
-  const xp=applyGain(id,c,(i,t)=>fx(i,t));
+  const xp=applyGain(id,c,(i,t)=>fx(i,t)); window.lifeRemember?.(id,c,D?.sn,xp);
   if(c.bw&&c.bv&&window.addBond&&byId(c.bw)) addBond([id,c.bw],c.bv);   // 這個選擇讓兩位成員之間的默契改變
   if(xp>0&&V&&(V.room==="practice"||V.room==="studio")) coachGrowth(id,V.room);
   save(!V?.test)}

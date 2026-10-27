@@ -135,7 +135,7 @@ const titleT=()=>{ const R=API()?.R; return R?R.tracks.find(t=>t.id===R.title):n
 function gain(D,id,base){ const g=Math.max(1,Math.round(base*(1-D.prof[id]/110))); D.prof[id]=Math.min(100,D.prof[id]+g); return g }
 window.choreoOnSlotEnd=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,3)); API().save() };
 window.choreoAfterShow=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,2)); API().save() };
-function practice(T){ if(S.acts<=0) return; const D=getD(T), e=evalDance(T); S.acts--; let tot=0;
+function practice(T){ if(S.acts<=0) return; const D=getD(T), e=evalDance(T); S.acts--; S.lastPrac=S.day; let tot=0;
   for(const id of IDS){ const st=S.m[id]; tot+=gain(D,id,14*(.6+byId(id).dance/200)*(1.25-e.diff*.07)*(st.stress>75?.6:1));
     st.stress=cl(st.stress+5,0,100); window.growthGrow?.(id,"dance",.15) }
   D.at=Date.now(); API().save(); save(true); if(typeof renderHud==="function") renderHud();

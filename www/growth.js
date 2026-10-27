@@ -43,9 +43,11 @@ window.nextStageInfo=id=>{ const s=S.m[id], cur=stageOfXp(id);
   return {name:nx[0],p,extra} };
 /* 選擇的效果:回錯方式不扣分;她最喜歡的回應方式額外加分 */
 const bestStyle=id=>Object.entries(PREF[id]||{}).sort((a,b)=>b[1]-a[1])[0]?.[0];
+/* 好感速度(2026-10-27 使用者要求心動快一點:平均照顧五人約 8~10 個月 → 6~8 個月) */
+const XP_RATE=1.3;
 window.gainFromChoice=(id,c)=>{ const s=S.m[id]; if(!s) return {xp:0,heart:0};
   const p=(PREF[id]||{})[c.s]??1, g=+c.g||0, raw=g*p; let xp=0, heart=0;
-  if(raw>0){ xp=Math.round(Math.min(18,raw*5)); if(c.s&&c.s===bestStyle(id)) xp+=6 }
+  if(raw>0){ xp=Math.round(Math.min(18,raw*5)); if(c.s&&c.s===bestStyle(id)) xp+=6; xp=Math.round(xp*XP_RATE) }
   const st=stageOfXp(id);
   if(STAGE_RANK.indexOf(st)>=2||s.xp>=4800){ if(c.heart) heart=Math.max(0,Math.min(2,+c.heart)); else if(WARM.includes(c.s)&&raw>=2) heart=1 }
   return {xp,heart} };

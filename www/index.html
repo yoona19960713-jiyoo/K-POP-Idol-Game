@@ -1510,6 +1510,17 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .spv-ctl button{min-height:28px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.4);color:#fff;font:inherit}
 .spv-ctl small{margin-left:auto;color:#A99C86;font-size:11px;text-align:right}
 @media (prefers-reduced-motion:reduce){ .spv-m{transition:none} }
+/* ===== 真人化第三批(life.js,2026-10-27):成員之間的小對話泡泡 ===== */
+.lbub{position:absolute;z-index:6;transform:translate(-50%,-100%);max-width:46%;padding:6px 10px;border-radius:12px;border:1.5px solid var(--c);background:rgba(255,253,248,.96);color:#3A2A1C;font:600 max(calc(.85*var(--u)),11px)/1.3 var(--sans);white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);animation:lbubIn .35s ease-out;cursor:pointer}
+.lbub::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;background:inherit;border-right:1.5px solid var(--c);border-bottom:1.5px solid var(--c);transform:translateX(-50%) rotate(45deg)}
+.lbub.out{opacity:0;transition:opacity .4s}
+@keyframes lbubIn{from{opacity:0;transform:translate(-50%,-80%)}to{opacity:1;transform:translate(-50%,-100%)}}
+.lbcard{position:absolute;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;background:rgba(14,10,20,.45)}
+.lbin{width:min(86%,520px);background:linear-gradient(180deg,#FFFCF4,#F4E8D2);border:1px solid #C9A24B;border-radius:12px;padding:12px 16px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.lbin p{margin:6px 0;font-size:max(calc(1*var(--u)),13px);line-height:1.6;color:#3A2A1C}
+.lbin p b{color:var(--c);margin-right:.6em}
+.lbin small{display:block;text-align:right;font-size:10px;color:#8A7460}
+@media (prefers-reduced-motion:reduce){.lbub{animation:none}}
 </style>
 </head>
 <body>
@@ -1668,6 +1679,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="songs.js"></script>
 <script src="choreo.js"></script>
 <script src="stageplay.js"></script>
+<script src="life.js"></script>
 <script src="scripts.js"></script>
 <script src="stage.js"></script>
 <script src="sprites.js"></script>

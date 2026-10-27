@@ -25,6 +25,8 @@ function okSnip(sn){ return (!sn.sl?.length||sn.sl.includes(S.slot))&&stageOk(sn
 function pushLines(key,lines){ const p=ph(), t=p.threads[key]=p.threads[key]||[], st=stamp();
   for(const l of lines||[]) if(l&&l[1]&&l[0]!=="@") t.push({w:l[0]||"",t:l[1],e:EXN[l[2]]?l[2]:"",...st});
   if(t.length>80) t.splice(0,t.length-80) }
+/* 其他模組送來的訊息(真人化:生日、週年、邀約):lines=[[說話者,內容,表情]],key 是成員代號或 "group" */
+window.phoneSay=(key,lines)=>{ pushLines(key,lines); recount() };
 /* 其他模組發的貼文(例如演唱會後):o={id,lines,sc?,img?(完整路徑),big?,code?} */
 window.phonePost=o=>{ const p=ph(), r=Math.random, pop=Math.max(5,(S.m[o.id]?.trust||10)), k=o.big?6:1;
   p.feed.unshift({code:o.code||("post-"+S.day+"-"+o.id),id:o.id,sc:o.sc||"",lines:o.lines||[],likes:Math.round((800+r()*2200)*(1+pop/40)*k),cm:Math.round((40+r()*260)*(1+pop/60)*k),...stamp(),seen:false,choice:null,
