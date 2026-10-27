@@ -36,7 +36,7 @@ const M=[
   {id:"he",f:"haeun", n:"夏恩",c:"#E9746A",cm:163,re:/夏恩|Haeun/i},
   {id:"hr",f:"haram", n:"河嵐",c:"#7FAF2C",cm:160,re:/河嵐|Haram/i}];
 const byId=id=>M.find(m=>m.id===id);
-const EXPR=["neutral","smile","laugh","sad","angry","shy"];
+const EXPR=["neutral","smile","laugh","sad","angry","shy","tired","surprise"];   // tired、surprise:2026-10-27 新增(真人化)
 /* 回應方式對每位成員的倍率(日常層規格) */
 const PREF={ys:{安慰:1,鼓勵:1.2,嚴厲:.3,開玩笑:1,轉移話題:.5,陪著:1.3,出手幫忙:.5},tr:{安慰:.2,鼓勵:.6,嚴厲:1.1,開玩笑:1.3,轉移話題:.6,陪著:1.1,出手幫忙:-.3},
   hy:{安慰:.9,鼓勵:1.1,嚴厲:-.4,開玩笑:1,轉移話題:.6,陪著:.9,出手幫忙:1.1},he:{安慰:.7,鼓勵:.9,嚴厲:.9,開玩笑:1.2,轉移話題:.4,陪著:.8,出手幫忙:.7},
@@ -72,7 +72,14 @@ const PLACES=[
   {id:"bed_he",  g:"宿舍",   n:"夏恩的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"he"},
   {id:"bed_hr",  g:"宿舍",   n:"河嵐的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"hr"},
   {id:"store",   g:"外面",   n:"便利商店",  sp:"out",     open:[3,4]},
-  {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[3,4]}];
+  {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[3,4]},
+  /* 製作中心(2026-10-27):facOnly=只有設施、不拜訪;拜訪內容沒有專屬片段前借用相近地點(sp) */
+  {id:"planning",g:"製作中心", n:"企劃室",   sp:"office",  open:[1,2,3],facOnly:1},
+  {id:"meeting", g:"製作中心", n:"會議室",   sp:"office",  open:[1,2,3],facOnly:1},
+  {id:"vocal",   g:"製作中心", n:"聲樂室",   sp:"studio",  open:[1,2,3]},
+  {id:"design",  g:"製作中心", n:"設計工作室",sp:"styling", open:[1,2,3],facOnly:1},
+  {id:"lobby",   g:"製作中心", n:"大廳",     sp:"practice",open:[0,1,2,3]},
+  {id:"photo",   g:"製作中心", n:"攝影棚",   sp:"styling", open:[1,2,3]}];
 const PL=Object.fromEntries(PLACES.map(p=>[p.id,p]));
 const baseOf=pid=>PL[pid]?.base||pid;
 const openText=p=>p.open.length===5?"全天開放":p.open.map(i=>SLOTS[i].n).join("、")+"開放";
@@ -83,8 +90,11 @@ const WHERE={
   he:[{kitchen:3,bedroom:1},{practice:3,styling:1,"外出:個人拍攝":1},{practice:2,studio:1,styling:1,"外出:個人拍攝":1},{kitchen:3,living:1,practice:1},{living:2,bedroom:2}],
   hr:[{bedroom:3,kitchen:1},{practice:3,"外出:聲樂課":1},{practice:3,studio:1},{living:3,practice:1,store:1},{practice:2,store:1,bedroom:1}]};
 
+/* 製作中心的聲樂室、大廳、攝影棚也會有人(2026-10-27):主唱河嵐最常去聲樂室,門面夏恩比較常在攝影棚 */
+for(const [id,arr] of Object.entries(WHERE)) arr.forEach((w,sl)=>{ if(sl<1||sl>3) return;
+  w.vocal=(w.vocal||0)+({hr:1.5,ys:1,he:.8}[id]||.5)+(w.studio||0)*.3; w.lobby=(w.lobby||0)+.25; w.photo=(w.photo||0)+(id==="he"?.6:.3) });
 /* ---------- 備用文字(內容庫沒有對應片段時才用) ---------- */
-const SCN={practice:"鏡子前的音樂還在放,地板上散著毛巾和水瓶。",studio:"隔音門關上的瞬間,外面的聲音全部消失了。",office:"你的辦公室。桌上的企劃書疊得比昨天更高。",styling:["","上午的陽光從落地窗斜斜照進來,衣架上新到的打歌服還套著防塵袋,空氣裡有淡淡的熨斗蒸氣味。","下午的造型室最熱鬧:化妝鏡的燈泡一盞盞亮著,桌上攤著色票和飾品盒,試衣間的布簾拉開又拉上。","入夜後只剩衣架間的投射燈還亮著,鏡子裡映著一排排亮片與緞面,地上散著幾根被拆下的吊牌。",""],
+const SCN={vocal:"琴聲和發聲練習的聲音,從門縫裡一點一點漏出來。",lobby:"大廳的獎盃櫃擦得發亮,接待台旁堆著粉絲送來的花。",photo:"攝影棚的燈還亮著,白色背景布前散著幾件剛拍完的造型。",practice:"鏡子前的音樂還在放,地板上散著毛巾和水瓶。",studio:"隔音門關上的瞬間,外面的聲音全部消失了。",office:"你的辦公室。桌上的企劃書疊得比昨天更高。",styling:["","上午的陽光從落地窗斜斜照進來,衣架上新到的打歌服還套著防塵袋,空氣裡有淡淡的熨斗蒸氣味。","下午的造型室最熱鬧:化妝鏡的燈泡一盞盞亮著,桌上攤著色票和飾品盒,試衣間的布簾拉開又拉上。","入夜後只剩衣架間的投射燈還亮著,鏡子裡映著一排排亮片與緞面,地上散著幾根被拆下的吊牌。",""],
   living:"客廳的電視開著,沙發上堆著抱枕和還沒摺的衣服。",kitchen:"廚房飄著味道,水槽裡泡著幾個碗。",bedroom:"你敲了敲寢室半開的門,裡面的燈還亮著。",
   store:"便利商店的自動門叮咚一聲打開,冷氣撲面而來。",river:"江風吹過來,對岸的燈一盞一盞亮著。"};
 const EMPTY={practice:"這裡現在沒有人。鏡子上貼著一張寫滿走位的便條。",studio:"這裡現在沒有人。控制台上放著一張寫了一半的歌詞。",office:"辦公室只有你一個人。祕書留了一疊待簽的文件。",styling:["","造型室裡只有造型師在核對新到的衣服清單,一件件掛上衣架。","造型師把明天要用的配件排在絨布托盤上,現在沒有成員在這裡。","造型室已經沒有人了,只剩全身鏡旁的小燈還亮著,衣架上的打歌服靜靜垂著。",""],
@@ -323,17 +333,21 @@ function ensureWear(force){
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
   if(g==="公司大樓") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
 const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
+/* 以前處理的換衣立繪沒有「累」「驚訝」:用最接近的表情代替(不用重新處理) */
+const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"]};
 function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
   if(outfit){ // 造型室處理好的換衣立繪(DYN);還沒載入好時先穿白 T
-    const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||d.neutral; window.needDyn&&needDyn(outfit,mid) }
+    const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||(EXPR_FB[ex]||[]).map(k=>d[k]).find(Boolean)||d.neutral; window.needDyn&&needDyn(outfit,mid) }
   return `assets/chara/${f}_${ex}.webp`}
 function preload(mid,outfit){for(const e of EXPR){const i=new Image();i.src=spr(mid,outfit,e)}}
 
 /* 劇本沒有標表情時,從台詞推測 */
 function guessExpr(t){t=String(t||"");
   if(/哈哈|噗|笑到|笑出聲|笑翻|嘻嘻|呵呵|大笑|笑得停不/.test(t)) return "laugh";
+  if(/咦|欸[??!!]{2}|真的嗎[??]|什麼[??!!]|嚇我|嚇死|天啊|不會吧|怎麼可能/.test(t)) return "surprise";
   if(/(臉|耳朵|耳根|臉頰).{0,3}紅|害羞|捂住臉|擋住臉|結巴|欸[??][!!]|([^\s、,,。])、\2/.test(t)) return "shy";
   if(/閉嘴|煩死|生氣|可惡|吵死|不要管我|你才|哼/.test(t)) return "angry";
+  if(/好累|累死|睏|好想睡|打哈欠|哈欠|撐不住|沒力氣|眼皮/.test(t)) return "tired";
   if(/對不起|抱歉|嗚|難過|想哭|哭了|眼眶|算了……|……我知道|沒事的……/.test(t)) return "sad";
   if(/笑|~|!$|!$|謝謝|太好了|好耶|開心/.test(t)) return "smile";
   return "neutral"}
@@ -362,14 +376,23 @@ const SPOTS=[
   {id:"tv",n:"電視台",kind:"locked",rect:[53,10.5,17.5,10.5],pin:[62.5,14],note:"出道後的打歌期開放"},
   {id:"dorm",n:"宿舍",kind:"building",rect:[67.3,27,21.4,33.5],pin:[77.8,28],rooms:["living","kitchen","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"]},
   {id:"store",n:"便利商店",kind:"place",rect:[47.4,52,17.6,19],pin:[56.2,51.5]},
-  {id:"river",n:"漢江公園",kind:"place",rect:[44,74,56,26],pin:[76,79]}];
+  {id:"river",n:"漢江公園",kind:"place",rect:[44,74,56,26],pin:[76,79]},
+  {id:"center",n:"製作中心",kind:"building",rect:[1.8,62.3,20.5,25.2],pin:[12,66],rooms:["planning","meeting","vocal","design","lobby","photo"]}];
 /* 剖面圖的房間:r=[左,上,寬,高],feet=腳底高度,h=168 公分的人在畫面上的高度(%) */
 const INSIDE={
   company:{n:"公司大樓",sub:"選擇要去的樓層",rooms:[
     {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5,fac:"choreo"},
     {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60],fac:"recording"},
-    {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80],fac:"planning"},
+    {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80]},
     {pid:"styling",fl:"1F",n:"造型室",r:[6.4,78.4,88.8,17.8],feet:93.6,h:15.5,lp:"r",xr:[42,78],fac:"wardrobe"}]},
+  /* 製作中心剖面(三層、每層兩間;位置照 center_*.webp 量的) */
+  center:{n:"製作中心",sub:"選擇要去的房間",rooms:[
+    {pid:"planning",fl:"3F",n:"企劃室",r:[6,7.5,44,23],feet:29.5,h:14,xr:[25,75],fac:"planning"},
+    {pid:"meeting",fl:"3F",n:"會議室",r:[50.5,7.5,43.5,23],feet:29.5,h:14,xr:[25,70],fac:"concert"},
+    {pid:"vocal",fl:"2F",n:"聲樂室",r:[6,35,44,23],feet:57,h:14,xr:[30,80]},
+    {pid:"design",fl:"2F",n:"設計工作室",r:[50.5,35,43.5,23],feet:57,h:14,xr:[20,60],fac:"design"},
+    {pid:"lobby",fl:"1F",n:"大廳",r:[6,62.5,44,25],feet:86,h:14,xr:[35,85],fac:"records"},
+    {pid:"photo",fl:"1F",n:"攝影棚",r:[50.5,62.5,43.5,25],feet:86,h:14,xr:[30,70],fac:"mv"}]},
   dorm:{n:"宿舍",sub:"選擇要去的房間",rooms:[
     {pid:"bed_ys",fl:"2F",n:"藝瑟",r:[5.25,11.1,17.5,34.1],feet:43.6,h:22,xr:[66,80]},
     {pid:"bed_tr",fl:"2F",n:"泰梨",r:[24.1,11.1,16.5,34.1],feet:43.6,h:22,xr:[66,80]},
@@ -398,8 +421,8 @@ function setArt(id,url,instant){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.
 const WARMED=new Set(); let warmQ=[], warming=false, warmKey="";
 function warmArt(){ const key=S.day+"|"+S.slot; if(key===warmKey) return; warmKey=key;
   const lights=[SLOTS[S.slot].light, SLOTS[Math.min(S.slot+1,SLOTS.length-1)].light];
-  const rooms=["practice","studio","office","styling","living","kitchen","store","river","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"];
-  for(const l of lights){ warmQ.push(seasonArt("scene","map",l),seasonArt("scene","company",l),seasonArt("scene","dorm",l)); for(const r of rooms) warmQ.push(seasonArt("bg",r,l)) }
+  const rooms=["practice","studio","office","styling","living","kitchen","store","river","bed_ys","bed_tr","bed_hy","bed_he","bed_hr","vocal","lobby","photo"];
+  for(const l of lights){ warmQ.push(seasonArt("scene","map",l),seasonArt("scene","company",l),seasonArt("scene","dorm",l),seasonArt("scene","center",l)); for(const r of rooms) warmQ.push(seasonArt("bg",r,l)) }
   warmQ=warmQ.filter(u=>!WARMED.has(u)); if(!warming) warmNext() }
 function warmNext(){ const u=warmQ.shift(); if(!u){warming=false;return} warming=true; WARMED.add(u);
   const go=()=>{ const i=new Image(); i.src=u; (i.decode?i.decode():Promise.resolve()).catch(()=>{}).finally(()=>setTimeout(warmNext,120)) };
@@ -449,7 +472,7 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const p=PL[rm.pid], open=p.open.includes(S.slot), vis=S.visited.includes(rm.pid);
     const ppl=open?who(rm.pid):[];
     const dis=!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
-    const own=p.owner, st=!open?openText(p):vis?"這個時段已來過":own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const own=p.owner, st=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):vis?"這個時段已來過":own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
     const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri));
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
@@ -457,7 +480,7 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     return `${figs}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
       ${!open?`<span class="lockc">${openText(p)}</span>`:vis?`<span class="lockc soft">這個時段已來過</span>`:""}</button>`}).join("");
-  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.both){chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
+  $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.both){ if(PL[b.dataset.pid]?.facOnly){ openFac(b.dataset.both); return } chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
     if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)})}
 /* 電視台:宣傳期直接進待機室,其他時間是練習模式 */
 function tvChooser(){
@@ -470,7 +493,10 @@ function tvChooser(){
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
 }
 /* 有設施又能拜訪的房間:先問要做什麼 */
-const FACN={choreo:["編舞板","每首歌的隊形、動作、焦點與練習"],planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"],wardrobe:["造型室","衣櫃、委託設計、生圖、成員底模"]};
+const FACN={concert:["演唱會企劃板","演唱會的日期、場館、歌單與造型"],design:["設計桌","委託設計、生圖、成員底模"],records:["獎盃牆","一位、得獎、粉絲、演唱會的紀錄"],mv:["MV 試映","每首歌的 MV(AI 影片或動態 MV)"],choreo:["編舞板","每首歌的隊形、動作、焦點與練習"],planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"],wardrobe:["衣櫃","每套造型與每日穿搭"]};
+/* 各房間的設施(2026-10-27 公司重新規畫:每間房只開自己的功能) */
+function openFac(fac){ if(fac==="wardrobe"||fac==="design") window.openFacility?.("wardrobe",fac==="design"?"design":"styling");
+  else if(fac==="records") window.openRecords?.(); else if(fac==="mv") window.openMVRoom?.(); else window.openSongFacility?.(fac) }
 function chooser(pid,fac){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
   const p=PL[pid], open=p.open.includes(S.slot), vis=S.visited.includes(pid), ppl=who(pid), canVisit=open&&!vis&&S.acts>0;
@@ -480,7 +506,7 @@ function chooser(pid,fac){
     <button class="chx" data-ch="x">取消</button></div>`;
   el.classList.add("on");
   el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); const c=b.dataset.ch;
-    if(c==="fac"){ if(fac==="wardrobe") window.openFacility&&openFacility("wardrobe"); else window.openSongFacility&&openSongFacility(fac) } else if(c==="visit") visit(pid)});
+    if(c==="fac") openFac(fac); else if(c==="visit") visit(pid)});
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
 }
 function renderWhere(){

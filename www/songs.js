@@ -275,9 +275,9 @@ function shell(){
   $("#sfClose").onclick=close;
 }
 function open(kind){ shell(); OPEN=kind; setPause("song",true);
-  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap "+(kind==="recording"?"th-studio":kind==="choreo"?"th-office th-dance":"th-office")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
-  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${kind==="recording"?"studio":kind==="choreo"?"practice":"office"}_${SLOTS[S.slot].light}.webp)`;
-  $("#sfTitle").textContent=kind==="planning"?"企劃室":kind==="concert"?"演唱會企劃":kind==="choreo"?"練習室":"錄音室"; $("#sfSub").textContent=kind==="recording"?"COMPANY ・ 3F ・ RECORDING":kind==="concert"?"COMPANY ・ 2F ・ CONCERT":kind==="choreo"?"COMPANY ・ 4F ・ PRACTICE":"COMPANY ・ 2F ・ PLANNING";
+  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap one-room "+(kind==="recording"?"th-studio":kind==="choreo"?"th-office th-dance":"th-office")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
+  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${{recording:"studio",choreo:"practice",planning:"planning",concert:"meeting"}[kind]||"planning"}_${SLOTS[S.slot].light}.webp)`;
+  $("#sfTitle").textContent={planning:"企劃室",concert:"會議室",choreo:"練習室",recording:"錄音室"}[kind]; $("#sfSub").textContent={recording:"COMPANY ・ 3F ・ RECORDING",concert:"PRODUCTION CENTER ・ 3F ・ MEETING",choreo:"COMPANY ・ 4F ・ PRACTICE",planning:"PRODUCTION CENTER ・ 3F ・ PLANNING"}[kind];
   const ct=el.querySelector('[data-sf="concert"]'); if(ct) ct.hidden=!(window.concertUnlocked?.()||S.concertNext);
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));
   render() }
@@ -374,13 +374,13 @@ function renderRec(){
   for(const l of C.all){ if(l.si!==lastSi){lastSi=l.si; const ins=instOf(T.secs[l.si]); if(ins>0) blocks.push(`<span class="blk inst" style="flex-grow:${ins}"></span>`)} blocks.push(l) }
   const rel=R.shareMode==="rel", sh=rel?RL.sharesAll:C.shares, sc=rel?RL.secAll:C.secOf;
   $("#sfBody").innerHTML=`<div class="rtop"><div class="rtapes">${R.tracks.map((x,i)=>`<button class="rtape${x.id===R.cur?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?" ・主打":""}</button>`).join("")}</div>
-    <span class="rlen">全長 <b>${fmt(C.LN.t)}</b>・人聲 ${fmt(C.LN.v)}・伴奏 ${fmt(C.LN.i)}・${R.year} 年常見約 ${fmt(C.ideal)}</span></div>
+    <span class="rlinks"><button class="cbtn" data-room="planning">← 企劃室</button><button class="cbtn" data-room="choreo">練習室 →</button></span><span class="rlen">全長 <b>${fmt(C.LN.t)}</b>・人聲 ${fmt(C.LN.v)}・伴奏 ${fmt(C.LN.i)}・${R.year} 年常見約 ${fmt(C.ideal)}</span></div>
   <div class="ribbon"><div class="strip">${blocks.map(l=>{if(typeof l==="string") return l; const f=fillOf(l);
       return `<button class="blk${f?"":" empty"}" style="flex-grow:${l.s};${f?`background:${f}`:""}" data-go="${l.si}-${l.li}" title="${esc(l.sec.n)}・${TYPES[l.t]}・${l.s} 秒">${l.k?"<i>★</i>":""}</button>`}).join("")}</div>
     <div class="secs">${T.secs.map(sec=>`<span style="flex-grow:${sec.lines.reduce((x,l)=>x+(+l.s),0)+instOf(sec)}">${esc(sec.n)}</span>`).join("")}</div></div>
   <div class="rgridx">
     <div class="console" id="rEd">
-      <div class="rbtns"><button class="cbtn pri" id="rSug">建議分配</button><button class="cbtn" id="rClr">清空分配</button><button class="cbtn" id="rRst">依主曲風重設結構</button><button class="cbtn" id="rPlay">舞台預覽</button><button class="cbtn" id="rMV">MV</button><button class="cbtn" id="rExp">${isNative?"複製製作單":"匯出製作單"}</button><button class="cbtn" id="rImp">匯入歌詞</button></div>
+      <div class="rbtns"><button class="cbtn pri" id="rSug">建議分配</button><button class="cbtn" id="rClr">清空分配</button><button class="cbtn" id="rRst">依主曲風重設結構</button><button class="cbtn" id="rPlay">舞台預覽</button><button class="cbtn" id="rExp">${isNative?"複製製作單":"匯出製作單"}</button><button class="cbtn" id="rImp">匯入歌詞</button></div>
       ${T.secs.map((sec,si)=>`<div class="csec"><div class="chead"><b>${esc(sec.n)}</b><label>伴奏<input type="number" min="0" max="40" value="${instOf(sec)}" data-in="${si}">秒</label>
         ${sec.chorus?`<label>C 位<select data-c="${si}"><option value="">未指定</option>${M.map(m=>`<option value="${m.id}" ${sec.c===m.id?"selected":""}>${m.n}</option>`).join("")}</select></label>`:""}</div>
         ${sec.lines.map((l,li)=>`<div class="cln" id="ln-${si}-${li}">
@@ -422,7 +422,8 @@ function renderRec(){
   B.querySelectorAll("[data-in]").forEach(e=>e.onchange=()=>{T.secs[+e.dataset.in].inst=Math.max(0,Math.min(40,+e.value||0));commit()});
   B.querySelectorAll("[data-sm]").forEach(b=>b.onclick=()=>{R.shareMode=b.dataset.sm;save(false);commit()});
   B.querySelectorAll("[data-ly]").forEach(e=>e.onchange=()=>{ at(e.dataset.ly).zh=e.value.trim(); save() });   // 打歌詞不重畫,免得跳掉
-  $("#rExp").onclick=()=>exportSheet(T); $("#rImp").onclick=()=>importLyricsUI(T); $("#rPlay").onclick=()=>window.openStagePlay?.(T); $("#rMV").onclick=()=>window.openMV?.(T);
+  $("#rExp").onclick=()=>exportSheet(T); $("#rImp").onclick=()=>importLyricsUI(T); $("#rPlay").onclick=()=>window.openStagePlay?.(T);
+  B.querySelectorAll("[data-room]").forEach(b=>b.onclick=()=>open(b.dataset.room));
 }
 /* ---------- 歌詞、製作單、匯入歌詞(2026-10-27,為 Suno 做準備) ----------
    每一句可以寫中文歌詞(l.zh);音樂生成對話寫好的韓文(l.ko)用「匯入歌詞」放回來。

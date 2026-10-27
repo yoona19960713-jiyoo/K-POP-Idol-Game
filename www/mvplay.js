@@ -80,5 +80,5 @@ async function openMotionMV(T){ close(); const A=API(), L=timeline(T), SH=shotsO
     else { off=now(); playing=false; au?.pause(); $("#mvPlay").textContent="▶ 繼續" } };
   el.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ seek(+b.dataset.t); if(!playing) frame() });
   CUR.au=au; base=performance.now(); CUR.raf=requestAnimationFrame(frame) }
-window.openMotionMV=openMotionMV; window.closeMV=close;
+window.openMotionMV=openMotionMV; window.closeMV=close; window.mvFileOf=mvFile;
 })();

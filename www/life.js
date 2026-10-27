@@ -25,8 +25,8 @@ const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>o[k]??"");
 
 /* ---------- 各成員的台詞 ---------- */
 const T={
- tired:{ys:["啊,代表……抱歉,今天有點累。不過看到你就好多了。","sad"],tr:["……累死了。別問,讓我坐一下就好。","sad"],hy:["代表……對不起,今天身體有點重……不過我還可以的。","sad"],he:["嘿嘿,被你看到我累成這樣了……可以借我靠一下下嗎?","shy"],hr:["代表~我的電量剩百分之三了……需要代表充電!","sad"]},
- sleepy:{ys:["這麼晚了還沒睡?……其實我也睡不著。","smile"],tr:["你也還醒著?……那就陪我一下。","neutral"],hy:["啊,代表……這麼晚了,您也還沒休息嗎?","smile"],he:["深夜的代表看起來特別溫柔耶,是我的錯覺嗎?","shy"],hr:["噓——大家都睡了,我們小聲一點講話!","laugh"]},
+ tired:{ys:["啊,代表……抱歉,今天有點累。不過看到你就好多了。","tired"],tr:["……累死了。別問,讓我坐一下就好。","tired"],hy:["代表……對不起,今天身體有點重……不過我還可以的。","tired"],he:["嘿嘿,被你看到我累成這樣了……可以借我靠一下下嗎?","tired"],hr:["代表~我的電量剩百分之三了……需要代表充電!","tired"]},
+ sleepy:{ys:["這麼晚了還沒睡?……其實我也睡不著。","tired"],tr:["你也還醒著?……那就陪我一下。","tired"],hy:["啊,代表……這麼晚了,您也還沒休息嗎?","surprise"],he:["深夜的代表看起來特別溫柔耶,是我的錯覺嗎?","shy"],hr:["噓——大家都睡了,我們小聲一點講話!","laugh"]},
  bright:{ys:["今天狀態超好!代表要不要看我新練的那段?","laugh"],tr:["今天心情不錯。……你運氣好。","smile"],hy:["今天練習很順利……所以心情特別好。","smile"],he:["代表!今天天氣好、心情好,看到你更好~","laugh"],hr:["代表代表!今天我高音一次就上去了,快誇我!","laugh"]},
  prac:{ys:["剛練完舞,滿身汗……別靠太近喔。","shy"],tr:["剛跳完。腿還在抖,不准笑。","neutral"],hy:["剛剛把副歌的動作又對了一次……還差一點點。","smile"],he:["練完了~我剛剛那個轉身,是不是很漂亮?","smile"],hr:["呼——剛練完!我覺得我今天可以去參加舞蹈比賽了!","laugh"]},
  bdSelf:{ys:["代表記得今天是我生日嗎?……記得的話,我會很開心的。","shy"],tr:["……今天是我生日。沒什麼,只是告訴你一下。","shy"],hy:["今天是我的生日……在韓國跟大家一起過生日,感覺好不可思議。","smile"],he:["今天是夏恩的生日~代表準備了什麼驚喜?沒有也沒關係,陪我就好!","laugh"],hr:["代表!今天是全世界最重要的日子——我的生日!","laugh"]},
@@ -86,7 +86,8 @@ const lastE={};
 window.lifeLineMotion=(id,e)=>{ try{ if(!byId(id)||RM.matches) return; const prev=lastE[id]; lastE[id]=e; if(!prev||prev===e) return;
   const im=imgOf(id); if(!im?.animate) return; const r=Math.random();
   const K={laugh:[[{translate:"0 0"},{translate:"0 -1.4%"},{translate:"0 0"}],380],shy:[[{translate:"0 0",rotate:"0deg"},{translate:"0 .7%",rotate:"-.8deg"},{translate:"0 0",rotate:"0deg"}],650],
-    angry:[[{rotate:"0deg"},{rotate:".8deg"},{rotate:"-.8deg"},{rotate:"0deg"}],360],sad:[[{translate:"0 0"},{translate:"0 1%"},{translate:"0 0"}],950],smile:[[{translate:"0 0"},{translate:"0 -.5%"},{translate:"0 0"}],320]}[e];
+    angry:[[{rotate:"0deg"},{rotate:".8deg"},{rotate:"-.8deg"},{rotate:"0deg"}],360],sad:[[{translate:"0 0"},{translate:"0 1%"},{translate:"0 0"}],950],
+    tired:[[{translate:"0 0",rotate:"0deg"},{translate:"0 1.1%",rotate:".5deg"},{translate:"0 0",rotate:"0deg"}],1300],surprise:[[{translate:"0 0"},{translate:"0 -.9%"},{translate:"0 .2%"},{translate:"0 0"}],300],smile:[[{translate:"0 0"},{translate:"0 -.5%"},{translate:"0 0"}],320]}[e];
   if(!K||(e==="smile"&&r>.35)||r>.8) return; im.animate(K[0],{duration:K[1],easing:"ease-out",composite:"add"}) }catch(e){} };
 
 /* ---------- ⑦ 換時段時:群組的生日與週年訊息;⑤ 邀約 ---------- */

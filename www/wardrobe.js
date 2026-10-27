@@ -301,7 +301,7 @@ async function takeImport(){
       if(col==="items"&&reps(it).length) rp++;
       let doc=it; if(col==="items"&&ITEMS[it.code]&&!ITEMS[it.code].deleted){ doc=reviseLook(ITEMS[it.code],it); rv++ }
       if(!(await saveDoc(col,doc))) off++; n++ }
-    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""}${rp?`(${rp} 套是取代舊造型的改版:新圖收下後會自動刪除舊的那套)`:""},已放進造型室的設計工作台`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
+    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""}${rp?`(${rp} 套是取代舊造型的改版:新圖收下後會自動刪除舊的那套)`:""},已放進製作中心的設計工作室`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
     setTimeout(()=>toast2(`收到 Claude 創作室送來的 ${what}`+(off?"(還沒登入雲端,登入後會自動上傳)":"")),900);
     if(col==="items"&&window.renderFacility) renderFacility();
   }catch(e){ setTimeout(()=>toast2("收到的資料無法讀取"),900) }
@@ -614,8 +614,14 @@ function facShell(){
   el.querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{fTab=b.dataset.ft;renderFacility()});
   $("#facClose").onclick=closeFacility;
 }
-window.openFacility=async kind=>{ facShell(); FAC=kind; PENDING=await IDB.get("pending")||{}; setPause("fac",true);
-  const el=$("#facility"); el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/styling_${SLOTS[S.slot].light}.webp)`;
+let FROOM="styling";   // styling=公司 1F 造型室(衣櫃);design=製作中心 2F 設計工作室(委託設計、設計工作台、成員底模)
+window.openFacility=async (kind,room)=>{ facShell(); FAC=kind; FROOM=room==="design"?"design":"styling"; PENDING=await IDB.get("pending")||{}; setPause("fac",true);
+  const el=$("#facility"), D=FROOM==="design";
+  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${D?"design":"styling"}_${SLOTS[S.slot].light}.webp)`;
+  el.querySelector(".fac-title small").textContent=D?"PRODUCTION CENTER ・ 2F ・ DESIGN":"COMPANY ・ 1F ・ STYLING"; el.querySelector(".fac-title b").textContent=D?"設計工作室":"造型室";
+  el.setAttribute("aria-label",D?"設計工作室":"造型室"); el.classList.toggle("one-room",!D);
+  el.querySelectorAll("[data-ft]").forEach(b=>b.hidden=D?b.dataset.ft==="closet":b.dataset.ft!=="closet");
+  if(D&&fTab==="closet") fTab="design"; if(!D) fTab="closet";
   void el.offsetWidth; el.classList.remove("hide"); renderFacility() };
 function closeFacility(){ $("#facility").classList.add("hide"); $("#facDetail").classList.add("hide"); setPause("fac",false); FAC=null }
 

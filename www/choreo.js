@@ -145,8 +145,9 @@ function practice(T){ if(S.acts<=0) return; const D=getD(T), e=evalDance(T); S.a
 /* ---------- 畫面 ---------- */
 let SEL=0, PICK=null, PREV=null;
 function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
-  const tapes=`<div class="cr-tapes">${R.tracks.map((x,i)=>`<button class="cr-tape${x.id===T.id?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?"・主打":""}</button>`).join("")}<span class="cr-info">${esc(A.GENRES[T.g?.[0]]?.n||"")}・${esc(T.mood||"")}</span></div>`;
-  const bindTapes=()=>body.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{ stopPrev(); R.cur=b.dataset.tk; SEL=0; PICK=null; A.save(false); rerender() });
+  const tapes=`<div class="cr-tapes">${R.tracks.map((x,i)=>`<button class="cr-tape${x.id===T.id?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?"・主打":""}</button>`).join("")}<span class="cr-info">${esc(A.GENRES[T.g?.[0]]?.n||"")}・${esc(T.mood||"")}</span><button class="cr-tape" data-goroom="recording">← 錄音室</button></div>`;
+  const bindTapes=()=>{ body.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{ stopPrev(); R.cur=b.dataset.tk; SEL=0; PICK=null; A.save(false); rerender() });
+    body.querySelectorAll("[data-goroom]").forEach(b=>b.onclick=()=>{ stopPrev(); A.open(b.dataset.goroom) }) };
   if(!T.dance){ body.innerHTML=`${tapes}<div class="cr-card cr-start"><h4>《${esc(T.name||"未命名")}》還沒有編舞</h4>
       <p>依錄音室的段落,一段一段決定隊形、動作和焦點成員。主打的編舞會影響打歌舞台、短影音挑戰和音源反應;還沒編之前,用公司的預設編舞(普通)。</p>
       <div class="cr-btns"><button class="pbtn pri" id="dNewSug">用建議版開始</button><button class="pbtn" id="dNewBlank">從空白開始</button></div></div>`;

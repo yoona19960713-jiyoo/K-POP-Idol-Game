@@ -7,7 +7,7 @@
    遊戲換穿時會直接讀這些立繪(DYN),不用再上傳檔案到 GitHub
    ===================================================================== */
 (()=>{
-const EXS=["neutral","smile","laugh","sad","angry","shy"];
+const EXS=["neutral","smile","laugh","sad","angry","shy","tired","surprise"];
 /* 表情組的裁切框(原圖座標)與臉部橢圓中心(裁切座標),與 outfit_face.py 相同 */
 const CROP={yeseul:[480,1472],taeri:[450,1478],hiyori:[433,1461],haeun:[466,1486],haram:[460,1477]};
 const FACE={yeseul:[258,133],taeri:[208,158],hiyori:[216,140],haeun:[235,151],haram:[200,168]};
