@@ -1401,6 +1401,14 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .rplist .rpto{font-size:max(calc(.9*var(--u)),11px)}
 .rplist em{font-style:normal;font-size:max(calc(.85*var(--u)),10px);font-weight:700}
 .rplist em.ok{color:#3D7A3A}.rplist em.no{color:#A8433A}
+/* 卡片詳情、編輯、改版整理(2026-10-27 修正):卡片不超出畫面,內容在卡片裡捲動,最下面的按鈕固定看得到。
+   以前 .fac-detail 是 grid,卡片的 height:100% 量不到畫面高度,內容一長整張卡就超出舞台,手機上最下面的按鈕被切掉 */
+.fac-detail{display:flex;align-items:center;justify-content:center}
+.dcard{max-height:calc(100% - 2*var(--u));min-height:0}
+.dcard.edit{grid-template-rows:minmax(0,1fr)}
+.dcard .dtext{min-height:0}
+.dcard.edit .dtext.full>.frow:last-child{position:sticky;bottom:0;margin-top:auto;padding:calc(.6*var(--u)) 0 calc(.3*var(--u));background:linear-gradient(180deg,rgba(246,237,220,0),#F6EDDC 30%);z-index:2}
+.dcard.edit .rplist{flex:1 1 auto;min-height:calc(6*var(--u));max-height:none}
 /* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
 .th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
 .cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}
