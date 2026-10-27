@@ -1521,6 +1521,42 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .lbin p b{color:var(--c);margin-right:.6em}
 .lbin small{display:block;text-align:right;font-size:10px;color:#8A7460}
 @media (prefers-reduced-motion:reduce){.lbub{animation:none}}
+/* ===== MV(mvplay.js,2026-10-27):動態 MV 與 AI 影片 MV 的播放 ===== */
+.mvp,.mvv{position:absolute;inset:0;z-index:92;overflow:hidden;background:#07060A;color:#F6EEDF;font-family:var(--sans);container-type:inline-size}
+.mvv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.mvv .spv-x{position:absolute;top:max(10px,env(safe-area-inset-top,0px));right:14px;z-index:2}
+.mvp-a{position:absolute;inset:0;opacity:0;transition:opacity .45s ease}
+.mvp-a.on{opacity:1}
+.mvs{position:absolute;inset:0;overflow:hidden}
+.mvs.bg{background:center/cover no-repeat;filter:brightness(.62) saturate(1.1)}
+.mvs.solo{background:radial-gradient(120% 90% at 50% 30%,color-mix(in srgb,var(--c) 35%,#14101C),#07060A)}
+.mvs.solo i{position:absolute;inset:-3%;background:50% 2%/100% auto no-repeat;transform-origin:50% 6%}
+.mvs.grp{display:flex;gap:2px;background:#07060A}
+.mvs.grp i{flex:1;position:relative;background:50% 2%/cover no-repeat;transform-origin:50% 6%;box-shadow:inset 0 -40px 40px -20px color-mix(in srgb,var(--c) 45%,transparent)}
+.mvt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;text-shadow:0 2px 12px rgba(0,0,0,.7);animation:mvtIn 1.4s ease-out both}
+.mvt small{font-size:clamp(9px,1.2cqw,13px);letter-spacing:.45em;color:#E8C470}
+.mvt h2{margin:0;font:700 clamp(22px,5cqw,56px)/1.15 var(--serif);letter-spacing:.06em}
+.mvt.end small{letter-spacing:.3em}
+@keyframes mvtIn{from{opacity:0;letter-spacing:.25em}to{opacity:1}}
+@keyframes kb1{from{transform:scale(1.04) translate(0,0)}to{transform:scale(1.14) translate(-1.5%,1%)}}
+@keyframes kb2{from{transform:scale(1.14) translate(1%,-1%)}to{transform:scale(1.05) translate(0,0)}}
+@keyframes kb3{from{transform:scale(1.06) translate(-1.5%,0)}to{transform:scale(1.12) translate(1.5%,.5%)}}
+@keyframes kb4{from{transform:scale(1.1) translate(0,1.5%)}to{transform:scale(1.04) translate(0,-1%)}}
+.mvp-v{position:absolute;inset:0;pointer-events:none;background:radial-gradient(85% 75% at 50% 45%,transparent 55%,rgba(0,0,0,.55)),linear-gradient(180deg,rgba(0,0,0,.35),transparent 25%,transparent 60%,rgba(0,0,0,.7))}
+.mvp.chorus .mvp-v{background:radial-gradient(70% 60% at 30% 20%,rgba(255,190,120,.16),transparent 60%),radial-gradient(85% 75% at 50% 45%,transparent 55%,rgba(0,0,0,.5)),linear-gradient(180deg,rgba(0,0,0,.3),transparent 25%,transparent 60%,rgba(0,0,0,.7));animation:mvGlow 3s ease-in-out infinite alternate}
+@keyframes mvGlow{from{opacity:.85}to{opacity:1}}
+.mvp-lb::before,.mvp-lb::after{content:"";position:absolute;left:0;right:0;height:0;background:#000;transition:height .5s ease;z-index:1}
+.mvp-lb::before{top:0}.mvp-lb::after{bottom:0}
+.mvp.lb .mvp-lb::before,.mvp.lb .mvp-lb::after{height:10%}
+.mvp .spv-top,.mvp .spv-sub,.mvp .spv-bar,.mvp .spv-ctl{z-index:3}
+@media (prefers-reduced-motion:reduce){ .mvs i,.mvs.bg{animation:none!important} .mvp-a{transition:none} }
+.mvt-ov{z-index:2;pointer-events:none;opacity:0;transition:opacity .7s ease;animation:none;background:radial-gradient(60% 50% at 50% 50%,rgba(0,0,0,.45),transparent 75%)}
+.mvt-ov.show{opacity:1}
+.mvt-ov.end small{letter-spacing:.3em}
+.mvs.full b{position:absolute;inset:-8%;background:center/cover no-repeat;filter:blur(18px) brightness(.45) saturate(1.2)}
+.mvs.full i{position:absolute;inset:2% 0 0;background:50% 0/contain no-repeat;transform-origin:50% 30%}
+.mvp .spv-sub.off{opacity:0}
+.mvp .spv-sub{transition:opacity .3s}
 </style>
 </head>
 <body>
@@ -1680,6 +1716,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="choreo.js"></script>
 <script src="stageplay.js"></script>
 <script src="life.js"></script>
+<script src="mvplay.js"></script>
 <script src="scripts.js"></script>
 <script src="stage.js"></script>
 <script src="sprites.js"></script>

@@ -275,4 +275,5 @@ function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales
 /* 造型被改版取代、舊的刪掉時(wardrobe.js deleteLook),打歌準備單裡選的舊造型改成新版 */
 window.stageRemapLook=(o,n)=>{ let ch=0; for(const p of [S.plan,S.prev]) if(p?.looks) for(const k in p.looks) if(p.looks[k]===o){ p.looks[k]=n; ch++ }
   if(ch) save(); return ch };
+window.stagePlanLooks=()=>({...(S.plan?.looks||{})});   // 動態 MV:主打用打歌準備單選的造型
 })();

@@ -380,7 +380,7 @@ function renderRec(){
     <div class="secs">${T.secs.map(sec=>`<span style="flex-grow:${sec.lines.reduce((x,l)=>x+(+l.s),0)+instOf(sec)}">${esc(sec.n)}</span>`).join("")}</div></div>
   <div class="rgridx">
     <div class="console" id="rEd">
-      <div class="rbtns"><button class="cbtn pri" id="rSug">建議分配</button><button class="cbtn" id="rClr">清空分配</button><button class="cbtn" id="rRst">依主曲風重設結構</button><button class="cbtn" id="rPlay">舞台預覽</button><button class="cbtn" id="rExp">${isNative?"複製製作單":"匯出製作單"}</button><button class="cbtn" id="rImp">匯入歌詞</button></div>
+      <div class="rbtns"><button class="cbtn pri" id="rSug">建議分配</button><button class="cbtn" id="rClr">清空分配</button><button class="cbtn" id="rRst">依主曲風重設結構</button><button class="cbtn" id="rPlay">舞台預覽</button><button class="cbtn" id="rMV">MV</button><button class="cbtn" id="rExp">${isNative?"複製製作單":"匯出製作單"}</button><button class="cbtn" id="rImp">匯入歌詞</button></div>
       ${T.secs.map((sec,si)=>`<div class="csec"><div class="chead"><b>${esc(sec.n)}</b><label>伴奏<input type="number" min="0" max="40" value="${instOf(sec)}" data-in="${si}">秒</label>
         ${sec.chorus?`<label>C 位<select data-c="${si}"><option value="">未指定</option>${M.map(m=>`<option value="${m.id}" ${sec.c===m.id?"selected":""}>${m.n}</option>`).join("")}</select></label>`:""}</div>
         ${sec.lines.map((l,li)=>`<div class="cln" id="ln-${si}-${li}">
@@ -422,7 +422,7 @@ function renderRec(){
   B.querySelectorAll("[data-in]").forEach(e=>e.onchange=()=>{T.secs[+e.dataset.in].inst=Math.max(0,Math.min(40,+e.value||0));commit()});
   B.querySelectorAll("[data-sm]").forEach(b=>b.onclick=()=>{R.shareMode=b.dataset.sm;save(false);commit()});
   B.querySelectorAll("[data-ly]").forEach(e=>e.onchange=()=>{ at(e.dataset.ly).zh=e.value.trim(); save() });   // 打歌詞不重畫,免得跳掉
-  $("#rExp").onclick=()=>exportSheet(T); $("#rImp").onclick=()=>importLyricsUI(T); $("#rPlay").onclick=()=>window.openStagePlay?.(T);
+  $("#rExp").onclick=()=>exportSheet(T); $("#rImp").onclick=()=>importLyricsUI(T); $("#rPlay").onclick=()=>window.openStagePlay?.(T); $("#rMV").onclick=()=>window.openMV?.(T);
 }
 /* ---------- 歌詞、製作單、匯入歌詞(2026-10-27,為 Suno 做準備) ----------
    每一句可以寫中文歌詞(l.zh);音樂生成對話寫好的韓文(l.ko)用「匯入歌詞」放回來。
