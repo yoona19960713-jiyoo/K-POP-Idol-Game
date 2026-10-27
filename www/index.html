@@ -1416,6 +1416,19 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 @container (max-width:899px){
   .fac-tabs:has(> button:nth-of-type(4):not([hidden])) > button{letter-spacing:.04em!important;padding-left:calc(.75*var(--u))!important;padding-right:calc(.75*var(--u))!important}
 }
+/* 錄音室:每一句的中文歌詞輸入與匯入的韓文(2026-10-27);匯入歌詞的小視窗 */
+.th-studio .cln{flex-wrap:wrap}
+.th-studio .cln .lyr{flex:1 1 100%;min-height:28px;margin-top:4px;padding:0 10px;border-radius:6px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:#F1E6D2;font:inherit;font-size:max(calc(.88*var(--u)),12px);box-sizing:border-box}
+.th-studio .cln .lyr::placeholder{color:rgba(241,230,210,.35)}
+.th-studio .cln .lko{flex:1 1 100%;padding-left:4px;font-size:max(calc(.8*var(--u)),11px);color:#C9A24B}
+.sfmodal{position:absolute;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(10,8,14,.62)}
+.sfm-card{width:min(92%,640px);max-height:calc(100% - 20px);display:flex;flex-direction:column;gap:8px;background:#1A1722;color:#F1E6D2;border:1px solid #C9A24B;border-radius:12px;padding:14px 16px;box-sizing:border-box}
+.sfm-card h3{margin:0;font:700 16px/1.3 var(--serif)}.sfm-card p{margin:0;font-size:12px;line-height:1.6;color:#CDBFA8}
+.sfm-card textarea{flex:1 1 auto;min-height:90px;resize:none;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#F1E6D2;font:12px/1.5 ui-monospace,Consolas,monospace;padding:8px;box-sizing:border-box}
+.sfm-row{display:flex;gap:8px;align-items:center}.sfm-row .sp{flex:1}.sfm-row label.cbtn{cursor:pointer}
+/* 錄音室上方按鈕變多了:手機上換行、字不要直排 */
+.th-studio .rbtns{display:flex;flex-wrap:wrap;gap:6px}
+.th-studio .rbtns .cbtn{white-space:nowrap;flex:0 0 auto;writing-mode:horizontal-tb}
 /* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
 .th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
 .cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}
@@ -1474,6 +1487,29 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
   .cr-main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);column-gap:10px;align-items:start}
   .cr-main h4{grid-column:1/-1}
   .cr-ctrl .cr-chips{margin-top:0} .cr-chip{padding:0 10px} }
+/* ===== 舞台預覽(stageplay.js,2026-10-27):照時間軸播放段落、歌詞字幕與編舞隊形 ===== */
+.spv{position:absolute;inset:0;z-index:90;overflow:hidden;background:#0B0910;color:#F6EEDF;font-family:var(--sans);container-type:inline-size}
+.spv-bg{position:absolute;inset:0;background:url(assets/bg/ev_stage.webp) center/cover no-repeat;filter:brightness(.55) saturate(1.1)}
+.spv-light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(60% 50% at 50% 72%,rgba(255,214,150,.2),transparent 70%),linear-gradient(180deg,rgba(10,8,16,.6),transparent 30%,transparent 58%,rgba(10,8,16,.88))}
+.spv-floor{position:absolute;left:0;right:0;top:18%;bottom:30%}
+.spv-m{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;transform:translate(-50%,50%) scale(var(--s,1));transition:left .8s cubic-bezier(.4,.1,.2,1),bottom .8s cubic-bezier(.4,.1,.2,1),transform .8s cubic-bezier(.4,.1,.2,1)}
+.spv-face{width:clamp(40px,7.5cqw,120px);aspect-ratio:1;border-radius:50%;background:#ddd no-repeat;background-size:auto 820%;background-position:50% 1.6%;border:2px solid rgba(255,255,255,.85);box-shadow:0 5px 14px rgba(0,0,0,.55);transition:box-shadow .25s,border-color .25s}
+.spv-m b{font-size:clamp(10px,1.1cqw,16px);letter-spacing:.1em;text-shadow:0 1px 3px #000}
+.spv-m.sing .spv-face{border-color:var(--c);box-shadow:0 0 0 3px var(--c),0 0 22px var(--c),0 5px 14px rgba(0,0,0,.55)}
+.spv-m.foc::after{content:"★";position:absolute;top:-8px;right:-3px;color:#FFE08A;font-size:13px;text-shadow:0 1px 2px #000}
+.spv-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:max(10px,env(safe-area-inset-top,0px)) 14px 0;gap:10px}
+.spv-top small{font-size:10px;letter-spacing:.35em;color:#E8C470}.spv-top h3{margin:2px 0;font:700 clamp(15px,2.3cqw,24px)/1.2 var(--serif)}.spv-top span{font-size:clamp(11px,1.2cqw,13px);color:#D9C9A8}
+.spv-x{flex:none;min-height:32px;padding:0 16px;border-radius:999px;border:1px solid rgba(232,196,112,.7);background:rgba(0,0,0,.4);color:#F6EEDF;font:inherit}
+.spv-sub{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);width:min(88%,760px);text-align:center;padding:6px 14px;border-radius:10px;background:rgba(10,8,16,.6);backdrop-filter:blur(4px)}
+.spv-who{display:block;min-height:1.1em;font-size:clamp(10px,1.2cqw,12px);letter-spacing:.12em;color:#E8C470}
+.spv-sub p{margin:2px 0;font:600 clamp(14px,2.1cqw,22px)/1.4 var(--serif)}.spv-sub small{display:block;min-height:1em;font-size:clamp(11px,1.3cqw,14px);color:#D9C9A8}
+.spv-bar{position:absolute;left:14px;right:14px;bottom:38px;height:14px}
+.spv-secs{display:flex;gap:2px;height:100%}.spv-secs button{min-width:4px;border:0;padding:0;border-radius:2px;background:rgba(255,255,255,.2)}.spv-secs button.ch{background:rgba(232,196,112,.42)}
+.spv-bar i{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:rgba(232,196,112,.6);border-radius:2px;pointer-events:none}
+.spv-ctl{position:absolute;left:14px;right:14px;bottom:max(6px,env(safe-area-inset-bottom,0px));display:flex;gap:12px;align-items:center;font-size:12px}
+.spv-ctl button{min-height:28px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(0,0,0,.4);color:#fff;font:inherit}
+.spv-ctl small{margin-left:auto;color:#A99C86;font-size:11px;text-align:right}
+@media (prefers-reduced-motion:reduce){ .spv-m{transition:none} }
 </style>
 </head>
 <body>
@@ -1631,6 +1667,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="wardrobe.js"></script>
 <script src="songs.js"></script>
 <script src="choreo.js"></script>
+<script src="stageplay.js"></script>
 <script src="scripts.js"></script>
 <script src="stage.js"></script>
 <script src="sprites.js"></script>

@@ -127,6 +127,7 @@ function evalDance(T){ const D=T?.dance?getD(T):null; if(!D) return {has:false};
   if(score>=80) N.push(["g","這份編舞很完整,上打歌會很有看頭。"]); if(hook>=80) N.push(["g","副歌舞步很好記,有機會變成挑戰。"]);
   return {has:true,score,fit,concept:con,hook,form,fair,exec,energy:eAvg,diff:dAvg,impact:cl((imp-1)/4*100,0,100),share,gaps,avgProf,prof:{...D.prof},hookName:named,hookMove:hm?.n||"",notes:N} }
 window.choreoEval=T=>evalDance(T);
+window.choreoSections=T=>{ const D=getD(T); return D?D.secs.map(s=>({move:MV[s.mv]?.n||"",energy:MV[s.mv]?.e||0,focus:s.focus,f:s.f,pos:s.pos})):null };
 window.choreoSummary=T=>{ const e=evalDance(T); return e.has?{has:true,score:e.score,impact:e.impact,diff:e.diff,energy:e.energy,hook:e.hook,hookName:e.hookName||e.hookMove,prof:e.prof}:{has:false} };
 
 /* ---------- 熟練度:練習(花行動)、待在練習室自己練、打歌後進步 ---------- */
@@ -160,7 +161,7 @@ function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
         ${IDS.map(id=>{ const p=s.pos[id]||[.5,.5], m=byId(id); return `<button class="cr-dot${PICK===id?" sel":""}${s.focus===id?" foc":""}" data-dot="${id}" style="--c:${m.c};left:${6+p[0]*88}%;top:${10+(1-p[1])*80}%" aria-label="${m.n}">${m.n[0]}</button>` }).join("")}</div></div>
       <div class="cr-ctrl"><div class="cr-chips">${FORMS.map(f=>`<button class="cr-chip${s.f===f.id?" on":""}" data-form="${f.id}">${f.n}</button>`).join("")}${s.f==="free"?`<span class="cr-chip on">自訂</span>`:""}</div>
       <p class="cr-hint">${PICK?`已選${byId(PICK).n}:再點另一個人互換位置`:"點兩個人互換位置,或直接拖曳到想要的地方。選預設隊形時,焦點成員會站最顯眼的位置。"}</p>
-      <div class="cr-btns"><button class="pbtn" id="dPrev">${PREV?"■ 停止預覽":"▶ 預覽整首"}</button>${SEL>0?`<button class="pbtn" id="dCopy">沿用上一段隊形</button>`:""}<button class="pbtn" id="dSug">整首換成建議版</button></div></div></div>
+      <div class="cr-btns"><button class="pbtn pri" id="dPlay">舞台預覽</button><button class="pbtn" id="dPrev">${PREV?"■ 停止":"▶ 隊形預覽"}</button>${SEL>0?`<button class="pbtn" id="dCopy">沿用上一段隊形</button>`:""}<button class="pbtn" id="dSug">整首換成建議版</button></div></div></div>
     <div class="cr-card"><h5>動作</h5><div class="cr-moves">${CATS.map(c=>`<div class="cr-cat"><small>${c}</small>${MOVES.filter(m=>m.cat===c).map(m=>`<button class="cr-mv${s.mv===m.id?" on":""}${m.md.includes(T.mood)?" fit":""}" data-mv="${m.id}"><b>${m.n}</b><i>強${m.e}・難${m.d}${m.hook?"・記憶點":""}</i></button>`).join("")}</div>`).join("")}</div>
       <h5>焦點成員<small>這段鏡頭給誰</small></h5><div class="cr-focs">${IDS.map(id=>{ const m=byId(id); return `<button class="cr-foc${s.focus===id?" on":""}" data-foc="${id}" style="--c:${m.c}">${m.n}</button>` }).join("")}</div>
       <h5>記憶點舞步<small>副歌動作:${esc(e.hookMove||"—")}</small></h5><input class="cr-hook" id="dHook" maxlength="16" placeholder="替副歌的招牌動作取名,例:數到十手勢" value="${esc(D.hook.name||"")}"></div>
@@ -179,7 +180,7 @@ function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
   body.querySelectorAll("[data-foc]").forEach(b=>b.onclick=()=>{ s.focus=s.focus===b.dataset.foc?null:b.dataset.foc; commit(T,false,rerender) });
   $("#dHook").onchange=ev=>{ D.hook={name:ev.target.value.trim()}; commit(T,false,rerender) };
   $("#dPrac").onclick=()=>{ practice(T); rerender() };
-  $("#dPrev").onclick=()=>preview(T,rerender);
+  $("#dPrev").onclick=()=>preview(T,rerender); $("#dPlay").onclick=()=>{ stopPrev(); window.openStagePlay?.(T) };
   $("#dCopy")&&($("#dCopy").onclick=()=>{ const p=D.secs[SEL-1]; s.f=p.f; s.pos=JSON.parse(JSON.stringify(p.pos)); commit(T,true,rerender) });
   $("#dSug").onclick=()=>{ if(!confirm("整首換成建議版?目前這首的隊形、動作、焦點都會被取代(熟練度保留一部分)。")) return; const pr=D.prof, nm=D.hook; T.dance=suggest(T); T.dance.prof=pr; T.dance.hook=nm; commit(T,true,rerender) };
   /* 隊形:點兩人互換,或拖曳 */

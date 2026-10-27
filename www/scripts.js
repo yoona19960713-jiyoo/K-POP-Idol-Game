@@ -304,30 +304,32 @@ const PW={戒備:[.6,.3,.1,0],信任:[.4,.35,.15,.1],夥伴:[.2,.3,.3,.2],心動
 /* 長對話與雙人長對話改由 Claude 創作室負責,自動生產不再用 Gemini 產生 */
 const TYPE_ORDER=["msg","encounter","practice","chat","request","friction","surprise","worry","topic","social"];
 const PAIR_ORDER=["between","away","group"];
+/* 下一個要補的格子(2026-10-27 改):以前照時期順序,練習生期全部補完才輪到出道後,而且同一時期先補低的關係階段,
+   結果內容庫幾乎都是練習生期的戒備與信任。現在每一格算「缺多少(缺的比例)× 急迫度」,挑分數最高的:
+   急迫度看玩家進度——目前的時期 1、下一個時期 0.8、更後面 0.45、已經過去 0.1;成員目前的關係階段 1、下一階段 0.9、再後面 0.35、已經過去 0.15。
+   所以會先補玩家很快會用到的(下一個關係階段、出道後),同時其他格子也會輪到。事件仍然最優先。 */
+function curPeriod(){ try{ if(typeof S==="undefined"||S==null) return 0; const dd=window.DEBUT_DAY??9e9; if(S.day<dd) return 0; const y=dateOf(S.day).getFullYear(); return y<=2017?1:y<=2019?2:3 }catch(e){ return 0 } }
+const perUrg=pi=>{ const c=curPeriod(); return pi===c?1:pi===c+1?.8:pi>c?.45:.1 };
+const stUrg=(id,st)=>{ const R=window.STAGE_RANK||STAGES, cur=R.indexOf(window.stageOfXp?.(id)||"戒備"), k=R.indexOf(st), d=k-Math.max(0,cur); return d===0?1:d===1?.9:d>1?.35:.15 };
 function nextTask(){
   const L=lib(); const cnt={}; for(const x of L){const k=cellKey(x)+"|"+x.period; cnt[k]=(cnt[k]||0)+1}
-  const pend={}; for(const x of reviewQ_()){const k=cellKey(x)+"|"+x.period; pend[k]=(pend[k]||0)+1}
-  const rq=reviewQ_();
+  const rq=reviewQ_(); const pend={}; for(const x of rq){const k=cellKey(x)+"|"+x.period; pend[k]=(pend[k]||0)+1}
   for(const ev of Object.keys(EVENTS)){ const have=[...L,...rq].filter(x=>x.type==="event"&&x.ev===ev).length, g=TYPES.event.target-have;
     if(g>0) return {type:"event",ev,member:"",pair:"all",stage:"",period:"",count:Math.min(TYPES.event.batch,g),hint:""} }
-  for(let pi=0;pi<PERIODS.length;pi++){ const per=PERIODS[pi];
-    for(const st of STAGES){ for(const ty of TYPE_ORDER){
-      // 五位成員輪流:先找缺最多的那位
-      let best=null,gap=0;
-      for(const m of MB){const tgt=Math.round(TYPES[ty].target*PW[st][pi]); const have=(cnt[ty+"|"+m.id+"|"+st+"|"+per]||0)+(pend[ty+"|"+m.id+"|"+st+"|"+per]||0); if(tgt-have>gap){gap=tgt-have;best=m.id}}
-      if(best) return {type:ty,member:best,pair:"",stage:st,period:per,count:Math.min(TYPES[ty].batch,gap),hint:""};
-    }}
-    for(const ty of PAIR_ORDER){ let best=null,gap=0;
-      for(const p of PAIRS){const tgt=Math.round(TYPES[ty].target*(p==="all"?5:1)*PW.pair[pi]); const have=(cnt[ty+"|"+p+"||"+per]||0)+(pend[ty+"|"+p+"||"+per]||0); if(tgt-have>gap){gap=tgt-have;best=p}}
-      if(best) return {type:ty,member:"",pair:best,stage:"",period:per,count:Math.min(TYPES[ty].batch,gap),hint:""};
-    }
-    for(const st of STAGES){ if(PW[st][pi]<.25) continue; const m=MB.find(m=>![...L,...rq].some(x=>x.type==="arc"&&x.member===m.id&&x.stage===st&&x.period===per));
-      if(m) return {type:"arc",member:m.id,pair:"",stage:st,period:per,count:3,hint:""} }
-    for(const k of Object.keys(SITU)){ if(!SITU[k].per.includes(per)) continue; let best=null,gap=0;
-      for(const m of MB){ const have=[...L,...rq].filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id&&x.period===per).length; if(TYPES.situ.target-have>gap){gap=TYPES.situ.target-have;best=m.id} }
-      if(best) return {type:"situ",req:k,member:best,pair:"",stage:"",period:per,count:Math.min(TYPES.situ.batch,gap),hint:""} }
-  }
-  return null;
+  let best=null; const offer=(score,o)=>{ if(score>0&&(!best||score>best.score)) best={score,...o} };
+  PERIODS.forEach((per,pi)=>{ const pu=perUrg(pi);
+    STAGES.forEach(st=>TYPE_ORDER.forEach((ty,ti)=>MB.forEach(m=>{ const tgt=Math.round(TYPES[ty].target*PW[st][pi]); if(!tgt) return;
+      const have=(cnt[ty+"|"+m.id+"|"+st+"|"+per]||0)+(pend[ty+"|"+m.id+"|"+st+"|"+per]||0), gap=tgt-have; if(gap<=0) return;
+      offer(gap/tgt*pu*stUrg(m.id,st)*(1-ti*.015),{type:ty,member:m.id,pair:"",stage:st,period:per,count:Math.min(TYPES[ty].batch,gap),hint:""}) })));
+    PAIR_ORDER.forEach((ty,ti)=>PAIRS.forEach(p=>{ const tgt=Math.round(TYPES[ty].target*(p==="all"?5:1)*PW.pair[pi]); if(!tgt) return;
+      const have=(cnt[ty+"|"+p+"||"+per]||0)+(pend[ty+"|"+p+"||"+per]||0), gap=tgt-have; if(gap<=0) return;
+      offer(gap/tgt*pu*.9*(1-ti*.015),{type:ty,member:"",pair:p,stage:"",period:per,count:Math.min(TYPES[ty].batch,gap),hint:""}) }));
+    STAGES.forEach(st=>{ if(PW[st][pi]<.25) return; MB.forEach(m=>{ if([...L,...rq].some(x=>x.type==="arc"&&x.member===m.id&&x.stage===st&&x.period===per)) return;
+      offer(pu*stUrg(m.id,st)*.85,{type:"arc",member:m.id,pair:"",stage:st,period:per,count:3,hint:""}) }) });
+    Object.keys(SITU).forEach(k=>{ if(!SITU[k].per.includes(per)) return; MB.forEach(m=>{ const have=[...L,...rq].filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id&&x.period===per).length, gap=TYPES.situ.target-have; if(gap<=0) return;
+      offer(gap/TYPES.situ.target*pu*.8,{type:"situ",req:k,member:m.id,pair:"",stage:"",period:per,count:Math.min(TYPES.situ.batch,gap),hint:""}) }) });
+  });
+  if(!best) return null; const {score,...task}=best; return task;
 }
 let running=false, wakeLock=null, lastCalls=[], aState="", aWait=0, aTick=0;
 const sleep=ms=>new Promise(r=>{const t0=Date.now(); aWait=Date.now()+ms; const iv=setInterval(()=>{ if(!running||Date.now()>=aWait){clearInterval(iv);r()} },500)});

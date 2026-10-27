@@ -911,7 +911,7 @@ function wxFrame(t){ wxRaf=0; if(WXK==="clear") return;
   if(!cs.length){ wxLast=0; wxRaf=setTimeout(()=>{wxRaf=requestAnimationFrame(wxFrame)},500); return }   // 看不到時每 0.5 秒看一下就好
   const dt=wxLast?Math.min(.05,(t-wxLast)/1000):0; wxLast=t;
   for(const c of cs){
-    const dpr=Math.min(1.25,devicePixelRatio||1), w=c.clientWidth, h=c.clientHeight; if(!w||!h) continue;
+    const dpr=1, w=c.clientWidth, h=c.clientHeight; if(!w||!h) continue;
     if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){ c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); c._p=null }
     const x=c.getContext("2d"), W=c.width, H=c.height, k=w/700;          // k:依舞台大小縮放雨絲長度與速度
     if(!c._p||c._k!==WXK){ c._k=WXK; const n=WXK==="rain"?Math.round(w*h/2400):Math.round(w*h/5200);

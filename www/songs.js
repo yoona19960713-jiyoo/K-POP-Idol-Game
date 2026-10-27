@@ -380,7 +380,7 @@ function renderRec(){
     <div class="secs">${T.secs.map(sec=>`<span style="flex-grow:${sec.lines.reduce((x,l)=>x+(+l.s),0)+instOf(sec)}">${esc(sec.n)}</span>`).join("")}</div></div>
   <div class="rgridx">
     <div class="console" id="rEd">
-      <div class="rbtns"><button class="cbtn pri" id="rSug">建議分配</button><button class="cbtn" id="rClr">清空分配</button><button class="cbtn" id="rRst">依主曲風重設結構</button></div>
+      <div class="rbtns"><button class="cbtn pri" id="rSug">建議分配</button><button class="cbtn" id="rClr">清空分配</button><button class="cbtn" id="rRst">依主曲風重設結構</button><button class="cbtn" id="rPlay">舞台預覽</button><button class="cbtn" id="rExp">${isNative?"複製製作單":"匯出製作單"}</button><button class="cbtn" id="rImp">匯入歌詞</button></div>
       ${T.secs.map((sec,si)=>`<div class="csec"><div class="chead"><b>${esc(sec.n)}</b><label>伴奏<input type="number" min="0" max="40" value="${instOf(sec)}" data-in="${si}">秒</label>
         ${sec.chorus?`<label>C 位<select data-c="${si}"><option value="">未指定</option>${M.map(m=>`<option value="${m.id}" ${sec.c===m.id?"selected":""}>${m.n}</option>`).join("")}</select></label>`:""}</div>
         ${sec.lines.map((l,li)=>`<div class="cln" id="ln-${si}-${li}">
@@ -388,7 +388,8 @@ function renderRec(){
           <input type="number" min="1" max="12" value="${l.s}" data-s="${si}-${li}" aria-label="秒數"><span class="u">秒</span>
           <select data-d="${si}-${li}" aria-label="難度">${[1,2,3,4,5].map(d=>`<option value="${d}" ${+l.d===d?"selected":""}>難度 ${d}</option>`).join("")}</select>
           <span class="who">${M.map(m=>{const on=l.who.includes(m.id);return `<button class="mb${on?" on":""}" data-w="${si}-${li}-${m.id}" style="--c:${m.c}" aria-pressed="${on}" title="${m.n}">${m.n[0]}</button>`}).join("")}</span>
-          <button class="kill${l.k?" on":""}" data-k="${si}-${li}" title="killing part">★</button><button class="del" data-x="${si}-${li}" title="刪除這句">×</button></div>`).join("")}
+          <button class="kill${l.k?" on":""}" data-k="${si}-${li}" title="killing part">★</button><button class="del" data-x="${si}-${li}" title="刪除這句">×</button>
+          <input class="lyr" data-ly="${si}-${li}" maxlength="80" placeholder="這句的中文歌詞" value="${esc(l.zh||"")}">${l.ko?`<small class="lko">${esc(l.ko)}</small>`:""}</div>`).join("")}
         <button class="addl" data-a="${si}">+ 加一句</button></div>`).join("")}
     </div>
     <div class="cside">
@@ -420,7 +421,49 @@ function renderRec(){
   B.querySelectorAll("[data-c]").forEach(e=>e.onchange=()=>{T.secs.forEach(s=>{if(s.chorus) s.c=e.value});commit()});
   B.querySelectorAll("[data-in]").forEach(e=>e.onchange=()=>{T.secs[+e.dataset.in].inst=Math.max(0,Math.min(40,+e.value||0));commit()});
   B.querySelectorAll("[data-sm]").forEach(b=>b.onclick=()=>{R.shareMode=b.dataset.sm;save(false);commit()});
+  B.querySelectorAll("[data-ly]").forEach(e=>e.onchange=()=>{ at(e.dataset.ly).zh=e.value.trim(); save() });   // 打歌詞不重畫,免得跳掉
+  $("#rExp").onclick=()=>exportSheet(T); $("#rImp").onclick=()=>importLyricsUI(T); $("#rPlay").onclick=()=>window.openStagePlay?.(T);
 }
+/* ---------- 歌詞、製作單、匯入歌詞(2026-10-27,為 Suno 做準備) ----------
+   每一句可以寫中文歌詞(l.zh);音樂生成對話寫好的韓文(l.ko)用「匯入歌詞」放回來。
+   「匯出製作單」把這首的曲風、氣氛、製作團隊、段落秒數、逐句分配與歌詞、killing part、編舞強弱交給音樂生成對話
+   (網頁版下載 JSON,APK 複製到剪貼簿)。回傳時沿用同樣的段落名稱與句子順序。 */
+function sheetOf(T){ const C=computeTrack(T), CH=window.choreoSections?.(T)||null;
+  return {app:"kpop-song-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),
+    code:T.id,title:T.name||"",isTitle:R.title===T.id,release:R.name||"",releaseType:RTYPES[R.rtype]?.n||"",year:R.year,
+    genres:T.g.filter(Boolean).map(k=>GENRES[k]?.n||k),mood:T.mood,producer:PRODS[T.prod]?.n||T.prod,lengthSec:Math.round(C.LN.t),
+    note:"請沿用 sections 的 name 與順序、每段 lines 的順序;每句寫 ko(韓文演唱)與 zh(中文字幕),用同樣的結構回傳(可以只回 code、title、sections[].name 與 lines[].ko/zh),遊戲在錄音室按「匯入歌詞」貼上。who 是成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。sec 是這句的秒數,instSec 是這段的伴奏秒數,killing 是 killing part,dance 是這段的編舞(動作、強度 1~5、焦點成員)。",
+    sections:T.secs.map((s,si)=>({name:s.n,chorus:!!s.chorus,instSec:instOf(s),center:s.c||null,
+      dance:CH?.[si]?{move:CH[si].move,energy:CH[si].energy,focus:CH[si].focus||null}:null,
+      lines:s.lines.map(l=>({who:l.who,type:TYPES[l.t]||l.t,sec:+l.s,difficulty:+l.d,killing:!!l.k,zh:l.zh||"",ko:l.ko||""}))}))} }
+async function exportSheet(T){ const o=sheetOf(T), txt=JSON.stringify(o,null,1), d=new Date();
+  const name=`完美女團_製作單_${(T.name||"未命名").replace(/[\\/:*?"<>|]/g,"")}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  if(isNative){ toast2(await copyText(txt)?"已複製這首的製作單,可以直接貼到音樂生成對話":"複製失敗"); return }
+  const u=URL.createObjectURL(new Blob([txt],{type:"application/json"})), a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000);
+  toast2(`已匯出製作單(${name})`) }
+const normN=x=>String(x||"").toLowerCase().replace(/[\s・·\-_.,'"!?()（）《》〈〉「」]/g,"");
+function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0; const secs=Array.isArray(src.sections)?src.sections:[], used=new Set();
+  T.secs.forEach((s,si)=>{ let xi=secs.findIndex((y,yi)=>!used.has(yi)&&y?.name===s.n); if(xi<0&&secs[si]&&!used.has(si)) xi=si;
+    if(xi<0){ miss+=s.lines.length; return } used.add(xi); const x=secs[xi];
+    const lines=Array.isArray(x.lines)?x.lines:Array.from({length:Math.max(x.ko?.length||0,x.zh?.length||0)},(_,i)=>({ko:x.ko?.[i],zh:x.zh?.[i]}));
+    s.lines.forEach((l,li)=>{ const y=lines[li]; if(!y){ miss++; return } if(y.ko){ l.ko=String(y.ko).trim(); ko++ } if(y.zh){ l.zh=String(y.zh).trim(); zh++ } n++ });
+    if(lines.length>s.lines.length) miss+=lines.length-s.lines.length });
+  T.lyricsAt=Date.now(); return {n,ko,zh,miss} }
+function importLyricsUI(T){ const box=document.createElement("div"); box.className="sfmodal";
+  box.innerHTML=`<div class="sfm-card"><h3>匯入歌詞</h3><p>把音樂生成對話回傳的 JSON 貼在下面(也可以選檔案)。會照段落與句子順序,放進每一句的韓文與中文。</p>
+    <textarea id="lyTxt" placeholder='{"code":"…","sections":[{"name":"主歌一","lines":[{"ko":"…","zh":"…"}]}]}'></textarea>
+    <div class="sfm-row"><label class="cbtn">選檔案<input type="file" id="lyFile" accept=".json,application/json,text/plain" hidden></label><span class="sp"></span><button class="cbtn" id="lyNo">取消</button><button class="cbtn pri" id="lyGo">匯入</button></div></div>`;
+  $("#songFac").appendChild(box); const close=()=>box.remove();
+  $("#lyNo").onclick=close; $("#lyFile").onchange=async e=>{ const f=e.target.files?.[0]; if(f) $("#lyTxt").value=await f.text() };
+  $("#lyGo").onclick=()=>{ let o; try{ o=JSON.parse($("#lyTxt").value.trim()) }catch(e){ toast2("看不懂這段內容:請貼音樂生成對話給的 JSON"); return }
+    const list=Array.isArray(o)?o:Array.isArray(o.songs)?o.songs:Array.isArray(o.items)?o.items:[o]; const done=[]; let skip=0;
+    for(const sg of list){ if(!sg?.sections){ skip++; continue }
+      let t=R.tracks.find(x=>x.id===sg.code||x.id===sg.track)||R.tracks.find(x=>sg.title&&normN(x.name)===normN(sg.title))||R.tracks.find(x=>sg.titleZh&&normN(x.name)===normN(sg.titleZh));
+      if(!t&&list.length===1){ if(!confirm(`找不到同名的歌,要把這份歌詞放進目前這首《${T.name||"未命名"}》嗎?`)) return; t=T }
+      if(!t){ skip++; continue }
+      const r=applyLyrics(t,sg); done.push(`《${t.name||"未命名"}》${r.n} 句(韓文 ${r.ko}、中文 ${r.zh}${r.miss?`,${r.miss} 句對不上`:""})`) }
+    if(!done.length){ toast2("沒有對上任何一首歌:請確認 code 或曲名"); return }
+    save(); close(); render(); toast2("已匯入歌詞:"+done.join(";")+(skip?`;略過 ${skip} 份`:"")) } }
 /* 給 choreo.js(練習室)用 */
 window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS};
 window.openSongFacility=open;
