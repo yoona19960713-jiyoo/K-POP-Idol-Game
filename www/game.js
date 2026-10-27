@@ -776,7 +776,7 @@ setDlg.addEventListener("close",()=>setPause("menu",false));
 function renderSet(){const c=syCfg(),a=syAuth();
   $("#cfgInfo").textContent=c?`已設定專案:${c.projectId}`:""; $("#cfgBox").classList.toggle("hidden",!!a);
   $("#inBox").classList.toggle("hidden",!!a); $("#outBox").classList.toggle("hidden",!a); $("#who").textContent=a?`已登入:${a.email}`:"";
-  $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources(); renderBak(); renderErr()}
+  $("#verNote").textContent="版本 "+(window.APP_VERSION||"開發版"); renderSources(); renderBak(); renderErr(); renderReproc()}
 function renderSources(){if(!$("#srcList")) return;
   const sc=cloudSnips(), lib=sc.length, byType={}; sc.forEach(s=>byType[s.type]=(byType[s.type]||0)+1);
   const items=Object.values(ITEMS), daily=items.filter(l=>l.occasion==="練習"||String(l.occasion).startsWith("日常"));
@@ -792,13 +792,21 @@ $("#signIn").onclick=async()=>{const c=syCfg(); if(!c){toast2("先貼上 Firebas
   try{const j=await syJSON(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("#syEmail").value.trim(),password:$("#syPw").value,returnSecureToken:true})});
     localStorage.setItem(SY_AUTH,JSON.stringify({uid:j.localId,email:j.email,refreshToken:j.refreshToken})); syTok={id:j.idToken,exp:Date.now()+(+j.expiresIn-60)*1000};
     $("#syPw").value=""; renderSet(); syncAll(true,true)}catch(e){syStatus(syMsg(e),true)}};
-$("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if(!window.processSprites) return;
-  const jobs=[]; for(const l of Object.values(ITEMS)) if(l.occasion==="練習"||String(l.occasion).startsWith("日常")) for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]) jobs.push([l.code,slot]);
-  if(!jobs.length){toast2("還沒有日常衣櫃的造型");return}
-  if(!confirm(`用新版去背重新處理 ${jobs.length} 張日常立繪?手機上每張約 5~10 秒,處理時可以繼續玩。`)) return;
-  b.disabled=true; let ok=0;
+/* 日常立繪更新(2026-10-27):只有還是舊版處理方式的立繪才提醒;更新完就不再出現 */
+async function outdatedSprites(){ const jobs=[]; if(!window.spriteOutdated) return jobs;
+  for(const l of Object.values(ITEMS)){ if(!l||l.deleted||!(l.occasion==="練習"||String(l.occasion).startsWith("日常"))) continue;
+    for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]&&await spriteOutdated(o)) jobs.push([l.code,slot]) }
+  return jobs }
+let REPROC_BUSY=false;
+async function renderReproc(){ const row=$("#reprocRow"), note=$("#reprocNote"); if(!row||REPROC_BUSY) return;
+  const jobs=await outdatedSprites(); row.hidden=note.hidden=!jobs.length;
+  if(jobs.length){ $("#reprocAll").textContent=`更新 ${jobs.length} 張舊版日常立繪`; note.textContent=`去背與清晰度改版過;這 ${jobs.length} 張還是舊的處理方式,按一次就會換成新版(更新過的不會再出現)。` } }
+$("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if(!window.processSprites||REPROC_BUSY) return;
+  const jobs=await outdatedSprites(); if(!jobs.length){ toast2("日常立繪都是新版了"); renderReproc(); return }
+  if(!confirm(`更新 ${jobs.length} 張舊版日常立繪?手機上每張約 5~10 秒,處理時可以繼續玩。`)) return;
+  REPROC_BUSY=true; b.disabled=true; let ok=0;
   for(const [i,[code,slot]] of jobs.entries()){ b.textContent=`處理中 ${i+1}/${jobs.length}…`; try{ await processSprites(code,slot); ok++ }catch(e){window.logErr?.("game",e)} }
-  b.disabled=false; b.textContent="用新版去背重新處理全部日常立繪"; toast2(`完成:${ok}/${jobs.length} 張已重新處理`) });
+  REPROC_BUSY=false; b.disabled=false; toast2(`完成:${ok}/${jobs.length} 張已更新`); renderReproc() });
 $("#makerBtn").onclick=()=>{setDlg.close(); window.openMaker&&openMaker()};
 $("#signOut").onclick=()=>{localStorage.removeItem(SY_AUTH);syTok=null;renderSet();syStatus("");toast2("已登出,本機進度保留")};
 $("#syncBtn").onclick=()=>syncAll(true,false);

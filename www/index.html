@@ -1409,6 +1409,13 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .dcard .dtext{min-height:0}
 .dcard.edit .dtext.full>.frow:last-child{position:sticky;bottom:0;margin-top:auto;padding:calc(.6*var(--u)) 0 calc(.3*var(--u));background:linear-gradient(180deg,rgba(246,237,220,0),#F6EDDC 30%);z-index:2}
 .dcard.edit .rplist{flex:1 1 auto;min-height:calc(6*var(--u));max-height:none}
+
+/* hidden 屬性一律隱藏(有些列用 display:flex 會蓋掉瀏覽器預設的 hidden) */
+[hidden]{display:none!important}
+/* 設施分頁有 4 個以上時(造型室、企劃室開了演唱會),手機上縮小字距與內距,全部分頁都看得到,不用左右滑(2026-10-27) */
+@container (max-width:899px){
+  .fac-tabs:has(> button:nth-of-type(4):not([hidden])) > button{letter-spacing:.04em!important;padding-left:calc(.75*var(--u))!important;padding-right:calc(.75*var(--u))!important}
+}
 /* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
 .th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
 .cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}
@@ -1584,7 +1591,8 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
     <h3>日常衣櫃</h3>
     <p class="hint">遊戲依地點換穿:練習室、錄音室、辦公室穿練習服;宿舍穿居家服(深夜有睡衣就穿睡衣);外面穿外出服。某一類還沒有衣服時穿白 T 立繪。</p>
     <ul id="wardList"></ul>
-    <div class="row"><button class="b" id="reprocAll">用新版去背重新處理全部日常立繪</button></div>
+    <p class="hint" id="reprocNote" hidden></p>
+    <div class="row" id="reprocRow" hidden><button class="b" id="reprocAll">更新舊版日常立繪</button></div>
 
     <h3>製作者模式</h3>
     <p class="hint">產生日常片段、審稿、試玩、收進內容庫。打開時遊戲時間暫停。</p>

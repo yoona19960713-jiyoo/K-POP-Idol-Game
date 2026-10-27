@@ -225,11 +225,28 @@ window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) re
     const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender()} })().finally(()=>LOADING.delete(k)) };
 
 /* ---- 造型室用:處理一套的某位成員 ---- */
+/* ---- 立繪處理版本(2026-10-27):目前是第 4 版(精準遮罩去背+2 倍輸出、臉用高清表情組)。
+   新處理的會記 spriteV;以前處理、沒記版本的,看立繪高度判斷:2 倍輸出高約 2900px,舊版約 1480px。
+   判斷只讀圖檔開頭的尺寸欄位(不解碼整張圖),結果記在這台裝置(kpopGame.sprOK),選單只在真的有舊版時才出現更新鍵 ---- */
+const SPRITE_V=4; window.SPRITE_V=SPRITE_V;
+function imgSize(u){ try{ const b64=String(u).split(",")[1]||""; const bin=atob(b64.slice(0,80)), b=[...bin].map(c=>c.charCodeAt(0)), str=(i,n)=>String.fromCharCode(...b.slice(i,i+n));
+  if(str(1,3)==="PNG") return {w:(b[16]<<24|b[17]<<16|b[18]<<8|b[19])>>>0,h:(b[20]<<24|b[21]<<16|b[22]<<8|b[23])>>>0};
+  if(str(0,4)==="RIFF"&&str(8,4)==="WEBP"){ const k=str(12,4);
+    if(k==="VP8 ") return {w:(b[26]|b[27]<<8)&0x3fff,h:(b[28]|b[29]<<8)&0x3fff};
+    if(k==="VP8L") return {w:1+(((b[22]&0x3f)<<8)|b[21]),h:1+(((b[24]&0xf)<<10)|(b[23]<<2)|((b[22]&0xc0)>>6))};
+    if(k==="VP8X") return {w:1+(b[24]|b[25]<<8|b[26]<<16),h:1+(b[27]|b[28]<<8|b[29]<<16)} } }catch(e){} return null }
+const SOK_K="kpopGame.sprOK"; let SOK=null;
+const sokGet=()=>SOK||(SOK=new Set((()=>{try{return JSON.parse(localStorage.getItem(SOK_K)||"[]")}catch(e){return []}})()));
+window.spriteOutdated=async o=>{ if(!o?.sprites) return false; if((o.spriteV||0)>=SPRITE_V) return false;
+  const ref=o.sprites.neutral||Object.values(o.sprites)[0]; if(!ref) return false; const ok=sokGet(); if(ok.has(ref)) return false;
+  const u=await getBlob(ref); if(!u) return false;   // 圖還沒下載到這台:先不算舊版,免得誤報
+  const sz=imgSize(u); if(sz&&sz.h>=2000){ ok.add(ref); try{ localStorage.setItem(SOK_K,JSON.stringify([...ok].slice(-2000))) }catch(e){} return false }
+  return !!sz };
 window.processSprites=async(code,slot,opts={})=>{
   const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})), mid=WMEM[slot]; if(!lk.code||!mid) throw new Error("找不到這套造型");
   const src=await getBlob(lk.members?.[slot]?.img); if(!src) throw new Error("這位成員還沒有圖");
   const r=await makeSprites(mid,src,lk.pose);
-  lk.members[slot].sprites=r.sprites; lk.members[slot].spriteAt=Date.now(); lk.updatedAt=Date.now();
+  lk.members[slot].sprites=r.sprites; lk.members[slot].spriteAt=Date.now(); lk.members[slot].spriteV=SPRITE_V; lk.updatedAt=Date.now();
   const k=code+"@"+mid; DYN[k]=Object.fromEntries(Object.entries(r.sprites).map(([e,u])=>[e,toBlobURL(u)]));
   const ok=await saveDoc("items",lk); ensureWear(true); rerender();
   return {...r,ok};
