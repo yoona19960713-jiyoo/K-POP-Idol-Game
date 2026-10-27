@@ -86,6 +86,7 @@ window.coachGrowth=(id,place)=>{ if(place==="practice"){grow(id,"dance",.12);gro
 /* 出道後:每一場打歌都是實戰經驗 */
 window.growthOnShow=ids=>{ for(const id of ids){ grow(id,"vocal",.25); grow(id,"dance",.25); grow(id,"expr",.3); for(const k of MAIN[id]) grow(id,k,.15) } save(true) };
 window.gameSkill=()=>S.skill;
+window.growthGrow=(id,k,v)=>grow(id,k,v);   // 練習室練舞會小幅提升舞蹈
 
 /* ---------- 月評:每月最後一個週六的下午 ---------- */
 const isEvalDay=d=>{const x=new Date(d.getFullYear(),d.getMonth()+1,0); while(x.getDay()!==6) x.setDate(x.getDate()-1); return x.getDate()===d.getDate()};

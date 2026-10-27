@@ -78,6 +78,10 @@ function perform(){ syncSkill();
   // 成員的實力與團隊默契:實力怪物加分,默契越高現場越穩
   const avgSk=on.reduce((a,m)=>a+(m.vocal+m.dance+m.expr)/3,0)/Math.max(1,on.length), bond=window.teamBond?teamBond():50;
   stage+=(avgSk-65)*.3+(bond-50)*.12;
+  /* 編舞(練習室):編舞分、熟練度、難度 → 舞台分與跳錯;還沒編舞就跟以前一樣 */
+  const DN=SONG.dance, dmiss=[]; let avgPr=0;
+  if(DN?.has){ avgPr=on.reduce((a,m)=>a+(DN.prof?.[m.id]||0),0)/Math.max(1,on.length); stage+=(DN.score-60)*.15+(avgPr-60)*.06+(DN.impact-50)*.06*(avgPr/100);
+    for(const m of on){ const pr=DN.prof?.[m.id]||0, gap=35+DN.diff*11-(m.dance*.65+pr*.35); if(rnd()<Math.max(0,gap)/110+(pr<40?.12:pr<60?.05:0)){ dmiss.push(m); stage-=5 } } }
   let mistakes=[], caught=false;
   for(const m of on){const st=S.m[m.id]; const tired=(100-st.stamina)/100;
     stage-=tired*6; if(st.cond==="sick") stage-=3; if(st.cond==="hurt") stage-=4;
@@ -97,6 +101,7 @@ function perform(){ syncSkill();
   const endViral=p.end&&!p.rest[p.end]&&rnd()<.18+(S.m[p.end].mood/500);
   if(endViral) social+=12;
   if(+S.year>=2020) social+=5;
+  let viral=false; if(DN?.has){ social+=(DN.hook-50)*.12; if(DN.hook>=70&&rnd()<.12+DN.hook/400){ viral=true; social+=10 } }
   // 一位計分
   const decay=[0,.92,1,.9,.78][wk];
   const us={digital:SONG.score*decay,sales:70,views:Math.min(100,views/3.4),social:Math.min(100,social*.95),stage};
@@ -112,15 +117,19 @@ function perform(){ syncSkill();
   for(const m of M) if(p.rest[m.id]) log.push(["",`${m.n}今天在休息室休息,四人上台。`]);
   for(const m of on) if(S.m[m.id].cond==="hurt") say(m.id,"腳踝我會自己注意,不要因為我改隊形。");
   mistakes.forEach(m=>log.push(["bad",`${m.n}在高音段破音了,網路上開始出現剪輯。`]));
+  dmiss.forEach(m=>log.push(["bad",`${m.n}有一段動作慢了半拍,被眼尖的粉絲剪成影片。`]));
+  if(DN?.has&&!dmiss.length&&avgPr>=85&&DN.score>=75) log.push(["good","整齊度被稱讚是「刀群舞」,練習室的努力看得出來。"]);
+  if(viral) log.push(["good",`「${DN.hookName||"副歌舞步"}」挑戰在短影音上流行起來。`]);
   if(caught) log.push(["bad","有粉絲比對出今天是整首對嘴,熱搜出現「假唱」字眼。"]);
   if(endViral) log.push(["good",`Ending 鏡頭停在${byId(p.end).n}身上的那一秒被瘋傳。`]);
   if(views>260) log.push(["good",`${camM.n}的直拍衝上影音熱門。`]);
   if(win) say("ys","我們……拿到一位了?大家,謝謝你們。");
-  return {i,wk,sh,O,stage,grade,views,social,us,rv,up,rp,win,mistakes,caught,endViral,log};
+  return {i,wk,sh,O,stage,grade,views,social,us,rv,up,rp,win,mistakes,dmiss,viral,caught,endViral,log};
 }
 function applyResult(r){
   const p=S.plan, V=VERS[p.ver];
   if(window.growthOnShow) growthOnShow(M.filter(m=>!p.rest[m.id]).map(m=>m.id));
+  window.choreoAfterShow?.(M.filter(m=>!p.rest[m.id]).map(m=>m.id));   // 上台也是練習
   r.first=window.onShowResult?.(r)||null;
   for(const m of M){const st=S.m[m.id];
     if(p.rest[m.id]){st.stamina=Math.min(100,st.stamina+18);st.throat=Math.min(100,st.throat+12);if(st.cond&&rnd()<.6) st.cond="";continue}
@@ -131,7 +140,7 @@ function applyResult(r){
   const top=Object.entries(S.camCount).sort((a,b)=>b[1]-a[1])[0];
   for(const m of M){ if(m.id!==p.cam&&top&&top[0]!==m.id&&top[1]>=4) S.m[m.id].mood=Math.max(0,S.m[m.id].mood-3) }
   if(r.endViral) S.m[p.end].pop+=6;
-  r.mistakes.forEach(m=>{S.m[m.id].mood-=8}); if(r.caught) M.forEach(m=>S.m[m.id].mood-=4);
+  r.mistakes.forEach(m=>{S.m[m.id].mood-=8}); (r.dmiss||[]).forEach(m=>{S.m[m.id].mood-=5}); if(r.caught) M.forEach(m=>S.m[m.id].mood-=4);
   if(r.win){S.wins++; M.forEach(m=>S.m[m.id].mood=Math.min(100,S.m[m.id].mood+8))}
   // 隔天恢復一點,偶爾生病或受傷
   seed=(r.i+3)*104729; for(const m of M){const st=S.m[m.id]; st.stamina=Math.min(100,st.stamina+6); st.throat=Math.min(100,st.throat+5);

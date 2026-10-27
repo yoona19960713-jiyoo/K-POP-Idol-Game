@@ -1401,6 +1401,64 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .rplist .rpto{font-size:max(calc(.9*var(--u)),11px)}
 .rplist em{font-style:normal;font-size:max(calc(.85*var(--u)),10px);font-weight:700}
 .rplist em.ok{color:#3D7A3A}.rplist em.no{color:#A8433A}
+/* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
+.th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
+.cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}
+.cr-tape{min-height:30px;font:600 max(calc(.95*var(--u)),11px)/1 var(--sans);padding:0 calc(1*var(--u));border-radius:calc(.5*var(--u));border:1px solid rgba(120,90,50,.35);background:#FFFDF8;color:#4A3828}
+.cr-tape.on{background:#3A2A1C;color:#F6E7C8;border-color:#3A2A1C}
+.cr-info{margin-left:auto;font-size:max(calc(.85*var(--u)),10px);color:#F6E7C8;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cr-ribbon{display:flex;gap:2px;min-height:30px;border-radius:calc(.5*var(--u));overflow:hidden;background:rgba(0,0,0,.15)}
+.cr-sec{min-width:8px;border:0;padding:0 4px;background:color-mix(in srgb,var(--c) 50%,#FFF8EC);color:#2A2018;font-size:max(calc(.75*var(--u)),9px);white-space:nowrap;overflow:hidden;cursor:pointer}
+.cr-sec.on{background:var(--c);color:#fff;box-shadow:inset 0 0 0 2px #E8C470}
+.cr-grid{display:grid;grid-template-columns:1.15fr 1fr .95fr;gap:calc(.9*var(--u));align-items:start}
+.cr-card{background:rgba(255,253,248,.95);border:1px solid rgba(184,149,90,.45);border-radius:calc(.7*var(--u));padding:calc(.9*var(--u)) calc(1*var(--u));box-shadow:0 4px 14px rgba(60,40,20,.14);color:#3A2A1C;min-width:0}
+.cr-card h4{margin:0 0 calc(.5*var(--u));font:700 max(calc(1.05*var(--u)),12px)/1.3 var(--serif);letter-spacing:.06em}
+.cr-card h4 small,.cr-card h5 small{margin-left:.6em;font:500 max(calc(.78*var(--u)),10px)/1 var(--sans);color:#8A7460;letter-spacing:0}
+.cr-card h5{margin:calc(.7*var(--u)) 0 calc(.35*var(--u));font:700 max(calc(.9*var(--u)),11px)/1.2 var(--sans);color:#7A5A30;letter-spacing:.1em}
+.cr-card h5:first-child{margin-top:0}
+.cr-card p{margin:0 0 calc(.6*var(--u));font-size:max(calc(.88*var(--u)),11px);line-height:1.6}
+.cr-stage{position:relative;aspect-ratio:16/9;border-radius:calc(.6*var(--u));overflow:hidden;touch-action:none;user-select:none;
+  background:linear-gradient(180deg,#4E3B2E 0%,#7E5F45 52%,#A9825F 100%);box-shadow:inset 0 -5px 0 rgba(255,230,190,.28),inset 0 0 0 1px rgba(0,0,0,.2)}
+.cr-stage::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 1px,transparent 1px 12.5%),repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 25%)}
+.cr-back,.cr-front{position:absolute;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:.35em;color:rgba(255,240,220,.7);pointer-events:none}
+.cr-back{top:4px}.cr-front{bottom:3px}
+.cr-mvlab{position:absolute;left:8px;top:5px;font-size:11px;color:#FFF3DC;text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none}
+.cr-dot{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;padding:0;border-radius:50%;border:2px solid #fff;background:var(--c);color:#fff;font:700 13px/1 var(--sans);display:grid;place-items:center;
+  box-shadow:0 3px 8px rgba(0,0,0,.35);transition:left .6s ease,top .6s ease;touch-action:none;cursor:grab;z-index:2}
+.cr-dot.drag{transition:none;cursor:grabbing;z-index:3;scale:1.12}
+.cr-dot.sel{box-shadow:0 0 0 3px #F3D27A,0 3px 8px rgba(0,0,0,.35)}
+.cr-dot.foc::after{content:"★";position:absolute;top:-10px;right:-7px;font-size:12px;color:#FFE08A;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.cr-chips{display:flex;flex-wrap:wrap;gap:calc(.4*var(--u));margin-top:calc(.6*var(--u))}
+.cr-chip{min-height:30px;display:inline-flex;align-items:center;padding:0 calc(.9*var(--u));border-radius:999px;border:1px solid rgba(120,90,50,.35);background:#fff;color:#4A3828;font-size:max(calc(.85*var(--u)),11px)}
+.cr-chip.on{background:#3A2A1C;color:#F6E7C8;border-color:#3A2A1C}
+.cr-hint{margin:calc(.45*var(--u)) 0 0!important;font-size:max(calc(.78*var(--u)),10px)!important;color:#7A6450}
+.cr-btns{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;margin-top:calc(.6*var(--u))}
+.cr-moves{max-height:calc(24*var(--u));overflow:auto;display:flex;flex-direction:column;gap:calc(.45*var(--u));padding-right:2px}
+.cr-cat{display:flex;flex-wrap:wrap;gap:calc(.35*var(--u))}
+.cr-cat>small{width:100%;font-size:10px;color:#9A7A50;letter-spacing:.15em}
+.cr-mv{min-height:30px;display:inline-flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1px;padding:3px calc(.7*var(--u));border-radius:calc(.45*var(--u));border:1px solid rgba(120,90,50,.28);background:#fff;color:#3A2A1C;font-size:max(calc(.85*var(--u)),11px);text-align:left}
+.cr-mv b{font-weight:600}.cr-mv i{font-style:normal;font-size:9px;color:#9A7A50}
+.cr-mv.fit{border-color:#C9A24B;box-shadow:inset 0 0 0 1px rgba(201,162,75,.35)}
+.cr-mv.on{background:#3A2A1C;color:#F6E7C8;border-color:#3A2A1C}.cr-mv.on i{color:#E8C98A}
+.cr-focs{display:flex;gap:6px;flex-wrap:wrap}
+.cr-foc{min-width:44px;min-height:32px;padding:0 8px;border-radius:999px;border:2px solid var(--c);background:#fff;color:var(--c);font:700 12px/1 var(--sans)}
+.cr-foc.on{background:var(--c);color:#fff}
+.cr-hook{width:100%;min-height:32px;padding:0 10px;border-radius:8px;border:1px solid rgba(120,90,50,.35);background:#fff;color:#3A2A1C;font:inherit;font-size:max(calc(.9*var(--u)),12px);box-sizing:border-box}
+.cr-big{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}.cr-big b{font:700 max(calc(2.6*var(--u)),26px)/1 var(--serif)}.cr-big span{font-size:max(calc(.78*var(--u)),10px);color:#7A6450}
+.cr-bar,.cr-prof{display:grid;grid-template-columns:5.6em 1fr 2.4em;gap:6px;align-items:center;font-size:max(calc(.82*var(--u)),10px);margin:3px 0}
+.cr-prof{grid-template-columns:3em 1fr 2.6em}
+.cr-bar .t,.cr-pb{height:7px;border-radius:4px;background:rgba(0,0,0,.08);overflow:hidden}.cr-bar .t i,.cr-pb i{display:block;height:100%}
+.cr-bar .t i{background:linear-gradient(90deg,#D9B36A,#8A6A2A)}
+.cr-bar .num,.cr-prof .num{text-align:right}
+.cr-notes{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:max(calc(.8*var(--u)),10px);line-height:1.5}
+.cr-notes li{padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.04)}
+.cr-notes li.b{background:rgba(168,67,58,.12);color:#8A2F28}.cr-notes li.w{background:rgba(201,162,75,.16)}.cr-notes li.g{background:rgba(61,122,58,.12);color:#2E5E2C}
+.cr-start{max-width:680px}
+@container (max-width:899px){ .cr-grid{grid-template-columns:1fr} .cr-moves{max-height:none}
+  /* 手機:舞台俯視圖在左、隊形與按鈕在右,不用捲就能邊看邊排 */
+  .cr-main{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);column-gap:10px;align-items:start}
+  .cr-main h4{grid-column:1/-1}
+  .cr-ctrl .cr-chips{margin-top:0} .cr-chip{padding:0 10px} }
 </style>
 </head>
 <body>
@@ -1556,6 +1614,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="assets/poses.js"></script>
 <script src="wardrobe.js"></script>
 <script src="songs.js"></script>
+<script src="choreo.js"></script>
 <script src="scripts.js"></script>
 <script src="stage.js"></script>
 <script src="sprites.js"></script>

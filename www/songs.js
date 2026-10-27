@@ -140,6 +140,7 @@ function genreInfo(T){
   return {gs,trend:Math.max(0,Math.min(100,trend+combo)),prodFit,notes,P};
 }
 function computeTrack(T){
+  const DN=window.choreoEval?.(T)||{has:false};   // 練習室的編舞(choreo.js);還沒編就用編舞強度滑桿
   const all=T.secs.flatMap((sec,si)=>sec.lines.map((l,li)=>({...l,si,li,sec})));
   const total=all.reduce((x,l)=>x+(+l.s||0),0)||1;
   const secOf={}, growth={}, flags={}; M.forEach(m=>{secOf[m.id]=0;growth[m.id]={vocal:0,rap:0,expr:0};flags[m.id]=[]});
@@ -150,7 +151,7 @@ function computeTrack(T){
     q+=sc.s*(+l.s)*sc.w; qw+=(+l.s)*sc.w;
     for(const id of l.who){const m=byId(id),a=ability(m,l.t,l.k),r=req(l.d);
       const k=l.t==="rap"?"rap":l.t==="spoken"?"expr":"vocal"; growth[id][k]+=(+l.s)/l.who.length*(a<r?1.6:1);
-      if(a<r-6&&l.d>=4){risk+=(+l.s)*(r-a)/r*(1+(T.choreo-1)*.3);flags[id].push(`${l.sec.n}的${TYPES[l.t]}`)}}
+      if(a<r-6&&l.d>=4){risk+=(+l.s)*(r-a)/r*(1+((DN.has?DN.energy:T.choreo)-1)*.3);flags[id].push(`${l.sec.n}的${TYPES[l.t]}`)}}
   }
   const quality=qw?q/qw:0;
   const shares={}; M.forEach(m=>shares[m.id]=secOf[m.id]/total);
@@ -167,6 +168,7 @@ function computeTrack(T){
   const LN=lengthOf(T), ideal=IDEAL[YEARS.indexOf(+R.year)]+(GENRES[G.gs[0]].f==="bal"?25:0), off=LN.t-ideal;
   const lenAdj=-Math.min(6,Math.max(0,Math.abs(off)-20)/6);
   let score=quality*.32+G.trend*.22+G.prodFit*.18+fairness*.12+variety*.08+live*.08+season+lenAdj;
+  if(DN.has) score+=(DN.score-60)*.1+(DN.hook-50)*.04;   // 編舞:舞台與挑戰熱度帶動音源
   if(empty) score-=Math.min(25,empty/total*60);
   score=Math.max(0,Math.min(100,score));
   if(empty) warns.push(["b",`還有 ${Math.round(empty)} 秒沒分配,先補齊才能錄音。`]);
@@ -177,6 +179,8 @@ function computeTrack(T){
     if(shares[m.id]>m.exp+.1) warns.push(["w",`${m.n}占了 ${Math.round(shares[m.id]*100)}%,會被說公司偏心。`]); });
   if(maxRun>3) warns.push(["w",`${byId(runWho).n}連續獨唱 ${maxRun} 句,聽起來會單調。`]);
   if(risk>8) warns.push(["b","高難度句交給了還撐不住的成員,打歌現場容易出狀況。"]);
+  if(!DN.has&&R.title===T.id) warns.push(["w","主打還沒編舞:先用公司的預設編舞(普通)。到 4F 練習室編舞,舞台與話題都會更好。"]);
+  if(DN.has&&R.title===T.id){ const b=DN.notes.find(([k])=>k==="b")||DN.notes.find(([k])=>k==="w"); if(b) warns.push([b[0],"編舞:"+b[1]]); if(DN.score>=80) warns.push(["g",`編舞 ${Math.round(DN.score)} 分,舞台會加分。`]) }
   warns.push(...G.notes);
   if(off>20) warns.push(["w",`全長 ${fmt(LN.t)},比 ${R.year} 年常見的 ${fmt(ideal)} 長,聽眾容易在副歌重複時跳歌。`]);
   if(off<-20) warns.push(["w",`全長 ${fmt(LN.t)},比 ${R.year} 年常見的 ${fmt(ideal)} 短,會被說誠意不足。`]);
@@ -184,7 +188,7 @@ function computeTrack(T){
   if(season<0) warns.push(["w","清涼的歌在冬天發,氣氛不對。"]);
   if(G.trend>=80) warns.push(["g",`${R.year} 年這個曲風組合正流行,順風。`]);
   if(G.trend<50) warns.push(["w",`${R.year} 年這個曲風不太流行,要靠作品本身撐。`]);
-  return {LN,ideal,all,total,secOf,shares,quality,fairness,variety,live,trend:G.trend,prodFit:G.prodFit,season,score,warns,growth,flags,killer,center:T.secs.find(s=>s.chorus)?.c};
+  return {LN,ideal,all,total,secOf,shares,quality,fairness,variety,live,trend:G.trend,prodFit:G.prodFit,season,score,warns,growth,flags,killer,center:T.secs.find(s=>s.chorus)?.c,dance:DN};
 }
 const rankText=v=>v>=88?"音源冠軍候補":v>=78?"前十名":v>=68?"前三十名":v>=56?"百名內邊緣":"可能進不了榜";
 function computeRelease(){
@@ -230,7 +234,7 @@ function suggest(T){
 
 function songSummary(){const T=R.tracks.find(x=>x.id===R.title)||R.tracks[0]; const C=computeTrack(T); const hl={};
   T.secs.forEach(sec=>sec.lines.forEach(l=>{if(l.t==="high") l.who.forEach(id=>hl[id]=(hl[id]||0)+1)}));
-  return {title:{name:T.name||"未命名",score:C.score,killer:C.killer[0]||"",center:C.center||"",highLines:hl,genre:T.g[0],mood:T.mood},release:R.name,type:R.type,tracks:R.tracks.map(x=>x.name).filter(Boolean)}}
+  return {title:{name:T.name||"未命名",score:C.score,killer:C.killer[0]||"",center:C.center||"",highLines:hl,genre:T.g[0],mood:T.mood,dance:window.choreoSummary?.(T)||{has:false}},release:R.name,type:R.type,tracks:R.tracks.map(x=>x.name).filter(Boolean)}}
 
 /* ---------- 存檔與雲端(users/{uid}/songs/state,與歌曲企劃室同一份) ---------- */
 const SKEY="kpopGame.songs";
@@ -263,7 +267,7 @@ function shell(){
   const el=document.createElement("section"); el.id="songFac"; el.className="fac-wrap hide";
   el.innerHTML=`<div class="fac-bg"></div><div class="fac-veil"></div>
     <header class="fac-head"><div class="fac-title"><small id="sfSub"></small><b id="sfTitle"></b></div>
-      <nav class="fac-tabs"><button data-sf="planning">企劃室</button><button data-sf="concert" hidden>演唱會</button><button data-sf="recording">錄音室</button></nav>
+      <nav class="fac-tabs"><button data-sf="planning">企劃室</button><button data-sf="concert" hidden>演唱會</button><button data-sf="recording">錄音室</button><button data-sf="choreo">練習室</button></nav>
       <button class="fac-close" id="sfClose">離開</button></header>
     <div class="fac-body" id="sfBody"></div>`;
   $("#stage").appendChild(el);
@@ -271,15 +275,16 @@ function shell(){
   $("#sfClose").onclick=close;
 }
 function open(kind){ shell(); OPEN=kind; setPause("song",true);
-  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap "+(kind==="recording"?"th-studio":"th-office")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
-  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${kind==="recording"?"studio":"office"}_${SLOTS[S.slot].light}.webp)`;
-  $("#sfTitle").textContent=kind==="planning"?"企劃室":kind==="concert"?"演唱會企劃":"錄音室"; $("#sfSub").textContent=kind==="recording"?"COMPANY ・ 3F ・ RECORDING":kind==="concert"?"COMPANY ・ 2F ・ CONCERT":"COMPANY ・ 2F ・ PLANNING";
+  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap "+(kind==="recording"?"th-studio":kind==="choreo"?"th-office th-dance":"th-office")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
+  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${kind==="recording"?"studio":kind==="choreo"?"practice":"office"}_${SLOTS[S.slot].light}.webp)`;
+  $("#sfTitle").textContent=kind==="planning"?"企劃室":kind==="concert"?"演唱會企劃":kind==="choreo"?"練習室":"錄音室"; $("#sfSub").textContent=kind==="recording"?"COMPANY ・ 3F ・ RECORDING":kind==="concert"?"COMPANY ・ 2F ・ CONCERT":kind==="choreo"?"COMPANY ・ 4F ・ PRACTICE":"COMPANY ・ 2F ・ PLANNING";
   const ct=el.querySelector('[data-sf="concert"]'); if(ct) ct.hidden=!(window.concertUnlocked?.()||S.concertNext);
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));
   render() }
-function close(){ $("#songFac").classList.add("hide"); setPause("song",false); OPEN=null; if(dirty) push() }
+function close(){ $("#songFac").classList.add("hide"); setPause("song",false); OPEN=null; if(dirty) push();
+  if(window.__actsOut){ window.__actsOut=false; if(S.acts<=0) endSlot("acts") } }   // 在練習室把行動用完了:離開後進入下一個時段
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
-function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():OPEN==="concert"?window.concertPlanRender?.($("#sfBody"),render):renderRec() }
+function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():OPEN==="concert"?window.concertPlanRender?.($("#sfBody"),render):OPEN==="choreo"?window.choreoRender?.($("#sfBody"),render):renderRec() }
 const note=([k,t])=>`<li class="sn ${k}">${t}</li>`;
 
 /* ---------- 企劃室 ---------- */
@@ -317,8 +322,8 @@ function renderPlan(){
     <h4>製作團隊</h4>
     <div class="prods">${Object.entries(PRODS).map(([k,p])=>{const fit=T.g.filter(Boolean).every(g=>p.g.includes(g));return `<button class="prod${T.prod===k?" on":""}" data-prod="${k}">
       <b>${p.n}</b><span class="star">${"★".repeat(p.lv)}${"☆".repeat(5-p.lv)}</span><small>${p.s}</small>${fit?`<i class="fit">擅長這個曲風</i>`:""}</button>`}).join("")}</div>
-    <h4>編舞強度 <span class="num">${T.choreo}</span></h4>
-    <input type="range" min="1" max="5" step="1" value="${T.choreo}" id="pChoreo" aria-label="編舞強度">
+    ${(()=>{ const DN=window.choreoEval?.(T); return DN?.has?`<h4>編舞 <span class="num">${Math.round(DN.score)}</span></h4><p class="pnote">強度 ${DN.energy.toFixed(1)}・難度 ${DN.diff.toFixed(1)}・平均熟練度 ${Math.round(DN.avgProf)}%</p><div class="prow"><button class="pbtn" id="pGoDance">到 4F 練習室改編舞 →</button></div>`
+      :`<h4>編舞強度 <span class="num">${T.choreo}</span></h4><input type="range" min="1" max="5" step="1" value="${T.choreo}" id="pChoreo" aria-label="編舞強度"><div class="prow"><button class="pbtn" id="pGoDance">到 4F 練習室編舞 →</button></div>` })()}
     <div class="prow"><button class="pbtn pri" id="pGoRec">到錄音室分配歌詞 →</button></div>
   </div>
   <div class="pcol">
@@ -340,7 +345,7 @@ function renderPlan(){
   B.querySelectorAll("[data-g]").forEach(e=>e.onchange=()=>{const T=cur(),i=+e.dataset.g;T.g[i]=e.value; if(i===0){if(T.g[1]===T.g[0])T.g[1]="";if(T.g[2]===T.g[0])T.g[2]=""} if(T.g[2]&&!T.g[1]){T.g[1]=T.g[2];T.g[2]=""} save();render()});
   B.querySelectorAll("[data-mood]").forEach(b=>b.onclick=()=>{cur().mood=b.dataset.mood;save();render()});
   B.querySelectorAll("[data-prod]").forEach(b=>b.onclick=()=>{cur().prod=b.dataset.prod;save();render()});
-  $("#pChoreo").oninput=e=>{cur().choreo=+e.target.value;save();e.target.previousElementSibling.querySelector(".num").textContent=e.target.value}; $("#pChoreo").onchange=()=>render();
+  $("#pChoreo")&&($("#pChoreo").oninput=e=>{cur().choreo=+e.target.value;save();e.target.previousElementSibling.querySelector(".num").textContent=e.target.value}); $("#pGoDance")&&($("#pGoDance").onclick=()=>open("choreo")); $("#pChoreo")&&($("#pChoreo").onchange=()=>render());
   $("#pGoRec").onclick=()=>open("recording");
   const cs=$("#cbSet"); if(cs) cs.onclick=()=>{ const v=$("#cbDate").value; if(!v) return; const day=dayOfIso(v);
     if(day<GS().day+14){toast2("回歸日至少要在兩週以後");return} window.setComeback(day); render() };
@@ -416,6 +421,8 @@ function renderRec(){
   B.querySelectorAll("[data-in]").forEach(e=>e.onchange=()=>{T.secs[+e.dataset.in].inst=Math.max(0,Math.min(40,+e.value||0));commit()});
   B.querySelectorAll("[data-sm]").forEach(b=>b.onclick=()=>{R.shareMode=b.dataset.sm;save(false);commit()});
 }
+/* 給 choreo.js(練習室)用 */
+window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS};
 window.openSongFacility=open;
 window.songSummary=()=>{syncSkill(); return songSummary()};
 

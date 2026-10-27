@@ -366,7 +366,7 @@ const SPOTS=[
 /* 剖面圖的房間:r=[左,上,寬,高],feet=腳底高度,h=168 公分的人在畫面上的高度(%) */
 const INSIDE={
   company:{n:"公司大樓",sub:"選擇要去的樓層",rooms:[
-    {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5},
+    {pid:"practice",fl:"4F",n:"練習室",r:[6.4,7.8,88.8,24.4],feet:30.8,h:15.5,fac:"choreo"},
     {pid:"studio",fl:"3F",n:"錄音室",r:[6.4,35.6,86.8,20.4],feet:55.4,h:15.5,xr:[22,60],fac:"recording"},
     {pid:"office",fl:"2F",n:"代表辦公室",r:[6.4,59.4,88.8,17.2],feet:75.6,h:15.5,xr:[40,80],fac:"planning"},
     {pid:"styling",fl:"1F",n:"造型室",r:[6.4,78.4,88.8,17.8],feet:93.6,h:15.5,lp:"r",xr:[42,78],fac:"wardrobe"}]},
@@ -470,7 +470,7 @@ function tvChooser(){
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
 }
 /* 有設施又能拜訪的房間:先問要做什麼 */
-const FACN={planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"],wardrobe:["造型室","衣櫃、委託設計、生圖、成員底模"]};
+const FACN={choreo:["編舞板","每首歌的隊形、動作、焦點與練習"],planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"],wardrobe:["造型室","衣櫃、委託設計、生圖、成員底模"]};
 function chooser(pid,fac){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
   const p=PL[pid], open=p.open.includes(S.slot), vis=S.visited.includes(pid), ppl=who(pid), canVisit=open&&!vis&&S.acts>0;
@@ -541,6 +541,7 @@ function endSlot(reason){
   S.absent=absentReports(r);
   for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+(S.slot<=2?2:S.slot===4?-6:-1),0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood),0,100)}
   if(window.growthOnSlotEnd) growthOnSlotEnd();
+  window.choreoOnSlotEnd?.(who("practice").map(m=>m.id));   // 待在練習室的成員自己練主打的編舞
   S.slot++; if(S.slot>4){S.slot=0;S.day++; wxDaily()}
   S.t=0; S.acts=5; S.visited=[]; assign(); ensureWear(); newMessage(r);
   renderAll(); save(true); pushSave();
