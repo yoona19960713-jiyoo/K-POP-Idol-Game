@@ -312,7 +312,8 @@ window.addEventListener("hashchange",takeImport);
 const OAI_KEY="kpopGame.openai";
 const oai=()=>{try{return {model:"gpt-image-2",quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}"),model:"gpt-image-2"}}catch(e){return {model:"gpt-image-2",quality:"medium"}}};
 const setOai=o=>localStorage.setItem(OAI_KEY,JSON.stringify({...oai(),...o}));
-const OAI_PRICE={low:.02,medium:.06,high:.22};   // 每張約略費用(直圖+參考圖),只用來估算
+const OAI_PRICE={low:.02,medium:.06,high:.22};
+const QN={low:"低",medium:"中",high:"高"};   // 每張約略費用(直圖+參考圖),只用來估算
 async function toPng(u){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=u});const c=document.createElement("canvas");c.width=img.width;c.height=img.height;c.getContext("2d").drawImage(img,0,0);return await new Promise(ok=>c.toBlob(ok,"image/png"))}
 /* 內建的姿勢底模(使用者用 ChatGPT 生好、Claude 檢查後放進遊戲):assets/pose/成員_姿勢.webp */
 const POSE_ASSET=window.POSE_ASSETS||{};   // {"haeun_wave":1,...} 由 assets/poses.js 提供
@@ -651,7 +652,8 @@ function renderStudio(){
       <h3>待生圖</h3>
       <p class="big">${todo.length}<small> 張</small></p>
       ${noBaseCount()?`<p class="fnote" style="color:#9A3D47">另有 ${noBaseCount()} 張因為還沒設定該成員的「生圖底模」而略過</p>`:""}
-      <p class="fnote">${o.key?`品質「${{low:"低",medium:"中",high:"高"}[o.quality]||o.quality}」,預估約 US$${cost}(以 OpenAI 帳單為準)`:"還沒設定 OpenAI 金鑰:選單 → AI 生圖"}</p>
+      <div class="fq" role="radiogroup" aria-label="出圖品質"><span>出圖品質</span>${["low","medium","high"].map(q=>`<button class="fbtn${(o.quality||"medium")===q?" pri":""}" data-q="${q}" role="radio" aria-checked="${(o.quality||"medium")===q}">${QN[q]}<small>US$${OAI_PRICE[q].toFixed(2)}</small></button>`).join("")}</div>
+      <p class="fnote">${o.key?`預估約 US$${cost}(以 OpenAI 帳單為準);高品質細節最好,每張約貴 3~4 倍`:"還沒設定 OpenAI 金鑰:選單 → AI 生圖"}</p>
       <div class="frow"><button class="fbtn pri" id="fStart" ${!o.key||(!todo.length&&!waiting)||RUNNING?"disabled":""}>${RUNNING?`生圖中…剩 ${waiting} 張`:"全部開始生圖"}</button>${RUNNING?`<button class="fbtn" id="fStop">暫停</button>`:""}</div>
       ${errs.length?`<div class="ferrs"><b>${errs.length} 張失敗</b>${errs.slice(0,6).map(j=>`<p>${esc(ITEMS[j.code]?.name||j.code)}・${byId(midOf(j.slot))?.n||""}:${esc(j.err||"")} <button class="flink" data-retry="${esc(j.id)}">重試</button></p>`).join("")}</div>`:""}
       <p class="fnote">生好的圖會放到右邊「待審」;收下後才會寫進衣櫃與雲端。日常服(練習、居家、外出、睡衣)收下時會自動去背、做好六種表情的換臉層,成員就會依地點換穿。要重做某張圖,到衣櫃的卡片詳情按「重新生圖」。</p>
@@ -677,6 +679,7 @@ async function renderFacility(){
   body.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>discard(b.dataset.no));
   const st=$("#fStart"); if(st) st.onclick=()=>{ for(const t of todoList()){const id=jobId(t.code,t.slot); if(!JOBS.some(j=>j.id===id)) JOBS.push({id,...t,state:"wait"})} runQueue() };
   const sp=$("#fStop"); if(sp) sp.onclick=()=>{STOP=true; toast2("這張畫完就暫停")};
+  body.querySelectorAll(".fq [data-q]").forEach(b=>b.onclick=()=>{ setOai({quality:b.dataset.q}); toast2(`出圖品質:${QN[b.dataset.q]}(之後生的圖)`); try{ oaiSettingsInit() }catch(e){} renderFacility() });
   for(const el of body.querySelectorAll(".rold[data-oldref]")) getThumb(el.dataset.oldref).then(t=>{ if(t) el.style.backgroundImage=`url(${t})` });
   // 縮圖:看得到的先做,已經做好的直接顯示
   lazyThumbs(body,".wimg[data-ref]","ref");
@@ -753,9 +756,12 @@ async function exportLooks(){
 /* ---------- 選單:AI 生圖設定 ---------- */
 function oaiSettingsInit(){
   const box=$("#oaiBox"); if(!box) return; const o=oai();
-  $("#oaiKey").value=o.key?"•••••••• 已設定":""; $("#oaiQ").value=o.quality||"medium";
+  $("#oaiKey").value=o.key?"•••••••• 已設定":"";
+  // 出圖品質:三顆按鈕,點了立刻生效(以前是下拉選單,看不出能選)
+  document.querySelectorAll("#oaiQSeg [data-q]").forEach(b=>{ const on=b.dataset.q===(o.quality||"medium"); b.setAttribute("aria-checked",on); b.classList.toggle("pri",on);
+    b.onclick=()=>{ setOai({quality:b.dataset.q}); oaiSettingsInit(); toast2(`出圖品質:${QN[b.dataset.q]}`); if(document.querySelector(".fdesk")) renderFacility() } });
   $("#oaiKey").onfocus=e=>{ if(e.target.value.startsWith("•")) e.target.value="" };
-  $("#oaiSave").onclick=()=>{ const k=$("#oaiKey").value.trim(); const patch={model:"gpt-image-2",quality:$("#oaiQ").value};
+  $("#oaiSave").onclick=()=>{ const k=$("#oaiKey").value.trim(); const patch={model:"gpt-image-2",quality:oai().quality||"medium"};
     if(k&&!k.startsWith("•")){ if(!/^sk-/.test(k)){toast2("OpenAI 金鑰通常是 sk- 開頭,請再確認");return} patch.key=k }
     setOai(patch); oaiSettingsInit(); toast2("AI 生圖設定已儲存") };
   $("#oaiClear").onclick=()=>{ const x=oai(); delete x.key; localStorage.setItem(OAI_KEY,JSON.stringify(x)); oaiSettingsInit(); toast2("已清除 OpenAI 金鑰") };

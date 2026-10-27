@@ -5,6 +5,7 @@
   "description": "K-POP Idol Game 遊戲本體",
   "dependencies": {
     "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.2",
     "@capacitor/core": "^6.1.2"
   },
   "devDependencies": {

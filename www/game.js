@@ -646,13 +646,13 @@ function menu(){
   $("#leave").onclick=leave; $("#vopts button")?.focus({preventScroll:true})}
 function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*pool.length)];
   return {code:"demo-line-"+id,type:"topic",who:[id],member:id,nodes:{start:{L:[[id,t,e]],C:[]}},demoLine:true}}
-function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid];
+function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid]; S.lastTalk={id,day:S.day};
   const inv=window.lifeInviteScene?.(id,V.pid);   // 真人化:她約你來的,就演約會的片段
   const sn=inv||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
   if(!inv) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
   play(sn,()=>{ window.lifeAfterTalk?.(id); menu() })}
-function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople();
+function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.lastTalk={id,day:S.day};
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
   play(sn,menu)}
@@ -884,12 +884,16 @@ function titleReady(){
   btn.disabled=false; msg.textContent="點擊畫面開始";
   if(syAuth()&&syCfg()){ sy.textContent="正在同步雲端…"; syncAll(false,true).then(()=>{sy.textContent="雲端同步完成"}).catch(()=>{sy.textContent="雲端同步失敗,可稍後在選單重試"}) }
   else sy.textContent="離線遊玩・可在選單登入雲端同步";
-  const go=()=>{ el.classList.add("out"); setPause("title",false); setTimeout(()=>el.remove(),900) };
+  const go=()=>{ if(el.classList.contains("leaving")||el.classList.contains("out")) return;
+    if(window.introGo){ try{ window.introGo(el,()=>setPause("title",false)); return }catch(e){window.logErr?.("game",e)} }   // 開場動畫(intro.js):白光一閃、地圖與 HUD 進場
+    el.classList.add("out"); setPause("title",false); setTimeout(()=>el.remove(),900) };
   el.onclick=go; btn.onclick=e=>{e.stopPropagation();go()};
 }
 
-/* ===== Android 返回鍵(APK 的 WebView 把返回鍵當成「上一頁」)=====
-   依序關掉最上層的畫面;都沒有開時,2 秒內再按一次才離開遊戲 */
+/* ===== Android 返回鍵 =====
+   依序關掉最上層的畫面;都沒有開時,按一下提示、2 秒內再按一次 → 離開遊戲的動畫(intro.js 的 exitGame,存檔與同步做完才關)。
+   APK:裝了 Capacitor 的 App 外掛,返回鍵由外掛交給這裡(WebView 不再自己退出,最後用 App.exitApp 關閉)。
+   網頁版(與沒有外掛的舊 APK):用瀏覽歷史接返回鍵;晚安字卡出現後不再補上一頁,再按一次就真的離開頁面 */
 (function(){
   const vis=e=>e&&e.offsetParent!==null&&!e.closest(".hide");
   const steps=[
@@ -903,15 +907,20 @@ function titleReady(){
     ()=>{const b=[...document.querySelectorAll(".fac-close")].find(vis); if(b){b.click(); return true}},
     ()=>{const d=document.querySelector("#drawer"); if(d&&d.classList.contains("on")){d.classList.remove("on"); setPause("drawer",false); return true}},
   ];
-  let t=null;
+  const closeTop=()=>{ for(const f of steps){ try{ if(f()) return true }catch(e){window.logErr?.("game",e)} } return false };
+  let lastBack=0;
+  /* 回傳 true = 已處理(網頁版要補回上一頁) */
+  const handle=()=>{
+    if(window.exitBusy?.()){ window.exitSkip?.(); return false }
+    if(window.introBusy?.()){ window.introSkip?.(); return true }
+    if(closeTop()){ lastBack=0; return true }
+    if(Date.now()-lastBack<2000&&window.exitGame){ lastBack=0; window.exitGame("back"); return false }
+    lastBack=Date.now(); toast2("再按一次返回鍵離開遊戲"); return true };
+  const App=window.Capacitor?.isNativePlatform?.()?window.Capacitor?.Plugins?.App:null;
+  if(App?.addListener){ try{ App.addListener("backButton",()=>{ try{ handle() }catch(e){window.logErr?.("game",e)} }); window.backRepush=()=>{}; return }catch(e){window.logErr?.("game",e)} }
   const push=()=>history.pushState({pgg:1},"");
-  push();
-  addEventListener("popstate",()=>{
-    clearTimeout(t);
-    for(const f of steps){ try{ if(f()){ push(); return } }catch(e){window.logErr?.("game",e)} }
-    // 都沒開:先不補上一頁,2 秒內再按一次 WebView 就沒有上一頁可退,App 會離開;沒再按就補回來
-    toast2("再按一次返回鍵離開遊戲"); t=setTimeout(push,2000);
-  });
+  push(); window.backRepush=push;
+  addEventListener("popstate",()=>{ let again=true; try{ again=handle() }catch(e){window.logErr?.("game",e)} if(again) push() });
 })();
 
 /* ===== 天氣(2026-10-24):每天一種,依日期固定(重讀存檔也一樣)=====
