@@ -50,7 +50,7 @@ function buildIntro(title){
   ti.appendChild(el("div","ti-seam"));
   for(const m of FAIRY){
     const s=el("div","ti-shot "+m.side); s.style.setProperty("--c",m.c); if(m.fx!=null){ s.style.setProperty("--ox",m.fx+"%"); s.style.setProperty("--oy",m.fy+"%") }   // 臉的位置:鏡頭往這裡推、聚光燈打在這裡
-    s.innerHTML=`<img class="ti-img" alt="" src="assets/intro/fairy_${m.f}.webp"><i class="ti-shade"></i><i class="ti-sweep"></i><i class="ti-beam"></i><i class="ti-src"></i>`+
+    s.innerHTML=`<img class="ti-img" alt="" decoding="async" data-src="assets/intro/fairy_${m.f}.webp"><i class="ti-shade"></i><i class="ti-sweep"></i><i class="ti-beam"></i><i class="ti-src"></i>`+
       glints(m.side).map(g=>`<i class="ti-gl" style="--x:${g.x}%;--y:${g.y}%;--s:${g.s}"></i>`).join("")+
       `<div class="ti-name mtheme" data-m="${m.id}"><i class="ti-rule"></i><i class="ti-emb"></i><b><u>${m.en}</u></b><span>${m.cn}</span><em>${m.role}</em></div>`;
     ti.appendChild(s) }
@@ -136,14 +136,30 @@ function revealTitle(title,at,L,fromBlack){
   A(L,q(".tt-sync"),[{opacity:0},{opacity:1}],.6,at+.9,"ease-out");
 }
 
+/* 中文字型的其他切片(fonts.css 的 r1~r4、misc):開場與標題畫面時主執行緒是空的,趁空檔一片一片先載好,
+   進遊戲後對話裡的字就不用再臨時載入(臨時載入會先用系統字、再閃一下換字型)。罕用字字型 PGG Kai X 不預載 */
+function preloadFontSlices(){
+  if(!document.fonts||window.__fontPre) return; window.__fontPre=1;
+  const groups=new Map();
+  for(const f of document.fonts){ const fam=String(f.family).replace(/["']/g,""); if(fam!=="PGG Serif"&&fam!=="PGG Sans") continue;
+    const k=fam+"|"+f.weight; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(f) }
+  const lists=[...groups.values()], order=[];
+  for(let i=0;i<8;i++) for(const l of lists) if(l[i]&&l[i].status==="unloaded"&&!/2[0-4][0-9A-F]{2}/.test(l[i].unicodeRange.slice(0,12))) order.push(l[i]);   // 各字型的 r1(其餘的字);misc 罕用符號用到才載
+  const idle=window.requestIdleCallback||(cb=>setTimeout(()=>cb({timeRemaining:()=>16}),250));
+  const next=()=>{ const f=order.shift(); if(!f) return; if(f.status!=="unloaded") return next();
+    idle(()=>{ f.load().catch(()=>{}).finally(()=>setTimeout(next,80)) },{timeout:1500}) };
+  next() }
+window.preloadFontSlices=preloadFontSlices;
+
 /* 結束(自然播完或跳過):標題回到一般狀態,收掉開場用的圖層 */
-function endIntro(title){ if(!IN||IN.done) return; IN.done=true;
+function endIntro(title){ if(!IN||IN.done) return; IN.done=true; setTimeout(preloadFontSlices,400);   // 其餘的字在開場結束後、標題畫面靜止時載(載入會讓文字重新排版,開場中載會頓)
+  document.getElementById("stage")?.classList.remove("intro-solo");
   title.classList.remove("intro"); title.classList.add("played");
   for(const a of IN.anims){ try{ a.cancel() }catch(e){} }
   title.querySelector(".ti")?.remove(); title.querySelector(".tt-dim")?.remove();
   const bm=title.querySelector(".tt-beams"); if(bm) bm.querySelectorAll("i").forEach(b=>b.style.opacity=".26");
   title.querySelector(".tt-sheen")?.remove();
-  IN.imgs=null; clearTimeout(IN.timer) }
+  IN.imgs=null; clearTimeout(IN.timer); (IN.watch||[]).forEach(clearTimeout) }
 
 function skipIntro(){ const title=document.getElementById("title"); if(!IN||IN.done||!title) return;
   if(IN.skipping) return; IN.skipping=true;
@@ -161,7 +177,7 @@ window.introSkip=skipIntro;
 
 function startIntro(){
   const title=document.getElementById("title"); if(!title) return;
-  title.classList.add("intro");
+  title.classList.add("intro"); if(!RMQ.matches) document.getElementById("stage")?.classList.add("intro-solo");
   const ti=buildIntro(title);
   IN={anims:[],done:false,imgs:[]};
   // 開場期間點一下 = 跳過(不會被當成「開始」)
@@ -169,18 +185,38 @@ function startIntro(){
   if(RMQ.matches){ // 減少動態:主視覺直接淡入
     const L=IN.anims; ti.classList.add("go"); revealTitle(title,0,L,true);
     IN.timer=setTimeout(()=>endIntro(title),1500); return }
-  const srcs=["assets/bg/title.webp",...FAIRY.map(m=>`assets/intro/fairy_${m.f}.webp`)];
+  // 圖依登場順序一張一張解碼(直接解 DOM 裡的 <img>):第一位好了就開播,後面幾張在前面的人登場時接著解,主視覺最後(5.85 秒才用到)。
+  // 以前要等六張大圖全部解完才開播,黑幕要等比較久
+  const imgs=[...ti.querySelectorAll(".ti-img")], flags=[];
+  const decEl=im=>{ if(!im.getAttribute("src")) im.src=im.dataset.src; return (im.decode?im.decode():Promise.resolve()).then(()=>true,()=>false) };
+  let chain=Promise.resolve(true); IN.ready=[];
+  imgs.forEach((im,i)=>{ chain=chain.then(()=>decEl(im)); IN.ready[i]=chain; chain.then(v=>flags[i]=v!==undefined) });
+  const titleP=chain.then(()=>decodeImg("assets/bg/title.webp")).then(r=>{ IN.titleImg=r; flags.title=true });
   // 名牌用的字型也先載好(不然會先用系統字、播到一半才換字型,還會讓那一格重畫很久)
-  const fonts=document.fonts?.load?["800 40px 'PGG Num'","600 12px 'PGG Num'","700 20px 'PGG Serif'","700 20px 'PGG Kai X'"].map(f=>document.fonts.load(f,"YESEUL徐藝瑟尹泰梨早瀨日和姜河嵐韓夏恩完美女團").catch(()=>null)):[];
-  const all=Promise.all([...srcs.map(decodeImg),...fonts]).then(r=>r.slice(0,srcs.length));
-  Promise.race([all,wait(3500).then(()=>null)]).then(r=>{
-    if(!IN||IN.done||IN.skipping) return; IN.imgs=r;   // 留著參考,解碼好的圖才不會被丟掉
-    const ok=!!r&&r.every(Boolean);
-    // 等畫面穩定(連續幾格都準時)才開始:五張圖與名牌這時已經畫好,第一位登場不會卡;最多等 1.5 秒
-    stableFrames(1500).then(()=>{ if(!IN||IN.done||IN.skipping) return; IN.started=true;
+  const fonts=document.fonts?.load?["800 40px 'PGG Num'","600 12px 'PGG Num'","700 20px 'PGG Serif'"].map(f=>document.fonts.load(f,"YESEUL徐藝瑟尹泰梨早瀨日和姜河嵐韓夏恩完美女團").catch(()=>null)):[];
+  const mk=n=>{ try{ performance.mark(n) }catch(e){} };
+  IN.ready[0].then(()=>mk('intro-shot0')); Promise.all(fonts).then(()=>mk('intro-fonts'));
+  Promise.race([Promise.all([IN.ready[0],...fonts]),wait(3500).then(()=>null)]).then(r=>{ mk('intro-gate');
+    if(!IN||IN.done||IN.skipping) return;
+    const ok=!!r&&r[0]===true;
+    // 等畫面穩定(連續幾格都準時)才開始:第一位的圖已經畫好,登場不會卡;最多等 0.7 秒
+    stableFrames(700).then(()=>{ if(!IN||IN.done||IN.skipping) return; IN.started=true; mk('intro-play');
       try{ playIntro(title,ti,ok) }catch(e){ logE(e); endIntro(title); return }
-      IN.timer=setTimeout(()=>endIntro(title),((ok?READY:1.4)+.9)*1000) }) }).catch(e=>{ logE(e); endIntro(title) });
+      const total=((ok?READY:1.4)+.9)*1000;
+      IN.timer=setTimeout(()=>endIntro(title),total);
+      if(ok) watchShots(title,total,flags,titleP) }) }).catch(e=>{ logE(e); endIntro(title) });
 }
+/* 保險:輪到某一位(或主視覺)時圖還沒解好 → 整條時間軸先暫停,等解好、畫面穩定再繼續(手機很忙時才會發生) */
+function watchShots(title,total,flags,titleP){
+  const at=[...START.slice(1).map((t,k)=>[t,k+1]),[REVEAL,"title"]];
+  for(const [t,k] of at){ const tm=setTimeout(async()=>{
+      if(!IN||IN.done||IN.skipping||flags[k]) return;
+      const clock=IN.anims.reduce((x,y)=>y.effect.getComputedTiming().endTime>x.effect.getComputedTiming().endTime?y:x); IN.anims.forEach(a=>{ try{a.pause()}catch(e){} }); clearTimeout(IN.timer);
+      await Promise.race([k==="title"?titleP:IN.ready[k],wait(2000)]); await stableFrames(400);
+      if(!IN||IN.done||IN.skipping) return;
+      IN.anims.forEach(a=>{ try{a.play()}catch(e){} });
+      IN.timer=setTimeout(()=>endIntro(title),Math.max(300,total-(clock?.currentTime||0))) },(t-.3)*1000);
+    (IN.watch||(IN.watch=[])).push(tm) } }
 
 /* 按「開始」:白光一閃 → 標題淡出 → 地圖定位、HUD 依序進場 */
 window.introGo=(title,unpause)=>{

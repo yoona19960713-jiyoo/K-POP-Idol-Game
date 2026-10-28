@@ -181,7 +181,8 @@ async function warmThumbs(){
   for(const r of refs){ const h=String(r).replace(/^blob:/,""); if(THUMB.has(h)) continue;
     if(!(await IDB.get("thumb2:"+h) instanceof Blob)){ await new Promise(ok=>window.requestIdleCallback?requestIdleCallback(ok,{timeout:4000}):setTimeout(ok,300)) }
     await getThumb(r) } }
-setTimeout(()=>{ warmThumbs().catch(()=>{}) },6000);
+/* 標題畫面(開場動畫)期間先不做,進遊戲後再慢慢做 */
+(function wt(){ setTimeout(()=>{ if(document.getElementById("title")) return wt(); warmThumbs().catch(()=>{}) },6000) })();
 async function wHash(s){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return [...new Uint8Array(b)].slice(0,16).map(x=>x.toString(16).padStart(2,"0")).join("")}
 async function wStrip(obj,blobs){
   if(typeof obj==="string"){ if(obj.startsWith("data:image")){const h=await wHash(obj);blobs.set(h,obj);return "blob:"+h} return obj }
@@ -618,12 +619,12 @@ function facShell(){
 let FROOM="styling";   // styling=公司 1F 造型室(衣櫃);design=製作中心 2F 設計工作室(委託設計、設計工作台、成員底模)
 window.openFacility=async (kind,room)=>{ facShell(); FAC=kind; FROOM=room==="design"?"design":"styling"; PENDING=await IDB.get("pending")||{}; setPause("fac",true);
   const el=$("#facility"), D=FROOM==="design";
-  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${D?"design":"styling"}_${SLOTS[S.slot].light}.webp)`;
+  const bgU=`assets/bg/${D?"design":"styling"}_${SLOTS[S.slot].light}.webp`; el.querySelector(".fac-bg").style.backgroundImage=`url(${bgU})`;
   el.querySelector(".fac-title small").textContent=D?"PRODUCTION CENTER ・ 2F ・ DESIGN":"COMPANY ・ 1F ・ STYLING"; el.querySelector(".fac-title b").textContent=D?"設計工作室":"造型室";
   el.setAttribute("aria-label",D?"設計工作室":"造型室"); el.classList.toggle("one-room",!D);
   el.querySelectorAll("[data-ft]").forEach(b=>b.hidden=D?b.dataset.ft==="closet":b.dataset.ft!=="closet");
   if(D&&fTab==="closet") fTab="design"; if(!D) fTab="closet";
-  void el.offsetWidth; el.classList.remove("hide"); renderFacility() };
+  await renderFacility(); window.facShow?facShow(el,bgU):el.classList.remove("hide") };   // 內容排好、背景解好才淡入
 function closeFacility(){ $("#facility").classList.add("hide"); $("#facDetail").classList.add("hide"); setPause("fac",false); FAC=null }
 
 function chipRow(list,cur,attr){return list.map(([k,n,c])=>`<button class="fchip${k===cur?" on":""}" data-${attr}="${k}" ${c?`style="--mc:${c}"`:""}>${n}</button>`).join("")}

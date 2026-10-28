@@ -419,10 +419,13 @@ function setArt(id,url,instant){const a=$("#"+id),b=$("#"+id+"2"),cur=a.dataset.
 
 /* 場景圖預先解碼:進建築、進房間時不會先黑一下(手機上解碼大圖較慢)。閒置時逐張處理,這個時段和下一個時段都先備好 */
 const WARMED=new Set(); let warmQ=[], warming=false, warmKey="";
-function warmArt(){ const key=S.day+"|"+S.slot; if(key===warmKey) return; warmKey=key;
-  const lights=[SLOTS[S.slot].light, SLOTS[Math.min(S.slot+1,SLOTS.length-1)].light];
+/* 2026-10-27 速度優化:標題畫面(含開場動畫)時先不做,讓開場的圖先解;只備好這個時段的建築與房間、下個時段的建築(以前兩個時段全部 40 張,解碼快取放不下,前面解的又被擠掉) */
+function warmArt(){ if(document.getElementById("title")) return; const key=S.day+"|"+S.slot; if(key===warmKey) return; warmKey=key;
+  const l0=SLOTS[S.slot].light, l1=SLOTS[Math.min(S.slot+1,SLOTS.length-1)].light;
   const rooms=["practice","studio","office","styling","living","kitchen","store","river","bed_ys","bed_tr","bed_hy","bed_he","bed_hr","vocal","lobby","photo"];
-  for(const l of lights){ warmQ.push(seasonArt("scene","map",l),seasonArt("scene","company",l),seasonArt("scene","dorm",l),seasonArt("scene","center",l)); for(const r of rooms) warmQ.push(seasonArt("bg",r,l)) }
+  warmQ=[]; for(const k of ["company","dorm","center","map"]) warmQ.push(seasonArt("scene",k,l0));
+  for(const r of rooms) warmQ.push(seasonArt("bg",r,l0));
+  if(l1!==l0) for(const k of ["map","company","dorm","center"]) warmQ.push(seasonArt("scene",k,l1));
   warmQ=warmQ.filter(u=>!WARMED.has(u)); if(!warming) warmNext() }
 function warmNext(){ const u=warmQ.shift(); if(!u){warming=false;return} warming=true; WARMED.add(u);
   const go=()=>{ const i=new Image(); i.src=u; (i.decode?i.decode():Promise.resolve()).catch(()=>{}).finally(()=>setTimeout(warmNext,120)) };
@@ -494,6 +497,12 @@ function tvChooser(){
 }
 /* 有設施又能拜訪的房間:先問要做什麼 */
 const FACN={concert:["演唱會企劃板","演唱會的日期、場館、歌單與造型"],design:["設計桌","委託設計、生圖、成員底模"],records:["獎盃牆","一位、得獎、粉絲、演唱會的紀錄"],mv:["MV 試映","每首歌的 MV(AI 影片或動態 MV)"],choreo:["編舞板","每首歌的隊形、動作、焦點與練習"],planning:["企劃桌","歌曲企劃、發行計畫"],recording:["錄音台","逐句分配、錄音評分"],wardrobe:["衣櫃","每套造型與每日穿搭"]};
+/* 設施淡入(2026-10-28 速度優化):先把內容排好、背景大圖解好(最多等 0.3 秒),下一格才開始淡入。
+   以前是先開始淡入,背景與內容在淡入途中才出來,手機上會頓一下 */
+window.facShow=(el,bgUrl)=>{ if(!el) return; const go=()=>requestAnimationFrame(()=>{ void el.offsetWidth; el.classList.remove("hide") });
+  if(!bgUrl||!el.classList.contains("hide")) return go();
+  const im=new Image(); im.src=bgUrl;
+  Promise.race([(im.decode?im.decode():Promise.resolve()).catch(()=>{}),new Promise(r=>setTimeout(r,300))]).then(go) };
 /* 各房間的設施(2026-10-27 公司重新規畫:每間房只開自己的功能) */
 function openFac(fac){ if(fac==="wardrobe"||fac==="design") window.openFacility?.("wardrobe",fac==="design"?"design":"styling");
   else if(fac==="records") window.openRecords?.(); else if(fac==="mv") window.openMVRoom?.(); else window.openSongFacility?.(fac) }

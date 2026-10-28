@@ -9,17 +9,14 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" href="assets/fonts/wenkai-700.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="assets/fonts/iansui-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/slices/wenkai-700-core.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/slices/iansui-400-core.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/slices/wenkai-400-core.woff2" as="font" type="font/woff2" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Iansui&family=LXGW+WenKai+TC:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="stylesheet" href="fonts.css">
 <style>/* ===== 內嵌字型(2026-10-24 使用者選定):標題=霞鶩文楷 TC,內文=芫荽;粗體內文用文楷粗體(兩者同源於 Klee One,風格一致)
    基本檔=Big5 常用字+遊戲用字;芫荽缺的字退到文楷;Big5 次常用字在 PGG Kai X,用到才載入 ===== */
-@font-face{font-family:"PGG Serif";src:url(assets/fonts/wenkai-400.woff2) format("woff2");font-weight:1 550;font-display:swap}
-@font-face{font-family:"PGG Serif";src:url(assets/fonts/wenkai-700.woff2) format("woff2");font-weight:551 1000;font-display:swap}
-@font-face{font-family:"PGG Sans";src:url(assets/fonts/iansui-400.woff2) format("woff2");font-weight:1 550;font-display:swap}
-@font-face{font-family:"PGG Sans";src:url(assets/fonts/wenkai-700.woff2) format("woff2");font-weight:551 1000;font-display:swap}
-@font-face{font-family:"PGG Kai X";src:url(assets/fonts/wenkai-400x.woff2) format("woff2");font-weight:1 550;font-display:swap;unicode-range:U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+20000-2FA1F}
-@font-face{font-family:"PGG Kai X";src:url(assets/fonts/wenkai-700x.woff2) format("woff2");font-weight:551 1000;font-display:swap;unicode-range:U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+20000-2FA1F}
+/* 中文字型(PGG Serif、PGG Sans、PGG Kai X)切片後的 @font-face 在 www/fonts.css(素材處理腳本/slice_fonts.py 產生),由 index.html 的 <link> 載入 */
 @font-face{font-family:"PGG Num";src:url(assets/fonts/archivo-600.woff2) format("woff2");font-weight:1 700;font-display:swap}
 @font-face{font-family:"PGG Num";src:url(assets/fonts/archivo-800.woff2) format("woff2");font-weight:701 1000;font-display:swap}
 
@@ -1455,6 +1452,10 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .fq>span{grid-column:1/-1;font:600 max(calc(1*var(--u)),10px)/1 var(--serif);letter-spacing:.12em;color:var(--ink)}
 .fq .fbtn{display:flex;flex-direction:column;align-items:center;gap:calc(.3*var(--u));padding:calc(.55*var(--u)) calc(.4*var(--u));min-width:0;letter-spacing:.1em}
 .fq .fbtn small{font:600 max(calc(.78*var(--u)),9px)/1 var(--num);letter-spacing:.04em;opacity:.82}
+
+/* ===== 速度優化(2026-10-27) =====
+   衣櫃卡片很多時(上百套),畫面外的卡片先不排版、不繪製(捲到附近才畫);卡片本來就 overflow:hidden,不會切到東西 */
+.wcard{content-visibility:auto;contain-intrinsic-size:auto calc(21*var(--u))}
 /* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
 .th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
 .cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}
@@ -1634,6 +1635,11 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 
 /* 選單標題列:離開遊戲+關閉 */
 .set header .hbtns{display:flex;gap:8px}
+
+/* 開場期間,標題後面的地圖、HUD 先不畫(被開場蓋住,畫了也看不到;省下來的繪製與解圖留給開場),開場結束或跳過就恢復 */
+.stage.intro-solo>:not(#title){visibility:hidden}
+/* 開場會動的圖層先升成合成層,在等待期間就畫好;時間軸開始時才不會一口氣新建上百個圖層而卡住 */
+.ti .ti-shot,.ti .ti-img,.ti .ti-beam,.ti .ti-src,.ti .ti-sweep,.ti .ti-gl,.ti .ti-name>*,.ti .ti-conf i,.ti .ti-flash,.ti .ti-seam,.ti .ti-skip{will-change:transform,opacity}
 
 /* ---------- 開場動畫的圖層 ---------- */
 .ti{position:absolute;inset:0;z-index:6;overflow:hidden;background:#000;cursor:pointer;contain:strict}
