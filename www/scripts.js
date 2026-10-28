@@ -347,10 +347,17 @@ async function produce(task){
       at:t.places.includes(s0.at)?s0.at:t.places[0],sl:(Array.isArray(s0.sl)?s0.sl:[2]).filter(x=>x>=0&&x<=4),who:t.kind==="event"?MB.map(m=>m.id):Array.isArray(s0.who)?s0.who.filter(x=>mb(x)):[task.member],
       sc:String(s0.sc||""),w:+s0.w||3,cd:+s0.cd||4,nodes:s0.nodes,createdAt:Date.now(),params:{...task}};
     markDup(sn,news); news.push(sn) }
-  if(A.score&&news.some(sn=>!analyse(sn).warn.length)) await scoreSnips(news.filter(sn=>!analyse(sn).warn.length));
-  for(const sn of news){ const pass=!analyse(sn).warn.length&&(sn.score==null||sn.score>=(+A.minScore||7));
-    if(pass&&A.autoAccept){sn.status="auto"; await saveItem(sn); ok++} else bad.push(sn) }
-  return {ok,bad,total:arr.length};
+  /* 2026-10-28 使用者要求嚴格把關品質:
+     和內容庫太像 → 淘汰重寫(不管有沒有開評分);格式或品質檢查沒過(套話、太長、結構錯)→ 淘汰重寫;
+     開了評分:7 分以上自動收下、6 分進待審、5 分以下淘汰重寫;評分失敗(沒有分數)→ 進待審,不直接收 */
+  const clean=news.filter(sn=>!analyse(sn).warn.length);
+  if(A.score&&clean.length) await scoreSnips(clean);
+  const acc=[], rev=[]; let drop=0;
+  for(const sn of news){
+    if(sn.dupOf||analyse(sn).warn.length){ drop++; continue }
+    if(A.score){ if(sn.score==null) rev.push(sn); else if(sn.score>=7) (A.autoAccept?acc:rev).push(sn); else if(sn.score===6) rev.push(sn); else drop++ }
+    else (A.autoAccept?acc:rev).push(sn) }
+  return {acc,rev,drop,total:arr.length,arc:t.kind==="arc"};
 }
 /* v3 ④:去重複(和同一格的內容庫比字詞重疊)與 AI 評分(多用一次額度,設定裡打開) */
 const textOf=sn=>Object.values(sn.nodes||{}).flatMap(n=>[...(n.L||[]),...(n.C||[]).flatMap(c=>[[0,c.t],...(c.r||[])])]).filter(l=>l[0]!=="@").map(l=>l[1]).join("").replace(/[\s,。!?、…「」『』~—,.!?]/g,"");
@@ -381,11 +388,13 @@ async function autoLoop(){
     aState=(modelOverride?"(備用模型)":"")+`產生中:${TYPES[task.type].n}${task.ev||task.req?"・"+v3Label(task):""}・${task.pair?pairName(task.pair):mb(task.member).n}${task.stage?"・"+task.stage:""}${task.period?"・"+task.period:""}`;
     lastCalls.push(Date.now()); u.n++; setUsage(u);
     try{
-      let res=await produce(task); let tries=0;
-      while(res.bad.length&&tries<1&&running){ tries++; lastCalls.push(Date.now()); const u2=usage(); u2.n++; setUsage(u2); await sleep(gap);
-        const r2=await produce({...task,count:res.bad.length}); res={ok:res.ok+r2.ok,bad:r2.bad,total:res.total} }
-      for(const sn of res.bad){ sn.status="review"; await saveItem(sn) }
-      const u3=usage(); u3.made+=res.ok; u3.review=(u3.review||0)+res.bad.length; setUsage(u3);
+      const fix=r=>{ if(r.arc&&r.drop){ r.drop+=r.acc.length+r.rev.length; r.acc=[]; r.rev=[] } return r };   // 連續劇情要整組一起
+      let res=fix(await produce(task)), tries=0, dropped=res.drop;
+      while(res.drop&&tries<2&&running){ tries++; aState=`淘汰 ${res.drop} 個,重寫中(第 ${tries} 次)…`; lastCalls.push(Date.now()); const u2=usage(); u2.n++; setUsage(u2); await sleep(gap);
+        const r2=fix(await produce({...task,count:res.arc?task.count:res.drop})); dropped+=r2.drop; res={acc:[...res.acc,...r2.acc],rev:[...res.rev,...r2.rev],drop:r2.drop,arc:res.arc} }
+      for(const sn of res.acc){ sn.status="auto"; await saveItem(sn) }
+      for(const sn of res.rev){ sn.status="review"; await saveItem(sn) }
+      const u3=usage(); u3.made+=res.acc.length; u3.review=(u3.review||0)+res.rev.length; u3.drop=(u3.drop||0)+dropped; setUsage(u3);
     }catch(e){
       const u4=usage(); const why=WHY[e?.code]?e.code:"other"; if(why==="other"&&!e?.message&&e) e={message:String(e)}; u4.fail++; u4.why[why]=(u4.why[why]||0)+1;
       if(e?.code==="rate_minute"||e?.code==="rate_day") u4.n=Math.max(0,u4.n-1); // 被 Google 以超量拒絕的請求不消耗額度,不算進今天已用
@@ -486,13 +495,13 @@ function autoHTML(){
     <div class="mrow"><label>每分鐘最多<input type="number" id="aRpm" min="1" max="60" value="${A.rpm}">次</label><label>每天最多<input type="number" id="aDay" min="1" max="10000" value="${A.day}">次</label></div>
     <label class="mck"><input type="checkbox" id="aFb" ${A.fallback?"checked":""}> 今天額度用完時自動換模型繼續(主模型 → 備用模型 → Flash-Lite;每個模型的免費額度分開算)</label>
     <div class="mrow"><span class="mnote">備用模型</span><input id="aExtra" class="grow" value="${esc(A.extra||"")}" placeholder="例如 gemini-2.5-flash, gemini-2.5-flash-lite(用逗號分隔)"></div>
-    <label class="mck"><input type="checkbox" id="aAuto" ${A.autoAccept?"checked":""}> 格式通過的直接收進內容庫(標為「未審」);沒通過的重試,仍不行才放進待審</label>
-    <label class="mck"><input type="checkbox" id="aScore" ${A.score?"checked":""}> 寫完再請 Gemini 照守則評分(每批多用一次額度),${+A.minScore||7} 分以上才自動收下,其他進待審;和內容庫太像的一律進待審</label>
+    <label class="mck"><input type="checkbox" id="aAuto" ${A.autoAccept?"checked":""}> 通過的直接收進內容庫(標為「未審」);和內容庫太像、格式或品質檢查沒過的一律淘汰重寫(每格最多重寫兩次,不會進待審)</label>
+    <label class="mck"><input type="checkbox" id="aScore" ${A.score?"checked":""}> 寫完再請 Gemini 照守則評分(每批多用一次額度):7 分以上自動收下、6 分進待審、5 分以下淘汰重寫</label>
     <button class="mbtn ${running?"danger":"pri"} big" id="mkAuto">${running?"停止自動生產":"開始自動生產"}</button></div>
     <div class="msheet log"><h3>生產紀錄</h3>
     <p>狀態:<b>${running?(aState||"準備中…"):"未啟動"}</b>${running&&aWait>Date.now()?`(${fmtMs(aWait-Date.now())})`:""}</p>
     <p>使用模型:${model()}${u.outM&&Object.keys(u.outM).length?`(今天額度已用完:${Object.keys(u.outM).join("、")})`:""}</p>
-    <p>今天已用 <b>${u.n}</b> / ${A.day} 次・自動收入 <b>${u.made}</b> 個・送審 ${u.review||0} 個</p><p>額度約在台灣時間 ${resetAt} 重置</p>
+    <p>今天已用 <b>${u.n}</b> / ${A.day} 次・自動收入 <b>${u.made}</b> 個・送審 ${u.review||0} 個・淘汰重寫 ${u.drop||0} 個</p><p>額度約在台灣時間 ${resetAt} 重置</p>
     ${u.last?`<p class="mnote">最近一次失敗:${esc(u.last)}</p>`:""}
     <p>失敗 ${u.fail} 次${u.fail?":"+Object.entries(u.why).map(([k,v])=>`${WHY[k]||k} ${v}`).join("、"):""}</p>
     <p>下一個要補的格子:${nx?`${TYPES[nx.type].n}・${nx.pair?pairName(nx.pair):mb(nx.member).n}${nx.stage?"・"+nx.stage:""}・${nx.period}`:"全部完成"}</p></div></div>`;
