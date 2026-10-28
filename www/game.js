@@ -921,6 +921,7 @@ function titleReady(){
   /* 回傳 true = 已處理(網頁版要補回上一頁) */
   const handle=()=>{
     if(window.exitBusy?.()){ window.exitSkip?.(); return false }
+    if(window.welcBusy?.()){ window.welcSkip?.(); return true }
     if(window.introBusy?.()){ window.introSkip?.(); return true }
     if(closeTop()){ lastBack=0; return true }
     if(Date.now()-lastBack<2000&&window.exitGame){ lastBack=0; window.exitGame("back"); return false }

@@ -1732,6 +1732,11 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
   border:.1cqw solid rgba(243,217,164,.7);border-radius:3cqw;background:rgba(40,8,18,.55)}
 .ex-black{position:absolute;z-index:6;inset:0;background:#000;opacity:0;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.ex-fig .ex-body{animation:none}.ex-st span:not(.ok):not(.bad) svg{animation:none}}
+
+/* ---------- 回來時的迎接(跟離開共用 .exitv 的圖層,背景比較亮、比較暖) ---------- */
+.welc .ex-dim{background:radial-gradient(ellipse 60% 75% at 31% 52%,color-mix(in srgb,var(--c) 22%,transparent) 0%,transparent 70%),linear-gradient(180deg,rgba(20,14,30,.5) 0%,rgba(14,9,22,.66) 100%)}
+.welc .ex-st span{opacity:1}
+.exitv.welc{--panel:inherit;--panel2:inherit;--ink:inherit;--soft:inherit}   /* 迎接用一般(依時段)的對話框顏色 */
 </style>
 </head>
 <body>

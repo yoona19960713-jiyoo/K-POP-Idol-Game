@@ -222,6 +222,8 @@ function watchShots(title,total,flags,titleP){
 window.introGo=(title,unpause)=>{
   if(IN&&!IN.done) endIntro(title);
   title.classList.add("leaving"); title.style.pointerEvents="none";
+  try{ window.sfx?.("start") }catch(e){}
+  if(PREV_SEEN&&Date.now()-PREV_SEEN>=30*60e3) setTimeout(()=>window.welcomeBack?.(Date.now()-PREV_SEEN),1600);
   const fast=RMQ.matches;
   const fl=el("i","tt-goflash"); title.appendChild(fl);
   if(!fast){ fl.animate([{opacity:0},{opacity:.9,offset:.22},{opacity:0}],{duration:700,easing:"ease-out",fill:"forwards"});
@@ -338,6 +340,7 @@ window.exitGame=async(why)=>{
   try{ document.getElementById("toast2")?.classList.remove("on") }catch(e){}
   const stage=document.getElementById("stage"); if(!stage) return;
   const fast=RMQ.matches, id=pickMember(), m=byId(id), ln=pickLine(id), beats=ln.beats;
+  try{ localStorage.setItem("kpopGame.lastBye",JSON.stringify({id,at:Date.now()})) }catch(e){}
   const ex0=beats[0][1], exs=[...new Set(beats.map(b=>b[1]))], sps=Promise.all(exs.map(ex=>spriteOf(id,ex)));   // 這句會用到的表情一次準備好
   const ov=el("div","exitv"); ov.id="exitv"; ov.style.setProperty("--c",m.c); ov.setAttribute("role","dialog"); ov.setAttribute("aria-label","離開遊戲");
   const d=dateOf(S.day), ds=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
@@ -419,6 +422,7 @@ window.exitGame=async(why)=>{
   EX.stage=2;
   // 5) 字卡
   const cd=q(".ex-card"), skippedEarly=performance.now()/1000-t0<3.5;
+  try{ window.sfx?.("bye") }catch(e){}
   for(const s of [".ex-fig",".vbox",".ex-glow",".ex-motes"]) A(L,q(s),[{opacity:1},{opacity:0}],skippedEarly?.25:.65,0,"ease-in","forwards");
   A(L,cd,[{opacity:0},{opacity:1}],skippedEarly?.3:.75,skippedEarly?0:.25,"ease-out","forwards");
   A(L,cd.querySelector("h2"),[{opacity:0,translate:"0 .8cqw",scale:.97},{opacity:1,translate:"0 0",scale:1}],.9,skippedEarly?.05:.35,OUT);
@@ -446,6 +450,139 @@ function webEnd(ov,saved,native){ const note=ov.querySelector(".ex-note");
     a.finished.then(()=>{ ov.remove(); EX=null; try{ setPause("exit",false) }catch(e){} try{ window.backRepush?.() }catch(e){} }) };
   try{ window.close() }catch(e){} }
 window.exitSkip=()=>{ if(!EX) return; if(EX.stage<2){ EX.stage=2; EX.skip?.() } else if(EX.stage===2){ /* 字卡已出現:存檔一好就離開 */ } };
+
+/* ============================== 回來時的迎接(2026-10-27,真人化第四批) ==============================
+   依「現實中離開多久」:30 分鐘以內不打擾;30 分~6 小時 s、6~36 小時 d、1.5~5 天 f、5 天以上 l。
+   誰來迎接:上次送你離開的那位(kpopGame.lastBye,30 天內),沒有就依親密度抽。第一句是依現實時間的招呼,第二句依關係 × 離開多久。
+   冷啟動:按開始、地圖出來後;從背景切回來:離開 30 分鐘以上。有事件卡、對話、設施開著就等,8 秒內沒關就不打擾。點一下跳過。 */
+const SEEN_K="kpopGame.lastSeen", BYE_K="kpopGame.lastBye";
+const PREV_SEEN=(()=>{ try{ return +(localStorage.getItem(SEEN_K)||0) }catch(e){ return 0 } })();
+const markSeen=()=>{ try{ localStorage.setItem(SEEN_K,String(Date.now())) }catch(e){} };
+markSeen(); setInterval(()=>{ if(!document.hidden) markSeen() },30000); addEventListener("pagehide",markSeen);
+let hiddenAt=0;
+document.addEventListener("visibilitychange",()=>{ if(document.hidden){ hiddenAt=Date.now(); markSeen(); return }
+  const gap=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0; markSeen(); if(gap>=30*60e3&&!document.getElementById("title")) setTimeout(()=>window.welcomeBack(gap),900) });
+const WG={ys:{am:"早安,代表。",pm:"午安,代表。",eve:"晚上好,代表。",night:"這麼晚了……代表還沒睡嗎?"},
+  tr:{am:"……早。",pm:"嗯,午安。",eve:"晚上好。",night:"這個時間?……你也睡不著?"},
+  hy:{am:"おはようございます……啊,代表早安。",pm:"代表,午安。",eve:"代表,晚上好。",night:"這麼晚了……代表辛苦了。"},
+  he:{am:"代表早安~!",pm:"午安~代表!",eve:"晚上好呀,代表~",night:"咦?這麼晚還來看我們?"},
+  hr:{am:"代表早安!!",pm:"午安!代表來了!",eve:"晚上好~代表!",night:"哇,代表這麼晚還沒睡!"}};
+/* 第二句:成員 → 關係 0~4 → 離開多久(s 幾小時、d 隔天、f 兩三天、l 五天以上);「／」分段、「@表情」 */
+const WL={
+ ys:[{s:"代表回來了。有什麼需要我做的嗎?@neutral",d:"今天也請多指教。@neutral",f:"好幾天沒見到代表了……大家都有好好練習。@neutral",l:"代表……好久不見。我們一直在等你回來。@sad"},
+  {s:"回來得正好,剛泡好茶,要喝一點嗎?@smile",d:"今天的行程我已經跟大家確認過了。@smile",f:"代表這幾天很忙吧?……有空的話,聽我說說話。@smile",l:"好久不見。……大家都很想代表。我也是。@smile"},
+  {s:"歡迎回來。@smile／……你不在的時候,總覺得少了什麼。@smile",d:"看到代表,今天就有精神了。@smile",f:"這幾天沒見到你……我一直有點擔心。@neutral／不過,看到你就安心了。@smile",l:"你終於回來了。@sad／……下次要離開這麼久,先跟我說一聲,好嗎?@smile"},
+  {s:"你回來了……@shy／我剛剛還在想你。@shy",d:"昨晚……夢到代表了。@shy／啊、沒什麼,我們走吧。@smile",f:"這幾天,我每天都在看門口。@shy",l:"……真的是你。@surprise／好想你。好想好想你。@shy"},
+  {s:"歡迎回來,我的代表。@smile／……抱一下再去工作。@shy",d:"早上第一個想到的,就是你。@shy",f:"三天沒見,我快撐不住了。@sad／……現在要補回來。@shy",l:"你再不回來,我就要去找你了。@sad／……不准再這樣了。@shy"}],
+ tr:[{s:"……回來了?@neutral",d:"嗯。今天也練習。@neutral",f:"幾天沒來。……忙?@neutral",l:"……好久。@neutral／大家有點擔心。@neutral"},
+  {s:"回來了?剛好,demo 聽一下。@smile",d:"今天狀態還不錯。你呢?@smile",f:"最近都沒看到你。……沒事就好。@smile",l:"這麼久沒來……還以為你忘了我們。@neutral／……開玩笑的。@smile"},
+  {s:"Welcome back。@smile",d:"你來了,今天就不無聊了。@smile",f:"你不在這幾天,練習室好安靜。@neutral／……我才沒有想你。@shy",l:"你跑去哪了?@neutral／……算了,回來就好。@smile"},
+  {s:"你回來了。@shy／……我剛剛沒在等你。真的。@shy",d:"……看到你,心情就變好了。很奇怪吧。@shy",f:"三天。@neutral／我數了。……別問為什麼。@shy",l:"……過來。@shy／讓我確認一下你是真的。@shy"},
+  {s:"Welcome home。@smile／……想你了。@shy",d:"Good morning。……今天也最喜歡你。@shy",f:"下次離開這麼久,要先跟我報備。@neutral／……我會想你啊。@shy",l:"你不在的時候,我每天都在等。@sad／……抱我。現在。@shy"}],
+ hy:[{s:"代表,您回來了。@neutral",d:"今天也請多多指教。@neutral",f:"好幾天沒見到您了……請您保重身體。@neutral",l:"代表,好久不見了。……大家都在等您。@neutral"},
+  {s:"您回來了!我剛好練完一段舞。@smile",d:"今天的天氣很適合練習呢。@smile",f:"這幾天都沒見到您……您還好嗎?@neutral",l:"好久不見……我還以為您不會再來了。@sad／……能再見到您,真好。@smile"},
+  {s:"歡迎回來,代表。@smile",d:"見到您,今天就會是好日子。@smile",f:"您不在的時候,我寫了好幾張卡片……@shy／等一下拿給您。@smile",l:"您回來了……@surprise／我好開心。真的、真的好開心。@smile"},
+  {s:"代表……@shy／不,沒什麼。歡迎回來。@shy",d:"昨晚,我一直在想您……@shy",f:"這幾天好漫長……@sad／見到您的瞬間,心跳就停不下來了。@shy",l:"……おかえりなさい。@shy／我一直、一直在等您。@sad"},
+  {s:"おかえり。@smile／……我好想你。@shy",d:"早安……今天也想一直待在你身邊。@shy",f:"你不在,我連舞都跳不好了。@sad／……所以,今天要好好陪我。@shy",l:"你回來了……@surprise／不要再走那麼久了,好不好?@shy"}],
+ he:[{s:"代表回來啦~@smile",d:"今天也要加油喔!@smile",f:"代表好幾天沒來耶,大家都在問~@smile",l:"代表!好久不見!我們都以為你不要我們了~@smile"},
+  {s:"回來啦~剛好陪我挑一下今天的造型!@laugh",d:"今天的我,狀態超好喔~@laugh",f:"這幾天去哪了~?不在都沒人誇我了啦。@smile",l:"好久不見!@laugh／……真的好久,以後不准這樣了喔。@smile"},
+  {s:"歡迎回來~@laugh",d:"見到你,今天就是完美的一天!@laugh",f:"你不在的這幾天,我拍了好多照片要給你看!@laugh",l:"你終於回來了!@surprise／……我差點就要哭了。@sad"},
+  {s:"你回來了!@laugh／……剛剛一直在等你。@shy",d:"今天的妝是為你化的喔。……開玩笑的。一半。@shy",f:"三天沒看到你,我的心空了一半啦。@sad",l:"……@surprise／真的是你!我好想你、好想你!@shy"},
+  {s:"歡迎回家,親愛的~@laugh／……先親一下。@shy",d:"早安親愛的~今天也最喜歡你!@laugh",f:"你再不回來,我就要去公司堵你了!@smile／……想你啦。@shy",l:"笨蛋……@sad／讓我抱很久很久,當作補償。@shy"}],
+ hr:[{s:"代表回來了!@smile",d:"今天也要元氣滿滿喔!@smile",f:"代表好幾天沒來耶!我們都很努力喔!@smile",l:"代表!好久不見!!我們好想你!@laugh"},
+  {s:"代表回來了!我剛練完高音,要聽嗎?@laugh",d:"今天我要挑戰新的歌!代表要看喔!@laugh",f:"代表不在,大家都好無聊~@smile",l:"代表!!@surprise／你跑去哪裡了啦,我們等好久!@laugh"},
+  {s:"歡迎回來~!擊掌!@laugh",d:"看到代表,我今天一定會唱得超好!@laugh",f:"代表不在的時候,我每天都對著門口練習說『歡迎回來』!@laugh",l:"代表……@sad／還以為你不要我們了……@sad"},
+  {s:"代表回來了!@laugh／……我、我才沒有一直在門口等!@shy",d:"我昨天夢到代表了!內容……是秘密!@shy",f:"三天沒見,我寫了一首歌給代表……要聽嗎?@shy",l:"代表!!@surprise／我好想你……真的好想你!@shy"},
+  {s:"歡迎回來!@laugh／……抱抱充電!@shy",d:"早安!今天也最最最喜歡代表!@laugh",f:"代表不在,我的電量只剩一格了啦……@sad／快幫我充電!@shy",l:"你回來了……@sad／不准再丟下我這麼久了!@shy"}],
+};
+const gapText=ms=>{ const h=ms/36e5; return h<1?`${Math.round(ms/6e4)} 分鐘`:h<24?`${Math.round(h)} 小時`:`${Math.floor(h/24)} 天${Math.round(h%24)?` ${Math.round(h%24)} 小時`:""}` };
+const busyUI=()=>!!document.querySelector("#title,#exitv,#welc,dialog[open],#visit.on,#facility:not(.hide),.bigev,.evbox,#cgView,#phone.on,#drawer.on,#songFac:not(.hide)");
+let WBX=null;
+window.welcBusy=()=>!!WBX;
+window.welcSkip=()=>WBX?.skip?.();
+window.welcomeBack=async(gap)=>{
+  if(WBX||typeof S==="undefined"||typeof M==="undefined"||!(gap>=30*60e3)) return;
+  for(let i=0;i<16&&busyUI();i++) await wait(500);
+  if(busyUI()||WBX) return;
+  const stage=document.getElementById("stage"); if(!stage) return;
+  let id=null; try{ const b=JSON.parse(localStorage.getItem(BYE_K)||"null"); if(b&&byId(b.id)&&Date.now()-b.at<30*864e5) id=b.id }catch(e){}
+  if(!id) id=pickMember();
+  const m=byId(id), band=Math.min(4,rankOf(id)), h=gap/36e5, bk=h<6?"s":h<36?"d":h<120?"f":"l";
+  const hr=new Date().getHours(), tk=hr>=5&&hr<11?"am":hr<17&&hr>=11?"pm":hr>=17&&hr<22?"eve":"night";
+  const beats=[[WG[id][tk],"smile"],...parseLine((WL[id][band]||WL[id][0])[bk])];
+  const fast=RMQ.matches, exs=[...new Set(beats.map(b=>b[1]))];
+  try{ setPause("welc",true) }catch(e){}
+  const ov=el("div","exitv welc"); ov.id="welc"; ov.style.setProperty("--c",m.c); ov.setAttribute("role","dialog"); ov.setAttribute("aria-label","成員迎接");
+  const motes=Array.from({length:7},(_,i)=>`<i style="--x:${10+((i*37)%60)}%;--s:${(.5+(i%4)*.28).toFixed(2)};--k:${i%3?m.c:"#E9CF8F"}"></i>`).join("");
+  ov.innerHTML=`<div class="ex-dim"></div><div class="ex-glow"></div><div class="ex-motes">${motes}</div>
+    <div class="ex-fig"><div class="ex-body">${exs.map((ex,i)=>`<img alt="" class="ex-a" data-ex="${ex}" style="opacity:${i?.001:1}">`).join("")}<div class="ex-blink"></div></div></div>
+    <div class="vbox locked" data-m="${id}"><div class="panel"></div><div class="vname">${m.n}<i class="en">${m.f.toUpperCase()}</i></div><div class="vtext"></div></div>
+    <div class="ex-st"><span class="ok">上次見面:${gapText(gap)}前</span></div>`;
+  ov.querySelector(".vname").style.setProperty("--nc",m.c); stage.appendChild(ov);
+  const L=[], q=s=>ov.querySelector(s), OUT="cubic-bezier(.22,.8,.3,1)";
+  let done=false, typedAll=false, fin;
+  const finished=new Promise(r=>fin=r);
+  WBX={ov,skip:()=>{ if(!typedAll){ typedAll="skip"; return } fin() }};
+  ov.addEventListener("click",()=>WBX?.skip());
+  A(L,q(".ex-dim"),[{opacity:0},{opacity:1}],fast?.2:.45,0,"ease-out");
+  A(L,q(".ex-st"),[{opacity:0,translate:"0 -.8cqw"},{opacity:1,translate:"0 0"}],.5,.2,OUT);
+  const fig=q(".ex-fig"), body=q(".ex-body"), imgs=[...ov.querySelectorAll(".ex-a")], blink=q(".ex-blink");
+  const W0=OVL?.[m.f]?.W||920, H0=OVL?.[m.f]?.H||2954, hh=(m.cm||165)/168;
+  fig.style.cssText=`height:120cqw;aspect-ratio:${W0}/${H0};top:calc(-1cqw + ${(1-hh).toFixed(3)} * 120cqw)`;
+  let ss=null; try{ ss=await Promise.race([Promise.all(exs.map(ex=>spriteOf(id,ex))),wait(900).then(()=>null)]) }catch(e){}
+  imgs.forEach((im,i)=>{ im.src=ss?.[i]?.src||spr(id,null,exs[i]) });
+  try{ await Promise.race([Promise.all(imgs.map(im=>im.decode().catch(()=>{}))),wait(800)]) }catch(e){}
+  await stableFrames(500);
+  const bi=OVL_IMG?.[m.f+"|blink"], o0=OVL?.[m.f];
+  if(bi&&o0?.blink){ const [x,y,w,hb]=bi.naturalWidth>=o0.W*.98?[0,0,o0.W,o0.H]:o0.blink;
+    Object.assign(blink.style,{backgroundImage:`url("${bi.src}")`,backgroundSize:`${w/o0.W*100}% ${hb/o0.H*100}%`,backgroundPosition:`${w<o0.W?x/(o0.W-w)*100:0}% ${hb<o0.H?y/(o0.H-hb)*100:0}%`}) }
+  try{ window.sfx?.("welcome") }catch(e){}
+  A(L,q(".ex-glow"),[{opacity:0,scale:.85},{opacity:.7,scale:1}],1.0,0,"ease-out");
+  q(".ex-motes").querySelectorAll("i").forEach((e,i)=>A(L,e,[{opacity:0,translate:"0 0"},{opacity:.85,offset:.2},{opacity:.6,offset:.7},{opacity:0,translate:`${(i%2?1:-1)*1.5}cqw -30cqw`}],3.6+(i%3)*.7,.1+i*.3,"linear"));
+  A(L,fig,fast?[{opacity:0},{opacity:1}]:[{opacity:0,translate:"-54% 0"},{opacity:1,translate:"-50% 0",offset:.82},{opacity:1,translate:"-50% 0"}],fast?.3:.9,0,OUT);
+  A(L,q(".vbox"),[{opacity:0,translate:"0 1.2cqw"},{opacity:1,translate:"0 0"}],.45,.6,OUT);
+  let cur=exs[0]; const tx=q(".vtext");
+  const swap=ex=>{ if(ex===cur) return; const nw=imgs.find(i=>i.dataset.ex===ex), od=imgs.find(i=>i.dataset.ex===cur); if(!nw||!od) return;
+    nw.style.zIndex="1"; od.style.zIndex="2"; nw.style.opacity="1"; cur=ex;
+    od.animate([{opacity:1},{opacity:.001}],{duration:260,easing:"ease-out",fill:"forwards"}).finished.then(()=>{ od.style.opacity=".001"; od.style.zIndex="" },()=>{});
+    if(!fast) body.animate(ex==="shy"?[{translate:"0 0",rotate:"0deg"},{translate:"0 .5%",rotate:"-.6deg"},{translate:"0 .25%",rotate:"-.4deg"}]:[{translate:"0 0"},{translate:"0 -.6%"},{translate:"0 0"}],{duration:ex==="shy"?700:420,easing:"cubic-bezier(.3,.7,.3,1)",fill:ex==="shy"?"forwards":"none",composite:"add"}) };
+  const blinkT=setTimeout(()=>{ if(!fast&&BLINK_OK.has(cur)&&!done) blink.animate([{opacity:0},{opacity:1,offset:.15},{opacity:1,offset:.85},{opacity:0}],{duration:130}) },2600);
+  const P=ch=>/[。!?!?]/.test(ch)?.28:/[,、;:,;:]/.test(ch)?.14:ch==="…"?.1:/[—~~]/.test(ch)?.12:0;
+  const full=beats.map(b=>b[0]).join("");
+  (async()=>{ await wait(900);
+    for(let b=0;b<beats.length&&typedAll!=="skip";b++){ const [t,ex]=beats[b];
+      if(b>0){ await wait(450); if(typedAll==="skip") break; swap(ex) }
+      const base=tx.textContent, chars=[...t]; let tk=0;
+      for(let i=1;i<=chars.length;i++){ if(typedAll==="skip") break; tx.textContent=base+chars.slice(0,i).join(""); const ch=chars[i-1], nx=chars[i]||"";
+        if(/[\p{L}\p{N}]/u.test(ch)&&++tk%3===0) exBlip(id); await wait((.042+(P(ch)&&!P(nx)?P(ch):ch==="…"?.05:0))*1000) } }
+    tx.textContent=full; swap(beats[beats.length-1][1]); typedAll=true;
+    await Promise.race([wait(1700),finished]); fin() })();
+  await finished; done=true; clearTimeout(blinkT);
+  for(const s2 of [".ex-fig",".vbox",".ex-glow",".ex-motes",".ex-st"]) A(L,q(s2),[{opacity:1},{opacity:0}],.45,0,"ease-in","forwards");
+  const a=ov.animate([{opacity:1},{opacity:0}],{duration:fast?200:650,delay:fast?0:150,fill:"forwards"});
+  await a.finished.catch(()=>{});
+  ov.remove(); WBX=null; try{ setPause("welc",false) }catch(e){}
+};
+
+/* ============================== 介面音效(audio.js 的 window.sfx) ============================== */
+document.addEventListener("click",e=>{ const t=e.target; if(!(t instanceof Element)||!window.sfx) return;
+  if(t.closest("#title,#ti,.exitv")) return;
+  if(t.closest(".fac-close,#setClose,#pHome,[data-close]")) return window.sfx("close");
+  if(t.closest("#menuBtn,#phoneBtn,#memBtn")) return window.sfx("open");
+  if(t.closest(".dia button,.dia .opt,[data-choice]")) return window.sfx("select");
+  if(t.closest("[data-ft],.fac-tabs button,.ptab,[role=tab]")) return window.sfx("tab");
+  if(t.closest("label.chk")) return;   // 開關另外處理(change)
+  if(t.closest("button,.fbtn,.b,.ibtn,.fchip,.pbtn,.tbtn,.cbtn,.mbtn,.papp,.room,.pin,.rp")) window.sfxTap?.(e.timeStamp) },true);
+document.addEventListener("change",e=>{ const t=e.target; if(t?.matches?.("label.chk>input")) window.sfx?.(t.checked?"on":"off") });
+addEventListener("DOMContentLoaded",()=>{
+  // 打開設施:打開聲
+  for(const k of ["openFacility","openSongFacility","openRecords","openMVRoom","openMaker","openStageRoom","openPhoto"]){ const f=window[k]; if(typeof f!=="function"||f.__sfx) continue;
+    const w=function(...a){ try{ window.sfx?.(k==="openPhoto"?"shutter":"open") }catch(e){} return f.apply(this,a) }; w.__sfx=1; window[k]=w }
+  // 大小好事:跟震動同一個時機(關係升階 → chime;解鎖回憶、出道、拿一位、演唱會 → sparkle)
+  const fb=window.feedback; if(typeof fb==="function"&&!fb.__sfx){ const w=lv=>{ try{ if(lv==="m") window.sfx?.("chime"); else if(lv==="l") window.sfx?.("sparkle") }catch(e){} return fb(lv) }; w.__sfx=1; window.feedback=w }
+  // 手機新訊息:未讀數增加、手機沒開著 → 提示音
+  let lastU=null; setInterval(()=>{ if(typeof S==="undefined") return; const u=+S.unread||0; if(lastU!=null&&u>lastU&&!document.querySelector("#phone.on,#title")) window.sfx?.("notify"); lastU=u },1000);
+});
 
 /* 選單「離開遊戲」 */
 document.getElementById("quitBtn")?.addEventListener("click",()=>window.exitGame("menu"));

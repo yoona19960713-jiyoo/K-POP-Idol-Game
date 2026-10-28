@@ -70,10 +70,54 @@ fetch("assets/bgm/list.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).the
 window.voice=url=>{ try{ ctx(); const a=new Audio(url), s=AC.createMediaElementSource(a); s.connect(bus.voice);
   const t=AC.currentTime; bus.duck.gain.setTargetAtTime(.35,t,.08);
   a.onended=a.onerror=()=>{ bus.duck.gain.setTargetAtTime(1,AC.currentTime,.25) }; a.play().catch(()=>{ bus.duck.gain.setTargetAtTime(1,AC.currentTime,.25) }); return a }catch(e){ return null } };
-/* ---------- 音效:assets/sfx/名稱.m4a,快取後播放,音高隨機 ±4% ---------- */
-const BUF={};
-window.sfx=async(name,vol=1)=>{ try{ ctx(); if(!(name in BUF)) BUF[name]=fetch("assets/sfx/"+name+".m4a").then(r=>r.ok?r.arrayBuffer():null).then(b=>b?AC.decodeAudioData(b):null).catch(()=>null);
-  const b=await BUF[name]; if(!b) return; const s=AC.createBufferSource(), g=AC.createGain(); s.buffer=b; s.playbackRate.value=.96+Math.random()*.08; g.gain.value=vol; s.connect(g); g.connect(bus.sfx); s.start() }catch(e){window.logErr?.("audio",e)} };
+/* ---------- 音效(2026-10-27)----------
+   還沒有音效檔:先用程式即時合成(柔和的鈴聲、木琴、空氣聲,音量偏小、不刺耳),跟著「音效」音量。
+   之後有檔案時:放 assets/sfx/名稱.m4a,並在 assets/sfx/list.json 寫 ["名稱",…],有列的就改播檔案(沒列的不去抓,不會一直 404)。
+   名稱:tap 一般按鈕、tab 分頁、on/off 開關、open/close 打開關閉畫面、select 對話選項、notify 手機新訊息、
+         chime 中等好事(關係升階等)、sparkle 大事(解鎖回憶、出道、拿一位、演唱會)、shutter 拍照、error 不能做、
+         start 標題按開始、welcome 成員迎接、bye 晚安字卡 */
+const BUF={}; let SFXL=null, lastSfx=0;
+fetch("assets/sfx/list.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{ SFXL=Array.isArray(j)?new Set(j):null }).catch(()=>{});
+let REV=null;
+function reverb(){ if(REV) return REV; const len=Math.floor(AC.sampleRate*1.3), b=AC.createBuffer(2,len,AC.sampleRate);
+  for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.4) }
+  const cv=AC.createConvolver(); cv.buffer=b; const g=AC.createGain(); g.gain.value=.2; cv.connect(g); g.connect(bus.sfx); return REV=cv }
+function tone(out,{f,type="sine",t=0,a=.004,d=.25,g=.1,f2,rev=0}){ const now=AC.currentTime+t, o=AC.createOscillator(), v=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(f,now); if(f2) o.frequency.exponentialRampToValueAtTime(f2,now+d*.8);
+  v.gain.setValueAtTime(0,now); v.gain.linearRampToValueAtTime(g,now+a); v.gain.exponentialRampToValueAtTime(.0001,now+a+d);
+  o.connect(v); v.connect(out); if(rev){ const r=AC.createGain(); r.gain.value=rev; v.connect(r); r.connect(reverb()) } o.start(now); o.stop(now+a+d+.05) }
+const bell=(o,f,t,g,d)=>{ tone(o,{f,t,g,d,rev:.7}); tone(o,{f:f*2.01,t,g:g*.32,d:d*.55,rev:.6}); tone(o,{f:f*3.03,t,g:g*.1,d:d*.3,rev:.4}) };
+let NB=null;
+function noise(out,{t=0,d=.15,g=.06,type="highpass",f=2000,f2,q=.8,lp=12000}){ const now=AC.currentTime+t;
+  if(!NB){ const len=AC.sampleRate; NB=AC.createBuffer(1,len,AC.sampleRate); const x=NB.getChannelData(0); for(let i=0;i<len;i++) x[i]=Math.random()*2-1 }
+  const s=AC.createBufferSource(); s.buffer=NB; s.loop=true; const fl=AC.createBiquadFilter(); fl.type=type; fl.frequency.setValueAtTime(f,now); fl.Q.value=q;
+  if(f2) fl.frequency.exponentialRampToValueAtTime(f2,now+d); const l=AC.createBiquadFilter(); l.type="lowpass"; l.frequency.value=lp;
+  const v=AC.createGain(); v.gain.setValueAtTime(0,now); v.gain.linearRampToValueAtTime(g,now+.01); v.gain.exponentialRampToValueAtTime(.0001,now+d);
+  s.connect(fl); fl.connect(l); l.connect(v); v.connect(out); s.start(now,Math.random()*.5); s.stop(now+d+.05) }
+const N={C5:523.25,E5:659.25,G5:783.99,A5:880,C6:1046.5,D6:1174.66,E6:1318.51,G6:1567.98,A6:1760,B6:1975.53,C7:2093,E7:2637};
+const SYN={
+  tap:o=>{ tone(o,{f:1500,f2:1100,d:.04,g:.045}); noise(o,{d:.018,g:.012,f:3500}) },
+  tab:o=>{ tone(o,{f:1760,f2:1480,type:"triangle",d:.055,g:.04}) },
+  on:o=>{ tone(o,{f:880,d:.06,g:.045}); tone(o,{f:1320,t:.055,d:.08,g:.045}) },
+  off:o=>{ tone(o,{f:1320,d:.06,g:.04}); tone(o,{f:880,t:.055,d:.08,g:.04}) },
+  open:o=>{ noise(o,{type:"bandpass",f:700,f2:3200,d:.22,g:.035,q:1.1}); bell(o,N.E6,.03,.045,.45); bell(o,N.B6,.1,.035,.55) },
+  close:o=>{ noise(o,{type:"bandpass",f:2600,f2:700,d:.18,g:.028,q:1.1}); bell(o,N.E6,.02,.03,.32) },
+  select:o=>{ tone(o,{f:N.E5,type:"triangle",d:.2,g:.06,rev:.3}); tone(o,{f:N.E6,d:.12,g:.025,rev:.3}) },
+  notify:o=>{ bell(o,N.G6,0,.05,.5); bell(o,N.C7,.12,.05,.7) },
+  chime:o=>{ bell(o,N.C6,0,.045,.6); bell(o,N.E6,.09,.045,.6); bell(o,N.G6,.18,.045,.9) },
+  sparkle:o=>{ [N.C6,N.E6,N.G6,N.C7,N.E7].forEach((f,i)=>bell(o,f,i*.07,.042,1.0)); noise(o,{t:.05,d:.7,g:.012,f:6500}) },
+  shutter:o=>{ noise(o,{d:.04,g:.11,f:1800}); noise(o,{t:.065,d:.08,g:.07,f:3000}); tone(o,{f:190,d:.03,g:.04,type:"square"}) },
+  error:o=>{ tone(o,{f:330,f2:290,type:"triangle",d:.12,g:.05}); tone(o,{f:262,t:.11,d:.16,g:.045,type:"triangle"}) },
+  start:o=>{ noise(o,{type:"bandpass",f:500,f2:5200,d:.5,g:.04,q:.9}); bell(o,N.G5,.05,.045,.9); bell(o,N.D6,.13,.04,.9); bell(o,N.G6,.21,.04,1.2) },
+  welcome:o=>{ bell(o,N.C6,0,.04,.7); bell(o,N.E6,.13,.04,.7); bell(o,N.A6,.26,.038,1.1) },
+  bye:o=>{ bell(o,N.G5,0,.035,1.1); bell(o,N.E5,.22,.032,1.2); bell(o,N.C5,.44,.03,1.6) },
+};
+window.sfx=async(name,vol=1)=>{ try{ ctx(); if(AC.state==="suspended") AC.resume?.(); if(name!=="tap") lastSfx=performance.now();
+    if(SFXL?.has(name)){ if(!(name in BUF)) BUF[name]=fetch("assets/sfx/"+name+".m4a").then(r=>r.ok?r.arrayBuffer():null).then(b=>b?AC.decodeAudioData(b):null).catch(()=>null);
+      const b=await BUF[name]; if(!b) return; const s=AC.createBufferSource(), g=AC.createGain(); s.buffer=b; s.playbackRate.value=.96+Math.random()*.08; g.gain.value=vol; s.connect(g); g.connect(bus.sfx); s.start(); return }
+    const f=SYN[name]; if(!f) return; let o=bus.sfx; if(vol!==1){ o=AC.createGain(); o.gain.value=vol; o.connect(bus.sfx) } f(o) }catch(e){window.logErr?.("audio",e)} };
+/* 一般按鈕的輕點聲:同一下點擊如果已經有更具體的音效(打開、關閉、選項…)就不再響 */
+window.sfxTap=(ts=performance.now())=>{ setTimeout(()=>{ if(lastSfx<ts-2) window.sfx("tap") },0) };
 
 /* ---------- 選單裡的音量 ---------- */
 function note(){ const n=$("#bgmNote"); if(!n) return; const c=LIST?Object.values(LIST).reduce((a,L)=>a+(L?.length||0),0):0;
