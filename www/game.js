@@ -288,9 +288,32 @@ function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stri
 function arcOk(sn){ if(!sn.arc||!(+sn.part>1)) return true; const prev=snips().find(x=>x.arc===sn.arc&&+x.part===+sn.part-1), d=prev&&S.seen[prev.code]; return d!=null&&S.day-d>=1 }
 /* 舞台指示(劇本裡的 ["@","bg:kitchen"] 這類):換背景、成員進場離場;sfx 先記著給之後的聲音系統 */
 const DIR_BG=["practice","studio","office","styling","living","kitchen","river","store","van","backstage"];
+/* 2026-10-28 演出指令:cam:close 特寫(下一位說話的人,鏡頭慢慢推近她的臉)、cam:wide 拉回;
+   fx:shake 輕震、fx:flash 白光一閃、fx:pause 沉默停頓(約 1.2 秒)、fx:slow 下一句慢慢打字;
+   mood:memory 回憶(暖黃、柔光、暗角)、mood:dim 燈光變暗(難過、低潮)、mood:off 恢復。片段結束或離開時自動恢復。
+   回傳毫秒數 = 要等多久才往下 */
+const RMQD=matchMedia("(prefers-reduced-motion:reduce)");
+let CAM=null, slowNext=false;
+const camEls=()=>[$("#vbg"),$("#vppl")].filter(Boolean);
+function camReset(fast){ for(const e of camEls()){ e.getAnimations().filter(a=>a.id==="cam").forEach(a=>{ if(fast) a.cancel(); else { a.reverse() } }) } CAM=null }
+function camClose(id){ if(RMQD.matches) return; const ppl=$("#vppl"), img=id&&ppl?.querySelector(`[data-id="${id}"]`); camReset(true);
+  let ox=50, oy=34; if(img){ const r=img.getBoundingClientRect(), R=$("#visit").getBoundingClientRect(); ox=((r.left+r.width/2-R.left)/R.width*100); oy=Math.max(12,Math.min(45,((r.top-R.top)/R.height*100)+16)) }
+  for(const e of camEls()){ const a=e.animate([{scale:1,transformOrigin:`${ox}% ${oy}%`},{scale:e.id==="vbg"?1.08:1.16,transformOrigin:`${ox}% ${oy}%`}],{duration:1400,easing:"cubic-bezier(.3,.1,.25,1)",fill:"forwards"}); a.id="cam" } CAM=id||true }
+function moodSet(k){ const v=$("#visit"); let el=v.querySelector(".vmood"); if(!el){ el=document.createElement("div"); el.className="vmood"; v.querySelector(".vtint")?.after(el) }
+  el.dataset.k=k==="off"?"":k }
+function stageReset(){ camReset(true); moodSet("off"); slowNext=false }
 function stageDir(t){ const [k,v]=String(t||"").split(":");
   if(k==="bg"&&DIR_BG.includes(v)) $("#vbg").style.backgroundImage=`url(${seasonArt("bg",v,SLOTS[S.slot].light)})`;
-  else if((k==="enter"||k==="exit")&&V&&byId(v)){ V.present=k==="enter"?[...new Set([...V.present,v])]:V.present.filter(x=>x!==v); drawPeople() } }
+  else if((k==="enter"||k==="exit")&&V&&byId(v)){ V.present=k==="enter"?[...new Set([...V.present,v])]:V.present.filter(x=>x!==v); drawPeople() }
+  else if(k==="cam"){ if(v==="close"){ const nx=D?.q.find(x=>x.k==="line"&&x.id&&x.id!=="@"&&byId(x.id)); camClose(nx?.id||D?.main) } else camReset(false) }
+  else if(k==="mood") moodSet(["memory","dim"].includes(v)?v:"off");
+  else if(k==="fx"){
+    if(v==="pause"){ $("#vbox")?.classList.remove("wait"); return skip?0:1200 }
+    if(v==="slow"){ slowNext=true; return 0 }
+    if(RMQD.matches) return 0;
+    if(v==="shake") for(const e of camEls()) e.animate([{translate:"0 0"},{translate:"-.6% .2%"},{translate:".5% -.3%"},{translate:"-.3% .2%"},{translate:".2% 0"},{translate:"0 0"}],{duration:380,easing:"ease-out",composite:"add"});
+    if(v==="flash"){ const f=document.createElement("div"); f.className="vflash"; $("#visit").appendChild(f); f.animate([{opacity:0},{opacity:.85,offset:.18},{opacity:0}],{duration:650,easing:"ease-out"}).finished.then(()=>f.remove(),()=>f.remove()) } }
+  return 0 }
 function reqOk(sn){ if(sn.req&&[].concat(sn.req).some(k=>!STORY_REQ[k]?.())) return false; return varsOf(sn).every(k=>STORY_VARS[k]?.()!=null) }
 function fillVars(sn){ if(!varsOf(sn).length) return sn;
   const rep=t=>typeof t==="string"?t.replace(VAR_RE,(m,k)=>STORY_VARS[k]?.()??m):t, L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
@@ -665,7 +688,7 @@ function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
   play(sn,menu)}
-function leave(){if(D) return; $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); stopSkip();
+function leave(){if(D) return; stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); stopSkip();
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
 
 /* ---- 眨眼疊加層(2026-10-24 做,2026-10-25 改成只存小塊;說話時嘴巴開合在 2026-10-25 依使用者決定拿掉)----
@@ -702,7 +725,7 @@ function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"
 function backOut(){ if(!V||V.test||V.event) return; const free=V.talked.size===0;
   if(free){ const o=JSON.parse(V.snap); for(const k of Object.keys(S)) if(!(k in o)) delete S[k]; Object.assign(S,o) }
   D=null; clearInterval(typing); typing=null; stopAuto(); stopSkip(); $("#vopts").innerHTML="";
-  $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; save(true);
+  stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; save(true);
   if(free) toast2("已返回,這次沒有花掉行動");
   if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()} }
 
@@ -716,25 +739,26 @@ window.testPlay=function(sn,onDone){
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
   play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; save();
     $("#vopts").innerHTML=`<button class="vopt" id="testEnd">試玩結束<small>回到製作者模式</small></button>`;
-    $("#testEnd").onclick=()=>{ $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); onDone&&onDone() } });
+    $("#testEnd").onclick=()=>{ stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); onDone&&onDone() } });
 };
 /* ---- 對話引擎:劇本工坊的節點格式 {start:{L:[[說話者,台詞,表情?]],C:[{t,s,to,g,next,r,set,mood,stress,heart}]}} ---- */
 function play(sn,onEnd){
   sn=fillVars(sn);   // {變數} 換成真正的名稱
   if(window.addBond&&!V?.test&&(sn.who||[]).length>1) addBond(sn.who,sn.type==="friction"?2.5:1.5);
   if(!sn.demoLine&&!String(sn.code).startsWith("demo-line")) S.seen[sn.code]=S.day;
+  stageReset();
   D={sn,onEnd,q:[],main:sn.member||sn.who?.[0],opener:window.__opener||null}; window.__opener=null;
   $("#vopts").innerHTML=""; $("#vbox").classList.remove("locked");
   if(sn.sc) D.q.push({k:"line",id:"",text:sn.sc});
   D.q.push({k:"node",key:"start"}); step()}
 function step(){
   if(!D) return; const it=D.q.shift();
-  if(!it){const f=D.onEnd;D=null;setExpr(null);f&&f();return}
+  if(!it){const f=D.onEnd;D=null;setExpr(null);if(CAM) camReset(false);moodSet("off");f&&f();return}
   if(it.k==="node"){const n=D.sn.nodes[it.key]; if(!n){step();return}
     let LL=n.L||[]; if(it.key==="start"&&D.opener){ const o=D.opener; D.opener=null; let k=LL.findIndex(l=>l[0]===D.main); if(k<0) k=LL.length; LL=[...LL.slice(0,k),[D.main,o.t,o.e],...LL.slice(k)] }   // 開場句放在她第一句之前
     for(const l of LL) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
     if((n.C||[]).length) D.q.push({k:"choices",C:n.C}); step(); return}
-  if(it.k==="line"){ if(it.id==="@"){ stageDir(it.text); step(); return } showText(it.id,it.text,false,it.e);return}
+  if(it.k==="line"){ if(it.id==="@"){ const w=stageDir(it.text); if(w) setTimeout(()=>{ if(D) step() },w); else step(); return } showText(it.id,it.text,false,it.e);return}
   if(it.k==="choices"){showChoices(it.C);return}}
 /* 閱讀設定(參考 visual-novel 技能):文字速度、Auto 速度;Skip 只快轉看過的台詞(看過的記在這台裝置) */
 const RD=(()=>{ try{ return {speed:"normal",auto:"normal",...JSON.parse(localStorage.getItem("kpopGame.read")||"{}")} }catch(e){ return {speed:"normal",auto:"normal"} } })();
@@ -756,14 +780,14 @@ function showText(id,text,still,e){
   const rk=readKey(id,text), seen=readL().has(rk); markRead(rk); if(skip&&!seen) stopSkip();
   if(RD.speed==="instant"||(skip&&seen)){ el.textContent=text; typing=null; $("#vbox").classList.add("wait");
     if(skip) setTimeout(()=>{ if(skip&&D&&!typing&&!$("#vopts .choice")) step() },90); else queueAuto(); return }
-  let i=0; const chars=[...String(text)]; el.textContent="";
+  let i=0; const chars=[...String(text)]; el.textContent=""; const slowMul=slowNext?2.6:1; slowNext=false;
   let tk=0;
   const PAUSE=ch=>/[。!?!?]/.test(ch)?300:/[,、;:,;:]/.test(ch)?150:ch==="…"?110:/[—~~]/.test(ch)?120:0;
   const tick=()=>{ i++; el.textContent=chars.slice(0,i).join(""); const ch=chars[i-1]||"";
     const isL=/[\p{L}\p{N}]/u.test(ch); if(isL&&++tk%3===0) blip(id);
     if(i>=chars.length){typing=null;$("#vbox").classList.add("wait");queueAuto();return}
     const nx=chars[i]||"", p=PAUSE(ch)&&!PAUSE(nx)?PAUSE(ch):(ch==="…"?60:0);   // 連續標點只在最後一個停
-    typing=setTimeout(tick,Math.round((20+p)*(RD_TW[RD.speed]||1))) };
+    typing=setTimeout(tick,Math.round((20+p)*(RD_TW[RD.speed]||1)*(slowMul||1))) };
   typing=setTimeout(tick,20)}
 function fitText(el,text){ // 長台詞:先放完整文字量,放不下就逐步縮小字(最小 76%),打字效果不會中途換行跳動
   el.style.fontSize=""; el.textContent=text; const base=parseFloat(getComputedStyle(el).fontSize);

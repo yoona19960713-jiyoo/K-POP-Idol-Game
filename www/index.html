@@ -1848,6 +1848,13 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .th-meet .pcol.paper::before{content:"";position:absolute;top:calc(-.6*var(--u));left:50%;width:calc(6*var(--u));height:calc(1.3*var(--u));translate:-50% 0;rotate:-2deg;background:rgba(233,207,143,.65);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .mgap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .tvcard{content-visibility:auto;contain-intrinsic-size:auto 350px}   /* 待機室下方的卡片先不畫 */
+
+/* 對話演出(2026-10-28):回憶、燈光變暗、白光一閃(game.js 的 stageDir:mood、fx) */
+.visit .vmood{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 1.4s ease}
+.visit .vmood[data-k="memory"]{opacity:1;background:radial-gradient(ellipse 70% 64% at 50% 42%,rgba(255,236,190,.26) 0%,rgba(255,206,150,.2) 52%,rgba(80,40,14,.66) 100%),linear-gradient(180deg,rgba(255,214,150,.2),rgba(240,170,110,.24))}
+.visit .vmood[data-k="dim"]{opacity:1;background:radial-gradient(ellipse 70% 70% at 45% 40%,rgba(20,16,40,.15) 0%,rgba(12,10,28,.55) 100%),linear-gradient(180deg,rgba(14,12,32,.28),rgba(10,8,24,.42))}
+.visit .vflash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(ellipse at 50% 40%,#FFFFFF 0%,#FFF6EE 50%,rgba(255,240,234,.9) 100%)}
+@media (prefers-reduced-motion:reduce){.visit .vmood{transition:none}}
 </style>
 </head>
 <body>

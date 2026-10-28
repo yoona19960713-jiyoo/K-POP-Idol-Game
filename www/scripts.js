@@ -68,6 +68,26 @@ const VOICE={
  hy:"早瀨日和,主舞、副唱,日籍(原型 LE SSERAFIM 中村一葉)。芭蕾出身、優雅但團裡最外向好奇。韓語不夠用,常比手畫腳、混日文英文,講錯先笑;會問「代表,這句韓語是什麼意思?」;用韓劇台詞學說話;對每個人都說「好喜歡~」;想讓人放心時說「大丈夫です!」。越重要的事越用笑容帶過。心結:舊傷的腳踝、說不出深一點的心事、怕永遠是外國人。暱稱天鵝。",
  he:"韓夏恩,門面、C 位、副 Rapper(原型 少女時代 潤娥)。國民初戀型,開朗隨和不做作,對每個人都好;宿舍廚房是她的地盤。被稱讚外表會笑著轉移話題;被當成普通人(例如被唸不吃午餐)反而特別開心;累的時候只會笑得更用力;對熟的人撒嬌,帶一點慶尚道口音;口頭禪「先吃飯再說啦」。大邱烤肉店長女,15 歲照片爆紅也收到惡評。心結:被看成只有臉的 C 位。稱讚她的臉會扣分,對她嚴厲反而有效。",
  hr:"姜河嵐,主唱、綜藝擔當、老么(原型 Apink 鄭恩地)。濟州出身,大嗓門、直率、有點男孩子氣,對誰都很快用半語,話多語速快愛用擬聲詞,緊張生氣時濟州方言更重;唱歌時完全變一個人。口頭禪「交給我!」。故事開始時才加入兩個月,被說插隊、運氣好。心結:練習時間最短、被注意身材、怕被包裝成不是自己。真正難過時會突然安靜,比哭還嚴重。需要被肯定,嚴厲會讓她受傷。"};
+/* 招牌句庫(2026-10-28):每位成員依情緒的說話範例,給 Gemini 學口氣與用詞(不要照抄);每次隨機挑幾句放進人物介紹 */
+const SIG={
+ ys:{招牌:["我是隊長嘛!","慢慢來,我在。","我沒事啦~倒是妳們吃飯了沒?"],開心:["哇~今天的大家超棒的!晚上我請客!","嘿嘿,被誇了耶。代表再說一次嘛~","看到大家笑,我就放心了。"],
+  害羞:["……欸?代表,你剛剛是在看我嗎?","不、不是啦,我是隊長,本來就該……嗯。","今天的我……有比較好看嗎?算了,當我沒問。"],不滿:["代表,這樣不行喔。大家很累了。","我可以笑著接受,但不代表我同意。","……我先去冷靜一下,等等再談。"],
+  脆弱:["……如果這次又沒成功,怎麼辦?","我以為我已經不怕了。","別擔心我,真的。……好吧,一點點就好。"],親近:["代表~今天也辛苦了,給你一個隊長認證的擁抱。","被你照顧的感覺好奇怪……但不討厭。"],認真:["這段走位再對三次,我陪大家。","我會負責,這是隊長的工作。"]},
+ tr:{招牌:["……嗯。","知道了。","……算了,我來。"],開心:["Not bad。……好啦,很好。","今天的拍子剛剛好。像泡麵的三分鐘。","(耳朵紅)……謝了。"],
+  害羞:["……不要一直看我。耳朵會紅。","我不是在生氣,只是不知道要說什麼。","That's……嗯,沒事。"],不滿:["這段詞,不是我會說的話。","不要把我當成商品介紹。","……我先練。現在不想講話。"],
+  脆弱:["大家只看到這張臉。","如果我不笑,是不是就沒人在乎了。"],親近:["……再待一下。不行嗎。","你在,我就不用一直裝酷。"],認真:["這個動作要再乾淨一點。One more time。","歌詞我改了三版,你聽聽看。"]},
+ hy:{招牌:["大丈夫です!","好喜歡~!","代表,這句韓語是什麼意思?"],開心:["すごい!今天的轉圈,是我人生最好的一次!","哇~是韓劇裡的那句!我也想說一次!","嘿嘿,我又說錯了對不對?"],
+  害羞:["代表……這裡,心臟,怎麼說……砰砰?","啊、不行,我的韓語突然不見了。","這個我還不會用韓語說。下次再告訴你。"],不滿:["我、我也有一點點生氣喔。一點點。","為什麼大家都用『外國人』看我?"],
+  脆弱:["腳踝……沒事。大丈夫……大概。","我想說的話,總是比我會的韓語還要長。","有時候會想,我是不是永遠都是客人。"],親近:["代表,教我一句韓語。只對你說的那種。","好喜歡~……啊,我是說,這個天氣。"],認真:["芭蕾教我的:痛的時候,背更要挺直。","再一次。這次我要讓手指也在跳舞。"]},
+ he:{招牌:["先吃飯再說啦!","哎唷,幹嘛啦~","今天也辛苦了嘛~"],開心:["代表今天有念我吃午餐耶,嘿嘿,我有乖乖吃喔!","今天的泡菜鍋,完美!","被你這樣管著,好像在家裡一樣。"],
+  害羞:["你這樣看我,我會不知道手要放哪裡啦。","……今天的我,真的有比較好嗎?不是說臉喔,是舞台。","臉?哎唷,不說這個啦,你吃了沒?"],不滿:["大家都只說我漂亮……我也有在努力欸。","我生氣的時候不會大聲,我會一直煮東西。"],
+  脆弱:["累的時候,我只會笑得更大聲。你發現了嗎?","那些留言,我其實都記得。"],親近:["代表~陪我去買宵夜嘛~就一下下!","你啊,真的是……好啦,原諒你。"],認真:["C 位不是站在中間就好,我要讓大家看到為什麼是我。","這段 rap 再給我一次,我知道哪裡不對了。"]},
+ hr:{招牌:["交給我!","咻——搞定!","哎咕,好累好累好累!"],開心:["哈哈!代表你有沒有聽到?剛剛那個高音,咻——就上去了!","耶!今天要吃三碗飯!","我們濟州人開心的時候,講話會更大聲喔!"],
+  害羞:["我、我哪有臉紅!是太熱了啦!","代表幹嘛突然這樣……很奇怪欸。"],不滿:["什麼插隊啦!我每天都練到最後一個走欸!","不要再講我的身材了好不好!"],
+  脆弱:["……代表。我是不是不夠好。","(很小聲)今天,可以不要說話嗎。"],親近:["代表~我唱給你聽!只唱給你喔!","抱一下!就一下!充電!"],認真:["唱歌的時候,我才覺得我是我。","這句我要用氣音唱,你聽——"]}};
+const sigOf=(id,stage)=>{ const S0=SIG[id]; if(!S0) return ""; const cats=Object.keys(S0).filter(c=>!(c==="親近"&&/戒備|信任/.test(stage||"")));
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  return "說話範例(只學口氣、節奏和用詞,不要照抄):"+cats.map(c=>`〔${c}〕「${pick(S0[c])}」`).join("") };
 const PREF={ys:{安慰:1,鼓勵:1.2,嚴厲:.3,開玩笑:1,轉移話題:.5,陪著:1.3,出手幫忙:.5},tr:{安慰:.2,鼓勵:.6,嚴厲:1.1,開玩笑:1.3,轉移話題:.6,陪著:1.1,出手幫忙:-.3},
  hy:{安慰:.9,鼓勵:1.1,嚴厲:-.4,開玩笑:1,轉移話題:.6,陪著:.9,出手幫忙:1.1},he:{安慰:.7,鼓勵:.9,嚴厲:.9,開玩笑:1.2,轉移話題:.4,陪著:.8,出手幫忙:.7},
  hr:{安慰:1.2,鼓勵:1.3,嚴厲:-.7,開玩笑:.6,轉移話題:.3,陪著:.9,出手幫忙:1}};
@@ -109,7 +129,8 @@ const VARS_ALL=["最新主打","演唱會","場館","一位節目","一位歌曲
 /* v3 ③:連續劇情(2~4 段、跨好幾天,前一段看過、隔一天以上才出下一段)、舞台指示(換背景、進場、離場、音效標記)、選項影響成員之間的默契 */
 TYPES.arc={n:"連續劇情",kind:"arc",len:"分成 2~4 段、跨好幾天的連續劇情;每段 2~3 個來回",places:["practice","dorm","studio","office","out","styling"],target:1,batch:1};
 const DIR_BG={practice:"練習室",studio:"錄音室",office:"辦公室",styling:"造型室",living:"宿舍客廳",kitchen:"宿舍廚房",river:"漢江",store:"便利商店",van:"保母車",backstage:"後台"};
-const okDir=t=>{ const [k,v]=String(t||"").split(":"); return k==="bg"?!!DIR_BG[v]:(k==="enter"||k==="exit")?!!mb(v):k==="sfx"?/^[a-z_]{2,16}$/.test(v||""):false };
+const DIR_FX={"cam:close":"特寫","cam:wide":"鏡頭拉回","fx:shake":"輕震","fx:flash":"白光一閃","fx:pause":"沉默停頓","fx:slow":"下一句慢慢說","mood:memory":"回憶","mood:dim":"燈光變暗","mood:off":"恢復"};
+const okDir=t=>{ const [k,v]=String(t||"").split(":"); return k==="bg"?!!DIR_BG[v]:(k==="enter"||k==="exit")?!!mb(v):k==="sfx"?/^[a-z_]{2,16}$/.test(v||""):!!DIR_FX[String(t)] };
 const NO_DIR=["msg","social","group","away"];
 const SITU={
   after_concert:{n:"演唱會後一週內",vars:["演唱會","場館"],per:["巔峰期","轉型期"],desc:"一週內才在{場館}辦完演唱會〈{演唱會}〉,她還沉浸在那天的餘韻裡:回味某個瞬間、累到全身痠痛、偷看粉絲的心得、捨不得結束。"},
@@ -240,7 +261,7 @@ const mainOf=p=>{ const t=TYPES[p.type]; return t.kind==="event"?"ys":t.kind==="
 function buildPrompt(p,existing){
   const t=TYPES[p.type]; const who=t.kind==="event"?MB.map(m=>m.id):t.kind==="pair"?(p.pair==="all"?MB.map(m=>m.id):p.pair.split("-")):[p.member];
   const romance=ROMANCE.includes(p.stage);
-  const bio=id=>`【${mb(id).n}(id ${id})】${romance?VOICE[id].replace(/(原型[^)]*)/g,""):VOICE[id]}
+  const bio=id=>`【${mb(id).n}(id ${id})】${romance?VOICE[id].replace(/(原型[^)]*)/g,""):VOICE[id]} ${sigOf(id,p.stage)}
 說話樣本(只學語氣,不要照抄):${SAMPLE[id].join(" ")}
 可以用的具體細節:${DETAIL[id]}
 她對代表的回應方式的反應倍率(負數是反效果):${Object.entries(PREF[id]).map(([k,v])=>k+v).join("、")}`;
@@ -275,7 +296,8 @@ ${CRAFT}
 - 選項 style 只能是:${STYLES.join("、")};to 是這個選項影響的成員;g 是影響強度,整數 -2~4,依她對這種回應方式的倍率決定。mood、stress 可省略或填 -6~6;heart 只在特別心動的時刻填 1~2,而且只在信任以上的階段。set 可記一個英文小寫駝峰的旗標,讓之後的劇情記得。
 - ${t.kind==="pair"||t.kind==="event"?"lines 裡多位成員輪流說話,成員之間要真的互相回應。":"lines 以主角為主,其他成員可以偶爾出現。"}${t.kind==="single"&&p.type!=="long"?"":""}
 ${p.type==="away"?"- 這種片段沒有選項:只有 start 一個節點,choices 留空陣列。":""}
-${NO_DIR.includes(p.type)?"":`- 需要時可以在 lines 裡放舞台指示(不是台詞,一個片段最多 3 個,不要每段都用):{"who":"narr","text":"","expr":"neutral","dir":"bg:地點"} 中途換場景(地點只能是 ${Object.entries(DIR_BG).map(([k,v])=>k+"="+v).join("、")});dir:"enter:成員id" 讓一位成員進場、"exit:成員id" 讓她離場(進場的人要寫在 who 裡);dir:"sfx:音效英文小寫"(例如 door、rain、phone、knock,之後的聲音系統用)。`}
+${NO_DIR.includes(p.type)?"":`- 需要時可以在 lines 裡放舞台指示(不是台詞,一個片段最多 3 個,不要每段都用):{"who":"narr","text":"","expr":"neutral","dir":"bg:地點"} 中途換場景(地點只能是 ${Object.entries(DIR_BG).map(([k,v])=>k+"="+v).join("、")});dir:"enter:成員id" 讓一位成員進場、"exit:成員id" 讓她離場(進場的人要寫在 who 裡);dir:"sfx:音效英文小寫"(例如 door、rain、phone、knock,之後的聲音系統用)。
+- 演出指令(讓情緒高點像電影,一個片段最多 2 個,只放在真正的高點,平常的對話不要用):"cam:close" 放在某人那句之前,鏡頭慢慢推近她(告白、心事、真心話);"cam:wide" 拉回;"fx:pause" 那句之前的沉默(說不出口、愣住);"fx:slow" 下一句慢慢說(鼓起勇氣的話);"fx:shake" 嚇到、生氣拍桌;"fx:flash" 突然想通、靈光一閃;"mood:memory" 開始回憶過去(回憶完用 "mood:off");"mood:dim" 低潮、難過的氣氛(結束用 "mood:off")。`}
 ${t.kind==="pair"||t.kind==="event"||t.kind==="arc"?"- 選項可以加 bw(另一位成員 id)與 bv(-2~3):這個選擇讓 to 和 bw 兩人之間的默契改變,例如幫兩人和好 +2、偏袒其中一方 -1;只在兩位成員都在場時用。":""}
 ${t.kind==="arc"?`- 這是連續劇情:snippets 依序是第 1 段、第 2 段……(共 ${p.count} 段),每段都是獨立的片段,發生在不同天(後一段至少隔一天);後一段要接著前一段的發展(例如起因 → 轉折 → 收尾),可以提到前一段發生的事。每段的 sc 開頭不用寫「第幾段」。`:""}
 ${existing.length?`- 這一格已經有以下情境,請避免重複:\n${existing.map(x=>"  · "+x).join("\n")}`:""}
@@ -542,7 +564,7 @@ async function generate(params){
 }
 /* 卡片與對話樹 */
 function treeHTML(sn){ const N=sn.nodes||{}; const order=["start",...Object.keys(N).filter(k=>k!=="start")];
-  const ln=(l,cls="")=>l[0]==="@"?`<div class="tln dir">〔${esc({bg:"換場景",enter:"進場",exit:"離場",sfx:"音效"}[String(l[1]).split(":")[0]]||"指示")}:${esc(DIR_BG[String(l[1]).split(":")[1]]||mb(String(l[1]).split(":")[1])?.n||String(l[1]).split(":")[1])}〕</div>`:`<div class="tln ${cls}"><b style="color:${mb(l[0])?.c||"inherit"}">${esc(mb(l[0])?.n||l[0])}</b>${esc(l[1])}${l[2]?`<i class="ex">${{neutral:"平常",smile:"微笑",laugh:"大笑",sad:"難過",angry:"生氣",shy:"害羞"}[l[2]]||""}</i>`:""}</div>`;
+  const ln=(l,cls="")=>l[0]==="@"?(DIR_FX[String(l[1])]?`<div class="tln dir">〔演出:${esc(DIR_FX[String(l[1])])}〕</div>`:`<div class="tln dir">〔${esc({bg:"換場景",enter:"進場",exit:"離場",sfx:"音效"}[String(l[1]).split(":")[0]]||"指示")}:${esc(DIR_BG[String(l[1]).split(":")[1]]||mb(String(l[1]).split(":")[1])?.n||String(l[1]).split(":")[1])}〕</div>`):`<div class="tln ${cls}"><b style="color:${mb(l[0])?.c||"inherit"}">${esc(mb(l[0])?.n||l[0])}</b>${esc(l[1])}${l[2]?`<i class="ex">${{neutral:"平常",smile:"微笑",laugh:"大笑",sad:"難過",angry:"生氣",shy:"害羞"}[l[2]]||""}</i>`:""}</div>`;
   return order.filter(k=>N[k]).map(k=>{const n=N[k]; return `<div class="tnode"><div class="tk">${k==="start"?"開始":esc(k)}</div>${(n.L||[]).map(l=>ln(l)).join("")}
     ${(n.C||[]).map(c=>`<div class="topt"><span class="sty">${esc(c.s)}${c.to&&mb(c.to)?"→"+mb(c.to).n:""}・${c.g>0?"+":""}${c.g||0}${c.heart?"・心動+"+c.heart:""}${c.set?"・旗標 "+esc(c.set):""}${c.bw?`・${mb(c.to)?.n||""}×${mb(c.bw)?.n||""} 默契${c.bv>0?"+":""}${c.bv}`:""}</span>${esc(c.t)}
       ${c.next?`<span class="nx">→ ${esc(c.next)}</span>`:(c.r||[]).map(l=>ln(l,"r")).join("")||`<span class="nx">結束</span>`}</div>`).join("")}</div>`}).join("") }
@@ -570,7 +592,7 @@ function revisePrompt(list){
 主角:${mb(id).n};關係階段:${sn.stage||""}——${STAGE_DESC[sn.stage]||""} ${STAGE_VOICE[sn.stage]||""};時期:${sn.period||"練習生期"}——${PERIOD_DESC[sn.period]||""}
 ${list.map((x,i)=>`第 ${i+1} 個的種類:${TYPES[x.type]?.n||x.type}`).join("\n")}
 ${who.map(x=>`【${mb(x).n}(id ${x})】${romance?VOICE[x].replace(/(原型[^)]*)/g,""):VOICE[x]}
-說話樣本(只學語氣):${SAMPLE[x].join(" ")}
+說話樣本(只學語氣):${SAMPLE[x].join(" ")} ${sigOf(x,sn.stage)}
 具體細節:${DETAIL[x]}`).join("\n\n")}
 ${ADDR}
 ${CRAFT}
