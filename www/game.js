@@ -36,7 +36,7 @@ const M=[
   {id:"he",f:"haeun", n:"夏恩",c:"#E9746A",cm:163,re:/夏恩|Haeun/i},
   {id:"hr",f:"haram", n:"河嵐",c:"#7FAF2C",cm:160,re:/河嵐|Haram/i}];
 const byId=id=>M.find(m=>m.id===id);
-const EXPR=["neutral","smile","laugh","sad","angry","shy","tired","surprise"];   // tired、surprise:2026-10-27 新增(真人化)
+const EXPR=["neutral","smile","laugh","sad","angry","shy","tired","surprise","pout","moved","serious","wink"];   // pout 嘟嘴撒嬌、moved 感動含淚、serious 認真堅定、wink 俏皮眨眼:2026-10-28 新增   // tired、surprise:2026-10-27 新增(真人化)
 /* 回應方式對每位成員的倍率(日常層規格) */
 const PREF={ys:{安慰:1,鼓勵:1.2,嚴厲:.3,開玩笑:1,轉移話題:.5,陪著:1.3,出手幫忙:.5},tr:{安慰:.2,鼓勵:.6,嚴厲:1.1,開玩笑:1.3,轉移話題:.6,陪著:1.1,出手幫忙:-.3},
   hy:{安慰:.9,鼓勵:1.1,嚴厲:-.4,開玩笑:1,轉移話題:.6,陪著:.9,出手幫忙:1.1},he:{安慰:.7,鼓勵:.9,嚴厲:.9,開玩笑:1.2,轉移話題:.4,陪著:.8,出手幫忙:.7},
@@ -357,7 +357,7 @@ function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[
   if(g==="公司大樓") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
 const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 /* 以前處理的換衣立繪沒有「累」「驚訝」:用最接近的表情代替(不用重新處理) */
-const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"]};
+const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"],pout:["shy","smile","neutral"],moved:["sad","smile","neutral"],serious:["neutral"],wink:["laugh","smile","neutral"]};
 function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
   if(outfit){ // 造型室處理好的換衣立繪(DYN);還沒載入好時先穿白 T
     const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||(EXPR_FB[ex]||[]).map(k=>d[k]).find(Boolean)||d.neutral; window.needDyn&&needDyn(outfit,mid) }
@@ -366,6 +366,10 @@ function preload(mid,outfit){for(const e of EXPR){const i=new Image();i.src=spr(
 
 /* 劇本沒有標表情時,從台詞推測 */
 function guessExpr(t){t=String(t||"");
+  if(/眨眼|眨了眨|是秘密喔|保密喔|偷偷告訴你/.test(t)) return "wink";
+  if(/眼眶|紅了眼|哽咽|含淚|淚光|感動|謝謝你一直|謝謝你們一直/.test(t)) return "moved";
+  if(/嘟嘴|鼓起臉|撒嬌|陪我嘛|好不好嘛|拜託嘛/.test(t)) return "pout";
+  if(/我決定了|我會做到|說好了|我是認真/.test(t)) return "serious";
   if(/哈哈|噗|笑到|笑出聲|笑翻|嘻嘻|呵呵|大笑|笑得停不/.test(t)) return "laugh";
   if(/咦|欸[??!!]{2}|真的嗎[??]|什麼[??!!]|嚇我|嚇死|天啊|不會吧|怎麼可能/.test(t)) return "surprise";
   if(/(臉|耳朵|耳根|臉頰).{0,3}紅|害羞|捂住臉|擋住臉|結巴|欸[??][!!]|([^\s、,,。])、\2/.test(t)) return "shy";

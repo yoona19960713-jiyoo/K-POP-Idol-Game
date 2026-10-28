@@ -87,7 +87,8 @@ window.lifeLineMotion=(id,e)=>{ try{ if(!byId(id)||RM.matches) return; const pre
   const im=imgOf(id); if(!im?.animate) return; const r=Math.random();
   const K={laugh:[[{translate:"0 0"},{translate:"0 -1.4%"},{translate:"0 0"}],380],shy:[[{translate:"0 0",rotate:"0deg"},{translate:"0 .7%",rotate:"-.8deg"},{translate:"0 0",rotate:"0deg"}],650],
     angry:[[{rotate:"0deg"},{rotate:".8deg"},{rotate:"-.8deg"},{rotate:"0deg"}],360],sad:[[{translate:"0 0"},{translate:"0 1%"},{translate:"0 0"}],950],
-    tired:[[{translate:"0 0",rotate:"0deg"},{translate:"0 1.1%",rotate:".5deg"},{translate:"0 0",rotate:"0deg"}],1300],surprise:[[{translate:"0 0"},{translate:"0 -.9%"},{translate:"0 .2%"},{translate:"0 0"}],300],smile:[[{translate:"0 0"},{translate:"0 -.5%"},{translate:"0 0"}],320]}[e];
+    tired:[[{translate:"0 0",rotate:"0deg"},{translate:"0 1.1%",rotate:".5deg"},{translate:"0 0",rotate:"0deg"}],1300],surprise:[[{translate:"0 0"},{translate:"0 -.9%"},{translate:"0 .2%"},{translate:"0 0"}],300],smile:[[{translate:"0 0"},{translate:"0 -.5%"},{translate:"0 0"}],320],
+    pout:[[{rotate:"0deg"},{rotate:"-1deg"},{rotate:".4deg"},{rotate:"0deg"}],720],moved:[[{translate:"0 0"},{translate:"0 .7%"},{translate:"0 .2%"}],1200],wink:[[{translate:"0 0",rotate:"0deg"},{translate:"0 -.6%",rotate:".6deg"},{translate:"0 0",rotate:"0deg"}],420]}[e];
   if(!K||(e==="smile"&&r>.35)||r>.8) return; im.animate(K[0],{duration:K[1],easing:"ease-out",composite:"add"}) }catch(e){} };
 
 /* ---------- ⑦ 換時段時:群組的生日與週年訊息;⑤ 邀約 ---------- */

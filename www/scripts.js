@@ -292,7 +292,7 @@ ${CRAFT}
 【格式】
 - 每個片段:at 地點、sl 時段、who 出場成員、sc 一句畫面旁白、w 權重 1~5、cd 冷卻天數 2~7、nodes 節點陣列。
 - 第一個節點 key 是 start。每個節點有 lines(台詞)與 choices(代表的選項);選項用 next 指向另一個節點的 key,沒有 next 就在這裡結束,結束時用 reply 寫她最後的反應。
-- 台詞 who 是說話的成員 id,旁白用 narr;expr 只能是 neutral、smile、laugh、sad、angry、shy。
+- 台詞 who 是說話的成員 id,旁白用 narr;expr 只能是 neutral 平常、smile 微笑、laugh 大笑、sad 難過、angry 生氣、shy 害羞、tired 累、surprise 驚訝、pout 嘟嘴撒嬌、moved 感動含淚、serious 認真堅定、wink 俏皮眨眼;依台詞的情緒選最貼切的,不要全部用 smile。
 - 選項 style 只能是:${STYLES.join("、")};to 是這個選項影響的成員;g 是影響強度,整數 -2~4,依她對這種回應方式的倍率決定。mood、stress 可省略或填 -6~6;heart 只在特別心動的時刻填 1~2,而且只在信任以上的階段。set 可記一個英文小寫駝峰的旗標,讓之後的劇情記得。
 - ${t.kind==="pair"||t.kind==="event"?"lines 裡多位成員輪流說話,成員之間要真的互相回應。":"lines 以主角為主,其他成員可以偶爾出現。"}${t.kind==="single"&&p.type!=="long"?"":""}
 ${p.type==="away"?"- 這種片段沒有選項:只有 start 一個節點,choices 留空陣列。":""}
@@ -440,7 +440,7 @@ let items=[];
 const lib=()=>items.filter(x=>x.status==="ok"||x.status==="auto");
 const reviewQ_=()=>items.filter(x=>x.status==="review");
 function cellKey(sn){return sn.type+"|"+(TYPES[sn.type]?.kind==="pair"?sn.pair:sn.member)+"|"+(TYPES[sn.type]?.kind==="pair"?"":sn.stage)}
-const EXPRS=["neutral","smile","laugh","sad","angry","shy"];
+const EXPRS=["neutral","smile","laugh","sad","angry","shy","tired","surprise","pout","moved","serious","wink"];
 function cleanExpr(nodes){ for(const n of Object.values(nodes||{})){ for(const l of n.L||[]) if(l.length>2&&!EXPRS.includes(l[2])) l.length=2;
   for(const c of n.C||[]) for(const l of c.r||[]) if(l.length>2&&!EXPRS.includes(l[2])) l.length=2 } return nodes }
 async function persist(){ const o={}; for(const x of items) o[x.code]=x; await IDB.set("scriptsAll",o) }

@@ -1855,6 +1855,11 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .visit .vmood[data-k="dim"]{opacity:1;background:radial-gradient(ellipse 70% 70% at 45% 40%,rgba(20,16,40,.15) 0%,rgba(12,10,28,.55) 100%),linear-gradient(180deg,rgba(14,12,32,.28),rgba(10,8,24,.42))}
 .visit .vflash{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;background:radial-gradient(ellipse at 50% 40%,#FFFFFF 0%,#FFF6EE 50%,rgba(255,240,234,.9) 100%)}
 @media (prefers-reduced-motion:reduce){.visit .vmood{transition:none}}
+
+/* 太小的字(2026-10-28,taste-skill 檢查器量到小於 11 px 的地方):只放大最小值,版面不變 */
+.ti-name em{font-size:max(.95cqw,10px);letter-spacing:.3em}
+.tt-sync{font-size:max(.9cqw,11px);line-height:1.25}
+.tslot .pz{font-size:max(calc(.9*var(--u)),11px);letter-spacing:.04em}
 </style>
 </head>
 <body>
