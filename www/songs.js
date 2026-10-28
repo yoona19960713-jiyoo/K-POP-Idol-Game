@@ -275,12 +275,13 @@ function shell(){
   $("#sfClose").onclick=close;
 }
 function open(kind){ shell(); OPEN=kind; setPause("song",true);
-  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap one-room "+(kind==="recording"?"th-studio":kind==="choreo"?"th-office th-dance":"th-office")+(was?" hide":""); void el.offsetWidth; el.classList.remove("hide");
-  el.querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/${{recording:"studio",choreo:"practice",planning:"planning",concert:"meeting"}[kind]||"planning"}_${SLOTS[S.slot].light}.webp)`;
+  const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap one-room "+(kind==="recording"?"th-studio":kind==="choreo"?"th-office th-dance":kind==="concert"?"th-office th-meet":"th-office")+(was?" hide":"");
+  const bgU=`assets/bg/${{recording:"studio",choreo:"practice",planning:"planning",concert:"meeting"}[kind]||"planning"}_${SLOTS[S.slot].light}.webp`;
+  el.querySelector(".fac-bg").style.backgroundImage=`url(${bgU})`;
   $("#sfTitle").textContent={planning:"企劃室",concert:"會議室",choreo:"練習室",recording:"錄音室"}[kind]; $("#sfSub").textContent={recording:"COMPANY ・ 3F ・ RECORDING",concert:"PRODUCTION CENTER ・ 3F ・ MEETING",choreo:"COMPANY ・ 4F ・ PRACTICE",planning:"PRODUCTION CENTER ・ 3F ・ PLANNING"}[kind];
   const ct=el.querySelector('[data-sf="concert"]'); if(ct) ct.hidden=!(window.concertUnlocked?.()||S.concertNext);
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));
-  render() }
+  render(); window.facShow?facShow(el,bgU):el.classList.remove("hide") }   // 內容排好、背景解好才淡入
 function close(){ $("#songFac").classList.add("hide"); setPause("song",false); OPEN=null; if(dirty) push();
   if(window.__actsOut){ window.__actsOut=false; if(S.acts<=0) endSlot("acts") } }   // 在練習室把行動用完了:離開後進入下一個時段
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
@@ -466,7 +467,7 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
     if(!done.length){ toast2("沒有對上任何一首歌:請確認 code 或曲名"); return }
     save(); close(); render(); toast2("已匯入歌詞:"+done.join(";")+(skip?`;略過 ${skip} 份`:"")) } }
 /* 給 choreo.js(練習室)用 */
-window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS};
+window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T)};
 window.openSongFacility=open;
 window.songSummary=()=>{syncSkill(); return songSummary()};
 

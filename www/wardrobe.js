@@ -324,10 +324,10 @@ async function baseFor(slot,pose){const m=WMETA.find(x=>x.id===slot); if(!m?.gen
   if(pose&&pose!=="stand"){ if(m.poses?.[pose]) return await getBlob(m.poses[pose]); const a=poseAsset(slot,pose); if(a) return await urlToData(a) }   // 姿勢底模
   return await getBlob(m.gen)}
 const hasPoseBase=(slot,pose)=>!!WMETA.find(x=>x.id===slot)?.poses?.[pose]||!!poseAsset(slot,pose);
-async function oaiEdit(prompt,baseURL,model){
+async function oaiEdit(prompt,baseURL,model,quality){
   const o=oai(); if(!o.key) throw {code:"no_key"};
   const fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
-  fd.append("size","1024x1536"); fd.append("quality",o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp");
+  fd.append("size","1024x1536"); fd.append("quality",quality||o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp");
   let r; try{ r=await fetch("https://api.openai.com/v1/images/edits",{method:"POST",headers:{Authorization:"Bearer "+o.key},body:fd}) }catch(e){throw {code:"network"}}
   const j=await r.json().catch(()=>({}));
   if(!r.ok){ const msg=j?.error?.message||"", code=j?.error?.code||"";
@@ -360,8 +360,10 @@ async function runQueue(){
   while(!STOP){ const job=JOBS.find(j=>j.state==="wait"); if(!job) break; job.state="run"; renderFacility();
     try{ const lk=ITEMS[job.code], base=await baseFor(job.slot,lk.pose);
       if(!base) throw {code:"no_base"};
-      const img=await oaiEdit(wLookPrompt(lk,job.slot),base,model), used=model;
-      PENDING[job.id]={code:job.code,slot:job.slot,img,model:used,quality:o.quality||"medium",at:Date.now()}; await IDB.set("pending",PENDING); job.state="done";
+      const q=job.q||o.quality||"medium", note=String(job.note||"").trim();
+      const prompt=wLookPrompt(lk,job.slot)+(note?`\n\nRevision request from the designer (apply it while keeping the same member, face, body, pose and overall outfit concept): ${note}`:"");
+      const img=await oaiEdit(prompt,base,model,q), used=model;
+      PENDING[job.id]={code:job.code,slot:job.slot,img,model:used,quality:q,note:note||undefined,at:Date.now()}; await IDB.set("pending",PENDING); job.state="done";
     }catch(e){ job.state="err"; job.err=e.code==="no_base"?"還沒有這位成員的生圖底模(造型室 → 成員底模)":(OAI_ERR[e.code]||"失敗")+(e.msg?`:${String(e.msg).slice(0,80)}`:"");
       if(["no_key","bad_key","quota","verify","bad_model"].includes(e.code)){STOP=true; toast2(OAI_ERR[e.code])}
       if(e.code==="rate"){ job.state="wait"; await new Promise(r=>setTimeout(r,20000)) } }
@@ -395,7 +397,7 @@ async function approveAll(){
   BULK=false; renderFacility();
   toast2(`已收下 ${n} 張`+(rd?`;刪除了 ${rd} 套被改版取代的舊造型`:"")+(off?`(${off} 張還沒同步,登入後會自動上傳)`:"")+(sf?`;${sf} 張立繪處理失敗,請到卡片詳情按「處理成遊戲立繪」`:""));
 }
-async function retry(id){ delete PENDING[id]; await IDB.set("pending",PENDING); const j=JOBS.find(x=>x.id===id); if(j){j.state="wait";j.err=""} else {const [code,slot]=id.split("@"); JOBS.push({id,code,slot,state:"wait"})} renderFacility(); runQueue() }
+async function retry(id){ const pv=PENDING[id]; delete PENDING[id]; await IDB.set("pending",PENDING); const j=JOBS.find(x=>x.id===id); if(j){j.state="wait";j.err=""} else {const [code,slot]=id.split("@"); JOBS.push({id,code,slot,state:"wait",q:pv?.quality,note:pv?.note})} renderFacility(); runQueue() }
 async function discard(id){ delete PENDING[id]; await IDB.set("pending",PENDING); JOBS=JOBS.filter(j=>j.id!==id); renderFacility() }
 
 
@@ -660,8 +662,8 @@ function renderStudio(){
       <p class="fnote">生好的圖會放到右邊「待審」;收下後才會寫進衣櫃與雲端。日常服(練習、居家、外出、睡衣)收下時會自動去背、做好六種表情的換臉層,成員就會依地點換穿。要重做某張圖,到衣櫃的卡片詳情按「重新生圖」。</p>
     </div>
     <div class="fpanel wide"><div class="frow" style="justify-content:space-between;align-items:center;margin:0 0 .6cqw"><h3 style="margin:0">待審 <small>${pend.length} 張</small></h3>${pend.length>1?`<button class="fbtn pri" id="fOkAll" ${BULK?"disabled":""}>${BULK?"收下中…":`全部收下(${pend.length} 張)`}</button>`:""}</div>
-      <div class="rgrid">${pend.map(([id,p])=>{const lk=ITEMS[p.code],m=byId(midOf(p.slot)),old=lk?.members?.[p.slot]?.img;return `<div class="rcard"><div class="rpair"><img src="${p.img}" alt="">${old?`<span class="rold" data-oldref="${esc(old)}"><i>原本的圖</i></span>`:""}</div>
-        <div class="rinfo"><b>${esc(lk?.name||p.code)}</b><span style="color:${m?.c}">${m?.n||""}</span></div><div class="rmodel">${esc(p.model||"")}${p.quality?"・"+({low:"低",medium:"中",high:"高"}[p.quality]||p.quality):""}${old?"・收下會取代原本的圖(舊圖保留,可改回)":""}</div>
+      <div class="rgrid">${pend.map(([id,p])=>{const lk=ITEMS[p.code],m=byId(midOf(p.slot)),old=lk?.members?.[p.slot]?.img;return `<div class="rcard"><div class="rpair" data-cmp="${esc(id)}" title="點一下放大對照"><img src="${p.img}" alt="">${old?`<span class="rold" data-oldref="${esc(old)}"><i>原本的圖</i></span>`:""}</div>
+        <div class="rinfo"><b>${esc(lk?.name||p.code)}</b><span style="color:${m?.c}">${m?.n||""}</span></div><div class="rmodel">${esc(p.model||"")}${p.quality?"・"+({low:"低",medium:"中",high:"高"}[p.quality]||p.quality):""}${old?"・收下會取代原本的圖(舊圖保留,可改回)":""}${p.note?`<br>附註:${esc(p.note)}`:""}</div>
         <div class="racts"><button class="fbtn pri" data-ok="${esc(id)}">收下</button><button class="fbtn" data-retry="${esc(id)}">重生</button><button class="fbtn ghost" data-no="${esc(id)}">捨棄</button></div></div>`}).join("")||`<p class="fempty">目前沒有待審的圖</p>`}</div></div></div>`}
 async function renderFacility(){
   if(!FAC||!$("#facility")) return;
@@ -678,6 +680,7 @@ async function renderFacility(){
   const ro=$("#fReplOld"); if(ro) ro.onclick=openReplacedList;
   body.querySelectorAll("[data-retry]").forEach(b=>b.onclick=()=>retry(b.dataset.retry));
   body.querySelectorAll("[data-no]").forEach(b=>b.onclick=()=>discard(b.dataset.no));
+  body.querySelectorAll("[data-cmp]").forEach(b=>b.onclick=()=>openCompare(b.dataset.cmp));
   const st=$("#fStart"); if(st) st.onclick=()=>{ for(const t of todoList()){const id=jobId(t.code,t.slot); if(!JOBS.some(j=>j.id===id)) JOBS.push({id,...t,state:"wait"})} runQueue() };
   const sp=$("#fStop"); if(sp) sp.onclick=()=>{STOP=true; toast2("這張畫完就暫停")};
   body.querySelectorAll(".fq [data-q]").forEach(b=>b.onclick=()=>{ setOai({quality:b.dataset.q}); toast2(`出圖品質:${QN[b.dataset.q]}(之後生的圖)`); try{ oaiSettingsInit() }catch(e){} renderFacility() });
@@ -686,6 +689,38 @@ async function renderFacility(){
   lazyThumbs(body,".wimg[data-ref]","ref");
 }
 window.renderFacility=renderFacility;
+/* 重新生圖(2026-10-28):選品質(預設高)、可以寫一句修改附註(接在提示詞後面)、團體服可以全員一起重生 */
+function regenPanel(code,slot,btn){ const lk=ITEMS[code]; if(!lk) return; const box=btn.closest(".dsp"); if(!box||box.querySelector(".rgp")) return;
+  const slots=Object.keys(lk.members||{}).filter(s=>midOf(s)&&lk.members[s]?.outfit), group=lk.type==="group"&&slots.length>1;
+  let q="high";
+  const p=document.createElement("div"); p.className="rgp";
+  const draw=()=>{ const n=group?slots.length:1;
+    p.innerHTML=`<div class="fq rgq"><span>出圖品質</span>${["low","medium","high"].map(k=>`<button class="fbtn${q===k?" pri":""}" data-rq="${k}">${QN[k]}<small>US$${OAI_PRICE[k].toFixed(2)}</small></button>`).join("")}</div>
+      <textarea class="rgn" rows="2" maxlength="300" placeholder="修改附註(可以不寫),例如:裙子長一點、蕾絲更細緻、顏色再深一點"></textarea>
+      <div class="frow"><button class="fbtn pri" data-rg="one">只重生 ${esc(byId(midOf(slot))?.n||"")}(約 US$${OAI_PRICE[q].toFixed(2)})</button>${group?`<button class="fbtn" data-rg="all">全員重生 ${n} 張(約 US$${(OAI_PRICE[q]*n).toFixed(2)})</button>`:""}<button class="fbtn ghost" data-rg="x">取消</button></div>`;
+    p.querySelectorAll("[data-rq]").forEach(b=>b.onclick=()=>{ const t=p.querySelector(".rgn").value; q=b.dataset.rq; draw(); p.querySelector(".rgn").value=t });
+    p.querySelectorAll("[data-rg]").forEach(b=>b.onclick=()=>{ const k=b.dataset.rg; if(k==="x"){ p.remove(); return }
+      if(!oai().key){ toast2(OAI_ERR.no_key); return } const note=p.querySelector(".rgn").value.trim();
+      const list=k==="all"?slots:[slot]; let added=0, busy=0;
+      for(const s2 of list){ const id=jobId(code,s2); if(PENDING[id]){ busy++; continue } JOBS=JOBS.filter(j=>j.id!==id); JOBS.push({id,code,slot:s2,state:"wait",q,note}); added++ }
+      if(added) runQueue();
+      toast2(added?`已排進 ${added} 張(${QN[q]}品質)${busy?`;${busy} 張已經在待審`:""},好了會出現在設計工作台的待審`:"都已經在待審了"); p.remove(); btn.disabled=true; btn.textContent="生圖中…" }) };
+  draw(); box.after(p) }
+/* 待審的新舊對照:左舊右新,點一下圖放大 2.4 倍(點的位置為中心),再點一下還原 */
+async function openCompare(id){ const pv=PENDING[id]; if(!pv) return; const lk=ITEMS[pv.code], m=byId(midOf(pv.slot)), oldRef=lk?.members?.[pv.slot]?.img;
+  document.getElementById("rcmp")?.remove();
+  const el=document.createElement("div"); el.id="rcmp"; el.className="rcmp";
+  el.innerHTML=`<div class="rcmp-head"><b>${esc(lk?.name||pv.code)}・<span style="color:${m?.c}">${m?.n||""}</span></b><small>點圖可以放大;左右滑動看細節</small><button class="fac-close" data-x>關閉</button></div>
+    <div class="rcmp-body">${oldRef?`<figure><figcaption>原本的圖</figcaption><div class="rcmp-pic"><img alt="" data-old></div></figure>`:""}<figure><figcaption>新圖${pv.quality?`・${QN[pv.quality]||pv.quality}品質`:""}</figcaption><div class="rcmp-pic"><img alt="" src="${pv.img}"></div></figure></div>
+    <div class="rcmp-foot">${pv.note?`<span>附註:${esc(pv.note)}</span>`:"<span></span>"}<div class="frow"><button class="fbtn pri" data-a="ok">收下</button><button class="fbtn" data-a="retry">重生</button><button class="fbtn ghost" data-a="no">捨棄</button></div></div>`;
+  ($("#facility")||$("#stage")).appendChild(el);
+  if(oldRef) getBlob(oldRef).then(u=>{ const im=el.querySelector("[data-old]"); if(im&&u) im.src=u });
+  el.querySelector("[data-x]").onclick=()=>el.remove();
+  el.querySelectorAll(".rcmp-pic").forEach(pic=>pic.onclick=e=>{ const im=pic.querySelector("img"); const z=pic.classList.toggle("z");
+    if(z){ const r=pic.getBoundingClientRect(); im.style.transformOrigin=`${((e.clientX-r.left)/r.width*100).toFixed(1)}% ${((e.clientY-r.top)/r.height*100).toFixed(1)}%` }
+    // 兩邊一起放大同一個位置,方便比對
+    el.querySelectorAll(".rcmp-pic").forEach(o=>{ if(o!==pic){ o.classList.toggle("z",z); o.querySelector("img").style.transformOrigin=im.style.transformOrigin } }) });
+  el.querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{ const a=b.dataset.a; el.remove(); if(a==="ok"&&!BULK) approve(id); else if(a==="retry") retry(id); else if(a==="no") discard(id) }) }
 async function openDetail(code,slot){
   const lk=ITEMS[code]; if(!lk) return; fDetail={code,slot};
   const slots=Object.keys(lk.members||{}).filter(s=>midOf(s)), o=lk.members[slot]||{}, m=byId(midOf(slot));
@@ -700,7 +735,7 @@ async function openDetail(code,slot){
       ${(()=>{ const by=wLooks().filter(x=>reps(x).includes(lk.code)); return by.length?`<p class="dcon drev">這套已經有改版「${by.map(x=>esc(x.name||x.code)).join("、")}」(${esc(readyNote(by[0]))}),改版完成後會自動刪除。</p>`:"" })()}
       ${o.redo?`<p class="dcon drev">這套改版了:新的描述還沒生圖,遊戲裡先穿舊版。到「設計工作台」按「全部開始生圖」;收下新圖後舊圖會保留,可以改回。</p>`:""}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
-        <button class="fbtn" id="dRegen">重新生圖</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dHalf">半身照</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
+        <button class="fbtn" id="dRegen">重新生圖…</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dHalf">半身照</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
       ${wIsDaily(lk.occasion)&&o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">已處理,遊戲裡會依地點換穿</span>`:`<span class="no">還沒處理</span>`}
         <button class="fbtn" id="dProc">${o.sprites?"重新處理":"處理成遊戲立繪"}</button><div class="dspr" id="dSpr"></div></div>`:""}
       ${o.twist?`<p class="dcon"><b style="color:${m?.c}">${m?.n} 的小巧思</b> ${esc(o.twist)}</p>`:""}
@@ -708,9 +743,7 @@ async function openDetail(code,slot){
   d.classList.remove("hide");
   $("#dClose").onclick=()=>d.classList.add("hide"); $("#dEdit").onclick=()=>editLook(code);
   d.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>openDetail(code,b.dataset.ds));
-  const rg=$("#dRegen"); if(rg) rg.onclick=()=>{ const id=jobId(code,slot); if(PENDING[id]){toast2("這張已經在待審了");return}
-    if(!oai().key){toast2(OAI_ERR.no_key);return} JOBS=JOBS.filter(j=>j.id!==id); JOBS.push({id,code,slot,state:"wait"}); runQueue();
-    toast2("已排進生圖,好了會出現在設計工作台的待審"); rg.disabled=true; rg.textContent="生圖中…" };
+  const rg=$("#dRegen"); if(rg) rg.onclick=()=>regenPanel(code,slot,rg);
   const fname=`完美女團_${lk.name||code}_${byId(midOf(slot))?.n||slot}`;
   // 全身照、半身照:在純圖檢視裡下載(存的就是畫面上看到的那張)
   const view=mode=>async()=>{ const src=await getBlob(o.img); if(src) openPhoto(src,fname,{title:`${lk.name||""}・${byId(midOf(slot))?.n||""}`,mode}) };

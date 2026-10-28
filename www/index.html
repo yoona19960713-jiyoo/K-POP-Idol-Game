@@ -1737,6 +1737,117 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .welc .ex-dim{background:radial-gradient(ellipse 60% 75% at 31% 52%,color-mix(in srgb,var(--c) 22%,transparent) 0%,transparent 70%),linear-gradient(180deg,rgba(20,14,30,.5) 0%,rgba(14,9,22,.66) 100%)}
 .welc .ex-st span{opacity:1}
 .exitv.welc{--panel:inherit;--panel2:inherit;--ink:inherit;--soft:inherit}   /* 迎接用一般(依時段)的對話框顏色 */
+/* ===== 第二輪全面檢視(2026-10-28) ===== */
+
+/* --sans 以前從來沒有定義,用到它的 font 宣告整條無效(字級、字重都退回繼承值)→ 補上 */
+:root,.stage{--sans:"PGG Sans","Iansui","LXGW WenKai TC","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+
+/* 設計工作台:重新生圖面板 */
+.rgp{margin:calc(.6*var(--u)) 0 calc(.4*var(--u));padding:calc(.9*var(--u)) calc(1*var(--u));border-radius:calc(.7*var(--u));background:rgba(255,250,240,.75);border:calc(.1*var(--u)) solid rgba(201,162,75,.45);display:flex;flex-direction:column;gap:calc(.6*var(--u))}
+.rgp .rgq{margin:0}
+.rgp .rgn{width:100%;box-sizing:border-box;min-height:calc(4*var(--u));padding:calc(.5*var(--u)) calc(.7*var(--u));border-radius:calc(.5*var(--u));border:calc(.1*var(--u)) solid rgba(160,130,90,.45);background:#fffdf8;font:500 max(calc(1*var(--u)),12px)/1.5 var(--sans);color:var(--ink);resize:vertical}
+.rgp .frow{display:flex;flex-wrap:wrap;gap:calc(.5*var(--u))}
+.rpair[data-cmp]{cursor:zoom-in}
+
+/* 待審的新舊對照 */
+.rcmp{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:rgba(18,12,20,.94);color:#F6EBDC;padding:calc(1*var(--u)) calc(1.6*var(--u));gap:calc(.8*var(--u))}
+.rcmp-head{display:flex;align-items:center;gap:calc(1.2*var(--u))}
+.rcmp-head b{font:700 max(calc(1.4*var(--u)),13px)/1.2 var(--serif);letter-spacing:.12em}
+.rcmp-head small{flex:1;font:500 max(calc(.9*var(--u)),10px)/1 var(--sans);opacity:.6;letter-spacing:.08em}
+.rcmp-body{flex:1;min-height:0;display:flex;gap:calc(1.2*var(--u));justify-content:center}
+.rcmp-body figure{margin:0;flex:1;max-width:50%;min-width:0;display:flex;flex-direction:column;gap:calc(.4*var(--u))}
+.rcmp-body figcaption{font:600 max(calc(1*var(--u)),11px)/1 var(--serif);letter-spacing:.2em;color:#E9CF8F;text-align:center}
+.rcmp-pic{flex:1;min-height:0;overflow:hidden;border-radius:calc(.6*var(--u));background:#2A2030;cursor:zoom-in;display:flex;align-items:center;justify-content:center}
+.rcmp-pic img{max-width:100%;max-height:100%;object-fit:contain;transition:transform .28s cubic-bezier(.2,.75,.25,1)}
+.rcmp-pic.z{cursor:zoom-out}
+.rcmp-pic.z img{transform:scale(2.4)}
+.rcmp-foot{display:flex;align-items:center;justify-content:space-between;gap:calc(1*var(--u));font:500 max(calc(.95*var(--u)),11px)/1.4 var(--sans)}
+.rcmp-foot .frow{display:flex;gap:calc(.6*var(--u))}
+
+/* 大廳・獎盃牆:胡桃木牆面、黃銅名牌 */
+#recRoom .fac-body{background:linear-gradient(180deg,rgba(28,16,10,.55),rgba(20,12,8,.7)),url(assets/ui/walnut.webp) 0 0/320px;border-radius:calc(1*var(--u));padding:calc(1.2*var(--u));box-shadow:inset 0 0 calc(3*var(--u)) rgba(0,0,0,.55)}
+.tw{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(1*var(--u))}
+.tw-plq{position:relative;padding:calc(1*var(--u)) calc(1.2*var(--u));border-radius:calc(.5*var(--u));color:#3A2610;
+  background:linear-gradient(160deg,#F6E2A8 0%,#D9B160 34%,#B88A3A 62%,#E8C77E 100%);box-shadow:0 calc(.35*var(--u)) calc(1*var(--u)) rgba(0,0,0,.45),inset 0 0 0 calc(.12*var(--u)) rgba(255,246,214,.7),inset 0 0 0 calc(.3*var(--u)) rgba(120,80,26,.35)}
+.tw-plq::before,.tw-plq::after{content:"";position:absolute;top:calc(.45*var(--u));width:calc(.5*var(--u));height:calc(.5*var(--u));border-radius:50%;background:radial-gradient(circle at 35% 35%,#FFF3C8,#8A6224);box-shadow:0 1px 1px rgba(0,0,0,.4)}
+.tw-plq::before{left:calc(.45*var(--u))}.tw-plq::after{right:calc(.45*var(--u))}
+.tw-plq h4{margin:0 0 calc(.5*var(--u));font:700 max(calc(1*var(--u)),12px)/1.2 var(--serif);letter-spacing:.3em;color:#4A2E0E;text-shadow:0 1px 0 rgba(255,240,200,.6)}
+.tw-hero{grid-row:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:calc(.3*var(--u))}
+.tw-hero small{font:700 max(calc(.8*var(--u)),9px)/1 var(--num);letter-spacing:.45em;color:#5A3A12}
+.tw-num{font:800 calc(6.2*var(--u))/1 var(--num);letter-spacing:.02em;color:#3A2208;text-shadow:0 calc(.12*var(--u)) 0 rgba(255,240,200,.7),0 calc(-.08*var(--u)) 0 rgba(90,56,14,.5)}
+.tw-hero span{font:700 max(calc(1.05*var(--u)),12px)/1 var(--serif);letter-spacing:.3em}
+.tw-hero em{font:500 max(calc(.85*var(--u)),10px)/1.4 var(--sans);font-style:normal;opacity:.8}
+.tw-cups{display:flex;flex-wrap:wrap;gap:calc(.25*var(--u));min-height:calc(2.6*var(--u))}
+.tw-cup{display:inline-block;width:calc(2.3*var(--u));height:calc(2.3*var(--u));animation:twIn .5s var(--d,0ms) cubic-bezier(.2,.8,.3,1.2) both}
+.tw-cup svg,.tw-award svg{width:100%;height:100%;fill:#FFE9A8;stroke:#6A4410;stroke-width:1.2;stroke-linejoin:round;filter:drop-shadow(0 1px 0 rgba(0,0,0,.25))}
+.tw-cup.ghost svg{fill:none;stroke:rgba(90,58,18,.4);stroke-dasharray:2 2;filter:none}
+.tw-more{align-self:center;font:700 max(calc(1*var(--u)),11px)/1 var(--num);font-style:normal}
+@keyframes twIn{from{opacity:0;transform:translateY(-.6cqw) scale(.7)}}
+.tw-cnt{margin:calc(.3*var(--u)) 0 0;font:600 max(calc(.95*var(--u)),11px)/1 var(--serif)}
+.tw-cnt b{font:800 max(calc(1.8*var(--u)),18px)/1 var(--num)}
+.tw-yrs{display:flex;flex-wrap:wrap;gap:calc(.3*var(--u)) calc(.8*var(--u));margin:calc(.4*var(--u)) 0 0;font:600 max(calc(.8*var(--u)),10px)/1.2 var(--num)}
+.tw-yrs b{margin-left:.3em}
+.tw-empty{margin:0;font:500 max(calc(.85*var(--u)),11px)/1.6 var(--sans);color:#5A3A12;opacity:.85}
+.tw-award{display:grid;grid-template-columns:calc(2*var(--u)) auto 1fr;gap:calc(.5*var(--u));align-items:center;margin-top:calc(.3*var(--u));font:500 max(calc(.85*var(--u)),11px)/1.4 var(--sans)}
+.tw-award svg{width:calc(2*var(--u));height:calc(2*var(--u))}
+.tw-award b{font:800 max(calc(.95*var(--u)),11px)/1 var(--num)}
+.tw-ticket{position:relative;margin-top:calc(.4*var(--u));padding:calc(.45*var(--u)) calc(.8*var(--u));border-radius:calc(.3*var(--u));background:#FFF8E6;border-left:calc(.35*var(--u)) dashed #B88A3A;font:500 max(calc(.85*var(--u)),11px)/1.4 var(--sans)}
+.tw-ticket b{display:block;font:700 max(calc(.9*var(--u)),11px)/1.3 var(--serif)}
+.tw-rel{grid-column:span 2}
+.tw-cd{display:flex;gap:calc(1*var(--u));align-items:center}
+.tw-disc{flex:none;width:calc(6*var(--u));height:calc(6*var(--u));border-radius:50%;background:radial-gradient(circle,#1A1014 0 12%,#E8E2EE 13% 15%,transparent 16%),conic-gradient(from 20deg,#C9C2D6,#F4EFFA,#9E95B0,#EDE7F5,#B9B0C8,#F7F3FB,#C9C2D6);box-shadow:0 calc(.3*var(--u)) calc(.8*var(--u)) rgba(0,0,0,.35)}
+.tw-cd b{font:700 max(calc(1.1*var(--u)),12px)/1.2 var(--serif);letter-spacing:.15em}
+.tw-cd ol{margin:calc(.3*var(--u)) 0 0;padding-left:1.4em;font:500 max(calc(.85*var(--u)),11px)/1.6 var(--sans)}
+.tw-cd li i{margin-left:.5em;padding:0 .4em;border-radius:3px;background:#5A3A12;color:#FFE9A8;font:700 .75em/1.5 var(--num);font-style:normal;letter-spacing:.1em}
+@container (max-width:899px){ .tw{grid-template-columns:repeat(2,1fr)} .tw-hero{grid-row:auto} .tw-rel{grid-column:auto} }
+@media (prefers-reduced-motion:reduce){ .tw-cup{animation:none} }
+
+/* 攝影棚・MV 試映:電影海報 */
+.pst-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(15*var(--u)),1fr));gap:calc(1.2*var(--u))}
+.pst{position:relative;aspect-ratio:2/2.9;overflow:hidden;border-radius:calc(.5*var(--u));border:0;padding:calc(1*var(--u));text-align:left;color:#fff;cursor:pointer;display:flex;flex-direction:column;
+  background:radial-gradient(ellipse 90% 60% at 50% 30%,color-mix(in srgb,var(--c1) 85%,#fff 8%),var(--c2) 72%);box-shadow:0 calc(.5*var(--u)) calc(1.4*var(--u)) rgba(0,0,0,.45);transition:transform .2s}
+.pst:active{transform:scale(.97)}
+.pst-art{position:absolute;inset:0;opacity:.0}
+.pst-art.has{opacity:.55}
+.pst-art video{width:100%;height:100%;object-fit:cover}
+.pst-art.has::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.1) 40%,rgba(0,0,0,.7))}
+.pst-film{position:absolute;left:0;right:0;top:0;height:calc(.9*var(--u));background:repeating-linear-gradient(90deg,rgba(0,0,0,.55) 0 calc(.7*var(--u)),transparent calc(.7*var(--u)) calc(1.4*var(--u)));opacity:.6}
+.pst-top,.pst-t,.pst-g,.pst-k,.pst-play{position:relative}
+.pst-top{display:flex;align-items:center;justify-content:space-between;margin-top:calc(.6*var(--u))}
+.pst .pst-no{font:800 max(calc(2.2*var(--u)),20px)/1 var(--num);color:var(--c3);opacity:.9}
+.pst .pst-badge{font:700 max(calc(.62*var(--u)),8px)/1 var(--num);font-style:normal;letter-spacing:.2em;padding:calc(.3*var(--u)) calc(.5*var(--u));border:1px solid var(--c3);color:var(--c3);border-radius:2px}
+.pst .pst-t{margin-top:auto;font:700 max(calc(1.6*var(--u)),15px)/1.15 var(--serif);letter-spacing:.06em;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.pst .pst-g{margin-top:calc(.35*var(--u));font:600 max(calc(.6*var(--u)),8px)/1 var(--num);letter-spacing:.42em;color:var(--c3);opacity:.85}
+.pst .pst-k{margin-top:calc(.7*var(--u));font:500 max(calc(.7*var(--u)),9px)/1.3 var(--sans)!important;opacity:.75;letter-spacing:.02em;word-break:break-all}
+.pst .pst-play{margin-top:calc(.6*var(--u));align-self:flex-start;font:700 max(calc(.8*var(--u)),10px)/1 var(--serif);letter-spacing:.2em;padding:calc(.45*var(--u)) calc(.9*var(--u));border-radius:99px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.4)}
+.pst-note{margin-top:calc(1*var(--u))!important;color:rgba(255,245,230,.75)!important}
+
+/* 分頁列:放不下時才淡出邊緣(refine.js 依捲動位置設定 data-ovl) */
+.fac-tabs[data-ovl]{-webkit-mask-image:none;mask-image:none}
+.fac-tabs[data-ovl="r"]{-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+.fac-tabs[data-ovl="l"]{-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%);mask-image:linear-gradient(90deg,transparent,#000 18%)}
+.fac-tabs[data-ovl="lr"]{-webkit-mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent);mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent)}
+.pst-pack{display:flex;align-items:center;gap:calc(1*var(--u));margin-top:calc(1.2*var(--u));padding:calc(.8*var(--u)) calc(1.2*var(--u));border-radius:calc(.6*var(--u));background:rgba(20,12,18,.6);border:1px solid rgba(233,207,143,.35);color:#F6EBDC}
+.pst-pack b{font:700 max(calc(1*var(--u)),12px)/1 var(--serif);letter-spacing:.2em;color:#E9CF8F;white-space:nowrap}
+.pst-pack span{flex:1;font:500 max(calc(.85*var(--u)),11px)/1.4 var(--sans);opacity:.8}
+.mvpk{width:min(92%,calc(46*var(--u)));padding:calc(1.4*var(--u)) calc(1.6*var(--u));border-radius:calc(.8*var(--u));background:#FBF6EC;color:#3A2A1C;display:flex;flex-direction:column;gap:calc(.7*var(--u));box-shadow:0 calc(.6*var(--u)) calc(2*var(--u)) rgba(0,0,0,.4)}
+.mvpk h3{margin:0;font:700 max(calc(1.3*var(--u)),14px)/1.2 var(--serif);letter-spacing:.2em}
+.mvpk label{display:flex;align-items:center;gap:calc(.8*var(--u));font:600 max(calc(.95*var(--u)),12px)/1 var(--serif)}
+.mvpk select{flex:1;min-width:0;padding:calc(.5*var(--u)) calc(.7*var(--u));border-radius:calc(.4*var(--u));border:1px solid rgba(160,130,90,.5);background:#fff;font:500 max(calc(.95*var(--u)),12px)/1.2 var(--sans)}
+.mvpk .frow{display:flex;gap:calc(.6*var(--u))}
+#mvPackDlg{z-index:160}
+
+/* 會議室:企劃白板(鋁框、白板面、淡淡的白板筆痕);裡面的紙卡像用紙膠帶貼上去 */
+.th-meet .fac-body{background:
+  radial-gradient(ellipse 30% 12% at 22% 18%,rgba(120,140,170,.08),transparent 70%),
+  radial-gradient(ellipse 26% 10% at 74% 62%,rgba(120,140,170,.07),transparent 70%),
+  linear-gradient(172deg,#FAFBF8 0%,#EEF0EC 100%);
+  border-radius:calc(.6*var(--u));padding:calc(1.4*var(--u));box-shadow:inset 0 0 0 calc(.5*var(--u)) #C9CED4,inset 0 0 0 calc(.62*var(--u)) #8E959E,0 calc(.5*var(--u)) calc(1.4*var(--u)) rgba(0,0,0,.35)}
+.th-meet .pcol.paper{position:relative;transform:rotate(-.4deg);box-shadow:0 calc(.3*var(--u)) calc(.8*var(--u)) rgba(40,40,60,.18)}
+.th-meet .pcol.paper:nth-child(2n){transform:rotate(.35deg)}
+.th-meet .pcol.paper::before{content:"";position:absolute;top:calc(-.6*var(--u));left:50%;width:calc(6*var(--u));height:calc(1.3*var(--u));translate:-50% 0;rotate:-2deg;background:rgba(233,207,143,.65);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.mgap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.tvcard{content-visibility:auto;contain-intrinsic-size:auto 350px}   /* 待機室下方的卡片先不畫 */
 </style>
 </head>
 <body>
@@ -1907,5 +2018,6 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="growth.js"></script>
 <script src="cg.js"></script>
 <script src="concert.js"></script>
+<script src="refine.js"></script>
 </body>
 </html>

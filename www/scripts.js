@@ -463,7 +463,8 @@ function shell(){
   $("#stage").appendChild(el); $("#mkClose").onclick=close;
 }
 async function open(){ shell(); if(!items.length) items=Object.values(await IDB.get("scriptsAll")||{}); OPEN=true; setPause("maker",true);
-  void $("#makerFac").offsetWidth; $("#makerFac").classList.remove("hide"); $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll() }
+  $("#makerFac").querySelector(".fac-bg").style.backgroundImage=`url(assets/bg/office_night.webp)`; renderAll();
+  window.facShow?facShow($("#makerFac"),"assets/bg/office_night.webp"):$("#makerFac").classList.remove("hide") }   // 內容排好、背景解好才淡入
 function close(){ $("#makerFac").classList.add("hide"); setPause("maker",false); OPEN=false }
 window.openMaker=open;
 const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"]];
@@ -666,7 +667,20 @@ function coverHTML(){ const L=lib().filter(x=>!CP||x.period===CP), cnt={}; for(c
     +`</tbody></table></div><h3>近況(情境 × 成員,各時期合計)</h3><div class="mtbl"><table><thead><tr><th>情境</th>${MB.map(m=>`<th style="color:${m.c}">${m.n}</th>`).join("")}</tr></thead><tbody>`
     +Object.keys(SITU).map(k=>`<tr><td>${SITU[k].n}</td>`+MB.map(m=>{ const n=L.filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id).length,t=TYPES.situ.target*SITU[k].per.length; total+=t; done+=Math.min(n,t);
       return `<td><button class="cell" style="${heat(n,t)}" data-scell="${k}|${m.id}">${n}/${t}</button></td>` }).join("")+`</tr>`).join("");
-  return `<p class="mnote">整體進度 ${done}/${total}(${Math.round(done/total*100)}%)。點任一格可以直接到「手動產生」那一格。</p>`+h+`</tbody></table></div>` }
+  return `<div class="mgap"><p class="mnote">整體進度 ${done}/${total}(${Math.round(done/total*100)}%)。點任一格可以直接到「手動產生」那一格。</p><button class="mbtn pri" onclick="window.mkGapCopy?.()">複製缺口摘要</button></div>`+h+`</tbody></table></div>` }
+/* 缺口摘要(2026-10-28):給長對話劇本對話看「最缺哪些格」,不用每次匯出整份內容庫 JSON */
+window.mkGapCopy=async()=>{ const L=lib(), cnt={}; for(const x of L){const k=cellKey(x); cnt[k]=(cnt[k]||0)+1}
+  const cells=[]; let total=0,done=0; const add=(label,n,t)=>{ total+=t; done+=Math.min(n,t); if(n<t) cells.push({label,n,t,gap:t-n,r:(t-n)/t}) };
+  for(const m of MB) for(const st of STAGES) for(const k of SINGLE_TYPES) add(`單人・${TYPES[k].n}・${m.n}・${st}`,cnt[k+"|"+m.id+"|"+st]||0,tgtOf(k,st));
+  for(const p of PAIRS) for(const k of PAIR_TYPES) add(p==="all"?`全團・${TYPES[k].n}`:`雙人・${TYPES[k].n}・${pairName(p)}`,cnt[k+"|"+p+"|"]||0,tgtOf(k,"",p));
+  for(const k of Object.keys(EVENTS)) add(`事件・${EVENTS[k].n}`,L.filter(x=>x.type==="event"&&x.ev===k).length,TYPES.event.target);
+  for(const k of Object.keys(SITU)) for(const m of MB) add(`近況・${SITU[k].n}・${m.n}`,L.filter(x=>x.type==="situ"&&x.req===k&&x.member===m.id).length,TYPES.situ.target*SITU[k].per.length);
+  cells.sort((a,b)=>b.r-a.r||b.gap-a.gap);
+  const arcs=MB.map(m=>`${m.n}:`+STAGES.map(st=>`${st} ${L.filter(x=>x.type==="arc"&&x.member===m.id&&x.stage===st&&+x.part===1).length}`).join("、")).join("\n");
+  const d=new Date(), txt=`完美女團 內容庫缺口摘要(${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()})\n內容庫 ${L.length} 個片段;整體進度 ${done}/${total}(${Math.round(done/total*100)}%)\n\n最缺的 30 格(現有/目標):\n`
+    +cells.slice(0,30).map(c=>`- ${c.label}:${c.n}/${c.t}`).join("\n")+`\n\n連續劇情(各成員 × 關係階段的第 1 段數量):\n${arcs}\n`;
+  const ok=await (window.copyText?copyText(txt):navigator.clipboard?.writeText(txt).then(()=>true,()=>false));
+  toast2(ok?"已複製缺口摘要,可以直接貼給長對話劇本對話":"複製失敗") };
 function keyHTML(){ const m=model(), known=["gemini-flash-latest","gemini-flash-lite-latest"].includes(m);
   return `<div class="msheet"><h3>Gemini API 金鑰</h3><p class="mnote">金鑰只存在這台裝置,不會上傳。</p>
     <div class="mrow"><input type="password" id="keyIn" class="grow" value="${esc(apiKey())}" placeholder="貼上金鑰" autocomplete="off"><button class="mbtn" id="keyShow">顯示</button></div>
