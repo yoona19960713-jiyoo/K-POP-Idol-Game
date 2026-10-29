@@ -68,15 +68,15 @@ const PLACES=[
   {id:"studio",  g:"公司大樓",n:"錄音室",   sp:"studio",  open:[1,2,3]},
   {id:"office",  g:"公司大樓",n:"代表辦公室",sp:"office",  open:[1,2,3]},
   {id:"styling", g:"公司大樓",n:"造型室",   sp:"styling", open:[1,2,3]},
-  {id:"living",  g:"宿舍",   n:"客廳",     sp:"dorm",    open:[0,3,4]},
-  {id:"kitchen", g:"宿舍",   n:"廚房",     sp:"dorm",    open:[0,3,4]},
-  {id:"bed_ys",  g:"宿舍",   n:"藝瑟的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"ys"},
-  {id:"bed_tr",  g:"宿舍",   n:"泰梨的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"tr"},
-  {id:"bed_hy",  g:"宿舍",   n:"日和的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"hy"},
-  {id:"bed_he",  g:"宿舍",   n:"夏恩的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"he"},
-  {id:"bed_hr",  g:"宿舍",   n:"河嵐的房間", sp:"dorm",    open:[0,3,4],base:"bedroom",owner:"hr"},
-  {id:"store",   g:"外面",   n:"便利商店",  sp:"out",     open:[3,4]},
-  {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[3,4]},
+  {id:"living",  g:"宿舍",   n:"客廳",     sp:"dorm",    open:[0,1,2,3,4]},
+  {id:"kitchen", g:"宿舍",   n:"廚房",     sp:"dorm",    open:[0,1,2,3,4]},
+  {id:"bed_ys",  g:"宿舍",   n:"藝瑟的房間", sp:"dorm",    open:[0,1,2,3,4],base:"bedroom",owner:"ys"},
+  {id:"bed_tr",  g:"宿舍",   n:"泰梨的房間", sp:"dorm",    open:[0,1,2,3,4],base:"bedroom",owner:"tr"},
+  {id:"bed_hy",  g:"宿舍",   n:"日和的房間", sp:"dorm",    open:[0,1,2,3,4],base:"bedroom",owner:"hy"},
+  {id:"bed_he",  g:"宿舍",   n:"夏恩的房間", sp:"dorm",    open:[0,1,2,3,4],base:"bedroom",owner:"he"},
+  {id:"bed_hr",  g:"宿舍",   n:"河嵐的房間", sp:"dorm",    open:[0,1,2,3,4],base:"bedroom",owner:"hr"},
+  {id:"store",   g:"外面",   n:"便利商店",  sp:"out",     open:[0,1,2,3,4]},
+  {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[0,1,2,3,4]},
   /* 製作中心(2026-10-27):facOnly=只有設施、不拜訪;拜訪內容沒有專屬片段前借用相近地點(sp) */
   {id:"planning",g:"製作中心", n:"企劃室",   sp:"office",  open:[1,2,3],facOnly:1},
   {id:"meeting", g:"製作中心", n:"會議室",   sp:"office",  open:[1,2,3],facOnly:1},
@@ -414,11 +414,21 @@ function guessExpr(t){t=String(t||"");
 function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const seedOf=(...xs)=>xs.reduce((h,x)=>Math.imul(h^(typeof x==="string"?[...x].reduce((a,c)=>a*31+c.charCodeAt(0)|0,7):x),2654435761)>>>0,2166136261);
 function pickKey(w,r){const ks=Object.keys(w);let x=r()*ks.reduce((s,k)=>s+w[k],0);for(const k of ks){x-=w[k];if(x<=0)return k}return ks[ks.length-1]}
-function assign(){S.where={}; const wk=typeof wxNow==="function"?wxNow():"clear";
-  for(const m of M){let w=WHERE[m.id][S.slot]; const r=rng(seedOf(S.day,S.slot,m.id));
-  if(wk!=="clear"){ w={...w}; if(wk==="rain") delete w.river; for(const [k,v] of Object.entries(WX_WHERE[wk]?.[m.id]||{})) w[k]=(w[k]||0)+v }
-  const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k].open.includes(S.slot)));
-  let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2}}
+/* 作息表(改版 1.0 第 3 輪):成員依時間在不同地方(DAILY.SCHED),同一段裡位置固定;每到下一段才換位置。
+   邀約的時間點由 life.js 的 lifeWhere 蓋上去(她會在約好的地方等你) */
+function blockAt(min=S.min,day=S.day){ const B=dateOf(day).getDay()===0?DAILY.SCHED.sun:DAILY.SCHED.wk; let b=B[0], nx=null;
+  for(let i=0;i<B.length;i++) if(min>=B[i].at){ b=B[i]; nx=B[i+1]||null } return {b,nx} }
+function doingOf(b,id,place,wd){ if(place?.startsWith("外出:")) return place.slice(3); const base=b.wdn?.[wd]||b.n;
+  if(b.n==="自主練習"&&/^(living|kitchen|bed_)/.test(place||"")) return b.doing?.[id]==="寫詞"?"寫詞":"休息"; return b.doing?.[id]||base }
+function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxNow():"clear", {b}=blockAt(), wd=dateOf(S.day).getDay();
+  for(const m of M){ const src=(wk!=="clear"&&b.wet)||b.wd?.[wd]||b.w; let w={...(src[m.id]||src.all||b.w[m.id]||b.w.all||{practice:1})}; const r=rng(seedOf(S.day,b.at,m.id));
+    for(const k of Object.keys(w)) if(b.only?.[k]&&!b.only[k].includes(wd)) delete w[k];
+    if(wk!=="clear") delete w.river;
+    const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k]?.open.includes(S.slot)));
+    let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2; S.doing[m.id]=doingOf(b,m.id,w2,wd) }
+  window.lifeWhere?.(); S.whereKey=whereKey() }
+const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0);
+let FIG_FADE=false;
 
 const stageOf=id=>window.stageOfXp?stageOfXp(id):"戒備";
 const STAGE_C={戒備:"#8C7E92",信任:"#C99A2E",夥伴:"#3E9B6B",心動:"#D4537E",戀人:"#C2185B",親密:"#9C1B4A",多人親密:"#6A1B9A"};
@@ -540,7 +550,7 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
       if(open&&!p.facOnly) hits+=`<button class="fighit" data-meet="${m.id}" data-pid="${rm.pid}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%;width:${(H*.2).toFixed(2)}%" aria-label="${m.n}"></button>`;   // 點成員 → 互動面板(meet.js)
-      return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
+      return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig${FIG_FADE?" fadein":""}" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
     return `${figs}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
       ${!open?`<span class="lockc">${openText(p)}</span>`:""}</button>${hits}`}).join("");
@@ -600,7 +610,7 @@ function renderDrawer(){
     +`<h4>你不在場時</h4>${S.absent.length?S.absent.map(a=>`<p class="ab">${a}</p>`).join(""):`<p class="ab" style="opacity:.7">上個時段沒有特別的事。</p>`}`}
 $("#memBtn").onclick=()=>{renderDrawer();$("#drawer").classList.add("on");setPause("drawer",true)};
 $("#drawerX").onclick=()=>{$("#drawer").classList.remove("on");setPause("drawer",false)};
-function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); renderWorld(); renderInside(); renderWhere(); renderNews(); wxUpdate();
+function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); renderWorld(); renderInside(); FIG_FADE=false; renderWhere(); renderNews(); wxUpdate();
   if($("#drawer").classList.contains("on")) renderDrawer(); save()}
 function toast(t,s){const e=$("#toast");$("#toastT").textContent=t;$("#toastS").textContent=s;e.classList.remove("show");void e.offsetWidth;e.classList.add("show")}
 
@@ -610,7 +620,7 @@ let last=performance.now();
 function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
   if(paused()) return; const sl=SLOTS[S.slot];
   S.min+=dt*(sl.to-sl.from)/sl.sec;
-  if(S.min>=sl.to) passSlots(); else { renderHud(); if(TFX&&!TFX_RUN) playTimeFx() } }
+  if(S.min>=sl.to) passSlots(); else { if(S.whereKey!==whereKey()){ assign(); FIG_FADE=true; renderAll() } renderHud(); if(TFX&&!TFX_RUN) playTimeFx() } }
 /* 互動完成時扣遊戲時間(改版 1.0):時鐘往前跳。對話、設施開著時先記著,畫面都關了、時鐘再走的時候才處理跨過的時段,
    頂部的時間「往前轉」到新的時間,旁邊冒出「+20 分」 */
 let TFX=null, TFX_RUN=false;
@@ -1012,7 +1022,7 @@ function dayOneCard(){ if(S.flags.day1Card||S.day>0||!window.showCard) return;
   if(paused()||document.querySelector("#welc,.bigev:not(.out),#cgView")){ setTimeout(dayOneCard,800); return }
   S.flags.day1Card=1; save();
   window.showCard({tag:"2016.01.13 ・ DAY 1",bg:"assets/bg/practice_dawn.webp",title:"上任第一天",
-    lead:`今天起,你是這家娛樂公司的新任代表。四樓練習室裡,五個練習生正在等你——離 2017 年 1 月 13 日出道,還有整整一年。${S.fromV0?"<br><small>改版前的存檔已經封存(選單 → 存檔備份 可以下載);衣櫃、內容庫、歌曲企劃和解鎖過的回憶照片都留著。</small>":""}`,
+    lead:`今天起,你是這家娛樂公司的新任代表。四樓練習室裡,五個練習生在等你——離出道還有整整一年。${S.fromV0?`<span class="cardNote">改版前的存檔已封存(選單 → 存檔備份);衣櫃、內容庫、歌曲企劃和回憶照片都留著。</span>`:""}`,cols:true,
     lines:[["ys","代表好!我是隊長徐藝瑟。我們一直在等您。","smile"],["tr","……尹泰梨。","neutral"],["hy","早瀨日和です!啊、不對,我是早瀨日和!請多指教!","laugh"],["he","韓夏恩!代表吃過早餐了嗎?","smile"],["hr","姜河嵐!我、我才來兩個月,可是我唱歌很大聲!","serious"]],ok:"請多指教"}) }
 /* ---- 標題畫面(兼讀取畫面):讀完本機資料就能開始,雲端同步在背景進行 ---- */
 function titleReady(){

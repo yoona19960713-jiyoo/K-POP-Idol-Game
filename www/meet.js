@@ -54,7 +54,7 @@ const ACT_N={practice:"練習",vocal:"練聲",studio:"錄音、寫歌",office:"�
 let MT=null, lastOpen=0;
 const bandNow=id=>DY.bandOf(stageOf(id));
 function stateOf(id){ const s=S.m[id]; if(S.slot===4) return "sleepy"; if(s.stress>=70) return "tired"; if(["practice","vocal"].includes(S.where[id])&&(S.slot===2||S.slot===3)) return "after_practice"; if(s.mood>=80) return "bright"; return "" }
-function nowLine(id){ const w=S.where[id]||"", base=w.startsWith("bed_")?"bed":w; return `${PL[w]?.n||""}・${ACT_N[base]||""}` }
+function nowLine(id){ const w=S.where[id]||"", base=w.startsWith("bed_")?"bed":w; return `${PL[w]?.n||""}・${S.doing?.[id]||ACT_N[base]||""}` }
 function greet(id){ const L=DY.GREET?.[id]?.[bandNow(id)==="A"?"A":"B"]||[["……","neutral"]], r=rng(seedOf(S.day,S.slot,"greet"+id)); return L[Math.floor(r()*L.length)] }
 /* 隨口互動:內容庫優先(同房間的更優先),沒有才用內建備用 */
 function pickCasual(id,ca){ const st=stageOf(id), band=bandNow(id), room=S.where[id]||"", grp=DY.grpOf?.(room), state=stateOf(id);

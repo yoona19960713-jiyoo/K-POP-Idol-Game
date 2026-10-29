@@ -241,7 +241,7 @@ const SKEY="kpopGame.songs";
 try{R=JSON.parse(localStorage.getItem(SKEY))||null}catch(e){R=null}
 if(!R||!Array.isArray(R.tracks)||!R.tracks.length) R=fresh();
 let AVS=null, pushT=0, dirty=false;
-function save(bump=true){ if(bump){R.updatedAt=Date.now(); dirty=true; clearTimeout(pushT); pushT=setTimeout(()=>push(),4000)} try{localStorage.setItem(SKEY,JSON.stringify(R))}catch(e){window.logErr?.("songs",e)} }
+function save(bump=true){ if(bump){R.updatedAt=Date.now(); dirty=true; if(OPEN&&WORK[OPEN]) WORKED.add(OPEN); clearTimeout(pushT); pushT=setTimeout(()=>push(),4000)} try{localStorage.setItem(SKEY,JSON.stringify(R))}catch(e){window.logErr?.("songs",e)} }
 async function push(){
   if(!syAuth()||!syCfg()) return;
   try{ const t=await syToken();
@@ -274,6 +274,8 @@ function shell(){
   el.querySelectorAll("[data-sf]").forEach(b=>b.onclick=()=>open(b.dataset.sf));
   $("#sfClose").onclick=close;
 }
+/* 做工作扣時間(改版 1.0 第 3 輪):在企劃室或錄音室真的改了東西,關掉時才扣(企劃 1 小時、錄音 2 小時;只看不改不扣) */
+const WORKED=new Set(), WORK={planning:[60,"企劃會議"],recording:[120,"錄音"]};   // 企劃室、錄音室之間切換時兩邊都算
 function open(kind){ shell(); OPEN=kind; setPause("song",true);
   const el=$("#songFac"); const was=el.classList.contains("hide"); el.className="fac-wrap one-room "+(kind==="recording"?"th-studio":kind==="choreo"?"th-office th-dance":kind==="concert"?"th-office th-meet":"th-office")+(was?" hide":"");
   const bgU=`assets/bg/${{recording:"studio",choreo:"practice",planning:"planning",concert:"meeting"}[kind]||"planning"}_${SLOTS[S.slot].light}.webp`;
@@ -282,7 +284,8 @@ function open(kind){ shell(); OPEN=kind; setPause("song",true);
   const ct=el.querySelector('[data-sf="concert"]'); if(ct) ct.hidden=!(window.concertUnlocked?.()||S.concertNext);
   el.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.sf===kind)));
   render(); window.facShow?facShow(el,bgU):el.classList.remove("hide") }   // 內容排好、背景解好才淡入
-function close(){ $("#songFac").classList.add("hide"); setPause("song",false); OPEN=null; if(dirty) push();
+function close(){ $("#songFac").classList.add("hide"); const ws=[...WORKED].map(k=>WORK[k]); WORKED.clear(); const mn=ws.reduce((a,w)=>a+w[0],0); if(mn&&window.spendTime?.(mn,"工作")) toast2(`${ws.map(w=>w[1]).join("、")}結束・花了 ${mn/60} 小時`);
+  setPause("song",false); OPEN=null; if(dirty) push();
   }
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
 function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():OPEN==="concert"?window.concertPlanRender?.($("#sfBody"),render):OPEN==="choreo"?window.choreoRender?.($("#sfBody"),render):renderRec() }

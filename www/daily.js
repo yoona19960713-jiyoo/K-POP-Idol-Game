@@ -89,6 +89,31 @@ D.MILESTONES={first_day:{n:"上任第一天",date:"2016-01-13",card:false},showc
 D.SCHED_TEXT="練習生作息(週一到週六):06:00 起床(夏恩 6 點先起來做早餐;日和 6 點一個人在練習室做芭蕾伸展)→ 07:00 晨間體能(漢江或健身房)→ 08:00 早餐(宿舍)→ 09:00~12:00 個人課,各自分開(日和週一三五外出上韓語課、河嵐外出上聲樂課或在聲樂室、泰梨在錄音室練 Rap、夏恩在攝影棚或造型室、藝瑟在練習室或聲樂室)→ 12:00 午餐(公司)→ 13:00~18:00 團體練習(練習室;週二聲樂、週四錄音、週五評估;每月最後一個週六下午月評)→ 18:00 晚餐 → 19:00~22:00 自主練習、錄音、自由(河嵐留在錄音室練高音到最晚)→ 22:00 後宿舍時間(藝瑟 23:30 左右巡房)→ 0:00~1:00 睡覺(泰梨在房間寫詞到兩三點)。週日上午補眠、下午放假、晚上回宿舍。";
 /* 練習生期(2016/01/13~2017/01/13)的世界 */
 D.WORLD_2016="這時還沒出道。故事從 2016 年 1 月 13 日代表上任開始,2017 年 1 月 13 日出道,片段可能在這一年裡的任何一天出現,所以只寫一直成立的事;有日期的新聞要等那件事發生之後才能提(遊戲會用 date 條件控制)。2016 年:TWINKLE 是最紅的女團;5 月選秀節目 SPOTLIGHT 99 選出期間限定團 PRISM 9;8 月 NOXVEIL(黑鑽)出道,成員裡有藝瑟以前的同伴;年底起中國市場關閉(限韓令),BLAZE、WONDER POP、SUNNY DAY 從年底開始陸續解散。其他活躍的女團:RADIANT 9、HARMONY、VELVET ROSE、GLOW、PEACH;男團 EXON、NOVA;直播平台 Spotlight Live。2015 年的事(GLOW 爆紅、TWINKLE 選秀出道、中東呼吸症候群)都已經是過去式。遊戲裡只有這五個人和代表,不寫出道組名單或其他練習生。";
+/* 作息表(第 3 輪):一天分成好幾段,成員每段在哪裡、在做什麼。
+   at 是遊戲分鐘(6:00=360、隔天 0:00=1440);w 是每人可能的地點與權重(all = 五人共用);
+   wd 依星期幾換掉 w(0 日 … 6 六);only 是只在某幾天才有的外出課;doing 是每人的事(沒寫就用這段的名稱)。
+   位置在這一段裡固定(用日期、段、成員當種子),下雨下雪不去漢江。 */
+D.SCHED={
+  wk:[
+    {at:360,n:"起床",w:{ys:{bedroom:2,kitchen:1},tr:{bedroom:3},hy:{practice:3},he:{kitchen:3},hr:{bedroom:2,kitchen:1}},doing:{hy:"晨間拉筋",he:"做早餐"}},
+    {at:420,n:"晨間體能",w:{all:{river:1}},wet:{all:{lobby:1}}},
+    {at:480,n:"早餐",w:{all:{kitchen:2,living:1},he:{kitchen:3}}},
+    {at:540,n:"個人課",w:{ys:{practice:2,vocal:2},tr:{studio:3,practice:1},hy:{practice:2,"外出:韓語課":3},he:{photo:2,styling:1,"外出:個人拍攝":1},hr:{vocal:2,"外出:聲樂課":3}},
+      only:{"外出:韓語課":[1,3,5],"外出:聲樂課":[2,4,6]},doing:{ys:"個人練習",tr:"寫歌、錄 demo",hy:"個人練習",he:"個人課",hr:"練聲"}},
+    {at:720,n:"午餐",w:{all:{lobby:2,practice:1}}},
+    {at:780,n:"團體練習",w:{all:{practice:1}},wd:{2:{all:{vocal:1}},4:{all:{studio:1}}},wdn:{1:"團體練習・舞蹈",2:"團體練習・聲樂",3:"團體練習・舞蹈",4:"錄音",5:"評估",6:"補強練習"}},
+    {at:1080,n:"晚餐",w:{all:{kitchen:2,living:1},he:{kitchen:3}}},
+    {at:1140,n:"自主練習",w:{ys:{practice:2,living:1},tr:{studio:2,bedroom:1},hy:{practice:2,living:1},he:{kitchen:1,living:2,styling:1},hr:{vocal:2,studio:1,practice:1}},
+      doing:{tr:"寫詞",he:"休息",hr:"練高音"}},
+    {at:1320,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,store:1},hy:{living:1,bedroom:2},he:{living:2,kitchen:1},hr:{living:2,store:1,kitchen:1}},doing:{ys:"巡房前的休息"}},
+    {at:1440,n:"睡覺",w:{all:{bedroom:1}},doing:{tr:"還在寫詞"}}],
+  sun:[
+    {at:360,n:"補眠",w:{all:{bedroom:1}},doing:{he:"睡到自然醒"}},
+    {at:630,n:"早午餐",w:{all:{kitchen:2,living:2}}},
+    {at:720,n:"休假",w:{ys:{living:2,"外出:逛街":1,river:1},tr:{bedroom:2,store:1,"外出:唱片行":1},hy:{living:1,river:1,"外出:咖啡廳":1},he:{kitchen:1,living:1,"外出:逛街":2},hr:{living:1,river:2,store:1}}},
+    {at:1080,n:"晚餐",w:{all:{kitchen:2,living:1}}},
+    {at:1140,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,studio:1},hy:{living:2,bedroom:1},he:{living:2,kitchen:1},hr:{living:2,store:1}}},
+    {at:1440,n:"睡覺",w:{all:{bedroom:1}},doing:{tr:"還在寫詞"}}]};
 /* 互動面板打開時她說的第一句(第 3 輪;A 段 = 戒備・信任,B 段以上 = 夥伴以後) */
 D.GREET={
   ys:{A:[["代表好!要找我嗎?","smile"],["啊,代表。今天也辛苦了~","smile"],["代表?……是要說練習的事嗎?","neutral"]],

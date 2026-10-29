@@ -187,7 +187,7 @@ function waitNext(){ const t=setInterval(()=>{ if(!document.querySelector(".bige
 function showCardNow(o){ const el=document.createElement("div"); el.className="bigev";
   el.innerHTML=`<div class="bg-shot"${o.bg?` style="background-image:url(${o.bg})"`:""}></div><div class="bg-veil"></div><div class="bigcard"><small>${o.tag}</small><h2>${o.title}</h2><p class="lead">${o.lead}</p>
     ${o.stats?`<div class="evstats">${o.stats.map(([n,v])=>`<div><b>${v}</b><span>${n}</span></div>`).join("")}</div>`:""}
-    ${o.lines?`<div class="evlines">${o.lines.map(([id,t,e])=>{const mm=byId(id);return `<div class="evl"><span class="pface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p></div>`}).join("")}</div>`:""}
+    ${o.lines?`<div class="evlines${o.cols?" two":""}">${o.lines.map(([id,t,e])=>{const mm=byId(id);return `<div class="evl"><span class="pface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p></div>`}).join("")}</div>`:""}
     <button class="fbtn pri cardOk">${o.ok||"繼續"}</button></div>`;
   $("#stage").appendChild(el); setPause("card",true);
   el.querySelector(".cardOk").onclick=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),600); setPause("card",false); o.after?.(); save(true); renderAll() } }

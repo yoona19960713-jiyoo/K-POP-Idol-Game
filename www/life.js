@@ -116,7 +116,13 @@ const INV_R={ys:["……嗯,我等你。","你這樣說我會害羞的。","謝�
 function inviteScene(inv){ const P=INV[inv.pid], id=inv.id, a=P.a[id], b=P.b[id];
   return {code:`life-inv-${inv.pid}-${id}-${inv.day}`,member:id,who:[id],type:"chat",sc:P.sc,
     nodes:{start:{L:[[id,a[0],a[1]],[id,b[0],b[1]]],C:INV_C.map((c,i)=>({t:c.t,s:c.s,g:c.g,to:id,...(c.heart&&rank(id)>=2?{heart:c.heart}:{}),r:[[id,INV_R[id][i],c.r]]}))}}} }
-window.lifeInviteScene=(id,pid)=>{ const inv=L().inv; if(!inv||inv.done||inv.id!==id||inv.pid!==pid||inv.day!==S.day||inv.slot!==S.slot) return null; inv.done=1; save(true); return inviteScene(inv) };
+/* 邀約有時間點(改版 1.0 第 3 輪):她從約好的時間開始在那裡等 90 分鐘(舊的邀約沒有 at,就從那個時段開頭算) */
+const invAt=inv=>inv.at??SLOTS[inv.slot]?.from??0;
+const invOn=inv=>!!inv&&!inv.done&&inv.day===S.day&&S.min>=invAt(inv)&&S.min<invAt(inv)+90;
+window.lifeInvOn=()=>invOn(L().inv);
+window.lifeWhere=()=>{ const inv=L().inv; if(invOn(inv)){ S.where[inv.id]=inv.pid; if(S.doing) S.doing[inv.id]="等你" } };
+const INV_T={ys:"{t},我在那裡等你喔。",tr:"……{t}。別遲到。",hy:"{t}……可以嗎?我會等您的。",he:"{t}見~不准遲到喔!",hr:"{t}!不見不散!"};
+window.lifeInviteScene=(id,pid)=>{ const inv=L().inv; if(!inv||inv.id!==id||inv.pid!==pid||!invOn(inv)) return null; inv.done=1; save(true); return inviteScene(inv) };
 window.lifeOnSlot=()=>{ try{ const lf=L();
   if(S.slot===0){
     // ⑦ 群組:生日、出道週年
@@ -129,9 +135,8 @@ window.lifeOnSlot=()=>{ try{ const lf=L();
     // ⑤ 新的邀約:大約 4~5 天一次,只約到「夥伴」以上、6 天內沒約過的成員
     if(!lf.inv&&r01("inv")<.22){ const cand=M.filter(m=>rank(m.id)>=2&&S.day-(lf.invLast[m.id]??-99)>=6); if(cand.length){
       const m=cand[Math.floor(r01("invm")*cand.length)], keys=Object.keys(INV), pid=keys[Math.floor(r01("invp")*keys.length)], P=INV[pid], slot=P.slots[Math.floor(r01("invs")*P.slots.length)];
-      if(PL[pid]?.open.includes(slot)){ lf.inv={id:m.id,pid,day:S.day,slot}; lf.invLast[m.id]=S.day; window.phoneSay?.(m.id,[[m.id,P.msg[m.id],"smile"]]) } } } }
-  // 到了約好的時段:她會在那裡等你
-  const inv=lf.inv; if(inv&&!inv.done&&inv.day===S.day&&inv.slot===S.slot) S.where[inv.id]=inv.pid;
+      const sl=SLOTS[slot], k=Math.max(0,Math.floor((sl.to-sl.from-150)/30)), at=sl.from+60+30*Math.floor(r01("inva")*(k+1));   // 那個時段裡的一個時間點(整點或半點)
+      if(PL[pid]?.open.includes(slot)&&at>=S.min+30){ lf.inv={id:m.id,pid,day:S.day,slot,at}; lf.invLast[m.id]=S.day; window.phoneSay?.(m.id,[[m.id,P.msg[m.id],"smile"],[m.id,INV_T[m.id].replace("{t}",hm(at)),"smile"]]) } } } }
   }catch(e){ window.logErr?.("life 換時段",e) } };
 
 /* ---------- ③ 成員之間的小對話泡泡 ---------- */
