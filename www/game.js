@@ -160,8 +160,16 @@ let syTok=null,syBusy=false,syLastPush=0,pushT=0;
 const SY_ERR={INVALID_LOGIN_CREDENTIALS:"Email 或密碼錯誤。",INVALID_PASSWORD:"Email 或密碼錯誤。",EMAIL_NOT_FOUND:"Email 或密碼錯誤。",INVALID_EMAIL:"Email 格式不對。",
   API_KEY_INVALID:"Firebase 設定的 apiKey 不正確。",PERMISSION_DENIED:"Firestore 安全規則擋住了,請確認規則已發布。",NOT_FOUND:"找不到 Firestore 資料庫。",TOKEN_EXPIRED:"登入已過期,請重新登入。",network:"連不上雲端,請確認網路。"};
 const syMsg=e=>{const c=String(e?.code||e||"");for(const k in SY_ERR) if(c.includes(k)) return SY_ERR[k];return "同步失敗:"+c.slice(0,80)};
+/* 雲端讀寫次數(2026-10-29 雲端用量):這台裝置今天(Firestore 的額度依美西時間每天重置)讀、寫、刪了幾次 */
+const OPK="kpopGame.syOps", opDay=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Los_Angeles"});
+let OPS=null, opsDirty=false;
+function opsGet(){ if(!OPS){ try{ OPS=JSON.parse(localStorage.getItem(OPK)||"null") }catch(e){} } if(!OPS||OPS.d!==opDay()) OPS={d:opDay(),r:0,w:0,x:0}; return OPS }
+function opCount(url,opt,j){ if(!String(url).includes("firestore.googleapis.com")) return; const o=opsGet(), m=(opt?.method||"GET").toUpperCase();
+  if(String(url).includes(":runQuery")) o.r+=Math.max(1,Array.isArray(j)?j.filter(x=>x.document).length:1); else if(m==="GET") o.r++; else if(m==="DELETE") o.x++; else o.w++; opsDirty=true }
+every(5000,()=>{ if(!opsDirty) return; opsDirty=false; try{ localStorage.setItem(OPK,JSON.stringify(OPS)) }catch(e){} },{bg:true});
+window.syOps=()=>({...opsGet()});
 async function syJSON(url,opt){let r;try{r=await fetch(url,opt)}catch(e){throw {code:"network"}}
-  const j=await r.json().catch(()=>({})); if(!r.ok) throw {code:String(j?.error?.message||j?.error?.status||"HTTP "+r.status),status:r.status,st:String(j?.error?.status||"")}; return j}
+  const j=await r.json().catch(()=>({})); opCount(url,opt,j); if(!r.ok) throw {code:String(j?.error?.message||j?.error?.status||"HTTP "+r.status),status:r.status,st:String(j?.error?.status||"")}; return j}
 async function syToken(){const a=syAuth(),c=syCfg(); if(!a||!c) throw {code:"未登入"}; if(syTok&&syTok.exp>Date.now()) return syTok.id;
   const j=await syJSON(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(a.refreshToken)});
   a.refreshToken=j.refresh_token; localStorage.setItem(SY_AUTH,JSON.stringify(a)); syTok={id:j.id_token,exp:Date.now()+(+j.expires_in-60)*1000}; return syTok.id}
@@ -201,9 +209,9 @@ async function pullContent(){
   if(localStorage.getItem("kpopGame.itemsFmt")!=="2"){ITEMS={}; localStorage.removeItem("kpopGame.pull.items")}
   const a=await pullCollection("items",ITEMS,it=>it.kind==="look",(it,code)=>({...it,code,seasons:Array.isArray(it.seasons)?it.seasons:[]}));
   await IDB.set("items",ITEMS); localStorage.setItem("kpopGame.itemsFmt","2");
-  const b=await pullCollection("scripts",SCRIPTS,it=>it.status==="ok"||it.status==="auto",(it,code)=>({code,type:it.type,member:it.member||"",pair:it.pair||"",stage:it.stage||"",period:it.period||"",room:it.room||"",wx:it.wx||"",ev:it.ev||"",req:it.req||"",arc:it.arc||"",part:+it.part||0,parts:+it.parts||0,
-    at:it.at,sl:it.sl||[],who:it.who||[],sc:it.sc||"",w:+it.w||3,cd:+it.cd||4,nodes:it.nodes||{}}));
-  await IDB.set("scripts",SCRIPTS); localStorage.setItem("kpopGame.pulledOnce","1");
+  /* 劇情(2026-10-29 改版 1.0):打包同步在 scripts.js(scriptsPull),遊戲用的 SCRIPTS 也在那裡一起更新,不再另外讀一遍 */
+  const b=window.scriptsPull?await window.scriptsPull().catch(e=>{ logErr("劇情同步",e); return 0 }):0;
+  localStorage.setItem("kpopGame.pulledOnce","1");
   return a+b}
 /* 遊戲存檔與兩台裝置的覆蓋保護(第二輪優化)
    記住這台最後一次看到的雲端版本(Firestore 的 updateTime,kpopGame.syUT);這台有沒有還沒上傳的進度用本機計數判斷
@@ -287,7 +295,7 @@ function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stri
 /* 連續劇情:第 N 段要等第 N-1 段看過、隔一天以上才會出現 */
 function arcOk(sn){ if(!sn.arc||!(+sn.part>1)) return true; const prev=snips().find(x=>x.arc===sn.arc&&+x.part===+sn.part-1), d=prev&&S.seen[prev.code]; return d!=null&&S.day-d>=1 }
 /* 舞台指示(劇本裡的 ["@","bg:kitchen"] 這類):換背景、成員進場離場;sfx 先記著給之後的聲音系統 */
-const DIR_BG=["practice","studio","office","styling","living","kitchen","river","store","van","backstage"];
+const DIR_BG=["practice","studio","office","styling","living","kitchen","river","store","van","backstage","vocal","lobby","photo","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"];   // 2026-10-29 加製作中心、五人的房間
 /* 2026-10-28 演出指令:cam:close 特寫(下一位說話的人,鏡頭慢慢推近她的臉)、cam:wide 拉回;
    fx:shake 輕震、fx:flash 白光一閃、fx:pause 沉默停頓(約 1.2 秒)、fx:slow 下一句慢慢打字;
    mood:memory 回憶(暖黃、柔光、暗角)、mood:dim 燈光變暗(難過、低潮)、mood:off 恢復。片段結束或離開時自動恢復。
@@ -314,7 +322,10 @@ function stageDir(t){ const [k,v]=String(t||"").split(":");
     if(v==="shake") for(const e of camEls()) e.animate([{translate:"0 0"},{translate:"-.6% .2%"},{translate:".5% -.3%"},{translate:"-.3% .2%"},{translate:".2% 0"},{translate:"0 0"}],{duration:380,easing:"ease-out",composite:"add"});
     if(v==="flash"){ const f=document.createElement("div"); f.className="vflash"; $("#visit").appendChild(f); f.animate([{opacity:0},{opacity:.85,offset:.18},{opacity:0}],{duration:650,easing:"ease-out"}).finished.then(()=>f.remove(),()=>f.remove()) } }
   return 0 }
-function reqOk(sn){ if(sn.req&&[].concat(sn.req).some(k=>!STORY_REQ[k]?.())) return false; return varsOf(sn).every(k=>STORY_VARS[k]?.()!=null) }
+/* 日期條件(2026-10-29):date:["2016-08-20",""] = 那天以後才出現(第二格是到哪天為止) */
+const ymdNow=()=>{ const d=dateOf(S.day); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` };
+function dateOk(sn){ const d=sn.date; if(!Array.isArray(d)) return true; const n=ymdNow(); return (!d[0]||n>=d[0])&&(!d[1]||n<=d[1]) }
+function reqOk(sn){ if(!dateOk(sn)) return false; if(sn.req&&[].concat(sn.req).some(k=>!STORY_REQ[k]?.())) return false; return varsOf(sn).every(k=>STORY_VARS[k]?.()!=null) }
 function fillVars(sn){ if(!varsOf(sn).length) return sn;
   const rep=t=>typeof t==="string"?t.replace(VAR_RE,(m,k)=>STORY_VARS[k]?.()??m):t, L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
   const nodes={}; for(const [k,n] of Object.entries(sn.nodes||{})) nodes[k]={...n,L:L(n.L),C:(n.C||[]).map(c=>({...c,t:rep(c.t),...(c.r?{r:L(c.r)}:{})}))};
@@ -737,7 +748,8 @@ function backOut(){ if(!V||V.test||V.event) return; const free=V.talked.size===0
 window.testPlay=function(sn,onDone){
   if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen});
   const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",styling:"styling",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
-  const room=roomOf[sn.at]||"practice";
+  const room=PL[sn.room]?sn.room:sn.at==="phone"?"bed_"+((sn.who||[])[0]||"ys"):(roomOf[sn.at]||"practice");
+  if(!sn.nodes?.start&&sn.hear?.length) sn={...sn,nodes:{start:{L:sn.hear,C:[]}}};   // 1.1 的成員之間(旁聽)
   V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花行動,也不會影響存檔";
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
@@ -858,6 +870,35 @@ $("#signIn").onclick=async()=>{const c=syCfg(); if(!c){toast2("先貼上 Firebas
   try{const j=await syJSON(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:$("#syEmail").value.trim(),password:$("#syPw").value,returnSecureToken:true})});
     localStorage.setItem(SY_AUTH,JSON.stringify({uid:j.localId,email:j.email,refreshToken:j.refreshToken})); syTok={id:j.idToken,exp:Date.now()+(+j.expiresIn-60)*1000};
     $("#syPw").value=""; renderSet(); syncAll(true,true)}catch(e){syStatus(syMsg(e),true)}};
+/* ---------- 雲端用量(2026-10-29 改版 1.0):圖片、劇情、存檔各佔多少(估算,Firestore 免費 1 GiB),以及這台裝置今天的讀寫次數 ---------- */
+const GiB=1073741824, fmtB=b=>!b?"0":b>=1048576?(b/1048576).toFixed(b>=104857600?0:1)+" MB":Math.max(1,Math.round(b/1024))+" KB";
+let USE_BUSY=false;
+async function blobUsage(prog){ const refs=new Set((JSON.stringify([Object.values(ITEMS),WMETA]).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));
+  const cache=await IDB.get("blobSizes")||{}; let known=0, sum=0, miss=0, i=0, dirty=false;
+  for(const h of refs){ i++; let n=cache[h];
+    if(n==null){ const s=await IDB.get("blob:"+h); if(typeof s==="string"){ n=s.length; cache[h]=n; dirty=true } }   // 圖片以 base64 文字存在雲端,長度就是位元組數
+    if(n!=null){ sum+=n; known++ } else miss++;
+    if(i%20===0){ prog?.(i,refs.size); await new Promise(r=>setTimeout(r,0)) } }
+  if(dirty) await IDB.set("blobSizes",cache);
+  const avg=known?sum/known:350000; return {n:refs.size,miss,bytes:Math.round(sum+miss*avg+refs.size*300)} }
+async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; USE_BUSY=true; el.classList.remove("hidden"); el.innerHTML=`<p class="hint">計算中…</p>`;
+  try{ const sc=window.scriptsUsage?await scriptsUsage():null;
+    const img=await blobUsage((i,n)=>{ el.innerHTML=`<p class="hint">計算中…圖片 ${i}/${n}</p>` });
+    const ls=k=>(localStorage.getItem(k)||"").length, meta=JSON.stringify(await IDB.get("wmetaRaw")||{}).length;
+    const save=new TextEncoder().encode(JSON.stringify(S)).length, other=ls("kpopGame.songs")+ls("kpopGame.stage")+meta;
+    const story=sc?(sc.mode==="packs"?sc.packBytes+sc.looseBytes:sc.legacyBytes):0, legacy=sc&&sc.mode==="packs"?sc.legacyBytes:0;
+    const total=img.bytes+story+legacy+save+other, pct=total/GiB*100, o=window.syOps?.()||{r:0,w:0,x:0}, N=x=>Number(x||0).toLocaleString("zh-TW");
+    el.innerHTML=`<div class="usebar${pct>=85?" hi":""}"><i style="--v:${Math.min(100,pct).toFixed(2)}%"></i></div>
+      <p class="usetot"><b>${fmtB(total)}</b> / 1 GiB(${pct<10?pct.toFixed(1):Math.round(pct)}%,估算)</p>
+      <ul class="usel"><li><span>圖片(造型、日常立繪、底模)</span><b>${fmtB(img.bytes)}</b><small>${img.n} 張${img.miss?`;其中 ${img.miss} 張不在這台裝置,用平均大小估`:""}</small></li>
+      <li><span>劇情</span><b>${fmtB(story)}</b><small>${sc?(sc.mode==="packs"?`${N(sc.items)} 段:打包 ${sc.packs} 包、散件 ${sc.loose} 個`:`${N(sc.items)} 段,還沒打包(用電腦版登入、同步一次就會打包)`):"—"}</small></li>
+      ${legacy?`<li><span>舊的逐段劇情</span><b>${fmtB(legacy)}</b><small>舊版封存還會用到,先保留</small></li>`:""}
+      <li><span>存檔與其他</span><b>${fmtB(save+other)}</b><small>遊戲存檔、歌曲、打歌、成員設定</small></li></ul>
+      <p class="hint">這台裝置今天:讀取 ${N(o.r)} 次、寫入 ${N(o.w)} 次、刪除 ${N(o.x)} 次。免費額度每天讀取 5 萬、寫入與刪除各 2 萬(兩台裝置合計,台灣時間下午三、四點重置)。</p>
+      <p class="hint">${pct>=85?"快到 1 GiB 了:要決定開隨用隨付(每月幾美元內、設預算提醒),或讓日常立繪不上雲端。":"離 1 GiB 還遠。快到的時候再決定:開隨用隨付,或讓日常立繪不上雲端。"}</p>` }
+  catch(e){ el.innerHTML=`<p class="hint">算不出來:${esc(String(e?.message||e))}</p>`; logErr("雲端用量",e) }
+  finally{ USE_BUSY=false } }
+$("#useBtn")&&($("#useBtn").onclick=()=>{ const el=$("#usePanel"); if(!el.classList.contains("hidden")&&!USE_BUSY){ el.classList.add("hidden"); return } renderUse() });
 /* 日常立繪更新(2026-10-27):只有還是舊版處理方式的立繪才提醒;更新完就不再出現 */
 async function outdatedSprites(){ const jobs=[]; if(!window.spriteOutdated) return jobs;
   for(const l of Object.values(ITEMS)){ if(!l||l.deleted||!(l.occasion==="練習"||String(l.occasion).startsWith("日常"))) continue;

@@ -21,7 +21,7 @@ const unreadOf=k=>{const p=ph(), n=(p.threads[k]||[]).length; return Math.max(0,
 function recount(){ const p=ph(); let n=0; for(const k of Object.keys(p.threads)) n+=unreadOf(k); n+=p.feed.filter(f=>!f.seen).length; S.unread=n; renderHud() }
 
 /* ---------- 時段切換時:收到訊息、群組、社群貼文 ---------- */
-function okSnip(sn){ return (!sn.sl?.length||sn.sl.includes(S.slot))&&stageOk(sn)&&(!sn.period||sn.period===periodNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start }
+function okSnip(sn){ return (!sn.sl?.length||sn.sl.includes(S.slot))&&dateOk(sn)&&stageOk(sn)&&(!sn.period||sn.period===periodNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start }
 function pushLines(key,lines){ const p=ph(), t=p.threads[key]=p.threads[key]||[], st=stamp();
   for(const l of lines||[]) if(l&&l[1]&&l[0]!=="@") t.push({w:l[0]||"",t:l[1],e:EXN[l[2]]?l[2]:"",...st});
   if(t.length>80) t.splice(0,t.length-80) }

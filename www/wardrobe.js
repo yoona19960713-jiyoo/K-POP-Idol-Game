@@ -294,7 +294,9 @@ async function takeImport(){
     const o=JSON.parse(new TextDecoder().decode(bytes)); const col=o.app==="kpop-clothes"?"items":o.app==="kpop-scripts"?"scripts":null;
     if(!col||!Array.isArray(o.items)) throw 0;
     if(col==="items") ensureMeta();
-    let n=0,off=0,rv=0,rp=0; for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
+    let n=0,off=0,rv=0,rp=0;
+    if(col==="scripts"&&window.scriptsImport){ const r=await window.scriptsImport(o.items); n=r.n; off=r.off; o.items=[] }   // 劇本走製作者模式的打包同步(2026-10-29),待審馬上看得到
+    for(const it of o.items){ if(!it?.code) continue; it.updatedAt=it.updatedAt||Date.now();
       // 造型可以用成員代號(ys、tr、hy、he、hr)標示,這裡換成衣帽間的成員欄位,不怕欄位順序不同
       if(col==="items"&&it.members){ const ms={}; for(const [k,v] of Object.entries(it.members)) ms[byId(k)?(slotOf(k)||DEFAULT_SLOT[k]):k]=v; it.members=ms;
         if(it.target&&byId(it.target)) it.target=slotOf(it.target)||DEFAULT_SLOT[it.target];
@@ -302,7 +304,7 @@ async function takeImport(){
       if(col==="items"&&reps(it).length) rp++;
       let doc=it; if(col==="items"&&ITEMS[it.code]&&!ITEMS[it.code].deleted){ doc=reviseLook(ITEMS[it.code],it); rv++ }
       if(!(await saveDoc(col,doc))) off++; n++ }
-    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""}${rp?`(${rp} 套是取代舊造型的改版:新圖收下後會自動刪除舊的那套)`:""},已放進製作中心的設計工作室`:`${n} 段長對話,已存進雲端(製作者模式的「待審」看得到)`;
+    const what=col==="items"?`${n} 套造型${rv?`(其中 ${rv} 套是改版:舊圖保留,改了描述的成員排進待生圖)`:""}${rp?`(${rp} 套是取代舊造型的改版:新圖收下後會自動刪除舊的那套)`:""},已放進製作中心的設計工作室`:`${n} 段劇本,已放進製作者模式的「待審」`;
     setTimeout(()=>toast2(`收到 Claude 創作室送來的 ${what}`+(off?"(還沒登入雲端,登入後會自動上傳)":"")),900);
     if(col==="items"&&window.renderFacility) renderFacility();
   }catch(e){ setTimeout(()=>toast2("收到的資料無法讀取"),900) }
