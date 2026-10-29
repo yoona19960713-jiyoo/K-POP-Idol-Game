@@ -87,7 +87,7 @@ const exIn=k=>S.cgEx?.[k]!=null||kept().cgEx?.[k]!=null;
 const QUEUE=[];
 /* 新遊戲開始時有幾位成員已經在「信任」(起始好感不同),她們的信任 CG 要再多相處一點才出現,
    才會是一個「時刻」而不是開場就跳出來;泰梨等從戒備升上來的照常在升級時出現 */
-const trustReady=id=>S.m[id].xp>=Math.max(1000,(S.cgBase?.[id]??0)+600);
+const trustReady=id=>{ const b=S.cgBase?.[id]??0; return S.m[id].xp>=(b>=1000?b+600:1000) };   // 改版 1.0:從「快要信任」開始的,升到信任那一刻就出現
 function scan(){
   if(typeof S==="undefined"||!S?.m||!window.stageOfXp) return;
   const d=data(); let first=!S.cgInit, n=0;

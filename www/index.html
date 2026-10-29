@@ -1578,6 +1578,97 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .lbin p b{color:var(--c);margin-right:.6em}
 .lbin small{display:block;text-align:right;font-size:10px;color:#8A7460}
 @media (prefers-reduced-motion:reduce){.lbub{animation:none}}
+/* ===== 點成員的互動面板(改版 1.0 第 3 輪;meet.js)===== */
+#meet{position:absolute;inset:0;z-index:36;--u:max(1cqw,7.4px);--gl:#E9D29A;--gd:#B8955A;color:#2B2030}
+#meet .mt-veil{position:absolute;inset:0;background:radial-gradient(120% 95% at 16% 100%,color-mix(in srgb,var(--pm) 26%,transparent),transparent 62%),linear-gradient(180deg,rgba(18,10,22,.34),rgba(18,10,22,.68))}
+/* 半身立繪:她的配色在背後微微發光 */
+#meet .mt-por{position:absolute;left:-1.5%;bottom:0;height:97%;aspect-ratio:900/1380;z-index:1}
+#meet .mt-por::before{content:"";position:absolute;inset:20% 6% 2%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--pm) 60%,#fff 10%),transparent);opacity:.55;filter:blur(calc(1.6*var(--u)))}
+#meet .mt-por i{position:absolute;inset:0;background:no-repeat 50% 0/100% auto;transform-origin:50% 100%;animation:breathe 4.8s ease-in-out infinite;
+  -webkit-mask:linear-gradient(180deg,#000 74%,transparent 97%);mask:linear-gradient(180deg,#000 74%,transparent 97%);filter:drop-shadow(0 calc(.3*var(--u)) calc(.8*var(--u)) rgba(20,8,20,.35))}
+/* 返回 */
+#meet .mt-x{position:absolute;right:1.6%;top:3.2%;z-index:3;display:flex;align-items:center;gap:calc(.4*var(--u));min-height:44px;padding:0 calc(1.4*var(--u)) 0 calc(.9*var(--u));border-radius:999px;
+  font:600 max(calc(1.05*var(--u)),13px)/1 var(--sans);letter-spacing:.14em;color:#FFF6E6;background:rgba(26,18,30,.66);border:1px solid color-mix(in srgb,var(--gl) 75%,transparent);box-shadow:0 calc(.3*var(--u)) calc(1*var(--u)) rgba(0,0,0,.3)}
+#meet .mt-x .mt-ic{width:calc(1.8*var(--u));height:calc(1.8*var(--u));background:none;border:0;box-shadow:none}
+/* 面板 */
+#meet .mt-pan{position:absolute;left:23%;right:1.6%;bottom:calc(1.4*var(--u));height:45%;z-index:2;display:flex;gap:calc(1.8*var(--u));
+  padding:calc(1.5*var(--u)) calc(1.8*var(--u)) calc(1.3*var(--u)) calc(2*var(--u));border-radius:calc(1.1*var(--u));
+  background:url(assets/ui/glass_a.webp) 0 0/128px,radial-gradient(90% 120% at 0 0,color-mix(in srgb,var(--pm) 9%,transparent),transparent 60%),linear-gradient(180deg,#FFFDF9,#F6EEE3);
+  border:1px solid var(--gl);box-shadow:0 calc(.8*var(--u)) calc(2.6*var(--u)) rgba(15,6,15,.42),inset 0 0 0 calc(.32*var(--u)) rgba(255,255,255,.7),inset 0 0 0 calc(.4*var(--u)) color-mix(in srgb,var(--pm) 26%,transparent)}
+#meet .mt-pan::before{content:"";position:absolute;left:calc(2.4*var(--u));right:calc(2.4*var(--u));top:-1px;height:2px;background:linear-gradient(90deg,transparent,var(--gl) 18%,var(--pm) 50%,var(--gl) 82%,transparent)}
+#meet .mt-orn{position:absolute;width:calc(1.6*var(--u));height:calc(1.6*var(--u));border:0 solid var(--gd);pointer-events:none;opacity:.8}
+#meet .mt-orn::after{content:"";position:absolute;width:calc(.42*var(--u));height:calc(.42*var(--u));background:var(--gd);transform:rotate(45deg)}
+#meet .mt-orn.tl{left:calc(.7*var(--u));top:calc(.7*var(--u));border-width:1px 0 0 1px}#meet .mt-orn.tl::after{left:calc(-.24*var(--u));top:calc(-.24*var(--u))}
+#meet .mt-orn.tr{right:calc(.7*var(--u));top:calc(.7*var(--u));border-width:1px 1px 0 0}#meet .mt-orn.tr::after{right:calc(-.24*var(--u));top:calc(-.24*var(--u))}
+#meet .mt-orn.bl{left:calc(.7*var(--u));bottom:calc(.7*var(--u));border-width:0 0 1px 1px}#meet .mt-orn.bl::after{left:calc(-.24*var(--u));bottom:calc(-.24*var(--u))}
+#meet .mt-orn.br{right:calc(.7*var(--u));bottom:calc(.7*var(--u));border-width:0 1px 1px 0}#meet .mt-orn.br::after{right:calc(-.24*var(--u));bottom:calc(-.24*var(--u))}
+#meet .mt-left{position:relative;flex:0 1 41%;min-width:0;container-type:inline-size;display:flex;flex-direction:column;justify-content:center;gap:calc(.55*var(--u))}
+#meet .mt-right{flex:1 1 0;display:flex;align-items:center;min-width:0}
+/* 名牌:動物徽記+名字+英文名+關係 */
+#meet .mt-name{align-self:flex-start;max-width:100%;white-space:nowrap;display:flex;align-items:center;gap:calc(.7*var(--u));padding:calc(.32*var(--u)) calc(1.9*var(--u)) calc(.32*var(--u)) calc(.45*var(--u));color:#fff;
+  background:linear-gradient(90deg,var(--pd),color-mix(in srgb,var(--pm) 80%,var(--pd)) 70%,color-mix(in srgb,var(--pm) 60%,var(--pd)));
+  clip-path:polygon(0 0,100% 0,calc(100% - 1*var(--u)) 100%,0 100%);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--gl) 70%,transparent)}
+#meet .mt-name b{font:700 max(calc(1.6*var(--u)),16px)/1 var(--serif);letter-spacing:.22em}
+#meet .mt-name em{font:600 max(calc(.85*var(--u)),11px)/1 var(--num);letter-spacing:.22em;font-style:normal;opacity:.82}
+#meet .mt-stage{font:600 max(calc(.85*var(--u)),11px)/1 var(--sans);letter-spacing:.1em;padding:calc(.28*var(--u)) calc(.6*var(--u));border-radius:999px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12)}
+#meet .mt-emb{flex:none;display:grid;place-items:center;width:calc(3.3*var(--u));height:calc(3.3*var(--u));min-width:27px;min-height:27px;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,color-mix(in srgb,var(--pm) 45%,#fff),var(--pm) 58%,var(--pd));border:1.5px solid var(--gl);box-shadow:0 0 0 1px color-mix(in srgb,var(--pd) 70%,transparent),inset 0 1px 2px rgba(255,255,255,.45),0 1px 3px rgba(0,0,0,.35)}
+#meet .mt-emb svg{width:84%;height:84%;overflow:visible;filter:drop-shadow(0 .5px .6px rgba(0,0,0,.3))}
+#meet .mt-emb .a{fill:#FFFBF3}#meet .mt-emb .b{fill:var(--g2)}#meet .mt-emb .c{fill:var(--pd)}#meet .mt-emb .m{fill:#F6EAD8}
+#meet .mt-emb .s{fill:none;stroke:#FFFBF3;stroke-width:3;stroke-linecap:round}#meet .mt-emb .s2{fill:none;stroke:#FFFBF3;stroke-width:1.5;stroke-linecap:round}
+#meet .mt-emb .w{fill:none;stroke:var(--g2);stroke-width:.7;stroke-linecap:round}#meet .mt-emb .bl{fill:none;stroke:var(--g2);stroke-width:1.1;stroke-linecap:round}#meet .mt-emb .cl{fill:none;stroke:var(--pd);stroke-width:.9;stroke-linecap:round}
+/* 她說的話與現在在做什麼 */
+#meet .mt-line{margin:0;font:500 max(calc(1.45*var(--u)),15px)/1.6 var(--serif);letter-spacing:.04em;color:#2B2030;min-height:3.2em;display:flex;align-items:center}
+#meet .mt-line.narr{font-size:max(calc(1.28*var(--u)),14px);color:#6B5866}
+#meet .mt-line.in{animation:mtIn .32s cubic-bezier(.2,.8,.25,1)}
+@keyframes mtIn{from{opacity:0;translate:0 .35em}to{opacity:1;translate:0 0}}
+#meet .mt-now{display:flex;align-items:center;gap:calc(.8*var(--u));flex-wrap:wrap;font:500 max(calc(.92*var(--u)),12px)/1.3 var(--sans);letter-spacing:.08em;color:#85707C}
+#meet .mt-now>span:first-child{padding:calc(.22*var(--u)) calc(.7*var(--u));border-radius:999px;background:color-mix(in srgb,var(--pm) 10%,#fff);border:1px solid color-mix(in srgb,var(--pm) 22%,#EADBC4)}
+#meet .mt-mood{display:inline-flex;align-items:center;gap:calc(.4*var(--u))}
+#meet .mt-mood::after{content:"";width:calc(4.2*var(--u));height:calc(.42*var(--u));border-radius:9px;background:linear-gradient(90deg,var(--pm) var(--v),rgba(125,111,132,.22) var(--v))}
+#meet .mt-chips{position:absolute;right:0;top:calc(-3*var(--u));display:flex;gap:calc(.4*var(--u))}
+#meet .mt-chip{font:700 max(calc(.95*var(--u)),12px)/1.5 var(--num);color:#fff;padding:0 calc(.7*var(--u));border-radius:999px;background:linear-gradient(135deg,#E4CC97,#B8955A);box-shadow:0 1px 3px rgba(80,50,20,.3)}
+#meet .mt-chip.g{background:linear-gradient(135deg,color-mix(in srgb,var(--pm) 70%,#fff),var(--pm))}
+#meet .mt-next{position:absolute;right:0;bottom:0;font-size:max(calc(1*var(--u)),12px);color:var(--pm);opacity:0}
+#meet .mt-pan.play .mt-next{opacity:1;animation:mtBlink 1.1s ease-in-out infinite}
+@keyframes mtBlink{50%{opacity:.25;translate:0 2px}}
+#meet .mt-pan.play .mt-right{display:none}
+#meet .mt-pan.play .mt-left{flex:1 1 auto}
+#meet .mt-pan.play .mt-line{font-size:max(calc(1.6*var(--u)),16px)}
+/* 按鈕 */
+#meet .mt-opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(.8*var(--u));width:100%}
+#meet .mt-opts.six{grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(.6*var(--u))}
+#meet .mt-opt{position:relative;min-width:0;display:flex;align-items:center;gap:calc(.9*var(--u));min-height:max(calc(5.4*var(--u)),46px);padding:calc(.6*var(--u)) calc(1.4*var(--u)) calc(.6*var(--u)) calc(.8*var(--u));
+  border-radius:calc(.9*var(--u));text-align:left;font:inherit;color:#2B2030;background:linear-gradient(180deg,#FFFFFF,#FAF3EA);
+  border:1px solid color-mix(in srgb,var(--pm) 26%,#E6D3AE);box-shadow:0 calc(.2*var(--u)) calc(.55*var(--u)) rgba(70,40,30,.1),inset 0 1px 0 #fff;transition:transform .15s,box-shadow .15s}
+#meet .mt-opt:not(:disabled):active{transform:scale(.97);box-shadow:0 0 0 rgba(0,0,0,0),inset 0 1px 0 #fff}
+#meet .mt-opt>span{display:flex;flex-direction:column;gap:calc(.18*var(--u));min-width:0}
+#meet .mt-opt b{font:600 max(calc(1.2*var(--u)),14px)/1.2 var(--sans);letter-spacing:.08em;white-space:nowrap}
+#meet .mt-opt small{font:500 max(calc(.85*var(--u)),11px)/1.25 var(--sans);color:#8A7680;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#meet .mt-opt.sub::after{content:"";position:absolute;right:calc(.9*var(--u));top:50%;width:calc(.55*var(--u));height:calc(.55*var(--u));border:solid var(--pm);border-width:1.6px 1.6px 0 0;transform:translateY(-50%) rotate(45deg)}
+#meet .mt-opt:disabled{opacity:.5;filter:saturate(.35)}
+#meet .mt-opt .lk{position:absolute;right:calc(.6*var(--u));top:calc(.5*var(--u));width:calc(1.5*var(--u));height:calc(1.5*var(--u));min-width:14px;min-height:14px;background:none;border:0;box-shadow:none}
+#meet .mt-opt .lk svg{stroke:#9C8A92}
+#meet .mt-opt.sub:disabled::after{display:none}
+#meet .mt-ic{flex:none;display:grid;place-items:center;width:calc(3.1*var(--u));height:calc(3.1*var(--u));min-width:28px;min-height:28px;border-radius:50%;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--pm) 62%,#fff),var(--pm) 55%,color-mix(in srgb,var(--pm) 72%,var(--pd)));border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--pm) 40%,transparent),inset 0 1px 1px rgba(255,255,255,.5),0 calc(.15*var(--u)) calc(.4*var(--u)) rgba(0,0,0,.18)}
+#meet .mt-ic svg{width:60%;height:60%;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#meet .mt-opt.sm{flex-direction:column;justify-content:center;text-align:center;min-height:max(calc(5.4*var(--u)),48px);gap:calc(.3*var(--u));padding:calc(.45*var(--u)) calc(.3*var(--u))}
+#meet .mt-opt.sm>span{align-items:center;max-width:100%}
+#meet .mt-opt.sm .mt-ic{width:calc(2.5*var(--u));height:calc(2.5*var(--u));min-width:24px;min-height:24px}
+#meet .mt-opt.sm b{font-size:max(calc(1.05*var(--u)),13px);letter-spacing:.06em}
+#meet .mt-opt.sm small{font-size:11px;letter-spacing:0}
+#meet .mt-opt.back{background:linear-gradient(180deg,#F7F0E8,#EFE4D6)}
+#meet .mt-opt.back .mt-ic{background:linear-gradient(145deg,#C9B79C,#9C8466)}
+/* 房間剖面:點成員的感應區(比人物大一點,好點) */
+.fighit{position:absolute;transform:translateX(-50%);z-index:3;min-width:44px;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.fighit:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){#meet .mt-por i{animation:none}#meet .mt-line.in{animation:none}}
+/* 面板打開時,頂部列與房間裡的小對話泡泡先收起來(不跟「返回」擠在一起) */
+#stage.mt-on .topbar,#stage.mt-on .lbub{opacity:0;pointer-events:none;transition:opacity .2s}
+/* 窄的時候(A55):名牌先拿掉英文名,名字永遠一行 */
+@container (max-width:230px){#meet .mt-name em{display:none}#meet .mt-name{padding-right:calc(1.5*var(--u))}}
 /* ===== MV(mvplay.js,2026-10-27):動態 MV 與 AI 影片 MV 的播放 ===== */
 .mvp,.mvv{position:absolute;inset:0;z-index:92;overflow:hidden;background:#07060A;color:#F6EEDF;font-family:var(--sans);container-type:inline-size}
 .mvv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
@@ -2049,6 +2140,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="choreo.js"></script>
 <script src="stageplay.js"></script>
 <script src="life.js"></script>
+<script src="meet.js"></script>
 <script src="mvplay.js"></script>
 <script src="center.js"></script>
 <script src="scripts.js"></script>

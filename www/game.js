@@ -120,8 +120,8 @@ const MSG={ys:[["代表今天也辛苦了~明天的行程我會再確認一次!"
 /* ---------- 存檔 ---------- */
 const KEY="kpopGame.save";
 function fresh(){return {v:3,gen:10,day:0,slot:0,min:DAY0,entered:[],
-  /* 改版 1.0:新上任的代表,五個人都從「戒備」開始;起點依個性不同(河嵐、夏恩最快熟,泰梨最慢) */
-  m:{ys:{trust:11,heart:0,mood:60,stress:40},tr:{trust:3,heart:0,mood:55,stress:35},hy:{trust:9,heart:0,mood:50,stress:45},he:{trust:13,heart:0,mood:70,stress:30},hr:{trust:15,heart:0,mood:65,stress:35}},
+  /* 改版 1.0:五個人從「快要信任」開始(好感 1000 是信任;2026-10-29 使用者決定):河嵐、夏恩最快,泰梨最慢 */
+  m:{ys:{xp:920,heart:0,mood:60,stress:40},tr:{xp:860,heart:0,mood:55,stress:35},hy:{xp:900,heart:0,mood:50,stress:45},he:{xp:940,heart:0,mood:70,stress:30},hr:{xp:960,heart:0,mood:65,stress:35}},
   where:{},flags:{},seen:{},absent:[],unread:0,wear:null,lastWear:{},updatedAt:0}}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.m) S=fresh();
@@ -136,7 +136,9 @@ function archiveV0(old){ const js=JSON.stringify(old); V0_PENDING=js;
 function newFromV0(old){ archiveV0(old); const n=fresh(), k=old.cgKeep||{}, mg=(a,b)=>({...(a||{}),...(b||{})});
   const cg={}; for(const [id,o] of Object.entries(k.cg||{})) cg[id]={...o}; for(const [id,o] of Object.entries(old.cg||{})) cg[id]={...(cg[id]||{}),...o};
   n.cgKeep={cg,cgDuo:mg(k.cgDuo,old.cgDuo),cgEx:mg(k.cgEx,old.cgEx)}; n.fromV0={day:old.day||0,at:Date.now()}; return n }
-function fixV3(s){ s.gen=10; if(!(s.slot>=0&&s.slot<=4)) s.slot=0; if(!isFinite(+s.min)||s.min<SLOTS[s.slot].from) s.min=SLOTS[s.slot].from;
+const START_XP={ys:920,tr:860,hy:900,he:940,hr:960};
+function fixV3(s){ s.gen=10;
+  if(s.m&&!s.flags?.startXp2){ for(const [id,x] of Object.entries(START_XP)) if(s.m[id]&&(s.m[id].xp==null||s.m[id].xp<x)) s.m[id].xp=x; (s.flags=s.flags||{}).startXp2=1 }   // 第 2 輪開的新遊戲:起點補到「快要信任」(只升不降) if(!(s.slot>=0&&s.slot<=4)) s.slot=0; if(!isFinite(+s.min)||s.min<SLOTS[s.slot].from) s.min=SLOTS[s.slot].from;
   if(!Array.isArray(s.entered)) s.entered=[]; delete s.t; delete s.acts; delete s.visited }
 const isV0=s=>!!s&&s.gen!==10&&(+s.v||1)<3;
 function migrate(s){ if(isV0(s)&&s.m){ const n=newFromV0(s); for(const k of Object.keys(s)) delete s[k]; Object.assign(s,n); return s }
@@ -534,15 +536,17 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const ppl=open?who(rm.pid):[];
     const dis=!open, [x,y,w,h]=rm.r;
     const own=p.owner, st=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
-    const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri));
+    const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri)); let hits="";
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
+      if(open&&!p.facOnly) hits+=`<button class="fighit" data-meet="${m.id}" data-pid="${rm.pid}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%;width:${(H*.2).toFixed(2)}%" aria-label="${m.n}"></button>`;   // 點成員 → 互動面板(meet.js)
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
     return `${figs}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
-      ${!open?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
+      ${!open?`<span class="lockc">${openText(p)}</span>`:""}</button>${hits}`}).join("");
   $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.both){ if(PL[b.dataset.pid]?.facOnly){ openFac(b.dataset.both); return } chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
-    if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)})}
+    if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)});
+  $("#rooms").querySelectorAll(".fighit").forEach(b=>b.onclick=e=>{ e.stopPropagation(); window.meetOpen?.(b.dataset.meet,b.dataset.pid) }) }
 /* 電視台:宣傳期直接進待機室,其他時間是練習模式 */
 function tvChooser(){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
@@ -666,7 +670,9 @@ function costMin(sn,cp,kind){ if(sn?.demoLine) return 5; if(sn?.type==="long"||s
   if(kind==="entry"&&cp<=2) return cp?10:5; return cp===0?5:cp<=2?15:cp<=5?20:30 }
 function vsubSet(add){ const el=$("#vsub"); if(!el) return; el.innerHTML=`${SLOTS[S.slot].n}・${hm()}${add?`<span class="vplus">+${fmtMin(add)}</span>`:""}`;
   const v=el.querySelector(".vplus"); if(v&&!RM.matches) v.animate([{opacity:0,translate:"0 30%"},{opacity:1,translate:"0 0"}],{duration:420,easing:"ease-out"}) }
-function visit(pid){
+/* 互動面板的「聊天」:進她在的房間,直接跟她聊(不演進場的小片段) */
+window.visitTalk=(pid,id)=>visit(pid,{talk:id});
+function visit(pid,o={}){
   const p=PL[pid]; if(!p.open.includes(S.slot)||V) return;
   const snap=JSON.stringify(S), first=!S.entered.includes(pid);
   if(first) S.entered.push(pid); save(true); setPause("visit",true);
@@ -675,6 +681,7 @@ function visit(pid){
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; vsubSet(0);
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
+  if(o.talk&&ppl.includes(o.talk)){ narr(`你走到${byId(o.talk).n}身邊。`); talk(o.talk); return }
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;
   const wl=wxLine(pid), fsn=firstSnowSnip(ppl);
@@ -1031,6 +1038,7 @@ function titleReady(){
   const steps=[
     ()=>window.closePhoto?.(),
     ()=>{const d=[...document.querySelectorAll("dialog[open]")].pop(); if(d){d.close(); return true}},
+    ()=>window.meetBack?.(),   // 互動面板
     ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
     ()=>{const d=document.querySelector("#facDetail"); if(d&&!d.classList.contains("hide")){(d.querySelector("#dClose")||d).click(); d.classList.add("hide"); return true}},
     ()=>{const p=document.querySelector("#phone"); if(p&&p.classList.contains("on")){document.querySelector("#pHome")?.click(); return true}},
