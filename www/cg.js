@@ -54,7 +54,17 @@ const DUO={
   "he-hr":["枕頭堡裡的橘子",[["he","今天就睡在這裡好不好?"],["hr","張嘴!濟州的橘子最甜了!"]]]};
 const duoSrc=(k,small)=>`assets/cg/duo_${k.replace("-","_")}${small?"_s":""}.webp`;
 const duoOk=k=>{ const [a,b]=k.split("-"); return !!window.multiPartners?.(a)?.includes(b) };
-const EXTRA={concert_first:{tag:"首場演唱會",t:"謝幕,和一整片的手燈海",line:"五個人牽著手,對著看不到盡頭的光海,深深地鞠了一躬。",lock:"首場演唱會謝幕時收進相簿",c:"#FF2E63"}};
+const EXTRA={concert_first:{tag:"首場演唱會",t:"謝幕,和一整片的手燈海",line:"五個人牽著手,對著看不到盡頭的光海,深深地鞠了一躬。",lock:"首場演唱會謝幕時收進相簿",c:"#FF2E63"},
+  /* 團體里程碑 CG(2026-10-28 設計;圖:assets/cg/g_*.webp 與 _s 縮圖,使用者生好才會有) */
+  g_debut:{tag:"出道日",t:"上台前的五分鐘",line:"五隻手疊在一起。藝瑟小聲說:「不管等一下怎樣,我們都是一起的。」",lock:"出道 Showcase 那天收進相簿",c:"#C8102E"},
+  g_firstwin:{tag:"第一個一位",t:"我們做到了",line:"紙花落下來的那一刻,五個人一起轉頭找你。",lock:"拿到第一個一位時收進相簿",c:"#E9CF8F"},
+  g_daesang:{tag:"第一個大賞",t:"這座獎,是六個人的",line:"藝瑟握著獎盃,哭著說完最後一句:「謝謝我們的代表。」",lock:"第一次拿到年度大賞時收進相簿",c:"#D9B56E"},
+  g_anniv1:{tag:"出道一週年",t:"一根蠟燭的草莓蛋糕",line:"「第一塊給代表!」五個人異口同聲。",lock:"出道一週年那天收進相簿",c:"#E9746A"},
+  g_newyear:{tag:"第一個跨年",t:"雪中的漢江倒數",line:"「三、二、一——新年快樂!」藝瑟回頭,把你拉進圈子裡。",lock:"出道後第一次年末歌謠祭之後收進相簿",c:"#7B4FBF"}};
+const GROUP_CG=["g_debut","g_firstwin","g_daesang","g_anniv1","g_newyear"];
+/* 團體里程碑:事件發生時呼叫;fresh=全螢幕顯示(等事件卡關掉、沒有畫面開著才跳出),否則只收進相簿 */
+window.cgGroupUnlock=(k,fresh=true)=>{ try{ if(!EXTRA[k]) return; S.cgEx=S.cgEx||{}; if(S.cgEx[k]!=null) return;
+  S.cgExtra=[...new Set([...(S.cgExtra||[]),k])]; S.cgEx[k]=S.day; (S.cgNew=S.cgNew||[]).push("extra|"+k); if(fresh) QUEUE.push(["extra",k]); save?.(true) }catch(e){window.logErr?.("cg",e)} };
 const extraSrc=(k,small)=>`assets/cg/${k}${small?"_s":""}.webp`;
 const DUO_C="#C9A24B";
 /* 每場自己辦的演唱會一張紀念卡(場館照片 + 標題),代號 concert@遊戲日 */
@@ -85,10 +95,17 @@ function scan(){
   for(const k of Object.keys(DUO)){ if(S.cgDuo[k]!=null||!duoOk(k)) continue;
     S.cgDuo[k]=S.day; (S.cgNew=S.cgNew||[]).push("duo|"+k); n++; if(!first) QUEUE.push(["duo",k]) }
   for(const k of [...(S.cgExtra||[]).filter(k=>EXTRA[k]),...memKeys()]){ if(S.cgEx[k]!=null) continue; S.cgEx[k]=S.day; (S.cgNew=S.cgNew||[]).push("extra|"+k) }   // 演出當下已經看過,只標 NEW
+  /* 團體里程碑:舊存檔已經過了那個時刻 → 直接收進相簿(不跳全螢幕);出道一週年在當週內進遊戲才全螢幕 */
+  const DD=window.DEBUT_DAY;
+  if(DD!=null){ if(S.day>=DD+1&&S.cgEx.g_debut==null) window.cgGroupUnlock("g_debut",false);
+    if(S.stats?.firstWin&&S.cgEx.g_firstwin==null) window.cgGroupUnlock("g_firstwin",false);
+    if((S.stats?.awards||[]).some(a=>(a.got||[]).some(g=>g.includes("大賞")))&&S.cgEx.g_daesang==null) window.cgGroupUnlock("g_daesang",false);
+    if(S.day>=DD+365&&S.cgEx.g_anniv1==null) window.cgGroupUnlock("g_anniv1",S.day<DD+372);
+    if(S.festYear&&S.cgEx.g_newyear==null) window.cgGroupUnlock("g_newyear",false) }
   if(first){ S.cgInit=true; if(n) setTimeout(()=>toast2(`手機「相簿」收進了 ${n} 張戀愛紀念照`),1500); save?.(true) }
 }
 /* 沒有任何畫面開著時才顯示(對話、手機、設施、事件卡都會暫停時間) */
-every(1200,()=>{ try{ scan(); if(QUEUE.length&&!paused()&&!document.querySelector(".bigev:not(.out),#cgView")){ const q=QUEUE.shift(); q[0]==="duo"?showDuo(q[1],true):show(q[0],q[1],true) } }catch(e){window.logErr?.("cg",e)} });
+every(1200,()=>{ try{ scan(); if(QUEUE.length&&!paused()&&!document.querySelector(".bigev:not(.out),#cgView,.bigev")){ const q=QUEUE.shift(); q[0]==="duo"?showDuo(q[1],true):q[0]==="extra"?showExtra(q[1],true):show(q[0],q[1],true) } }catch(e){window.logErr?.("cg",e)} });
 
 /* ---------- 全螢幕顯示 ---------- */
 function view(o,fresh,onClose){
