@@ -21,7 +21,7 @@ const VN={hall:"星環 Live Hall",arena:"漢江體育館",dome:"首爾巨蛋"};
 /* 2026-10-28 改版:大廳是胡桃木獎盃牆(黃銅名牌、一位的獎盃一座一座排上去、演唱會票根、這次發行做成專輯),攝影棚是電影海報式的 MV 清單 */
 const CUP=`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v3.2a5 5 0 0 1-10 0z"/><path d="M7 4.6H4.6a2.4 2.4 0 0 0 2.6 3.8M17 4.6h2.4a2.4 2.4 0 0 1-2.6 3.8"/><path d="M12 11.2v3.6M8.6 20.6h6.8l-.8-3.2H9.4z"/></svg>`;
 window.openRecords=()=>{ const B=room("recRoom",{title:"大廳・獎盃牆",sub:"PRODUCTION CENTER ・ 1F ・ LOBBY",bg:"lobby",pause:"records"});
-  const st=S.stats||{fans:0,wins:0,winsByYear:{},awards:[]}, dd=window.DEBUT_DAY??741, debuted=S.day>=dd;
+  const st=S.stats||{fans:0,wins:0,winsByYear:{},awards:[]}, dd=window.DEBUT_DAY??366, debuted=S.day>=dd;
   const yrs=Object.entries(st.winsByYear||{}).sort((a,b)=>a[0]-b[0]), aw=(st.awards||[]).filter(a=>a.got?.length), cs=S.concerts||[], R=window.SONGS_API?.R;
   const wins=st.wins||0, shown=Math.min(wins,12);
   const cups=wins?Array.from({length:shown},(_,i)=>`<i class="tw-cup" style="--d:${i*60}ms">${CUP}</i>`).join("")+(wins>12?`<i class="tw-more">+${wins-12}</i>`:""):Array.from({length:3},()=>`<i class="tw-cup ghost">${CUP}</i>`).join("");

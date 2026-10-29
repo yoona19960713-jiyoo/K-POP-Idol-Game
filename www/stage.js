@@ -207,7 +207,7 @@ window.openStageRoom=open;
 window.STAGE_SHOWS=SHOWS.map(s=>s.n);
 /* ---- 宣傳期 ---- */
 let TODAY={state:"test"};
-window.stageNewPromo=P=>{ const y=dateOf(P.start).getFullYear(); S=fresh(); S.year=Math.min(2022,Math.max(2015,y)); S.promoStart=P.start; S.updatedAt=Date.now(); save() };
+window.stageNewPromo=P=>{ const y=dateOf(P.start).getFullYear(); S=fresh(); S.year=Math.min(2022,Math.max(2016,y)); S.promoStart=P.start; S.updatedAt=Date.now(); save() };
 /* 沒去電視台的打歌:用上一場的準備單自動上台,不扣分 */
 window.stageCatchUp=(n,first)=>{ loadLinked(); if(S.idx<first) S.idx=first; let k=0;
   while(S.idx<n&&S.idx<TOTAL){ ensurePlan(); const r=perform(); r.auto=true; applyResult(r); k++ }
@@ -244,7 +244,7 @@ function render(){ if(!OPEN) return; syncSkill();
   $("#tvBody").innerHTML=ban+`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
     <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${TOTAL} 場,拿下 ${S.wins} 個一位。${TODAY.state==="test"?"可以在右邊重新開始一輪模擬。":"下一次回歸日可以到 2F 企劃室決定。"}</p></div>`:prep}</div>
     <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${S.log.length}/${TOTAL}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${RIVAL.n}</b></div>
-      ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear">${[2015,2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
+      ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear">${[2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
       <div class="tvcard"><h4>成員狀態</h4>${M.map(m=>{const st=S.m[m.id],b=(n,v,c)=>`<span>${n}</span><span class="tbar"><i style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></i></span>`;
         return `<div class="tstat">${face(m.id)}<div><b style="color:${m.c}">${m.n}</b>${st.cond==="sick"?`<i class="tg w">感冒</i>`:st.cond==="hurt"?`<i class="tg n">舊傷</i>`:""}<div class="tbars">${b("體力",st.stamina,"#4FE0A0")}${b("喉嚨",st.throat,"#5CC8FF")}${b("心情",st.mood,"#FFC857")}${b("人氣",Math.min(100,st.pop),m.c)}</div></div></div>`}).join("")}</div>
       <p class="tnote">${esc(srcText)}</p></div></div>`;

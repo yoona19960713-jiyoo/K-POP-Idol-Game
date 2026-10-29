@@ -1272,6 +1272,12 @@ canvas.wx.on{display:block}
 .pico svg .f{fill:#fff;stroke:none}
 .pico .pbadge{z-index:1}
 
+/* 改版 1.0(2026-10-29):時鐘連續走,沒有行動次數;互動花掉的時間在時間旁邊冒出「+20 分」,時間數字往前轉 */
+.topbar .tplus{position:absolute;left:0;top:0;white-space:nowrap;opacity:0;pointer-events:none;z-index:2;
+  font:700 max(calc(1.05*var(--u)),11px)/1.45 var(--num);letter-spacing:.02em;color:#fff;padding:0 calc(.7*var(--u));border-radius:calc(1*var(--u));
+  background:linear-gradient(135deg,var(--gold2),var(--gold3));box-shadow:0 calc(.15*var(--u)) calc(.5*var(--u)) rgba(80,50,20,.25)}
+#vsub .vplus{display:inline-block;margin-left:.6em;padding:0 .55em;border-radius:1em;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--gold2),var(--gold3))}
+
 /* ===== 演唱會演出畫面(concert.js) ===== */
 .cnview{position:absolute;inset:0;z-index:70;background:#05030a;overflow:hidden;animation:pvin .5s ease;cursor:pointer;--beam:#FF2E63}
 .cnview.out{opacity:0;transition:opacity .6s}
@@ -1896,17 +1902,13 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="icGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E9CF8F"/><stop offset=".5" stop-color="#B98A43"/><stop offset="1" stop-color="#7E5A26"/></linearGradient></defs></svg>
   <div class="topbar">
     <div class="tcard">
-      <div class="tdate"><b id="date">07.03</b><span id="wday">2015・星期五</span><span id="dayN">第 1 天</span></div>
+      <div class="tdate"><b id="date">01.13</b><span id="wday">2016・星期三</span><span id="dayN">出道 D-366</span></div>
       <div class="tslot">
         <div class="row1"><span class="sn" id="slotName">清晨</span><span class="hm" id="hm">06:00</span><span class="wxic" id="wxIc" hidden></span><span class="pz">暫停中</span></div>
-        <div class="segs" id="segs"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
-      </div>
-      <div class="tact">
-        <span class="lbl">行動 <span id="actN">5</span>/5</span>
-        <div class="ap" id="ap"><i></i><i></i><i></i><i></i><i></i></div>
-        <button class="endslot" id="endBtn">結束這個時段</button>
+        <div class="segs" id="segs"><i style="flex:6"><b></b></i><i style="flex:7"><b></b></i><i style="flex:9"><b></b></i><i style="flex:9"><b></b></i><i style="flex:5"><b></b></i></div>
       </div>
     </div>
+    <span class="tplus" id="tplus" aria-hidden="true"></span>
     <div class="ibtns">
       <button class="ibtn" id="memBtn" aria-label="成員"><svg viewBox="0 0 24 24"><circle cx="9.2" cy="8.6" r="3.3"/><path d="M3.2 19.6c.7-3.4 3-5.3 6-5.3s5.3 1.9 6 5.3"/><circle cx="16.6" cy="9.6" r="2.5"/><path d="M15.4 14.4c2.6-.2 4.6 1.4 5.3 4.4"/><path class="fillg" d="M19.6 2.6l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/></svg>成員</button>
       <button class="ibtn" id="phoneBtn" aria-label="手機"><svg viewBox="0 0 24 24"><rect x="6.4" y="2.6" width="11.2" height="18.8" rx="2.6"/><path d="M10.3 5.1h3.4"/><path class="fillg" d="M12 10.2l.75 1.9 1.9.75-1.9.75-.75 1.9-.75-1.9-1.9-.75 1.9-.75z"/><path d="M10.6 18.4h2.8"/></svg>手機<span class="badge" id="badge"></span></button>
@@ -1993,7 +1995,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
     <h3>存檔備份</h3>
     <p class="hint">遊玩時每 30 分鐘自動備份一次,保留最近 6 份,再加上最近幾天每天一份。存檔出問題時可以回到其中一份。</p>
     <ul id="bakList" class="bak"></ul>
-    <div class="row"><button class="b" id="bakNow">立即備份</button></div>
+    <div class="row"><button class="b" id="bakNow">立即備份</button><button class="b" id="v0Dl" hidden>下載改版前的存檔</button></div>
 
     <h3>錯誤紀錄 <small id="errN"></small></h3>
     <p class="hint">遊戲出錯時會記在這台裝置(最多 60 筆,同樣的錯誤只記一次並計次)。遇到怪事時按「複製」,貼給 Claude。</p>

@@ -64,7 +64,7 @@ function shell(){
 }
 function open(){ shell(); APP="home"; CHAT=null; $("#phone").classList.add("on"); setPause("phone",true); render() }
 function close(){ $("#phone").classList.remove("on"); setPause("phone",false); save() }
-function status(){ $("#pTime").textContent=hm(); const b=Math.max(8,100-S.slot*18-Math.floor((S.t||0)/SLOT_SEC*14)); const e=$("#pBat"); e.style.width=b+"%"; e.classList.toggle("low",b<25) }
+function status(){ $("#pTime").textContent=hm(); const b=Math.max(8,Math.round(100-(S.min-360)/1440*88)); const e=$("#pBat"); e.style.width=b+"%"; e.classList.toggle("low",b<25) }   // 電量跟著一天的時間慢慢下降
 function pfx(t,c){const e=document.createElement("span"); e.style.setProperty("--c",c||"#E85C8A"); e.textContent=t; $("#pFx").appendChild(e); setTimeout(()=>e.remove(),2400)}
 /* 桌布:合照是橫的,直接鋪滿只會剩中間一人,所以用「完整合照 + 同一張模糊放大當底」;場景類照樣鋪滿 */
 const WALLS={title:"assets/bg/title.webp",group:"assets/bg/group_photo.webp",styling:"assets/bg/styling_evening.webp",night:"assets/scene/map_night.webp",portrait:"assets/bg/wall_group.webp"};
@@ -115,7 +115,7 @@ function chat(){ const p=ph(), k=CHAT, g=k==="group", t=p.threads[k]||[], pend=p
 const snipBy=code=>SCRIPTS[code]||WX_SNIPS.find(s=>s.code===code);   // 直接用代號查,不用每次複製整個內容庫
 async function reply(i){ const p=ph(), k=CHAT, pend=p.pend[k]; if(!pend) return; const sn=snipBy(pend.code), n=sn?.nodes?.[pend.node], c=n?.C?.[i]; if(!c) return;
   const to=c.to&&byId(c.to)?c.to:(k==="group"?(sn.who?.[0]||"ys"):k);
-  pushLines(k,[["me",stripQ(c.t)]]); delete p.pend[k];
+  pushLines(k,[["me",stripQ(c.t)]]); delete p.pend[k]; window.spendTime?.(3,"回訊息");
   const before=S.m[to]?.xp||0; applyChoice({...c,to}); const dt=(S.m[to]?.xp||0)-before;
   if(dt>0) pfx(`${byId(to).n} 好感 +${dt}`,byId(to).c);
   render(); const typing=()=>{const e=$("#pTyping"); if(e){e.hidden=false; $("#pLog").scrollTop=1e9}};
@@ -130,7 +130,7 @@ const placeName=k=>k.startsWith("外出:")?k.slice(3):k.startsWith("bed_")?"自�
 function whereAt(m,slot){ const w=WHERE[m.id][slot], r=rng(seedOf(S.day,slot,m.id));
   const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k].open.includes(slot)));
   let k=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(k==="bedroom") k="bed_"+m.id; return k }
-const WEEK=[["日","休假日・自主練習","rest"],["一","上午 公司週會・下午 舞蹈課",""],["二","下午 聲樂課",""],["三","下午 舞蹈課・晚上 體能訓練",""],["四","下午 錄音・晚上 自主練習",""],["五","下午 舞蹈評估",""],["六","上午 個人課程・下午 自主練習",""]];
+const WEEK=[["日","休假日・上午補眠、下午放假","rest"],["一","上午 個人課・下午 團體練習(舞蹈)",""],["二","上午 個人課・下午 團體練習(聲樂)",""],["三","上午 個人課・下午 團體練習(舞蹈)",""],["四","上午 個人課・下午 錄音",""],["五","上午 個人課・下午 評估",""],["六","上午 個人課・下午 補強最弱的項目",""]];
 function sched(){ const d=dateOf(S.day);
   const lastSat=(()=>{const x=new Date(d.getFullYear(),d.getMonth()+1,0); while(x.getDay()!==6) x.setDate(x.getDate()-1); return x.getDate()})();
   const days=[...Array(7)].map((_,i)=>{const day=S.day+i, x=dateOf(day); const w=WEEK[x.getDay()]; const eva=window.isEvalDay?isEvalDay(x):(x.getDay()===6&&x.getDate()===lastSat);
@@ -138,7 +138,7 @@ function sched(){ const d=dateOf(S.day);
     const txt=deb?"<em>出道日</em>・Showcase":cb?"<em>回歸日</em>・回歸 Showcase":show?`<em>打歌</em>・${show}`:eva?"<em>月評</em>・全天 月末評估":w[1];
     return `<div class="pcal${i===0?" today":""}${w[2]==="rest"&&!show?" rest":""}${eva||show||deb||cb?" eva":""}"><b>${x.getMonth()+1}/${x.getDate()}<small>週${w[0]}</small></b><span>${txt}</span></div>`}).join("");
   const P=window.promoInfo?.(), dd=(window.DEBUT_DAY||0)-S.day;
-  const notice=dd>0?`<b>出道企劃進行中・${debutText()}</b><p>2017 年 7 月 13 日出道。主打歌與造型在 2F 企劃室、1F 造型室準備,每月最後一個週六有月評。</p>`
+  const notice=dd>0?`<b>出道企劃進行中・${debutText()}</b><p>${fmtGameDay(window.DEBUT_DAY)} 出道。歌曲在製作中心 3F 企劃室、造型在公司 1F 造型室準備,每月最後一個週六有月評。</p>`
     :P?.active?`<b>${P.kind==="debut"?"出道":"回歸"}宣傳期進行中</b><p>〈${esc(P.title)}〉打歌到 ${fmtGameDay(P.end)}。沒去電視台的那天,會用上一場的準備單自動上台。</p>`
     :S.comeback!=null?`<b>回歸日 ${fmtGameDay(S.comeback)}</b><p>還有 ${S.comeback-S.day} 天,企劃室和造型室可以開始準備了。</p>`
     :`<b>空白期</b><p>到 2F 企劃室決定下一次的回歸日。</p>`;
@@ -206,7 +206,7 @@ function bind(B){
   B.querySelectorAll("[data-wall]").forEach(b=>b.onclick=()=>{const p=ph(); p.wall=b.dataset.wall; p.wallSet=true; save(); render()});
   B.querySelectorAll("[data-photo]").forEach(b=>b.onclick=()=>viewPhoto(+b.dataset.photo));
   B.querySelectorAll("[data-like]").forEach(b=>b.onclick=()=>{const f=ph().feed[+b.dataset.like]; f.liked=true; f.likes++; save(); render()});
-  B.querySelectorAll("[data-cmt]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.cmt.split(":").map(Number), f=ph().feed[i], sn=snipBy(f.code), n=sn?.nodes?.[f.choice], c=n?.C?.[j]; if(!c) return;
+  B.querySelectorAll("[data-cmt]").forEach(b=>b.onclick=()=>{ const [i,j]=b.dataset.cmt.split(":").map(Number), f=ph().feed[i], sn=snipBy(f.code), n=sn?.nodes?.[f.choice], c=n?.C?.[j]; if(!c) return; window.spendTime?.(2,"留言");
     const to=c.to&&byId(c.to)?c.to:f.id, before=S.m[to]?.xp||0; applyChoice({...c,to}); const dt=(S.m[to]?.xp||0)-before; if(dt>0) pfx(`${byId(to).n} 好感 +${dt}`,byId(to).c);
     f.reply=stripQ(c.t); f.r=[...(c.r||[])]; f.choice=null; save(); render() });
 }

@@ -44,19 +44,23 @@ const PREF={ys:{安慰:1,鼓勵:1.2,嚴厲:.3,開玩笑:1,轉移話題:.5,陪著
 const WARM=["安慰","鼓勵","陪著"];
 
 /* ---------- 時段 ---------- */
+/* 改版 1.0(2026-10-29):一天 36 分鐘,時鐘連續走、不能快轉。五段只是光線、背景音樂與作息的分段:
+   from/to 是遊戲時間(分鐘,過午夜往上加),sec 是那一段在現實裡走幾秒(清晨 6、上午 7、下午 9、晚上 9、深夜 5 分鐘) */
 const SLOTS=[
-  {n:"清晨",light:"dawn",   from:6*60, to:9*60},
-  {n:"上午",light:"day",    from:9*60, to:12*60},
-  {n:"下午",light:"day",    from:12*60,to:18*60},
-  {n:"晚上",light:"evening",from:18*60,to:22*60},
-  {n:"深夜",light:"night",  from:22*60,to:26*60}];
-const SLOT_SEC=144;               // 12 分鐘 ÷ 5 個時段
-const START=new Date(2015,6,3);   // 2015.07.03
+  {n:"清晨",light:"dawn",   from:6*60, to:9*60, sec:360},
+  {n:"上午",light:"day",    from:9*60, to:12*60,sec:420},
+  {n:"下午",light:"day",    from:12*60,to:18*60,sec:540},
+  {n:"晚上",light:"evening",from:18*60,to:23*60,sec:540},
+  {n:"深夜",light:"night",  from:23*60,to:30*60,sec:300}];
+const DAY0=360;                    // S.min:從前一天午夜算起的遊戲分鐘;一天從清晨 6:00(360)走到隔天 6:00(1800)
+const slotOfMin=m=>{ for(let i=SLOTS.length-1;i>=0;i--) if(m>=SLOTS[i].from) return i; return 0 };
+const START=new Date(2016,0,13);   // 2016.01.13 代表上任(改版 1.0;舊版從 2015.07.03 開始)
+const START_V0=new Date(2015,6,3);
 const WD=["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
 const dateOf=day=>{const d=new Date(START);d.setDate(d.getDate()+day);return d};
 const seasonOf=d=>{const m=d.getMonth()+1;return m>=3&&m<=5?"春":m>=6&&m<=8?"夏":m>=9&&m<=11?"秋":"冬"};
 /* 時期:出道前是練習生期,出道後依年份(跟製作者模式的時期描述一致)。片段的 period 要對得上才會被抽到 */
-const periodNow=(day=S.day)=>{ if(day<(window.DEBUT_DAY??741)) return "練習生期"; const y=dateOf(day).getFullYear(); return y<2018?"出道與上升期":y<2020?"巔峰期":"轉型期" };
+const periodNow=(day=S.day)=>{ if(day<(window.DEBUT_DAY??366)) return "練習生期"; const y=dateOf(day).getFullYear(); return y<2018?"出道與上升期":y<2020?"巔峰期":"轉型期" };
 
 /* ---------- 地點:sp = 劇本工坊的地點代號 ---------- */
 const PLACES=[
@@ -115,16 +119,30 @@ const MSG={ys:[["代表今天也辛苦了~明天的行程我會再確認一次!"
 
 /* ---------- 存檔 ---------- */
 const KEY="kpopGame.save";
-function fresh(){return {v:1,day:0,slot:0,t:0,acts:5,visited:[],
-  m:{ys:{trust:30,heart:0,mood:60,stress:40},tr:{trust:10,heart:0,mood:55,stress:35},hy:{trust:25,heart:0,mood:50,stress:45},he:{trust:35,heart:0,mood:70,stress:30},hr:{trust:45,heart:0,mood:65,stress:35}},
+function fresh(){return {v:3,gen:10,day:0,slot:0,min:DAY0,entered:[],
+  /* 改版 1.0:新上任的代表,五個人都從「戒備」開始;起點依個性不同(河嵐、夏恩最快熟,泰梨最慢) */
+  m:{ys:{trust:11,heart:0,mood:60,stress:40},tr:{trust:3,heart:0,mood:55,stress:35},hy:{trust:9,heart:0,mood:50,stress:45},he:{trust:13,heart:0,mood:70,stress:30},hr:{trust:15,heart:0,mood:65,stress:35}},
   where:{},flags:{},seen:{},absent:[],unread:0,wear:null,lastWear:{},updatedAt:0}}
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.m) S=fresh();
 /* 存檔版本(參考 save-systems 技能):之後改資料結構時,把 SAVE_VER 加 1,在 MIGRATE 寫一步把舊存檔轉成新格式;讀檔、讀雲端存檔、回復備份都會跑 */
-const SAVE_VER=2, MIGRATE={2:s=>{ /* v1 → v2:只加版本號,欄位不變 */ }};
-function migrate(s){ let v=+s.v||1; while(v<SAVE_VER){ v++; try{ MIGRATE[v]?.(s) }catch(e){ console.error("migrate",v,e) } } s.v=SAVE_VER; return s }
+/* v3(2026-10-29 改版 1.0):遊戲只留新版本。舊存檔(gen 不是 10、v 小於 3)不轉換:先封存(kpopGame.saveV0、IndexedDB、存檔備份),
+   開新遊戲,只把已解鎖的回憶照片帶過來(S.cgKeep,相簿照樣看得到;新遊戲裡升階時那張 CG 還是會再「發生」一次)。
+   gen:10 是新版存檔的記號:還沒更新的舊版 App 讀到新版存檔會把 v 改回 2,有這個記號就不會被當成舊存檔重開 */
+const SAVE_VER=3, MIGRATE={2:s=>{ /* v1 → v2:只加版本號,欄位不變 */ }};
+let V0_PENDING=null;
+function archiveV0(old){ const js=JSON.stringify(old); V0_PENDING=js;
+  try{ const cur=JSON.parse(localStorage.getItem("kpopGame.saveV0")||"null"); if(!cur||(old.updatedAt||0)>=(cur.updatedAt||0)) localStorage.setItem("kpopGame.saveV0",js) }catch(e){ window.logErr?.("舊存檔封存",e) } }
+function newFromV0(old){ archiveV0(old); const n=fresh(), k=old.cgKeep||{}, mg=(a,b)=>({...(a||{}),...(b||{})});
+  const cg={}; for(const [id,o] of Object.entries(k.cg||{})) cg[id]={...o}; for(const [id,o] of Object.entries(old.cg||{})) cg[id]={...(cg[id]||{}),...o};
+  n.cgKeep={cg,cgDuo:mg(k.cgDuo,old.cgDuo),cgEx:mg(k.cgEx,old.cgEx)}; n.fromV0={day:old.day||0,at:Date.now()}; return n }
+function fixV3(s){ s.gen=10; if(!(s.slot>=0&&s.slot<=4)) s.slot=0; if(!isFinite(+s.min)||s.min<SLOTS[s.slot].from) s.min=SLOTS[s.slot].from;
+  if(!Array.isArray(s.entered)) s.entered=[]; delete s.t; delete s.acts; delete s.visited }
+const isV0=s=>!!s&&s.gen!==10&&(+s.v||1)<3;
+function migrate(s){ if(isV0(s)&&s.m){ const n=newFromV0(s); for(const k of Object.keys(s)) delete s[k]; Object.assign(s,n); return s }
+  let v=+s.v||1; while(v<SAVE_VER){ v++; try{ MIGRATE[v]?.(s) }catch(e){ console.error("migrate",v,e) } } s.v=SAVE_VER; fixV3(s); return s }
 migrate(S);
-try{ const o=JSON.parse(localStorage.getItem("kpopGame.t")||"null"); if(o&&o.d===S.day&&o.s===S.slot&&o.t>S.t) S.t=o.t }catch(e){window.logErr?.("game",e)}
+try{ const o=JSON.parse(localStorage.getItem("kpopGame.t")||"null"); if(o&&o.d===S.day&&o.m>S.min&&o.m<1800) S.min=o.m }catch(e){window.logErr?.("game",e)}   // 最後幾秒的時間(每 3 秒記一次)
 /* updatedAt 只在有進度時更新(換時段、拜訪、做選擇),用來判斷雲端與本機哪份較新;時間流動只存本機 */
 /* 存檔:寫入失敗(多半是手機的網頁儲存空間滿了)會提示,並改存到 IndexedDB 的備份區,下次啟動會自動接回 */
 let saveFail=false;
@@ -407,7 +425,10 @@ const who=pid=>M.filter(m=>S.where[m.id]===pid);
 /* ---------- 主畫面:主地圖與建築剖面 ---------- */
 const pausers=new Set(); const paused=()=>pausers.size>0||document.hidden;
 function setPause(k,on){on?pausers.add(k):pausers.delete(k);$("#stage").classList.toggle("paused",paused())}
-function hm(){const s=SLOTS[S.slot],mins=s.from+(s.to-s.from)*Math.min(S.t,SLOT_SEC)/SLOT_SEC,h=Math.floor(mins/60)%24,mm=Math.floor(mins%60/10)*10;return `${pad(h)}:${pad(mm)}`}
+function hm(m=S.min){const x=Math.floor(m)%1440,h=Math.floor(x/60),mm=Math.floor(x%60/10)*10;return `${pad(h)}:${pad(mm)}`}
+/* 頂部的日期過了午夜就換成隔天(遊戲的「一天」仍然到清晨 6 點才結束) */
+const calDay=()=>S.day+(S.min>=1440?1:0);
+const fmtMin=n=>n<60?`${n} 分`:`${Math.floor(n/60)} 小時${n%60?` ${n%60} 分`:""}`;
 /* 座標都是畫面百分比(插畫 1600×900) */
 const SPOTS=[
   {id:"company",n:"公司大樓",kind:"building",rect:[11.8,10.3,35.4,50.2],pin:[29.5,40],rooms:["practice","studio","office","styling"]},
@@ -471,25 +492,24 @@ function warmNext(){ const u=warmQ.shift(); if(!u){warming=false;return} warming
 /* 頂部列每一格畫面都會呼叫:只在數值真的改變時才寫進畫面(每格都重寫會讓玻璃面板一直重畫,手機很耗電、很卡) */
 const HUDC={};
 function hudSet(id,v,prop="textContent"){ const k=id+prop; if(HUDC[k]===v) return; HUDC[k]=v; const e=document.getElementById(id); if(e) e[prop]=v }
-function renderHud(){const d=dateOf(S.day); warmArt();
+function renderHud(){const d=dateOf(calDay()); warmArt();
   hudSet("date",`${pad(d.getMonth()+1)}.${pad(d.getDate())}`); hudSet("wday",`${d.getFullYear()}・${WD[d.getDay()]}`); hudSet("dayN",window.debutText?debutText():`第 ${S.day+1} 天`);
-  hudSet("slotName",SLOTS[S.slot].n); hudSet("hm",hm());
-  const pct=Math.round(200*Math.min(S.t,SLOT_SEC)/SLOT_SEC)/2, segKey=S.slot+"|"+pct;
+  hudSet("slotName",SLOTS[S.slot].n); if(!TFX_RUN) hudSet("hm",hm());
+  const sl=SLOTS[S.slot], pct=Math.round(200*clamp((S.min-sl.from)/(sl.to-sl.from),0,1))/2, segKey=S.slot+"|"+pct;
   if(HUDC.seg!==segKey){ HUDC.seg=segKey; [...$("#segs").children].forEach((e,i)=>{const c=i<S.slot?"done":i===S.slot?"on":""; if(e.className!==c) e.className=c; e.firstChild.style.transform=`scaleX(${i===S.slot?pct/100:0})`}) }
-  const apKey=S.acts; if(HUDC.ap!==apKey){ HUDC.ap=apKey; [...$("#ap").children].forEach((e,i)=>e.classList.toggle("used",i>=S.acts)) }
-  hudSet("actN",String(S.acts)); hudSet("badge",String(S.unread||""))}
+  hudSet("badge",String(S.unread||""))}
 
 function renderWorld(){
   setArt("worldArt",seasonArt("scene","map",L()));
   $("#worldHot").innerHTML=SPOTS.map(sp=>{
     const [x,y,w,h]=sp.rect, ppl=sp.kind==="locked"?[]:sp.kind==="place"?who(sp.id):inSpot(sp.id);
     const open=sp.kind==="building"?sp.rooms.some(r=>PL[r].open.includes(S.slot)):sp.kind==="place"?PL[sp.id].open.includes(S.slot):false;
-    const done=sp.kind==="place"&&S.visited.includes(sp.id);
-    const sub=sp.kind==="locked"?(sp.id==="tv"&&window.promoActive?.()?`<span class="sub">打歌期進行中</span>`:`<span class="lock">🔒 ${sp.id==="tv"&&S.day>=(window.DEBUT_DAY||1e9)?"宣傳期外":sp.note}</span>`):sp.kind==="place"?(!open?openText(PL[sp.id]):done?"這個時段已來過":ppl.length?`${ppl.length} 人在這裡`:"沒有認識的人")
+    const done=false;
+    const sub=sp.kind==="locked"?(sp.id==="tv"&&window.promoActive?.()?`<span class="sub">打歌期進行中</span>`:`<span class="lock">🔒 ${sp.id==="tv"&&S.day>=(window.DEBUT_DAY||1e9)?"宣傳期外":sp.note}</span>`):sp.kind==="place"?(!open?openText(PL[sp.id]):ppl.length?`${ppl.length} 人在這裡`:"沒有認識的人")
       :(!open?"現在沒有開放的房間":ppl.length?`${ppl.length} 人在裡面`:"沒有人");
-    const dis=sp.kind==="place"&&(!open||done||S.acts<=0);
+    const dis=sp.kind==="place"&&!open;
     const label=`${sp.n},${sub.replace(/<[^>]+>/g,"")}`;
-    const why=dis?(!open?openText(PL[sp.id]):done?"這個時段已來過":"沒有行動次數了,結束這個時段就能繼續"):"";
+    const why=dis?openText(PL[sp.id]):"";
     return `<button class="hot${dis?" dis":""}" data-spot="${sp.id}" data-why="${why}" style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis?'aria-disabled="true"':""} aria-label="${label}"></button>
       <button class="pin${sp.kind==="locked"?" locked":""}${done?" done":""}${dis?" dis":""}" data-spot="${sp.id}" data-why="${why}" style="left:${sp.pin[0]}%;top:${sp.pin[1]}%" tabindex="-1" aria-hidden="true">
         <span class="plate"><b>${sp.n}</b><small>${sub}</small>${sp.kind==="locked"?"":facesHTML(ppl)}</span></button>`}).join("");
@@ -510,17 +530,17 @@ function exitToMap(){const i=$("#inside"); i.classList.add("enter"); clearTimeou
 function renderInside(){if(view==="map") return; const B=INSIDE[view];
   setArt("insideArt",`assets/scene/${view}_${L()}.webp`,lastInside!==view); lastInside=view;
   $("#rooms").innerHTML=B.rooms.map((rm,ri)=>{
-    const p=PL[rm.pid], open=p.open.includes(S.slot), vis=S.visited.includes(rm.pid);
+    const p=PL[rm.pid], open=p.open.includes(S.slot), vis=false;
     const ppl=open?who(rm.pid):[];
-    const dis=!open||vis||S.acts<=0, [x,y,w,h]=rm.r;
-    const own=p.owner, st=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):vis?"這個時段已來過":own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const dis=!open, [x,y,w,h]=rm.r;
+    const own=p.owner, st=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
     const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri));
     const figs=ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
     return `${figs}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span></span>
-      ${!open?`<span class="lockc">${openText(p)}</span>`:vis?`<span class="lockc soft">這個時段已來過</span>`:""}</button>`}).join("");
+      ${!open?`<span class="lockc">${openText(p)}</span>`:""}</button>`}).join("");
   $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.both){ if(PL[b.dataset.pid]?.facOnly){ openFac(b.dataset.both); return } chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
     if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)})}
 /* 電視台:宣傳期直接進待機室,其他時間是練習模式 */
@@ -528,7 +548,7 @@ function tvChooser(){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
   const after=S.day>=(window.DEBUT_DAY||1e9);
   el.innerHTML=`<div class="chbox"><h3>電視台</h3><p class="chnote">${after?"現在不是宣傳期。到 2F 企劃室決定下一次的回歸日。":`出道後的打歌期才會正式開放(${window.debutText?debutText():""})。`}</p>
-    <button class="chbtn pri" data-ch="tv"><b>練習模式:進入待機室</b><small>模擬打歌,不影響正式宣傳期・不花行動,時間暫停</small></button>
+    <button class="chbtn pri" data-ch="tv"><b>練習模式:進入待機室</b><small>模擬打歌,不影響正式宣傳期・不花時間,打開時時間暫停</small></button>
     <button class="chx" data-ch="x">取消</button></div>`;
   el.classList.add("on"); el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); if(b.dataset.ch==="tv") window.openStageRoom&&openStageRoom()});
   el.onclick=e=>{if(e.target===el) el.classList.remove("on")};
@@ -546,10 +566,10 @@ function openFac(fac){ if(fac==="wardrobe"||fac==="design") window.openFacility?
   else if(fac==="records") window.openRecords?.(); else if(fac==="mv") window.openMVRoom?.(); else window.openSongFacility?.(fac) }
 function chooser(pid,fac){
   let el=$("#chooser"); if(!el){el=document.createElement("div");el.id="chooser";el.className="chooser";$("#stage").appendChild(el)}
-  const p=PL[pid], open=p.open.includes(S.slot), vis=S.visited.includes(pid), ppl=who(pid), canVisit=open&&!vis&&S.acts>0;
+  const p=PL[pid], open=p.open.includes(S.slot), ppl=who(pid), canVisit=open;
   el.innerHTML=`<div class="chbox"><h3>${p.n}</h3>
-    <button class="chbtn pri" data-ch="fac"><b>使用${FACN[fac][0]}</b><small>${FACN[fac][1]}・不花行動,時間暫停</small></button>
-    <button class="chbtn" data-ch="visit" ${canVisit?"":"disabled"}><b>${pid==="office"?"在辦公室找成員":"跟在場的成員聊天"}</b><small>${!open?openText(p):vis?"這個時段已來過":S.acts<=0?"沒有行動次數了":pid==="office"?"花 1 次行動,可以請在公司的成員過來":ppl.length?`花 1 次行動・${ppl.map(m=>m.n).join("、")}在這裡`:"花 1 次行動・現在沒有人"}</small></button>
+    <button class="chbtn pri" data-ch="fac"><b>使用${FACN[fac][0]}</b><small>${FACN[fac][1]}・打開時時間暫停</small></button>
+    <button class="chbtn" data-ch="visit" ${canVisit?"":"disabled"}><b>${pid==="office"?"在辦公室找成員":"跟在場的成員聊天"}</b><small>${!open?openText(p):pid==="office"?"可以請在公司的成員過來・聊天約 15~30 分鐘":ppl.length?`${ppl.map(m=>m.n).join("、")}在這裡・聊天約 15~30 分鐘`:"現在沒有人"}</small></button>
     <button class="chx" data-ch="x">取消</button></div>`;
   el.classList.add("on");
   el.querySelectorAll("[data-ch]").forEach(b=>b.onclick=()=>{el.classList.remove("on"); const c=b.dataset.ch;
@@ -584,10 +604,29 @@ function toast(t,s){const e=$("#toast");$("#toastT").textContent=t;$("#toastS").
 /* 遊戲時鐘:每 0.25 秒走一次(頂部列的數字最快約 0.7 秒才變一次)。以前每一格畫面都跑,A55 的 120Hz 螢幕上一秒 120 次,開著很耗電 */
 let last=performance.now();
 function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
-  if(!paused()){S.t+=dt; if(S.t>=SLOT_SEC) endSlot("time"); else renderHud()}}
+  if(paused()) return; const sl=SLOTS[S.slot];
+  S.min+=dt*(sl.to-sl.from)/sl.sec;
+  if(S.min>=sl.to) passSlots(); else { renderHud(); if(TFX&&!TFX_RUN) playTimeFx() } }
+/* 互動完成時扣遊戲時間(改版 1.0):時鐘往前跳。對話、設施開著時先記著,畫面都關了、時鐘再走的時候才處理跨過的時段,
+   頂部的時間「往前轉」到新的時間,旁邊冒出「+20 分」 */
+let TFX=null, TFX_RUN=false;
+window.spendTime=(min,why)=>{ min=Math.round(+min||0); if(min<=0||V?.test) return 0;
+  TFX={from:TFX?TFX.from:S.min,add:(TFX?.add||0)+min,why:why||""}; S.min+=min; S.spent=(S.spent||0)+min;
+  if(V){ V.spent=(V.spent||0)+min; vsubSet(min) } save(true); return min };
+function playTimeFx(){ const f=TFX; TFX=null; if(!f) return;
+  const el=$("#tplus"), hmEl=$("#hm"); if(el&&hmEl){ el.textContent="+"+fmtMin(f.add);   // 放在時間的正下方(時間卡外面,卡片本身會裁切)
+    const r=hmEl.getBoundingClientRect(), R=el.parentElement.getBoundingClientRect(); el.style.left=Math.round(r.left-R.left)+"px"; el.style.top=Math.round(($(".tcard")?.getBoundingClientRect().bottom??r.bottom)-R.top+5)+"px";
+    if(!RM.matches) el.animate([{opacity:0,translate:"0 35%"},{opacity:1,translate:"0 0",offset:.18},{opacity:1,offset:.78},{opacity:0,translate:"0 -30%"}],{duration:1800,easing:"ease-out"}) }
+  if(RM.matches){ renderHud(); return } TFX_RUN=true; const to=S.min, t0=performance.now(), DUR=700;
+  const step=()=>{ const k=Math.min(1,(performance.now()-t0)/DUR), m=f.from+(to-f.from)*(1-(1-k)**3); hudSet("hm",hm(Math.min(m,S.min)));
+    if(k<1) requestAnimationFrame(step); else { TFX_RUN=false; renderHud() } }; requestAnimationFrame(step) }
+/* 跨過時段:一次可能跨好幾段(例如做完一件很久的事),中間的段安靜處理,最後才重畫、存檔、提示 */
+function passSlots(){ let n=0; while(S.min>=SLOTS[S.slot].to&&n<10){ slotEnd(); n++ }
+  renderAll(); save(true); pushSave(); if(TFX&&!TFX_RUN) playTimeFx();
+  toast(SLOTS[S.slot].n,n>1?`時間來到${SLOTS[S.slot].n}`:"進入下一個時段") }
 /* 存檔排程(第二輪優化):每 3 秒只記時間(小鍵 kpopGame.t);整份存檔改成閒置時每 30 秒一次(內容庫一萬段時整份 JSON 化+寫入約 20 ms,
    以前每 3 秒一次會讓動畫掉格)。有進度的動作(換時段、拜訪、選擇…)照舊立刻整份存;切到背景、關掉頁面時也整份存 */
-function saveT(){ try{ localStorage.setItem("kpopGame.t",JSON.stringify({d:S.day,s:S.slot,t:Math.round(S.t*100)/100})) }catch(e){} }
+function saveT(){ try{ localStorage.setItem("kpopGame.t",JSON.stringify({d:S.day,m:Math.round(S.min*10)/10})) }catch(e){} }
 every(3000,()=>{ if(!paused()) saveT() });
 every(30000,()=>{ if(!paused()) (window.requestIdleCallback?requestIdleCallback(()=>save(),{timeout:3000}):save()) });
 window.addEventListener("pagehide",()=>save());
@@ -599,7 +638,7 @@ document.addEventListener("visibilitychange",()=>{ $("#stage").classList.toggle(
     const r=await cloudChanged(d); if(r==="adopt"){ ensureWear(true); renderAll(); toast2("已讀取另一台裝置的最新進度(這台原本的進度在存檔備份)") } }).catch(e=>logErr("回到前景",e)) });
 
 function absentReports(r){const out=[];
-  for(const p of PLACES){if(S.visited.includes(p.id)) continue; const ppl=who(p.id); if(!ppl.length||r()>.45) continue;
+  for(const p of PLACES){if(S.entered.includes(p.id)) continue; const ppl=who(p.id); if(!ppl.length||r()>.45) continue;
     const ids=ppl.map(m=>m.id), cs=snips().filter(sn=>sn.type==="away"&&sn.at===p.sp&&(!sn.sl?.length||sn.sl.includes(S.slot))&&sn.who?.length&&sn.who.every(id=>ids.includes(id))&&reqOk(sn)&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4)));
     const sn=pickW(cs,r);
     if(sn){S.seen[sn.code]=S.day; const f=fillVars(sn), txt=[f.sc,...(f.nodes?.start?.L||[]).filter(l=>l[0]!=="@").map(l=>l[0]?`${byId(l[0])?.n||""}:「${l[1]}」`:l[1])].filter(Boolean).join(" ");
@@ -609,39 +648,41 @@ function absentReports(r){const out=[];
     out.push(`<b>${p.n}</b>:`+esc(t).replace("{a}",`<b style="color:${a.c}">${a.n}</b>`).replace("{b}",b?`<b style="color:${b.c}">${b.n}</b>`:""))}
   return out.slice(0,3)}
 function newMessage(r){ window.phoneIncoming?.(r) }   // 訊息、群組、STARLOG 由 phone.js 處理
-function endSlot(reason){
+function slotEnd(){
   const r=rng(seedOf(S.day,S.slot,"end"));
   S.absent=absentReports(r);
   for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+(S.slot<=2?2:S.slot===4?-6:-1),0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood),0,100)}
   if(window.growthOnSlotEnd) growthOnSlotEnd();
   window.choreoOnSlotEnd?.(who("practice").map(m=>m.id));   // 待在練習室的成員自己練主打的編舞
-  S.slot++; if(S.slot>4){S.slot=0;S.day++; wxDaily()}
-  S.t=0; S.acts=5; S.visited=[]; assign(); window.lifeOnSlot?.(); ensureWear(); newMessage(r);
-  renderAll(); save(true); pushSave();
-  toast(SLOTS[S.slot].n,reason==="time"?"時間到了,進入下一個時段":reason==="acts"?"行動用完了,進入下一個時段":"你結束了這個時段")}
-$("#endBtn").onclick=()=>endSlot("manual");
+  S.slot++; if(S.slot>4){S.slot=0;S.day++;S.min-=1440; wxDaily()}
+  S.entered=[]; assign(); window.lifeOnSlot?.(); ensureWear(); newMessage(r) }
 
 /* =====================================================================
    拜訪與對話
    ===================================================================== */
 let V=null, D=null, typing=null, auto=false, autoT=0, logLines=[];
+/* 聊天扣多少遊戲時間:依這段對話裡實際做了幾次選擇(長對話 40~60 分;進房間時撞見的小片段 5~10 分) */
+function costMin(sn,cp,kind){ if(sn?.demoLine) return 5; if(sn?.type==="long"||sn?.type==="pairlong") return Math.min(60,40+2*cp);
+  if(kind==="entry"&&cp<=2) return cp?10:5; return cp===0?5:cp<=2?15:cp<=5?20:30 }
+function vsubSet(add){ const el=$("#vsub"); if(!el) return; el.innerHTML=`${SLOTS[S.slot].n}・${hm()}${add?`<span class="vplus">+${fmtMin(add)}</span>`:""}`;
+  const v=el.querySelector(".vplus"); if(v&&!RM.matches) v.animate([{opacity:0,translate:"0 30%"},{opacity:1,translate:"0 0"}],{duration:420,easing:"ease-out"}) }
 function visit(pid){
-  const p=PL[pid]; if(!p.open.includes(S.slot)||S.acts<=0||S.visited.includes(pid)||V) return;
-  const snap=JSON.stringify(S);
-  S.acts--; S.visited.push(pid); save(true); setPause("visit",true);
+  const p=PL[pid]; if(!p.open.includes(S.slot)||V) return;
+  const snap=JSON.stringify(S), first=!S.entered.includes(pid);
+  if(first) S.entered.push(pid); save(true); setPause("visit",true);
   const ppl=pid==="office"?[]:who(pid).map(m=>m.id);
-  V={pid,room:pid,present:ppl,talked:new Set(),summoned:null,snap}; logLines=[]; setBack();
+  V={pid,room:pid,present:ppl,talked:new Set(),summoned:null,snap,spent:0}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
-  $("#vtitle").textContent=p.n; $("#vsub").textContent=`${SLOTS[S.slot].n}・${hm()}・剩 ${S.acts} 次行動`;
+  $("#vtitle").textContent=p.n; vsubSet(0);
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;
   const wl=wxLine(pid), fsn=firstSnowSnip(ppl);
-  if(fsn){ play(fsn,menu); return }
+  if(fsn){ play(fsn,menu,"entry"); return }
   if(!ppl.length){narr(wl+(PL[pid].owner?`${byId(PL[pid].owner).n}不在房間裡。${EMPTY.bedroom.replace("寢室裡沒有人,","")}`:byTime(EMPTY[pid]))); menu(); return}
-  const all=pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}), wxs=all.filter(x=>x.wx);
+  const all=first?pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}):[], wxs=all.filter(x=>x.wx);   // 進場的小片段:這個時段第一次進來才演
   const sn=pickW(wxs.length&&Math.random()<.75?wxs:all);   // 對應天氣的片段優先
-  if(sn) play(wl&&!sn.sc&&!sn.wx?{...sn,sc:wl}:sn,menu); else {narr(wl+(PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:byTime(SCN[baseOf(pid)]))+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
+  if(sn) play(wl&&!sn.sc&&!sn.wx?{...sn,sc:wl}:sn,menu,"entry"); else {narr(wl+(PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:byTime(SCN[baseOf(pid)]))+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
 }
 function drawPeople(){
   const ids=[...V.present,...(V.summoned?[V.summoned]:[])], n=ids.length, ch=n<=1?120:n===2?104:n===3?92:82;
@@ -683,10 +724,10 @@ function narr(t){showText("",t,true)}
 function menu(){
   D=null; $("#vbox").classList.add("locked"); $("#vbox").classList.remove("wait");
   const opts=[];
-  for(const id of V.present) if(!V.talked.has(id)) opts.push(`<button class="vopt" data-talk="${id}">跟${byId(id).n}聊聊<small>不花行動</small></button>`);
+  for(const id of V.present) if(!V.talked.has(id)) opts.push(`<button class="vopt" data-talk="${id}">跟${byId(id).n}聊聊<small>約 15~30 分鐘</small></button>`);
   if(V.pid==="office"&&!V.summoned){const inCo=M.filter(m=>["practice","studio"].includes(S.where[m.id]));
     for(const m of inCo) opts.push(`<button class="vopt" data-sum="${m.id}">請${m.n}到辦公室<small>她在${PL[S.where[m.id]].n}</small></button>`)}
-  opts.push(`<button class="vopt" id="leave">離開<small>${S.acts>0?"回到主畫面":"行動用完,進入下一個時段"}</small></button>`);
+  opts.push(`<button class="vopt" id="leave">離開<small>${V.spent?`這次花了 ${fmtMin(V.spent)}`:"回到主畫面"}</small></button>`);
   $("#vopts").innerHTML=opts.join("");
   $("#vopts").querySelectorAll("[data-talk]").forEach(b=>b.onclick=()=>talk(b.dataset.talk));
   $("#vopts").querySelectorAll("[data-sum]").forEach(b=>b.onclick=()=>summon(b.dataset.sum));
@@ -698,13 +739,13 @@ function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid]; S.lastTalk={id
   const sn=inv||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
   if(!inv) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
-  play(sn,()=>{ window.lifeAfterTalk?.(id); menu() })}
+  play(sn,()=>{ window.lifeAfterTalk?.(id); menu() },"talk")}
 function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.lastTalk={id,day:S.day};
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
-  play(sn,menu)}
+  play(sn,menu,"talk")}
 function leave(){if(D) return; stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); stopSkip();
-  if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()}}
+  renderAll(); schedulePush()}   // 扣掉的時間跨過時段的話,時鐘下一次走的時候處理
 
 /* ---- 眨眼疊加層(2026-10-24 做,2026-10-25 改成只存小塊;說話時嘴巴開合在 2026-10-25 依使用者決定拿掉)----
    每人一張閉眼的眼睛小塊(assets/chara/blink/成員.webp)。之後的新疊加層(例如視線)照同樣方式加部位。
@@ -734,42 +775,42 @@ every(200,()=>{ if(!V||document.hidden) return; const now=performance.now();
     if(now<t) return; blinkOnce(img); if(Math.random()<.18) setTimeout(()=>blinkOnce(img),230);
     img.dataset.nb=now+2600+Math.random()*3800 }) });
 
-/* ---- 返回鍵(右上角):誤點進場景時可以退出。還沒跟成員聊過 → 存檔還原到進來之前,不花行動;聊過之後 → 直接離開 ---- */
+/* ---- 返回鍵(右上角):誤點進場景時可以退出。還沒跟成員聊過 → 存檔還原到進來之前,不花時間;聊過之後 → 直接離開 ---- */
 function setBack(){ let b=$("#vback"); if(!b){ b=document.createElement("button"); b.id="vback"; b.className="vback"; $("#visit").appendChild(b); b.onclick=backOut }
-  const free=V&&!V.test&&V.talked.size===0; b.hidden=!V||!!V.test||!!V.event; b.innerHTML=free?`<span>‹ 返回</span><small>不花行動</small>`:`<span>‹ 離開</span>` }
+  const free=V&&!V.test&&V.talked.size===0; b.hidden=!V||!!V.test||!!V.event; b.innerHTML=free?`<span>‹ 返回</span><small>不花時間</small>`:`<span>‹ 離開</span>` }
 function backOut(){ if(!V||V.test||V.event) return; const free=V.talked.size===0;
   if(free){ const o=JSON.parse(V.snap); for(const k of Object.keys(S)) if(!(k in o)) delete S[k]; Object.assign(S,o) }
   D=null; clearInterval(typing); typing=null; stopAuto(); stopSkip(); $("#vopts").innerHTML="";
   stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; save(true);
-  if(free) toast2("已返回,這次沒有花掉行動");
-  if(S.acts<=0) endSlot("acts"); else {renderAll(); schedulePush()} }
+  if(free){ toast2("已返回,這次沒有花時間"); TFX=null }
+  renderAll(); schedulePush() }
 
-/* ---- 試玩(製作者模式用):不花行動、不改存檔 ---- */
+/* ---- 試玩(製作者模式用):不花時間、不改存檔 ---- */
 window.testPlay=function(sn,onDone){
   if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen});
   const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",styling:"styling",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
   const room=PL[sn.room]?sn.room:sn.at==="phone"?"bed_"+((sn.who||[])[0]||"ys"):(roomOf[sn.at]||"practice");
   if(!sn.nodes?.start&&sn.hear?.length) sn={...sn,nodes:{start:{L:sn.hear,C:[]}}};   // 1.1 的成員之間(旁聽)
   V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[]; setBack();
-  $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花行動,也不會影響存檔";
+  $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花時間,也不會影響存檔";
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
   play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; save();
     $("#vopts").innerHTML=`<button class="vopt" id="testEnd">試玩結束<small>回到製作者模式</small></button>`;
     $("#testEnd").onclick=()=>{ stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); onDone&&onDone() } });
 };
 /* ---- 對話引擎:劇本工坊的節點格式 {start:{L:[[說話者,台詞,表情?]],C:[{t,s,to,g,next,r,set,mood,stress,heart}]}} ---- */
-function play(sn,onEnd){
+function play(sn,onEnd,cost){
   sn=fillVars(sn);   // {變數} 換成真正的名稱
   if(window.addBond&&!V?.test&&(sn.who||[]).length>1) addBond(sn.who,sn.type==="friction"?2.5:1.5);
   if(!sn.demoLine&&!String(sn.code).startsWith("demo-line")) S.seen[sn.code]=S.day;
   stageReset();
-  D={sn,onEnd,q:[],main:sn.member||sn.who?.[0],opener:window.__opener||null}; window.__opener=null;
+  D={sn,onEnd,q:[],main:sn.member||sn.who?.[0],opener:window.__opener||null,cost:cost||"",cp:0}; window.__opener=null;
   $("#vopts").innerHTML=""; $("#vbox").classList.remove("locked");
   if(sn.sc) D.q.push({k:"line",id:"",text:sn.sc});
   D.q.push({k:"node",key:"start"}); step()}
 function step(){
   if(!D) return; const it=D.q.shift();
-  if(!it){const f=D.onEnd;D=null;setExpr(null);if(CAM) camReset(false);moodSet("off");f&&f();return}
+  if(!it){const f=D.onEnd, c=D.cost, cp=D.cp, s0=D.sn; D=null; setExpr(null); if(CAM) camReset(false); moodSet("off"); if(c&&V&&!V.test) window.spendTime(costMin(s0,cp,c)); f&&f(); return}
   if(it.k==="node"){const n=D.sn.nodes[it.key]; if(!n){step();return}
     let LL=n.L||[]; if(it.key==="start"&&D.opener){ const o=D.opener; D.opener=null; let k=LL.findIndex(l=>l[0]===D.main); if(k<0) k=LL.length; LL=[...LL.slice(0,k),[D.main,o.t,o.e],...LL.slice(k)] }   // 開場句放在她第一句之前
     for(const l of LL) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
@@ -819,7 +860,7 @@ function showChoices(C){$("#vbox").classList.remove("wait"); stopAutoTimer(); st
   $("#vopts").innerHTML=C.map((c,i)=>`<button class="vopt choice" data-c="${i}">${esc(c.t)}${c.s?`<small>${esc(c.s)}</small>`:""}</button>`).join("");
   $("#vopts").querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>choose(C[+b.dataset.c])); $("#vopts button")?.focus({preventScroll:true})}
 function choose(c){
-  $("#vopts").innerHTML=""; applyChoice(c); reactTo(c);
+  $("#vopts").innerHTML=""; if(D) D.cp++; applyChoice(c); reactTo(c);
   D.q=[{k:"line",id:"me",text:c.t}];
   for(const l of c.r||[]) D.q.push({k:"line",id:l[0]||"",text:l[1],e:l[2]});
   if(c.next) D.q.push({k:"node",key:c.next});
@@ -945,6 +986,7 @@ async function boot(){
   await IDB.open();
   try{ const fb=await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){window.logErr?.("game",e)}
   SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
+  await keepV0();
   if(window.growthInit) growthInit();
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
@@ -954,6 +996,17 @@ async function boot(){
   titleReady();
 }
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot,{once:true}); else boot();
+/* 改版 1.0:換成新遊戲時,改版前的存檔另外存一份(IndexedDB 的 saveV0 與「存檔備份」),新遊戲第一次開始時有一張「上任第一天」的卡 */
+async function keepV0(){ if(!V0_PENDING) return; const js=V0_PENDING; V0_PENDING=null;
+  try{ const cur=await IDB.get("saveV0"); let ok=true; try{ ok=!cur||(JSON.parse(js).updatedAt||0)>=(JSON.parse(cur).updatedAt||0) }catch(e){}
+    if(ok) await IDB.set("saveV0",js); await backupTick(js,true,"改版前的舊存檔(2015 年 7 月開始的版本)") }catch(e){ logErr("舊存檔封存",e) }
+  if(S.updatedAt===0){ try{ localStorage.setItem(KEY,JSON.stringify(S)) }catch(e){} } }   // 新遊戲先存起來(不算進度,不會蓋掉雲端)
+function dayOneCard(){ if(S.flags.day1Card||S.day>0||!window.showCard) return;
+  if(paused()||document.querySelector("#welc,.bigev:not(.out),#cgView")){ setTimeout(dayOneCard,800); return }
+  S.flags.day1Card=1; save();
+  window.showCard({tag:"2016.01.13 ・ DAY 1",bg:"assets/bg/practice_dawn.webp",title:"上任第一天",
+    lead:`今天起,你是這家娛樂公司的新任代表。四樓練習室裡,五個練習生正在等你——離 2017 年 1 月 13 日出道,還有整整一年。${S.fromV0?"<br><small>改版前的存檔已經封存(選單 → 存檔備份 可以下載);衣櫃、內容庫、歌曲企劃和解鎖過的回憶照片都留著。</small>":""}`,
+    lines:[["ys","代表好!我是隊長徐藝瑟。我們一直在等您。","smile"],["tr","……尹泰梨。","neutral"],["hy","早瀨日和です!啊、不對,我是早瀨日和!請多指教!","laugh"],["he","韓夏恩!代表吃過早餐了嗎?","smile"],["hr","姜河嵐!我、我才來兩個月,可是我唱歌很大聲!","serious"]],ok:"請多指教"}) }
 /* ---- 標題畫面(兼讀取畫面):讀完本機資料就能開始,雲端同步在背景進行 ---- */
 function titleReady(){
   const el=$("#title"); if(!el) {syncAll(false,true); return}
@@ -963,6 +1016,7 @@ function titleReady(){
   if(syAuth()&&syCfg()){ sy.textContent="正在同步雲端…"; syncAll(false,true).then(()=>{sy.textContent="雲端同步完成"}).catch(()=>{sy.textContent="雲端同步失敗,可稍後在選單重試"}) }
   else sy.textContent="離線遊玩・可在選單登入雲端同步";
   const go=()=>{ if(el.classList.contains("leaving")||el.classList.contains("out")) return;
+    setTimeout(dayOneCard,2400);   // 新遊戲:上任第一天的卡(迎接、回憶照片之後)
     if(window.introGo){ try{ window.introGo(el,()=>setPause("title",false)); return }catch(e){window.logErr?.("game",e)} }   // 開場動畫(intro.js):白光一閃、地圖與 HUD 進場
     el.classList.add("out"); setPause("title",false); setTimeout(()=>el.remove(),900) };
   el.onclick=go; btn.onclick=e=>{e.stopPropagation();go()};
@@ -1174,8 +1228,15 @@ window.feedback=lv=>{ if(localStorage.getItem("kpopGame.haptic")!=="0"&&lv!=="s"
   if(s){ s.value=RD.speed; s.onchange=()=>{ RD.speed=s.value; keep() } } if(a){ a.value=RD.auto; a.onchange=()=>{ RD.auto=a.value; keep() } }
   if(h){ h.checked=localStorage.getItem("kpopGame.haptic")!=="0"; h.onchange=()=>{ localStorage.setItem("kpopGame.haptic",h.checked?"1":"0"); if(h.checked) feedback("m") } } })();
 /* 選單「存檔備份」 */
+/* 改版前(2015 年 7 月開始的版本)的備份不能在新版打開:顯示成「改版前」,按鈕改成下載(到舊版封存打開) */
+const bakIsV0=b=>!String(b.json||"").includes('"gen":10');
+function v0Date(day){ const d=new Date(START_V0); d.setDate(d.getDate()+(day||0)); return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}` }
+function downloadJSON(name,js){ if(isNative){ toast2("手機 App 不能存檔案,請用電腦版下載"); return }
+  const u=URL.createObjectURL(new Blob([js],{type:"application/json"})), a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000) }
 async function renderBak(){ const ul=$("#bakList"); if(!ul) return; const L=(await IDB.get("saveBackups"))||[];
-  ul.innerHTML=L.length?L.map((b,i)=>`<li><span>${new Date(b.t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}・遊戲 ${(()=>{const d=dateOf(b.day);return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`})()}${b.why?`<br><small>${esc(b.why)}</small>`:""}</span><button class="b" data-bak="${i}">回到這份</button></li>`).join(""):"<li>還沒有備份(遊玩 30 分鐘後會自動備份)。</li>";
+  ul.innerHTML=L.length?L.map((b,i)=>{ const v0=bakIsV0(b); return `<li><span>${new Date(b.t).toLocaleString("zh-TW",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}・遊戲 ${v0?v0Date(b.day)+"(改版前)":(()=>{const d=dateOf(b.day);return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`})()}${b.why?`<br><small>${esc(b.why)}</small>`:""}</span>${v0?`<button class="b" data-v0bak="${i}">下載</button>`:`<button class="b" data-bak="${i}">回到這份</button>`}</li>` }).join(""):"<li>還沒有備份(遊玩 30 分鐘後會自動備份)。</li>";
+  ul.querySelectorAll("[data-v0bak]").forEach(b=>b.onclick=()=>{ const x=L[+b.dataset.v0bak]; if(x) downloadJSON(`完美女團_改版前存檔_${v0Date(x.day).replace(/\./g,"")}.json`,x.json) });
+  const v0=localStorage.getItem("kpopGame.saveV0"), dl=$("#v0Dl"); if(dl){ dl.hidden=!v0; dl.onclick=()=>{ const s=localStorage.getItem("kpopGame.saveV0"); if(s) downloadJSON("完美女團_改版前存檔.json",s) } }
   ul.querySelectorAll("[data-bak]").forEach(b=>b.onclick=async()=>{ const x=L[+b.dataset.bak]; if(!x||!confirm("回到這份備份?目前的進度會被取代(目前的進度會先另外備份一份)。")) return;
     await backupTick(JSON.stringify(S),true); const o=migrate(JSON.parse(x.json)); o.updatedAt=Date.now(); S=o; save(); location.reload() }) }
 $("#bakNow")&&($("#bakNow").onclick=async()=>{ await backupTick(JSON.stringify(S),true); toast2("已備份"); renderBak() });

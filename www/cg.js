@@ -79,6 +79,11 @@ const exInfo=k=>EXTRA[k]?{...EXTRA[k],img:extraSrc(k),th:extraSrc(k,true),dl:`�
 function data(){ if(!S.cg){ S.cg={}; S.cgNew=[]; S.cgInit=false } return S.cg }
 const reached=id=>{ const st=window.stageOfXp?stageOfXp(id):"戒備", r=(window.STAGE_RANK||[]).indexOf(st); return ORDER.filter(x=>(window.STAGE_RANK||[]).indexOf(x)<=r) };
 const unlocked=(id,st)=>data()[id]?.[st]!=null;
+/* 改版 1.0:改版前解鎖的回憶照片在 S.cgKeep,相簿照樣看得到(新遊戲裡升階時那張 CG 還是會再「發生」一次) */
+const kept=()=>S.cgKeep||{};
+const inAlbum=(id,st)=>unlocked(id,st)||kept().cg?.[id]?.[st]!=null;
+const duoIn=k=>S.cgDuo?.[k]!=null||kept().cgDuo?.[k]!=null;
+const exIn=k=>S.cgEx?.[k]!=null||kept().cgEx?.[k]!=null;
 const QUEUE=[];
 /* 新遊戲開始時有幾位成員已經在「信任」(起始好感不同),她們的信任 CG 要再多相處一點才出現,
    才會是一個「時刻」而不是開場就跳出來;泰梨等從戒備升上來的照常在升級時出現 */
@@ -136,19 +141,19 @@ function showExtra(k,fresh,onClose){ const e=exInfo(k); if(!e) return;
 let AM=null;
 window.cgNewCount=()=>(data(),(S.cgNew||[]).length);
 window.cgAlbumHTML=()=>{ data(); S.cgDuo=S.cgDuo||{}; S.cgEx=S.cgEx||{};
-  const cur=AM||M[0].id, dk=Object.keys(DUO), ek=exKeys(), dGot=dk.filter(k=>S.cgDuo[k]!=null), eGot=ek.filter(k=>S.cgEx[k]!=null);
+  const cur=AM||M[0].id, dk=Object.keys(DUO), ek=exKeys(), dGot=dk.filter(duoIn), eGot=ek.filter(exIn);
   const total=M.reduce((a,m)=>a+ORDER.filter(st=>has(m.id,st)).length,0)+dk.length+ek.length,
-        got=M.reduce((a,m)=>a+ORDER.filter(st=>unlocked(m.id,st)).length,0)+dGot.length+eGot.length;
+        got=M.reduce((a,m)=>a+ORDER.filter(st=>inAlbum(m.id,st)).length,0)+dGot.length+eGot.length;
   const isNew=k=>(S.cgNew||[]).includes(k);
   const chip=(id,c,label,g,all,nw)=>`<button class="cgchip${id===cur?" on":""}" data-cgm="${id}" style="--c:${c}">${label}<small>${g}/${all}</small>${nw?`<i></i>`:""}</button>`;
-  const chips=M.map(m=>chip(m.id,m.c,esc(m.n),ORDER.filter(st=>unlocked(m.id,st)).length,5,ORDER.some(st=>isNew(m.id+"|"+st)))).join("")
+  const chips=M.map(m=>chip(m.id,m.c,esc(m.n),ORDER.filter(st=>inAlbum(m.id,st)).length,5,ORDER.some(st=>isNew(m.id+"|"+st)))).join("")
     +chip("duo",DUO_C,"雙人",dGot.length,dk.length,dk.some(k=>isNew("duo|"+k)))+chip("extra","#FF2E63","回憶",eGot.length,ek.length,ek.some(k=>isNew("extra|"+k)));
   const card=(key,th,meta,t)=>`<button class="cgcard" data-cgv="${key}"><span class="cgth" style="background-image:url(${th})"></span><span class="cgmeta"><i>${meta}</i><b>${esc(t)}</b>${isNew(key)?`<em>NEW</em>`:""}</span></button>`;
   const lock=(meta,txt)=>`<div class="cgcard lock"><span class="cgth"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span><span class="cgmeta"><i>${meta}</i><b>${txt}</b></span></div>`;
   const cards=cur==="duo"?dk.map(k=>{ const [a,b]=k.split("-").map(byId), meta=`${esc(a.n)} × ${esc(b.n)}`;
-        return S.cgDuo[k]!=null?card("duo|"+k,duoSrc(k,true),meta,DUO[k][0]):lock(meta,`兩人都到「親密」、默契 80(目前 ${Math.round(bondOf(a.id,b.id))})`) }).join("")
-    :cur==="extra"?[...ek].reverse().map(k=>{ const e=exInfo(k); return e?(S.cgEx[k]!=null?card("extra|"+k,e.th,esc(e.tag),e.t):lock(esc(e.tag),esc(e.lock))):"" }).join("")
-    :ORDER.filter(st=>has(cur,st)).map(st=>unlocked(cur,st)?card(cur+"|"+st,src(cur,st,true),esc(st),CG[cur][st][0]):lock(esc(st),`關係到「${esc(st)}」時解鎖`)).join("");
+        return duoIn(k)?card("duo|"+k,duoSrc(k,true),meta,DUO[k][0]):lock(meta,`兩人都到「親密」、默契 80(目前 ${Math.round(bondOf(a.id,b.id))})`) }).join("")
+    :cur==="extra"?[...ek].reverse().map(k=>{ const e=exInfo(k); return e?(exIn(k)?card("extra|"+k,e.th,esc(e.tag),e.t):lock(esc(e.tag),esc(e.lock))):"" }).join("")
+    :ORDER.filter(st=>has(cur,st)).map(st=>inAlbum(cur,st)?card(cur+"|"+st,src(cur,st,true),esc(st),CG[cur][st][0]):lock(esc(st),`關係到「${esc(st)}」時解鎖`)).join("");
   return `<div class="phead"><button class="pback" data-go="home">‹</button><b>相簿</b><span>${got}/${total}</span></div>
     <div class="cgchips">${chips}</div><div class="pscroll cgscroll">${cards}</div>` };
 window.cgAlbumBind=(B,rerender)=>{

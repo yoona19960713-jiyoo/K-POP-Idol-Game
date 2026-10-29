@@ -135,12 +135,11 @@ const titleT=()=>{ const R=API()?.R; return R?R.tracks.find(t=>t.id===R.title):n
 function gain(D,id,base){ const g=Math.max(1,Math.round(base*(1-D.prof[id]/110))); D.prof[id]=Math.min(100,D.prof[id]+g); return g }
 window.choreoOnSlotEnd=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,3)); API().save() };
 window.choreoAfterShow=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,2)); API().save() };
-function practice(T){ if(S.acts<=0) return; const D=getD(T), e=evalDance(T); S.acts--; S.lastPrac=S.day; let tot=0;
+function practice(T){ const D=getD(T), e=evalDance(T); S.lastPrac=S.day; let tot=0;   // 改版 1.0:全員練一次花 1 小時(以前花 1 次行動)
   for(const id of IDS){ const st=S.m[id]; tot+=gain(D,id,14*(.6+byId(id).dance/200)*(1.25-e.diff*.07)*(st.stress>75?.6:1));
     st.stress=cl(st.stress+5,0,100); window.growthGrow?.(id,"dance",.15) }
   D.at=Date.now(); API().save(); save(true); if(typeof renderHud==="function") renderHud();
-  toast2(`練習完成:平均熟練度 +${Math.round(tot/5)}%`+(S.acts<=0?"。這個時段的行動用完了,離開後進入下一個時段":""));
-  if(S.acts<=0) window.__actsOut=true }
+  window.spendTime?.(60,"練舞"); toast2(`練習完成:平均熟練度 +${Math.round(tot/5)}%・花了 1 小時`) }
 
 /* ---------- 畫面 ---------- */
 let SEL=0, PICK=null, PREV=null;
@@ -171,8 +170,8 @@ function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
       <ul class="cr-notes">${(e.notes.length?e.notes:[["g","沒有明顯的問題。"]]).slice(0,5).map(([k,t])=>`<li class="${k}">${t}</li>`).join("")}</ul>
       <h5>熟練度<small>平均 ${Math.round(e.avgProf)}%</small></h5>
       ${IDS.map(id=>{ const m=byId(id); return `<div class="cr-prof"><span style="color:${m.c}">${m.n}</span><span class="cr-pb"><i style="width:${D.prof[id]}%;background:${m.c}"></i></span><span class="num">${D.prof[id]}%</span></div>` }).join("")}
-      <div class="cr-btns"><button class="pbtn pri" id="dPrac" ${S.acts<=0?"disabled":""}>全員練習這首(花 1 次行動)</button></div>
-      <p class="cr-hint">這個時段剩 ${S.acts} 次行動。練習會增加壓力;${isT?"待在練習室的成員每個時段也會自己練一點。熟練度不夠,打歌容易跳錯。":"打歌用的是主打的熟練度。"}改動作或隊形,熟練度會掉一點。</p></div>
+      <div class="cr-btns"><button class="pbtn pri" id="dPrac">全員練習這首(花 1 小時)</button></div>
+      <p class="cr-hint">練一次花 1 小時(關掉練習室之後時間才往前走)。練習會增加壓力;${isT?"待在練習室的成員每個時段也會自己練一點。熟練度不夠,打歌容易跳錯。":"打歌用的是主打的熟練度。"}改動作或隊形,熟練度會掉一點。</p></div>
   </div>`;
   bindTapes();
   body.querySelectorAll("[data-si]").forEach(b=>b.onclick=()=>{ stopPrev(); SEL=+b.dataset.si; PICK=null; rerender() });

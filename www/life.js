@@ -7,7 +7,7 @@
    ④ 身體狀態:壓力大、深夜、剛練完舞、心情特別好時,第一句話跟著變
    ⑤ 主動約你:到「夥伴」之後,偶爾傳訊息約你晚上去漢江、便利商店,或深夜在廚房;去了會有專屬片段,沒去也不會怎樣
    ⑥ 台詞帶動作:說話時表情一變(大笑、害羞、生氣、難過),立繪跟著做小動作
-   ⑦ 紀念日:成員生日、認識週年(7/3)、出道週年(7/13)——群組訊息、當天第一句話、生日那天陪她聊天有額外好感
+   ⑦ 紀念日:成員生日、認識週年與出道週年(都在 1/13)——群組訊息、當天第一句話、生日那天陪她聊天有額外好感
    頻率:每位成員每天最多一次開場;生日與週年當天必出;身體狀態 25~60%;近況與回憶各 30~45% 而且每件事只提一次。
    資料存在 S.life(跟著存檔同步)。
    ===================================================================== */
@@ -18,8 +18,9 @@ const nm=id=>byId(id)?.n||"";
 const ymd=()=>{ const d=dateOf(S.day); return {y:d.getFullYear(),m:d.getMonth()+1,d:d.getDate()} };
 const BD={ys:[8,14],tr:[12,21],hy:[2,9],he:[10,3],hr:[5,27]};
 const isBd=id=>{ const t=ymd(); return BD[id][0]===t.m&&BD[id][1]===t.d };
-const meetYears=()=>{ const t=ymd(); return t.m===7&&t.d===3&&t.y>2015?t.y-2015:0 };
-const debutYears=()=>{ const t=ymd(); return t.m===7&&t.d===13&&t.y>2017?t.y-2017:0 };
+/* 改版 1.0:上任(2016/1/13)和出道(2017/1/13)都在 1/13。2017/1/13 當天以出道為主,之後每年 1/13 一起過「相識 N 週年・出道 N−1 週年」 */
+const meetYears=()=>{ const t=ymd(); return t.m===1&&t.d===13&&t.y>2017?t.y-2016:0 };
+const debutYears=()=>{ const t=ymd(); return t.m===1&&t.d===13&&t.y>2017?t.y-2017:0 };
 const rank=id=>(window.STAGE_RANK||[]).indexOf(window.stageOfXp?.(id)||"戒備");
 const fill=(t,o)=>t.replace(/\{(\w+)\}/g,(_,k)=>o[k]??"");
 

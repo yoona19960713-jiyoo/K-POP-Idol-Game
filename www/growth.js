@@ -1,7 +1,7 @@
 "use strict";
 /* =====================================================================
    養成:好感度(只升不降)、成員之間的團隊默契、能力成長、出道倒數與月評
-   出道日固定 2017.07.13;回歸日由玩家在企劃室決定(之後接上)
+   出道日固定 2017.01.13(改版 1.0;舊版是 2017.07.13);回歸日由玩家在企劃室決定
    ===================================================================== */
 (()=>{
 /* ---------- 好感度:點數制,階段門檻越後面越高 ---------- */
@@ -10,7 +10,7 @@ const capOf=(id,k)=>k==="kor"?100:(({ys:["vocal","dance"],tr:["rap","dance"],hy:
 const XP_STAGE=[["戒備",0],["信任",1000],["夥伴",4800],["心動",12000],["戀人",20000],["親密",30000]];
 const STAGE_RANK=["戒備","信任","夥伴","心動","戀人","親密","多人親密"];
 window.STAGE_RANK=STAGE_RANK;
-const DEBUT=new Date(2017,6,13);
+const DEBUT=new Date(2017,0,13);   // 2016.01.13 上任,一年後出道
 const debutDay=Math.round((DEBUT-START)/864e5);
 window.DEBUT_DAY=debutDay;
 const debuted=()=>S.day>=debutDay;
@@ -144,12 +144,12 @@ function startPromo(kind){ const sum=window.songSummary?songSummary():null;
   window.stageNewPromo?.(S.promo) }
 function bigEvent(kind){ setTimeout(()=>window.feedback?.("l"),600); if(kind==="debut") window.cgGroupUnlock?.("g_debut");
   const deb=kind==="debut", m=M, sum=window.songSummary?songSummary():null;
-  const lines0=deb?[["ys","代表,我們真的……要出道了。","laugh"],["tr","……我不會讓你後悔選了我們。","shy"],["hy","二年間、ありがとうございました!啊,是謝謝代表!","laugh"],["he","今天的 Showcase 結束之後,大家一起去吃烤肉吧!","smile"],["hr","代表要坐第一排喔!我會一直看著那裡唱!","laugh"]]
+  const lines0=deb?[["ys","代表,我們真的……要出道了。","laugh"],["tr","……我不會讓你後悔選了我們。","shy"],["hy","一年間、ありがとうございました!啊,是謝謝代表!","laugh"],["he","今天的 Showcase 結束之後,大家一起去吃烤肉吧!","smile"],["hr","代表要坐第一排喔!我會一直看著那裡唱!","laugh"]]
     :[["he","又回到舞台上了!","laugh"],["ys","這一次也拜託你了,代表。","smile"],["hr","新歌我練到夢裡都在唱!","laugh"],["tr","……這次的舞台,我很有信心。","smile"],["hy","みんな、がんばろう!","laugh"]];
   const lines=window.eventLines?.(deb?"debut":"comeback",lines0)||lines0;   // 內容庫有事件劇本就用
   const el=document.createElement("div"); el.className="bigev";
-  el.innerHTML=`<div class="bg-shot" style="background-image:url(assets/bg/ev_showcase.webp)"></div><div class="bg-veil"></div><div class="bigcard"><small>${deb?"DEBUT SHOWCASE ・ 2017.07.13":"COMEBACK"}</small>
-    <h2>${deb?"完美女團,正式出道":"完美女團 回歸"}</h2><p class="lead">${deb?"兩年的練習生生活,在這一天畫下句點。Showcase 的燈光亮起,台下坐滿了記者和第一批粉絲。":"新的企劃、新的舞台。回歸 Showcase 的燈光再次亮起。"}${sum?.title?`主打歌〈${esc(sum.title.name)}〉`:""}今天起四週的打歌期開始了,電視台正式開放。</p>
+  el.innerHTML=`<div class="bg-shot" style="background-image:url(assets/bg/ev_showcase.webp)"></div><div class="bg-veil"></div><div class="bigcard"><small>${deb?`DEBUT SHOWCASE ・ ${(d=>`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`)(dateOf(DEBUT_DAY))}`:"COMEBACK"}</small>
+    <h2>${deb?"完美女團,正式出道":"完美女團 回歸"}</h2><p class="lead">${deb?"從代表上任那天算起,整整一年的練習生生活,在這一天畫下句點。Showcase 的燈光亮起,台下坐滿了記者和第一批粉絲。":"新的企劃、新的舞台。回歸 Showcase 的燈光再次亮起。"}${sum?.title?`主打歌〈${esc(sum.title.name)}〉`:""}今天起四週的打歌期開始了,電視台正式開放。</p>
     <div class="evlines">${lines.map(([id,t,e])=>{const mm=byId(id);return `<div class="evl"><span class="pface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p></div>`}).join("")}</div>
     <button class="fbtn pri" id="bigOk">${deb?"一起走下去":"上台吧"}</button></div>`;
   $("#stage").appendChild(el); setPause("bigev",true);
@@ -176,7 +176,7 @@ window.onShowResult=r=>{ const s=st(), promo=window.promoActive?.(); if(!promo) 
   let first=false;
   if(r.win){ window.logEvent?.("win",{show:r.sh?.n||"音樂節目",song:S.promo?.title||""}); s.wins++; s.winsByYear[yr()]=(s.winsByYear[yr()]||0)+1; s.fans+=3+Math.min(6,(r.views||0)/80); if(!s.firstWin){ s.firstWin=true; first=true; window.cgGroupUnlock?.("g_firstwin"); for(const m of M){S.m[m.id].xp+=200; S.m[m.id].mood=Math.min(100,S.m[m.id].mood+20)} addBond(M.map(x=>x.id),4) } }
   else s.fans+=1+Math.min(3,(r.views||0)/150);
-  S.promo.wins=(S.promo.wins||0)+(r.win?1:0); S.promo.shows=(S.promo.shows||0)+1; save(true);
+  S.promo.wins=(S.promo.wins||0)+(r.win?1:0); S.promo.shows=(S.promo.shows||0)+1; if(!r.auto) window.spendTime?.(180,"打歌"); save(true);   // 跟去電視台打歌:扣 3 小時(改版 1.0;1.2 重做宣傳期)
   if(first&&r.auto) setTimeout(()=>window.showCard({tag:"FIRST WIN",bg:"assets/bg/ev_stage.webp",title:"第一個一位!",lead:`你不在電視台的那天,完美女團在《${r.sh?.n||"音樂節目"}》拿下了出道後的第一個一位。一回到宿舍,五個人就衝過來抱住你。`,
     lines:(L0=>(window.feedback?.("l"),window.eventLines?.("first_win",L0)||L0))([["he","代表……我們拿到一位了!","sad"],["hr","代表!!我們是一位!!","laugh"],["tr","……下次,你要在台下看。","shy"]]),ok:"抱緊她們"}),1500);
   return first?[["he","代表……我們拿到一位了,真的嗎?","sad"],["ys","不要哭啦,夏恩……(她自己也哭了)","sad"],["hr","代表!代表!!我們是一位!!","laugh"],["tr","……這是我這輩子最開心的一天。","shy"],["hy","代表、本當にありがとう……謝謝你。","laugh"]]:null };
