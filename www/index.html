@@ -1706,6 +1706,32 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 #meet .mt-opt.act b{white-space:normal;font-size:max(calc(1.08*var(--u)),13px);line-height:1.25;letter-spacing:.04em}
 #meet .mt-opt.act small{font-size:11px}
 #meet .mt-opt.act small{white-space:normal;line-height:1.3}
+/* ===== 改版 1.1 第 1 輪:成員之間(旁聽)(2026-10-30)=====
+   剖面圖上兩人頭上的「…」泡泡(兩人配色的漸層框、三個點輪流跳);拜訪畫面頂部的「旁聽中」;加入她們的選項 */
+.ovbub{--u:max(1cqw,7.6px);position:absolute;z-index:6;transform:translate(-50%,-100%);display:flex;align-items:center;gap:calc(.42*var(--u));
+  padding:calc(.62*var(--u)) calc(1.05*var(--u));border-radius:999px;border:calc(.2*var(--u)) solid transparent;pointer-events:none;
+  background:linear-gradient(rgba(255,253,248,.97),rgba(255,248,238,.97)) padding-box,linear-gradient(90deg,var(--a),var(--b)) border-box;
+  box-shadow:0 calc(.3*var(--u)) calc(.9*var(--u)) rgba(30,15,25,.32);animation:ovIn .45s cubic-bezier(.2,.8,.25,1) backwards}
+.ovbub::after{content:"";position:absolute;left:50%;bottom:calc(-.6*var(--u));width:calc(.95*var(--u));height:calc(.95*var(--u));translate:-50% 0;rotate:45deg;
+  background:#FFF9F0;border-right:calc(.2*var(--u)) solid var(--b);border-bottom:calc(.2*var(--u)) solid var(--a)}
+.ovbub i{display:block;width:calc(.72*var(--u));height:calc(.72*var(--u));border-radius:50%;background:var(--a);animation:ovDot 1.35s ease-in-out infinite}
+.ovbub i:nth-child(2){background:color-mix(in srgb,var(--a),var(--b));animation-delay:.18s}
+.ovbub i:nth-child(3){background:var(--b);animation-delay:.36s}
+@keyframes ovDot{0%,60%,100%{transform:translateY(0);opacity:.55}30%{transform:translateY(-55%);opacity:1}}
+@keyframes ovIn{from{opacity:0;transform:translate(-50%,-70%) scale(.8)}to{opacity:1;transform:translate(-50%,-100%) scale(1)}}
+.ovbub.inplate{position:relative;transform:none;margin-left:calc(.4*var(--u));padding:calc(.3*var(--u)) calc(.55*var(--u));animation:none}
+.ovbub.inplate::after{display:none}
+.ovbub.inplate i{width:calc(.42*var(--u));height:calc(.42*var(--u))}
+/* 拜訪畫面:旁聽中 */
+.vhead .vhear{display:inline-flex;align-items:center;gap:.35em;margin-left:.7em;padding:.08em .7em .08em .5em;border-radius:1em;opacity:1;
+  color:#3A2A1C;background:linear-gradient(135deg,#FFF6E4,#F3DDB4);box-shadow:inset 0 0 0 1px rgba(201,162,75,.75);font-weight:700;letter-spacing:.12em;animation:ovIn2 .4s ease-out}
+.vhead .vhear svg{width:1.15em;height:1.15em;fill:none;stroke:#8A6A2E;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@keyframes ovIn2{from{opacity:0;translate:-6px 0}to{opacity:1;translate:0 0}}
+#visit .vtint::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 42%,transparent 52%,rgba(20,12,24,.34));opacity:0;transition:opacity .5s}
+#visit.hear .vtint::after{opacity:1}
+.mt-chip{white-space:nowrap}
+.vopt.ovj{border-color:var(--gold3,#C9A24B)}
+@media (prefers-reduced-motion:reduce){.ovbub,.ovbub i,.vhead .vhear{animation:none}}
 /* ===== 里程碑過場動畫(cine.js)===== */
 .cine{position:absolute;inset:0;z-index:70;background:#07040A;overflow:hidden;--u:max(1cqw,7.4px);cursor:pointer}
 .cine .cn-stage,.cine .cn-shot{position:absolute;inset:0}
@@ -2230,6 +2256,8 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="meet.js"></script>
 <script src="act.js"></script>
 <script src="night.js"></script>
+<script src="ovh.js"></script>
+<script src="miss.js"></script>
 <script src="cine.js"></script>
 <script src="mile.js"></script>
 <script src="mvplay.js"></script>

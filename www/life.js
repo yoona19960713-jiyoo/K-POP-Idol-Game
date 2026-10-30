@@ -149,7 +149,7 @@ const BUB={
   bed:[["今天可以睡你這邊嗎?我房間好冷。","……只有今天喔。"],["你在寫什麼?","秘密日記。不准看。"]],
   store:[["這個新口味要不要試?","你先吃,我看你的表情再決定。"]],river:[["風好舒服……","嗯,好想一直待在這裡。"]]};
 const PAIR={"ys-hr":["hr","歐尼最好了~幫我吹頭髮!","ys","頭髮沒吹乾就跑出來,會感冒的。"],"hy-tr":["tr","剛剛的 wave 我們再對一次。","hy","好,這次我跟著你的呼吸。"],"he-hr":["hr","夏恩歐尼,我們來拍挑戰影片!","he","好啊,不過我要站中間~"],
-  "tr-ys":["tr","……隊長,今天辛苦了。","ys","你也是,泰梨。"],"he-hy":["he","日和,教我日文的「我愛你」怎麼說!","hy","……是「愛してる」。不要突然問這個。"],"he-ys":["he","歐尼,這個妝適合我嗎?","ys","你畫什麼都好看啦。"],
+  "tr-ys":["tr","……隊長,今天辛苦了。","ys","你也是,泰梨。"],"he-hy":["he","日和,教我日文的「我愛你」怎麼說!","hy","……是「愛してる」。不要突然問這個。"],"he-ys":["he","藝瑟,這個妝適合我嗎?","ys","妳畫什麼都好看啦。"],
   "hr-tr":["hr","泰梨歐尼教我 Rap!","tr","……先把舌頭打直。"],"hy-ys":["ys","日和,想家的話隨時跟我說。","hy","……謝謝歐尼。"],"he-tr":["he","泰梨,你笑起來很好看耶,多笑一點嘛。","tr","……不要。"],"hr-hy":["hr","日和歐尼,你的腿怎麼那麼軟!","hy","每天拉筋……你也可以的。"]};
 const pk=(a,b)=>[a,b].sort().join("-");
 let bubAt=0, bubEl=null;
@@ -157,7 +157,7 @@ function bubbleTick(){ if(bubEl&&!bubEl.isConnected) bubEl=null; if(typeof view=
   const now=performance.now(); if(bubEl||now<bubAt) return; bubAt=now+25000+Math.random()*20000;
   const lf=L(); if(lf.bub.day!==S.day) lf.bub={day:S.day,used:[]};
   const rooms=INSIDE[view]?.rooms||[], cand=[];
-  for(const rm of rooms){ const p=PL[rm.pid]; if(!p?.open.includes(S.slot)) continue; const ppl=who(rm.pid); if(ppl.length>=2) cand.push([rm,ppl]) }
+  for(const rm of rooms){ const p=PL[rm.pid]; if(!p?.open.includes(S.slot)||window.ovhAt?.(rm.pid)) continue; const ppl=who(rm.pid); if(ppl.length>=2) cand.push([rm,ppl]) }
   if(!cand.length) return; const [rm,ppl]=cand[Math.floor(Math.random()*cand.length)];
   const a=ppl[Math.floor(Math.random()*ppl.length)], b=ppl.filter(x=>x!==a)[Math.floor(Math.random()*(ppl.length-1))];
   let ex=null, key=pk(a.id,b.id);

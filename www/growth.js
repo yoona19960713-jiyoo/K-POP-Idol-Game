@@ -51,7 +51,7 @@ window.gainFromChoice=(id,c)=>{ const s=S.m[id]; if(!s) return {xp:0,heart:0};
   const st=stageOfXp(id);
   if(STAGE_RANK.indexOf(st)>=2||s.xp>=4800){ if(c.heart) heart=Math.max(0,Math.min(2,+c.heart)); else if(WARM.includes(c.s)&&raw>=2) heart=1 }
   return {xp,heart} };
-window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; const before=stageOfXp(id), {xp,heart}=gainFromChoice(id,c);
+window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; window.missSeen?.(id); const before=stageOfXp(id), {xp,heart}=gainFromChoice(id,c);   // 冷落的心情(miss.js)
   s.xp=(s.xp||0)+xp; s.heart=Math.min(100,(s.heart||0)+heart); s.trust=Math.round(xpToTrust(s.xp));
   if(c.mood>0) s.mood=clamp(s.mood+(+c.mood),0,100); if(c.stress<0) s.stress=clamp(s.stress+(+c.stress),0,100);   // 只套用好的方向
   if(c.set) S.flags[c.set]=(S.flags[c.set]||0)+1;

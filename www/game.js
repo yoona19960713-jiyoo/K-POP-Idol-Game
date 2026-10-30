@@ -427,7 +427,7 @@ function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxN
     if(wk!=="clear") delete w.river;
     const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k]?.open.includes(S.slot)));
     let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2; S.doing[m.id]=doingOf(b,m.id,w2,wd) }
-  window.lifeWhere?.(); window.nightWhere?.(); window.mileWhere?.(); S.whereKey=whereKey() }
+  window.lifeWhere?.(); window.nightWhere?.(); window.mileWhere?.(); window.ovhWhere?.(); S.whereKey=whereKey() }   // 成員之間(ovh.js)
 const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0)+"|"+(window.nightKey?.()||"");   // 深夜事件(night.js)開始、結束也換位置
 let FIG_FADE=false;
 
@@ -547,14 +547,17 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const p=PL[rm.pid], open=p.open.includes(S.slot), vis=false;
     const ppl=open?who(rm.pid):[];
     const dis=!open, [x,y,w,h]=rm.r;
-    const own=p.owner, st=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const own=p.owner, st0=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const oc0=open&&!p.facOnly?window.ovhAt?.(rm.pid):null, st=oc0?`${byId(oc0.a).n}、${byId(oc0.b).n}・在聊天`:st0;
     const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri)); let hits="";
+    const oc=open&&!p.facOnly?window.ovhAt?.(rm.pid):null, fpos={};   // 成員之間:兩人在聊天(ovh.js)
     const figs=rm.noFig?"":ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
-      const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot);
+      const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot); fpos[m.id]=[X,rm.feet-H];
       if(open&&!p.facOnly) hits+=`<button class="fighit" data-meet="${m.id}" data-pid="${rm.pid}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%;width:${(H*.2).toFixed(2)}%" aria-label="${m.n}"></button>`;   // 點成員 → 互動面板(meet.js)
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig${FIG_FADE?" fadein":""}" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
-    return `${figs}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
-      <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span>${rm.noFig&&ppl.length?facesHTML(ppl):""}</span>
+    const ob=oc?((A,B)=>A&&B?`<span class="ovbub" style="left:${((A[0]+B[0])/2).toFixed(2)}%;top:${(Math.min(A[1],B[1])-1.2).toFixed(2)}%;--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:"")(fpos[oc.a],fpos[oc.b]):"";
+    return `${figs}${ob}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
+      <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span>${rm.noFig&&ppl.length?facesHTML(ppl):""}${rm.noFig&&oc?`<span class="ovbub inplate" style="--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:""}</span>
       ${!open?`<span class="lockc">${openText(p)}</span>`:""}</button>${hits}`}).join("");
   $("#rooms").querySelectorAll(".room").forEach(b=>b.onclick=()=>{ if(b.dataset.both){ if(PL[b.dataset.pid]?.facOnly){ openFac(b.dataset.both); return } chooser(b.dataset.pid,b.dataset.both);return} const pid=b.dataset.pid;
     if(b.dataset.why){toast2(`${PL[pid]?.n||""}:${b.dataset.why}`);return} if(PL[pid]) visit(pid)});
@@ -671,10 +674,10 @@ function slotEnd(){
   /* 壓力(改版 1.0 第 5 輪):平日上午個人課 +3、下午團體練習 +4(評估日再 +4)、清晨與晚上 +1、睡覺 −6;週日與中秋連假整天往下 */
   const hol=dateOf(S.day).getDay()===0||window.mileHoliday?.(S.day), evalD=window.isEvalDay?.(dateOf(S.day));
   const dS=hol?[-2,-4,-4,-3,-5][S.slot]:[1,3,4+(evalD?4:0),1,-6][S.slot];   /* 一週約打平(平日 +3、週日 −18),評估日多 +4 */
-  for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+dS,0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood)-(s.stress>=75&&S.slot===2?1:0),0,100)}
+  for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+dS,0,100);s.mood=clamp(s.mood+Math.sign((window.moodBase?.(m.id)??60)-s.mood)-(s.stress>=75&&S.slot===2?1:0),0,100)}   // 被冷落時基準點變低(miss.js)
   if(window.growthOnSlotEnd) growthOnSlotEnd();
   window.choreoOnSlotEnd?.(who("practice").map(m=>m.id));   // 待在練習室的成員自己練主打的編舞
-  S.slot++; if(S.slot>4){S.slot=0;S.day++;S.min-=1440; wxDaily()}
+  S.slot++; if(S.slot>4){S.slot=0;S.day++;S.min-=1440; wxDaily(); window.missOnDay?.(S.day-1)}
   S.entered=[]; assign(); window.lifeOnSlot?.(); ensureWear(); newMessage(r) }
 
 /* =====================================================================
@@ -703,6 +706,7 @@ function visit(pid,o={}){
   if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid); return }
   const ns=window.nightScene?.(pid,o.talk);   // 深夜:她睡不著、偷吃宵夜、在頂樓(night.js)
   if(ns){ V.talked.add(ns.id); setBack(); play(ns.sn,()=>{ ns.done(); menu() }); return }
+  if(!o.talk){ const oh=window.ovhScene?.(pid); if(oh){ oh.play(); return } }   // 成員之間:她們在聊天,先旁聽(ovh.js)
   if(o.talk&&ppl.includes(o.talk)){ narr(`你走到${byId(o.talk).n}身邊。`); talk(o.talk); return }
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;
@@ -773,12 +777,13 @@ function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid]; S.lastTalk={id
   const sn=inv||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
   if(!inv) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
+  window.missSeen?.(id);   // 冷落的心情:有來找她了
   play(sn,()=>{ window.lifeAfterTalk?.(id); menu() },"talk")}
 function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.lastTalk={id,day:S.day};
   const sn=pickW(pool({sp:"office",room:"office",slot:S.slot,present:[id],types:OFFICE,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);fx(id,"信任 +1")}
   play(sn,menu,"talk")}
-function leave(){if(D) return; stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); stopSkip();
+function leave(){if(D) return; stageReset(); $("#visit").classList.remove("on","hear"); $("#visit .vhear")?.remove(); setTimeout(()=>window.missFlush?.(),500); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); stopSkip();
   renderAll(); schedulePush()}   // 扣掉的時間跨過時段的話,時鐘下一次走的時候處理
 
 /* ---- 眨眼疊加層(2026-10-24 做,2026-10-25 改成只存小塊;說話時嘴巴開合在 2026-10-25 依使用者決定拿掉)----
@@ -824,7 +829,7 @@ window.testPlay=function(sn,onDone){
   if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen});
   const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",styling:"styling",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
   const room=PL[sn.room]?sn.room:sn.at==="phone"?"bed_"+((sn.who||[])[0]||"ys"):(roomOf[sn.at]||"practice");
-  if(!sn.nodes?.start&&sn.hear?.length) sn={...sn,nodes:{start:{L:sn.hear,C:[]}}};   // 1.1 的成員之間(旁聽)
+  if(sn.hear?.length) sn=window.ovhMerge?.(sn)||{...sn,nodes:{start:{L:sn.hear,C:[]}}};   // 1.1 的成員之間(旁聽):旁聽+加入接成一段
   V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花時間,也不會影響存檔";
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";

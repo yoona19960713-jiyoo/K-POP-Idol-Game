@@ -64,7 +64,8 @@ let MT=null, lastOpen=0;
 const bandNow=id=>DY.bandOf(stageOf(id));
 function stateOf(id){ const s=S.m[id]; if(S.slot===4) return "sleepy"; if(s.stress>=70) return "tired"; if(["practice","vocal"].includes(S.where[id])&&(S.slot===2||S.slot===3)) return "after_practice"; if(s.mood>=80) return "bright"; return "" }
 function nowLine(id){ const w=S.where[id]||"", base=w.startsWith("bed_")?"bed":w; return `${PL[w]?.n||""}・${S.doing?.[id]||ACT_N[base]||""}` }
-function greet(id){ const L=DY.GREET?.[id]?.[bandNow(id)==="A"?"A":"B"]||[["……","neutral"]], r=rng(seedOf(S.day,S.slot,"greet"+id)); return L[Math.floor(r()*L.length)] }
+function greet(id){ const mg=window.missGreet?.(id); if(mg) return mg;   // 冷落的心情(miss.js)
+  const L=DY.GREET?.[id]?.[bandNow(id)==="A"?"A":"B"]||[["……","neutral"]], r=rng(seedOf(S.day,S.slot,"greet"+id)); return L[Math.floor(r()*L.length)] }
 /* 隨口互動:內容庫優先(同房間的更優先),沒有才用內建備用 */
 function pickCasual(id,ca){ const st=stageOf(id), band=bandNow(id), room=S.where[id]||"", grp=DY.grpOf?.(room), state=stateOf(id);
   const ok=sn=>sn.type==="casual"&&(sn.member===id||sn.who?.[0]===id)&&sn.ca===ca&&(!sn.band||sn.band===band)&&(!sn.stage||sn.stage===st)&&(!sn.sl?.length||sn.sl.includes(S.slot))
@@ -77,7 +78,7 @@ function portraitUrl(id,e){ return spr(id,outfitAt(id,S.where[id],S.slot),e||"ne
 function head(id){ const m=byId(id); return `<div class="mt-name"><span class="mt-emb">${ANIMAL[id]||""}</span><b>${esc(m.n)}</b><em>${esc((m.f||id).toUpperCase())}</em><span class="mt-stage">${esc(stageOf(id))}</span></div>` }
 function optsHTML(id){ const greeted=S.greet?.[id]===S.day;
   return `<div class="mt-opts">
-    <button class="mt-opt" data-mt="hello" ${greeted?"disabled":""}>${ic("hello")}<span><b>打招呼</b><small>${greeted?"今天打過招呼了":"5 分"}</small></span></button>
+    <button class="mt-opt" data-mt="hello" ${greeted?"disabled":""}>${ic("hello")}<span><b>打招呼</b><small>${greeted?"今天打過了":"5 分"}</small></span></button>
     <button class="mt-opt sub" data-mt="casual">${ic("casual")}<span><b>隨口互動</b><small>每次 5 分</small></span></button>
     <button class="mt-opt" data-mt="talk">${ic("talk")}<span><b>聊天</b><small>15~30 分</small></span></button>
     ${(()=>{ const n=window.actsFor?.(id)?.length||0; return `<button class="mt-opt sub" data-mt="act" ${n?"":"disabled"}>${ic("act")}<span><b>邀她做…</b><small>${n?`${n} 個活動`:"現在沒有"}</small></span></button>` })()}</div>` }
@@ -115,7 +116,8 @@ function next(){ if(!MT||MT.mode!=="play") return; const l=MT.q.shift();
 function finish(){ const id=MT.id, ca=MT.ca;
   if(ca==="hello"){ (S.greet=S.greet||{})[id]=S.day }
   const before=S.m[id].xp||0; window.applyGain?.(id,{s:"陪著",g:ca==="pat"?2:1,to:id},()=>{}); const d=(S.m[id].xp||0)-before;
-  if(d>0) chip(`好感 +${d}`,"g"); const used=window.spendTime?.(5,"隨口互動")||0; if(used) chip(`+${used} 分`);
+  if(d>0) chip(`好感 +${d}`,"g"); const ru=window.missTake?.(id); if(ru){ say(ru[0],ru[1]); chip("心情回升","g") }   // 冷落後重逢
+  const used=window.spendTime?.(5,"隨口互動")||0; if(used) chip(`+${used} 分`);
   save(true); MT.mode="home"; setTimeout(()=>{ if(MT){ render() } },350) }
 /* ---------- 打開、關閉 ---------- */
 window.meetOpen=async(id,pid)=>{ if(MT||V||D||Date.now()-lastOpen<400) return; const m=byId(id); if(!m) return; lastOpen=Date.now();
