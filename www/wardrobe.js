@@ -219,9 +219,10 @@ const blobRefs=o=>new Set((JSON.stringify(o||{}).match(/blob:[0-9a-f]{8,}/g)||[]
 async function tombLook(code){ try{ if(!syAuth()||!syCfg()) throw {code:"未登入"};
     await syPatchPath(`items/${encodeURIComponent(code)}`,{json:{stringValue:"{}"},updatedAt:{integerValue:String(Date.now())},deleted:{booleanValue:true}}); return true }
   catch(e){ const t=await IDB.get("itemTombs")||[]; if(!t.includes(code)){ t.push(code); await IDB.set("itemTombs",t) } return false } }
-async function dropBlobs(hashes){ if(!hashes.size) return 0; const used=blobRefs([Object.values(ITEMS),WMETA]), up=new Set(await IDB.get("blobsUp")||[]); let n=0;
+window.dropUnusedBlobs=hs=>dropBlobs(hs,true);   // 給 sprites.js:重新處理立繪後刪掉被換掉的舊圖(還有人用的不會刪)
+async function dropBlobs(hashes,force){ if(!hashes.size) return 0;   /* force:確定是被換掉的舊圖,不是這台上傳的也從雲端刪 */ const used=blobRefs([Object.values(ITEMS),WMETA]), up=new Set(await IDB.get("blobsUp")||[]); let n=0;
   for(const h of hashes){ if(used.has(h)) continue; BLOBMEM.delete(h); await IDB.del("blob:"+h); n++;
-    if(syAuth()&&syCfg()&&up.has(h)){ try{ const d0=await syGet(`blobs/${h}-0`), parts=+d0?.fields?.n?.integerValue||1, t=await syToken();
+    if(syAuth()&&syCfg()&&(up.has(h)||force)){ try{ const d0=await syGet(`blobs/${h}-0`), parts=+d0?.fields?.n?.integerValue||1, t=await syToken();
         for(let i=0;i<parts;i++) await syJSON(syBase()+`/blobs/${h}-${i}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}}); up.delete(h) }catch(e){ window.logErr?.("刪除雲端圖片",e) } } }
   await IDB.set("blobsUp",[...up]); return n }
 async function deleteLook(code,o={}){ const lk=ITEMS[code]; if(!lk) return false; const to=o.to&&ITEMS[o.to]?o.to:null, refs=blobRefs(lk);

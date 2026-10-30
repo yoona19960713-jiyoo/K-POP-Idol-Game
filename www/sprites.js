@@ -12,6 +12,14 @@ const EXS=["neutral","smile","laugh","sad","angry","shy","tired","surprise","pou
 const CROP={yeseul:[480,1472],taeri:[450,1478],hiyori:[433,1461],haeun:[466,1486],haram:[460,1477]};
 const FACE={yeseul:[258,133],taeri:[208,158],hiyori:[216,140],haeun:[235,151],haram:[200,168]};
 const AXR=[56,50], FEATHER=14;
+/* 臉的框(1 倍座標)與羽化遮罩:表情之間只有這一塊不同(省空間的頭部小圖就存這一塊,遊戲讀的時候疊回 neutral) */
+function faceBox(f,cw,ch){ const [cx,cy]=FACE[f], ax=AXR[0], ay=AXR[1]; return {x0:Math.max(0,cx-ax-FEATHER),y0:Math.max(0,cy-ay-FEATHER),x1:Math.min(cw,cx+ax+FEATHER),y1:Math.min(ch,cy+ay+FEATHER)} }
+function maskAt(f,x,y){ const [cx,cy]=FACE[f], ax=AXR[0], ay=AXR[1], dn=Math.hypot((x-cx)/ax,(y-cy)/ay), edge=(dn-1)*Math.min(ax,ay); return edge<=-FEATHER?1:edge>=FEATHER?0:.5-.5*Math.sin(Math.PI*edge/(2*FEATHER)) }
+/* 從一張表情全身圖切出臉部小圖(透明度乘上羽化遮罩);K = 倍數、pad = 左右留邊(1 倍) */
+function facePatch(img,f,K,pad){ const cw=CROP[f][0], ch=CROP[f][1], b=faceBox(f,cw,ch), X=(pad+b.x0)*K, Y=b.y0*K, W=(b.x1-b.x0)*K, H=(b.y1-b.y0)*K;
+  const c=canvas(W,H), x=c.getContext("2d",{willReadFrequently:true}); x.drawImage(img,-X,-Y); const d=x.getImageData(0,0,W,H), D=d.data;
+  for(let yy=0;yy<H;yy++) for(let xx=0;xx<W;xx++){ const a=maskAt(f,b.x0+xx/K,b.y0+yy/K); D[(yy*W+xx)*4+3]=Math.round(D[(yy*W+xx)*4+3]*a) }
+  x.putImageData(d,0,0); let u=c.toDataURL("image/webp",.92); if(!u.startsWith("data:image/webp")) u=c.toDataURL("image/png"); return {u,at:[X,Y]} }
 
 const loadImg=src=>new Promise((ok,no)=>{const i=new Image(); i.crossOrigin="anonymous"; i.onload=()=>ok(i); i.onerror=()=>no(new Error("圖片讀取失敗")); i.src=src});
 function canvas(w,h){const c=document.createElement("canvas"); c.width=w; c.height=h; return c}
@@ -156,13 +164,51 @@ async function fuseWithPrior(B,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD){
 }
 const POSE_CUT=(f,pose)=>!!(window.POSE_ASSETS||{})[f+"_"+pose];
 
+/* ---- 高品質去背(2026-10-29,免費):Hugging Face 的動漫人物去背模型 skytnt/anime-seg(ISNet,Apache-2.0,176 MB),
+   在瀏覽器裡用 onnxruntime-web 跑(不送到任何伺服器、不花錢)。第一次會下載模型,存在瀏覽器的快取裡,之後不用再下載。
+   模型給乾淨的人物輪廓(頭髮邊緣不會有碎點),邊緣的顏色再用灰底去背算出的底色場把灰色扣掉(不會有灰邊)。
+   預設只在電腦上用(手機記憶體不夠、也比較慢);選單裡可以改。失敗就自動退回原本的去背 ---- */
+const HQ_URL=window.HQ_TEST?.model||"https://huggingface.co/skytnt/anime-seg/resolve/main/isnetis.onnx", ORT_VER="1.20.1", ORT_CDN=window.HQ_TEST?.ort||`https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VER}/dist/`;   // HQ_TEST:測試時改用本機檔案
+const hqMode=()=>{ try{ return localStorage.getItem("kpopGame.hqcut")||"auto" }catch(e){ return "auto" } };
+window.hqCutOn=()=>{ const m=hqMode(); if(m==="on") return true; if(m==="off") return false; return !window.isNative&&!/Android|iPhone|iPad/i.test(navigator.userAgent)&&(navigator.deviceMemory||8)>=4 };
+let HQ_SESS=null, HQ_LOAD=null;
+function loadScript(src){ return new Promise((ok,no)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=()=>no(new Error("載入失敗:"+src)); document.head.appendChild(s) }) }
+async function hqSession(onProg){ if(HQ_SESS) return HQ_SESS; if(HQ_LOAD) return HQ_LOAD;
+  HQ_LOAD=(async()=>{ if(!window.ort) await loadScript(ORT_CDN+"ort.min.js"); ort.env.wasm.wasmPaths=ORT_CDN; ort.env.wasm.numThreads=Math.min(4,navigator.hardwareConcurrency||2);
+    let buf=null, cache=null; try{ cache=await caches.open("kpop-models"); const hit=await cache.match(HQ_URL); if(hit) buf=await hit.arrayBuffer() }catch(e){}
+    if(!buf){ const r=await fetch(HQ_URL); if(!r.ok) throw new Error("模型下載失敗 "+r.status); const total=+r.headers.get("content-length")||176e6, rd=r.body.getReader(), parts=[]; let got=0;
+      for(;;){ const {done,value}=await rd.read(); if(done) break; parts.push(value); got+=value.length; onProg?.(got/total) }
+      const all=new Uint8Array(got); let o=0; for(const p of parts){ all.set(p,o); o+=p.length } buf=all.buffer;
+      try{ await cache?.put(HQ_URL,new Response(all.slice(0),{headers:{"Content-Type":"application/octet-stream"}})) }catch(e){} }
+    HQ_SESS=await ort.InferenceSession.create(buf,{executionProviders:["wasm"],graphOptimizationLevel:"all"}); return HQ_SESS })();
+  try{ return await HQ_LOAD }catch(e){ HQ_LOAD=null; throw e } }
+window.hqCutPrepare=hqSession;
+/* 模型的人物遮罩(0~1),大小跟原圖一樣 */
+async function hqMask(srcCanvas,W,H){ const sess=await hqSession(); const S=1024, c=canvas(S,S), x=c.getContext("2d",{willReadFrequently:true}); x.imageSmoothingQuality="high"; x.drawImage(srcCanvas,0,0,S,S);
+  const d=x.getImageData(0,0,S,S).data, inp=new Float32Array(3*S*S), M=[.485,.456,.406];
+  for(let i=0,p=0;p<S*S;p++,i+=4){ inp[p]=d[i]/255-M[0]; inp[S*S+p]=d[i+1]/255-M[1]; inp[2*S*S+p]=d[i+2]/255-M[2] }
+  const out=await sess.run({[sess.inputNames[0]]:new ort.Tensor("float32",inp,[1,3,S,S])}), y=out[sess.outputNames[0]].data;
+  let mn=Infinity,mx=-Infinity; for(let i=0;i<S*S;i++){ const v=y[i]; if(v<mn) mn=v; if(v>mx) mx=v }
+  const mc=canvas(S,S), mx2=mc.getContext("2d",{willReadFrequently:true}), md=mx2.createImageData(S,S);
+  for(let i=0;i<S*S;i++){ const v=(y[i]-mn)/(mx-mn+1e-8)*255; md.data[i*4]=md.data[i*4+1]=md.data[i*4+2]=255; md.data[i*4+3]=v }
+  mx2.putImageData(md,0,0); const big=canvas(W,H), bx=big.getContext("2d",{willReadFrequently:true}); bx.imageSmoothingQuality="high"; bx.drawImage(mc,0,0,W,H);
+  const bd=bx.getImageData(0,0,W,H).data, m=new Float32Array(W*H); for(let p=0;p<W*H;p++) m[p]=bd[p*4+3]/255; return m }
+/* 用模型的遮罩重新合成:輪廓用模型的,邊緣的顏色扣掉灰底(底色場 Bf) */
+function hqCompose(ox,W,H,rawD,Bf,m){ const im=ox.getImageData(0,0,W,H), o=im.data;
+  for(let p=0;p<W*H;p++){ const i=p*4; let a=(m[p]-.12)/.76; a=a<0?0:a>1?1:a;
+    if(a>=.999){ o[i]=rawD[i]; o[i+1]=rawD[i+1]; o[i+2]=rawD[i+2]; o[i+3]=255; continue }
+    if(a<=0){ o[i+3]=0; continue } const k=Math.max(a,.05);
+    for(let c=0;c<3;c++){ const B=Bf?Bf[p*3+c]:rawD[i+c]; o[i+c]=Math.max(0,Math.min(255,(rawD[i+c]-(1-a)*B)/k)) } o[i+3]=Math.round(a*255) }
+  ox.putImageData(im,0,0) }
+
 /* ---- 主流程:一張造型圖 → 六張表情立繪 ---- */
 async function makeSprites(mid,imgURL,pose){
   const m=byId(mid), f=m.f, [cw,ch]=CROP[f], face=FACE[f];
   const oi=await loadImg(imgURL), W=oi.naturalWidth, H=oi.naturalHeight;
   const oc=canvas(W,H), ox=oc.getContext("2d",{willReadFrequently:true}); ox.drawImage(oi,0,0);
   const rawD=ox.getImageData(0,0,W,H).data.slice();       // 去背前的原色(邊緣用)
-  let keyed=false, Bf=null; if(!hasAlpha(ox,W,H)){ Bf=keyOut2(ox,W,H); keyed=true }
+  let keyed=false, Bf=null, hq=false; if(!hasAlpha(ox,W,H)){ Bf=keyOut2(ox,W,H); keyed=true;
+    if(window.hqCutOn()){ try{ const src=canvas(W,H); src.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(rawD),W,H),0,0); const m=await hqMask(src,W,H); hqCompose(ox,W,H,rawD,Bf,m); hq=true }catch(e){ window.logErr?.("高品質去背",e) } } }
   const oD=ox.getImageData(0,0,W,H).data;
   // 表情組放大回原圖比例
   const ex={}, exI={}; for(const e of EXS){ const im=await loadImg(`assets/chara/${f}_${e}.webp`); exI[e]=im; const c=canvas(cw,ch); c.getContext("2d").drawImage(im,0,0,cw,ch); ex[e]=c }
@@ -185,7 +231,8 @@ async function makeSprites(mid,imgURL,pose){
   if(keyed) await fuseWithPrior(bD.data,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD);
   // 膚色對齊用:遮罩中心區、夠亮的像素
   const skin=(D)=>{let r=0,g=0,b=0,n=0; for(let p=0;p<cw*ch;p++){ if(mask[p]<.8) continue; const i=p*4; if(D[i+3]<200) continue; const L=gray(D,i); if(L<150) continue; r+=D[i];g+=D[i+1];b+=D[i+2];n++} return n?[r/n,g/n,b/n]:null};
-  const sB=skin(bD.data), out={};
+  const sB=skin(bD.data), out={}, faces={}; let fat=null;
+  /* 省雲端空間(2026-10-30):表情之間只有臉不同,其他表情只存臉的那一塊(羽化邊),遊戲讀的時候疊回 neutral;頭髮一律用 neutral 的(換表情時頭髮不會跳動) */
   const H2=ch*K, W2=cw*K;   // 2 倍:身體由造型圖平滑放大,臉再用高清表情組重疊一次,臉部跟白 T 立繪一樣清楚
   const fy0=Math.max(0,cy-ay-FEATHER), fy1=Math.min(ch,cy+ay+FEATHER), fx0=Math.max(0,cx-ax-FEATHER), fx1=Math.min(cw,cx+ax+FEATHER);
   for(const e of EXS){
@@ -220,24 +267,60 @@ async function makeSprites(mid,imgURL,pose){
       x2.putImageData(Hd,0,0) }
     let fin=c2; if(PAD){ const pw=PAD*K, c3=canvas(W2+2*pw,H2), x3=c3.getContext("2d"); x3.imageSmoothingQuality="high";
       x3.drawImage(oc,pos.x-PAD,pos.y,PAD,ch,0,0,pw,H2); x3.drawImage(oc,pos.x+cw,pos.y,PAD,ch,pw+W2,0,pw,H2); x3.drawImage(c2,pw,0); fin=c3 }   // 左右兩條直接用去背後的造型圖
-    let u=fin.toDataURL("image/webp",.86); if(!u.startsWith("data:image/webp")) u=fin.toDataURL("image/png"); out[e]=u }
-  return {sprites:out,pos,keyed,err:pos.err,pad:PAD};
+    if(e==="neutral"){ let u=fin.toDataURL("image/webp",.86); if(!u.startsWith("data:image/webp")) u=fin.toDataURL("image/png"); out[e]=u }
+    else{ const fp=facePatch(fin,f,K,PAD); faces[e]=fp.u; fat=fp.at } }
+  return {sprites:out,faces,fat,pos,keyed,err:pos.err,pad:PAD,hq};
 }
 
-window.__makeSprites=makeSprites;   // 測試用(r5_sprite.py)
+window.__makeSprites=makeSprites; window.__keyOut2=keyOut2;   // 測試用(r5_sprite.py、去背比較)
 /* ---- 遊戲讀取:DYN[code@mid][表情] = 物件網址 ---- */
 const DYN={}, LOADING=new Set(); window.DYN=DYN;
 function toBlobURL(u){const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([a],{type:mime}))}
 let rT=0; const rerender=()=>{clearTimeout(rT); rT=setTimeout(()=>{try{renderAll()}catch(e){window.logErr?.("sprites",e)}},300)};
+const ORDER_EX=["smile","laugh","shy","serious","surprise","sad","pout","moved","wink","tired","angry"];
+let CW=null; const cwWait=new Map(); let cwId=0;
+function composer(){ if(CW!==null) return CW; try{ if(typeof OffscreenCanvas==="undefined") throw 0;
+    const src=`const B=new Map();self.onmessage=async e=>{const m=e.data;if(m.free){B.get(m.free)?.close?.();B.delete(m.free);return}try{if(m.base)B.set(m.bid,await createImageBitmap(m.base));const base=B.get(m.bid);
+      const p=await createImageBitmap(m.patch),c=new OffscreenCanvas(base.width,base.height),x=c.getContext("2d");x.drawImage(base,0,0);x.drawImage(p,m.at[0],m.at[1]);
+      const b=await c.convertToBlob({type:"image/webp",quality:.9});self.postMessage({id:m.id,blob:b})}catch(err){self.postMessage({id:m.id,err:String(err)})}}`;
+    CW=new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"}))); CW.onmessage=e=>{ const f=cwWait.get(e.data.id); cwWait.delete(e.data.id); f?.(e.data) } }catch(e){ CW=false } return CW }
+const dataBlob=u=>{ const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return new Blob([a],{type:mime}) };
+async function composeMain(baseU,patchU,at){ const ld=s=>new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=s}); const [b,p]=await Promise.all([ld(baseU),ld(patchU)]);
+  const c=canvas(b.naturalWidth,b.naturalHeight),x=c.getContext("2d"); x.drawImage(b,0,0); x.drawImage(p,at[0],at[1]); return await new Promise(r=>c.toBlob(r,"image/webp",.9)) }
 window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) return; LOADING.add(k);
-  (async()=>{ const slot=Object.keys(WMEM).find(s=>WMEM[s]===mid); const sp=ITEMS[code]?.members?.[slot]?.sprites; if(!sp) return;
-    const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender()} })().finally(()=>LOADING.delete(k)) };
+  (async()=>{ const slot=Object.keys(WMEM).find(s=>WMEM[s]===mid), mm=ITEMS[code]?.members?.[slot], sp=mm?.sprites; if(!sp) return;
+    if(!mm.faces){ const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender()} return }   // 舊的格式:12 張全身
+    const nu=await getBlob(sp.neutral); if(!nu) return; const o={neutral:toBlobURL(nu)}; DYN[k]=o; rerender();
+    const W=composer(), bid=++cwId; let first=true;
+    for(const e of ORDER_EX){ const pu=mm.faces[e]&&await getBlob(mm.faces[e]); if(!pu) continue;
+      try{ let blob;
+        if(W){ const id=++cwId; blob=await new Promise(r=>{ cwWait.set(id,d=>r(d.blob||null)); W.postMessage({id,bid,at:mm.fat,patch:dataBlob(pu),...(first?{base:dataBlob(nu)}:{})}) }); first=false }
+        else blob=await composeMain(nu,pu,mm.fat);
+        if(blob) o[e]=URL.createObjectURL(blob) }catch(err){ window.logErr?.("立繪合成",err) } }
+    if(W) W.postMessage({free:bid}) })().finally(()=>LOADING.delete(k)) };   // 每一套各自一個 bid,同時載好幾套也不會拿錯底圖
+
+/* ---- 立繪瘦身(2026-10-30,省雲端空間):舊格式是 12 張全身,改成 1 張全身+11 張頭部那一段;直接從現有的立繪裁,不用原圖、不重新去背 ---- */
+const refsOf=o=>new Set((JSON.stringify(o||{}).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));
+window.slimList=()=>{ const L=[]; for(const lk of Object.values(ITEMS)){ if(!lk||lk.deleted) continue; for(const [slot,m] of Object.entries(lk.members||{})) if(m?.sprites&&!m.faces&&Object.keys(m.sprites).length>1&&WMEM[slot]) L.push([lk.code,slot]) } return L };
+window.slimOne=async(code,slot)=>{ const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})), m=lk.members?.[slot], mid=WMEM[slot]; if(!m?.sprites||m.faces||!mid) return 0;
+  const f=byId(mid).f, nu=await getBlob(m.sprites.neutral); if(!nu) throw new Error("讀不到 neutral");
+  const nim=await loadImg(nu), K=Math.max(1,Math.round(nim.naturalHeight/CROP[f][1])), pad=Math.max(0,Math.round((nim.naturalWidth/K-CROP[f][0])/2)), faces={}; let fat=null;
+  for(const e of EXS){ if(e==="neutral"||!m.sprites[e]) continue; const u=await getBlob(m.sprites[e]); if(!u) throw new Error("讀不到 "+e);
+    const fp=facePatch(await loadImg(u),f,K,pad); faces[e]=fp.u; fat=fp.at }
+  const old=refsOf(Object.fromEntries(Object.entries(m.sprites).filter(([e])=>e!=="neutral")));
+  m.sprites={neutral:m.sprites.neutral}; m.faces=faces; m.fat=fat; lk.updatedAt=Date.now();
+  await saveDoc("items",lk); delete DYN[code+"@"+mid]; await window.dropUnusedBlobs?.(old); return old.size };
+/* ---- 上一版備份(重新生圖時留下的舊圖與舊立繪,可以按「回到上一版」)---- */
+window.prevList=()=>{ const L=[]; for(const lk of Object.values(ITEMS)){ if(!lk||lk.deleted) continue; for(const [slot,m] of Object.entries(lk.members||{})) if(m?.prev&&(m.prev.img||m.prev.sprites)) L.push([lk.code,slot]) } return L };
+window.prevDrop=async(code,slot)=>{ const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})), m=lk.members?.[slot]; if(!m?.prev) return 0; const old=refsOf(m.prev);
+  delete m.prev; lk.updatedAt=Date.now(); await saveDoc("items",lk); await window.dropUnusedBlobs?.(old); return old.size };
+window.refsOf=refsOf;
 
 /* ---- 造型室用:處理一套的某位成員 ---- */
 /* ---- 立繪處理版本(2026-10-27):目前是第 4 版(精準遮罩去背+2 倍輸出、臉用高清表情組)。
    新處理的會記 spriteV;以前處理、沒記版本的,看立繪高度判斷:2 倍輸出高約 2900px,舊版約 1480px。
    判斷只讀圖檔開頭的尺寸欄位(不解碼整張圖),結果記在這台裝置(kpopGame.sprOK),選單只在真的有舊版時才出現更新鍵 ---- */
-const SPRITE_V=5;   // 5(2026-10-29):手伸出表情組的框時左右留邊,手不會被切掉 window.SPRITE_V=SPRITE_V;
+const SPRITE_V=5; window.SPRITE_V=SPRITE_V;   /* 5(2026-10-29):手伸出表情組的框時左右留邊,手不會被切掉 */
 function imgSize(u){ try{ const b64=String(u).split(",")[1]||""; const bin=atob(b64.slice(0,80)), b=[...bin].map(c=>c.charCodeAt(0)), str=(i,n)=>String.fromCharCode(...b.slice(i,i+n));
   if(str(1,3)==="PNG") return {w:(b[16]<<24|b[17]<<16|b[18]<<8|b[19])>>>0,h:(b[20]<<24|b[21]<<16|b[22]<<8|b[23])>>>0};
   if(str(0,4)==="RIFF"&&str(8,4)==="WEBP"){ const k=str(12,4);
@@ -254,11 +337,13 @@ window.spriteOutdated=async(o,lk)=>{ if(!o?.sprites) return false; if((o.spriteV
   return !!sz };
 window.processSprites=async(code,slot,opts={})=>{
   const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})), mid=WMEM[slot]; if(!lk.code||!mid) throw new Error("找不到這套造型");
+  const oldRefs=new Set((JSON.stringify([lk.members?.[slot]?.sprites||{},lk.members?.[slot]?.faces||{}]).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));   // 被換掉的舊立繪(存完後刪,雲端不會越積越多)
   const src=await getBlob(lk.members?.[slot]?.img); if(!src) throw new Error("這位成員還沒有圖");
   const r=await makeSprites(mid,src,lk.pose);
-  lk.members[slot].sprites=r.sprites; lk.members[slot].spriteAt=Date.now(); lk.members[slot].spriteV=SPRITE_V; lk.updatedAt=Date.now();
-  const k=code+"@"+mid; DYN[k]=Object.fromEntries(Object.entries(r.sprites).map(([e,u])=>[e,toBlobURL(u)]));
+  lk.members[slot].sprites=r.sprites; lk.members[slot].faces=r.faces; lk.members[slot].fat=r.fat; lk.members[slot].spriteAt=Date.now(); lk.members[slot].spriteV=SPRITE_V; lk.updatedAt=Date.now();
+  const k=code+"@"+mid; delete DYN[k]; window.needDyn(code,mid);
   const ok=await saveDoc("items",lk); ensureWear(true); rerender();
+  if(oldRefs.size) window.dropUnusedBlobs?.(oldRefs).catch(e=>window.logErr?.("刪除舊立繪",e));
   return {...r,ok};
 };
 })();

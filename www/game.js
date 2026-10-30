@@ -948,6 +948,12 @@ $("#signIn").onclick=async()=>{const c=syCfg(); if(!c){toast2("先貼上 Firebas
 /* ---------- 雲端用量(2026-10-29 改版 1.0):圖片、劇情、存檔各佔多少(估算,Firestore 免費 1 GiB),以及這台裝置今天的讀寫次數 ---------- */
 const GiB=1073741824, fmtB=b=>!b?"0":b>=1048576?(b/1048576).toFixed(b>=104857600?0:1)+" MB":Math.max(1,Math.round(b/1024))+" KB";
 let USE_BUSY=false;
+/* 圖片分成:生圖原圖、日常立繪、上一版備份、底模與成員設定(2026-10-30,看空間花在哪) */
+function blobGroups(){ const R=o=>window.refsOf?refsOf(o):new Set(), g={img:new Set(),spr:new Set(),prev:new Set(),meta:R(WMETA),other:new Set()};
+  for(const lk of Object.values(ITEMS)){ if(!lk) continue; for(const m of Object.values(lk.members||{})){ if(!m) continue;
+      for(const h of R(m.img)) g.img.add(h); for(const h of R([m.sprites,m.faces])) g.spr.add(h); for(const h of R(m.prev)) g.prev.add(h) }
+    const rest={...lk,members:undefined}; for(const h of R(rest)) g.other.add(h) }
+  return g }
 async function blobUsage(prog){ const refs=new Set((JSON.stringify([Object.values(ITEMS),WMETA]).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));
   const cache=await IDB.get("blobSizes")||{}; let known=0, sum=0, miss=0, i=0, dirty=false;
   for(const h of refs){ i++; let n=cache[h];
@@ -955,7 +961,8 @@ async function blobUsage(prog){ const refs=new Set((JSON.stringify([Object.value
     if(n!=null){ sum+=n; known++ } else miss++;
     if(i%20===0){ prog?.(i,refs.size); await new Promise(r=>setTimeout(r,0)) } }
   if(dirty) await IDB.set("blobSizes",cache);
-  const avg=known?sum/known:350000; return {n:refs.size,miss,bytes:Math.round(sum+miss*avg+refs.size*300)} }
+  const avg=known?sum/known:350000, G=blobGroups(), sz=s=>{ let b=0; for(const h of s) b+=(cache[h]??avg)+300; return Math.round(b) };
+  return {n:refs.size,miss,bytes:Math.round(sum+miss*avg+refs.size*300),avg,cache,groups:{img:[G.img.size,sz(G.img)],spr:[G.spr.size,sz(G.spr)],prev:[G.prev.size,sz(G.prev)],meta:[G.meta.size+G.other.size,sz(new Set([...G.meta,...G.other]))]}} }
 async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; USE_BUSY=true; el.classList.remove("hidden"); el.innerHTML=`<p class="hint">計算中…</p>`;
   try{ const sc=window.scriptsUsage?await scriptsUsage():null;
     const img=await blobUsage((i,n)=>{ el.innerHTML=`<p class="hint">計算中…圖片 ${i}/${n}</p>` });
@@ -966,13 +973,28 @@ async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; U
     el.innerHTML=`<div class="usebar${pct>=85?" hi":""}"><i style="--v:${Math.min(100,pct).toFixed(2)}%"></i></div>
       <p class="usetot"><b>${fmtB(total)}</b> / 1 GiB(${pct<10?pct.toFixed(1):Math.round(pct)}%,估算)</p>
       <ul class="usel"><li><span>圖片(造型、日常立繪、底模)</span><b>${fmtB(img.bytes)}</b><small>${img.n} 張${img.miss?`;其中 ${img.miss} 張不在這台裝置,用平均大小估`:""}</small></li>
+      ${[["spr","・日常立繪(表情)"],["img","・生圖原圖"],["prev","・上一版備份"],["meta","・底模與其他"]].map(([k,n])=>`<li class="sub"><span>${n}</span><b>${fmtB(img.groups[k][1])}</b><small>${img.groups[k][0]} 張</small></li>`).join("")}
       <li><span>劇情</span><b>${fmtB(story)}</b><small>${sc?(sc.mode==="packs"?`${N(sc.items)} 段:打包 ${sc.packs} 包、散件 ${sc.loose} 個`:`${N(sc.items)} 段,還沒打包(用電腦版登入、同步一次就會打包)`):"—"}</small></li>
       ${legacy?`<li><span>舊的逐段劇情</span><b>${fmtB(legacy)}</b><small>舊版封存還會用到,先保留</small></li>`:""}
       <li><span>存檔與其他</span><b>${fmtB(save+other)}</b><small>遊戲存檔、歌曲、打歌、成員設定</small></li></ul>
       <p class="hint">這台裝置今天:讀取 ${N(o.r)} 次、寫入 ${N(o.w)} 次、刪除 ${N(o.x)} 次。免費額度每天讀取 5 萬、寫入與刪除各 2 萬(兩台裝置合計,台灣時間下午三、四點重置)。</p>
-      <p class="hint">${pct>=85?"快到 1 GiB 了:要決定開隨用隨付(每月幾美元內、設預算提醒),或讓日常立繪不上雲端。":"離 1 GiB 還遠。快到的時候再決定:開隨用隨付,或讓日常立繪不上雲端。"}</p>` }
+      <p class="hint">${pct>=85?"快到 1 GiB 了:先用下面的「立繪瘦身」「刪除上一版備份」把空間省下來。":"離 1 GiB 還遠。"}</p>
+      ${slimHTML(img)}` ; bindSlim(img) }
   catch(e){ el.innerHTML=`<p class="hint">算不出來:${esc(String(e?.message||e))}</p>`; logErr("雲端用量",e) }
   finally{ USE_BUSY=false } }
+/* 省空間(2026-10-30):立繪瘦身(12 張全身 → 1 張全身+11 張臉部小圖)、刪除上一版備份。都要登入,做完自動同步、刪掉雲端的舊圖 */
+function slimHTML(img){ const sl=window.slimList?.()||[], pv=window.prevList?.()||[];
+  const per=img.groups.spr[0]?img.groups.spr[1]/img.groups.spr[0]:250000, slimSave=Math.round(sl.length*11*per*.9);   /* 實測:臉部小圖約是全身的一成 */
+  let pvB=0; for(const [c,s] of pv) for(const h of refsOf(ITEMS[c].members[s].prev)) pvB+=(img.cache[h]??img.avg)+300;
+  return `<div class="useact">${sl.length?`<p class="hint">立繪瘦身:${sl.length} 組立繪還是 12 張全身的舊格式。改成 1 張全身+11 張臉部小圖之後,看起來一樣,大約可以省 ${fmtB(slimSave)}。直接用現有的立繪裁,不用重新生圖、不花錢;每組約幾秒,處理時可以繼續玩。</p><div class="row"><button class="b pri" id="slimGo">立繪瘦身(${sl.length} 組)</button></div>`:""}
+    ${pv.length?`<p class="hint">上一版備份:${pv.length} 位成員的造型留著重新生圖前的舊圖(可以「回到上一版」),約 ${fmtB(pvB)}。確定不會回去的話可以刪掉。</p><div class="row"><button class="b" id="prevGo">刪除上一版備份(${pv.length} 個)</button></div>`:""}
+    <p class="hint" id="slimMsg"></p></div>` }
+function bindSlim(img){ const msg=$("#slimMsg");
+  const run=async(btn,list,fn,label)=>{ if(!syAuth()||!syCfg()){ toast2("要先登入雲端同步"); return } btn.disabled=true; let ok=0,fail=0;
+    for(const [i,[c,s]] of list.entries()){ msg.textContent=`${label}中 ${i+1}/${list.length}…`; try{ await fn(c,s); ok++ }catch(e){ fail++; logErr(label,e) } }
+    msg.textContent=`${label}完成:${ok} 個${fail?`,${fail} 個沒成功(之後可以再按一次)`:""}。`; btn.disabled=false; setTimeout(()=>renderUse(),800) };
+  const s=$("#slimGo"); if(s) s.onclick=()=>{ const L=slimList(); if(confirm(`把 ${L.length} 組立繪改成瘦身格式?畫面看起來不變,舊的全身表情圖會從雲端刪掉。`)) run(s,L,slimOne,"立繪瘦身") };
+  const p=$("#prevGo"); if(p) p.onclick=()=>{ const L=prevList(); if(confirm(`刪除 ${L.length} 個上一版備份?刪掉之後這些造型就不能「回到上一版」。`)) run(p,L,prevDrop,"刪除備份") } }
 $("#useBtn")&&($("#useBtn").onclick=()=>{ const el=$("#usePanel"); if(!el.classList.contains("hidden")&&!USE_BUSY){ el.classList.add("hidden"); return } renderUse() });
 /* 日常立繪更新(2026-10-27):只有還是舊版處理方式的立繪才提醒;更新完就不再出現 */
 async function outdatedSprites(){ const jobs=[]; if(!window.spriteOutdated) return jobs;
@@ -983,6 +1005,7 @@ let REPROC_BUSY=false;
 async function renderReproc(){ const row=$("#reprocRow"), note=$("#reprocNote"); if(!row||REPROC_BUSY) return;
   const jobs=await outdatedSprites(); row.hidden=note.hidden=!jobs.length;
   if(jobs.length){ $("#reprocAll").textContent=`更新 ${jobs.length} 張舊版日常立繪`; note.textContent=`立繪處理改版過(手伸出去的姿勢會完整保留、去背與清晰度更好);這 ${jobs.length} 張還是舊的處理方式,按一次就會換成新版(更新過的不會再出現)。` } }
+$("#hqcutSel")&&(()=>{ const s=$("#hqcutSel"); try{ s.value=localStorage.getItem("kpopGame.hqcut")||"auto" }catch(e){} s.onchange=()=>{ try{ localStorage.setItem("kpopGame.hqcut",s.value) }catch(e){} toast2(s.value==="off"?"高品質去背已關閉":window.hqCutOn?.()?"之後處理立繪會用高品質去背":"這台裝置目前不會用(自動只在電腦上用)") } })();   // 高品質去背(sprites.js)
 $("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if(!window.processSprites||REPROC_BUSY) return;
   const jobs=await outdatedSprites(); if(!jobs.length){ toast2("日常立繪都是新版了"); renderReproc(); return }
   if(!confirm(`更新 ${jobs.length} 張舊版日常立繪?手機上每張約 5~10 秒,處理時可以繼續玩。`)) return;

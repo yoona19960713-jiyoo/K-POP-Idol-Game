@@ -1511,6 +1511,9 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .set .usel li{display:grid;grid-template-columns:1fr auto;column-gap:10px;padding:6px 0;border-top:1px dashed rgba(125,111,132,.28);font-size:14px;line-height:1.45}
 .set .usel li b{font-variant-numeric:tabular-nums;font-weight:600}
 .set .usel li small{grid-column:1/-1;font-size:12.5px;opacity:.68}
+/* 雲端用量:圖片細項、省空間按鈕(2026-10-30) */
+.usel li.sub{padding-left:1.2em;opacity:.85}.usel li.sub span{font-size:.92em}
+.useact{margin-top:.6em;border-top:1px dashed rgba(0,0,0,.15);padding-top:.4em}
 /* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
 .th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
 .cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}
@@ -2175,6 +2178,8 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
     <ul id="wardList"></ul>
     <p class="hint" id="reprocNote" hidden></p>
     <div class="row" id="reprocRow" hidden><button class="b" id="reprocAll">更新舊版日常立繪</button></div>
+    <p class="hint">高品質去背:處理立繪時改用 Hugging Face 的動漫人物去背模型(anime-seg,免費、在這台裝置上跑,不傳到任何伺服器)。第一次會下載約 176 MB 的模型,之後存在瀏覽器裡。頭髮邊緣、淺色衣服的邊會更乾淨;每張多花幾秒。手機記憶體比較吃緊,「自動」只在電腦上用。</p>
+    <div class="row"><select id="hqcutSel"><option value="auto">高品質去背:自動(電腦用)</option><option value="on">高品質去背:一律使用</option><option value="off">高品質去背:不使用</option></select></div>
 
     <h3>製作者模式</h3>
     <p class="hint">產生日常片段、審稿、試玩、收進內容庫。打開時遊戲時間暫停。</p>
