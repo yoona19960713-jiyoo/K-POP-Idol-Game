@@ -117,7 +117,12 @@ every(1200,()=>{ try{ scan(); if(QUEUE.length&&!paused()&&!document.querySelecto
    有影片的就在圖上播(靜音、循環),播起來才淡入;載不到就照舊顯示圖 */
 const CG_VIDEO={g_debut:"assets/cgv/g_debut.mp4"};
 window.CG_VIDEO=CG_VIDEO;
-function view(o,fresh,onClose){
+/* 2026-10-30:每一張 CG 都可以有影片(戀愛紀念、多人親密、演唱會、團體回憶)。清單在 assets/cgv/list.json(CG 圖的檔名,例如 ["g_debut","tr_heart"]),
+   影片是 assets/cgv/<檔名>.mp4;之後加新的只要放 mp4、更新清單,不用改程式 */
+fetch("assets/cgv/list.json",{cache:"no-cache"}).then(r=>r.ok?r.json():[]).then(L=>{ for(const k of Array.isArray(L)?L:[]) if(/^[\w-]+$/.test(k)) CG_VIDEO[k]=`assets/cgv/${k}.mp4` }).catch(()=>{});
+const vidOf=img=>{ const m=String(img||"").match(/assets\/cg\/([\w-]+?)(_s)?\.webp/); return m?CG_VIDEO[m[1]]||null:null };
+window.cgVideoOf=vidOf;
+function view(o,fresh,onClose){ o={...o,video:o.video||vidOf(o.img)};
   const el=document.createElement("div"); el.id="cgView"; el.className="cgview"+(fresh?" fresh":"");
   el.style.setProperty("--c",o.c);
   el.innerHTML=`<div class="cgimg" style="background-image:url(${o.img})">${o.video?`<video class="cgvid" src="${o.video}" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>`:""}</div><div class="cgshade"></div>
@@ -153,7 +158,7 @@ window.cgAlbumHTML=()=>{ data(); S.cgDuo=S.cgDuo||{}; S.cgEx=S.cgEx||{};
   const chip=(id,c,label,g,all,nw)=>`<button class="cgchip${id===cur?" on":""}" data-cgm="${id}" style="--c:${c}">${label}<small>${g}/${all}</small>${nw?`<i></i>`:""}</button>`;
   const chips=M.map(m=>chip(m.id,m.c,esc(m.n),ORDER.filter(st=>inAlbum(m.id,st)).length,5,ORDER.some(st=>isNew(m.id+"|"+st)))).join("")
     +chip("duo",DUO_C,"雙人",dGot.length,dk.length,dk.some(k=>isNew("duo|"+k)))+chip("extra","#FF2E63","回憶",eGot.length,ek.length,ek.some(k=>isNew("extra|"+k)));
-  const card=(key,th,meta,t)=>`<button class="cgcard" data-cgv="${key}"><span class="cgth" style="background-image:url(${th})"></span><span class="cgmeta"><i>${meta}</i><b>${esc(t)}</b>${isNew(key)?`<em>NEW</em>`:""}</span></button>`;
+  const card=(key,th,meta,t)=>`<button class="cgcard" data-cgv="${key}"><span class="cgth" style="background-image:url(${th})">${vidOf(th)?`<i class="cgmov" aria-label="會動的回憶"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6.5v11l9-5.5z"/></svg></i>`:""}</span><span class="cgmeta"><i>${meta}</i><b>${esc(t)}</b>${isNew(key)?`<em>NEW</em>`:""}</span></button>`;
   const lock=(meta,txt)=>`<div class="cgcard lock"><span class="cgth"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span><span class="cgmeta"><i>${meta}</i><b>${txt}</b></span></div>`;
   const cards=cur==="duo"?dk.map(k=>{ const [a,b]=k.split("-").map(byId), meta=`${esc(a.n)} × ${esc(b.n)}`;
         return duoIn(k)?card("duo|"+k,duoSrc(k,true),meta,DUO[k][0]):lock(meta,`兩人都到「親密」、默契 80(目前 ${Math.round(bondOf(a.id,b.id))})`) }).join("")

@@ -2092,6 +2092,11 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .ti-name em{font-size:max(.95cqw,10px);letter-spacing:.3em}
 .tt-sync{font-size:max(.9cqw,11px);line-height:1.25}
 .tslot .pz{font-size:max(calc(.9*var(--u)),11px);letter-spacing:.04em}
+/* 2026-10-30:相簿裡會動的回憶(有影片的 CG)右下角的小播放標 */
+.cgth{position:relative}
+.cgmov{position:absolute;right:6%;bottom:8%;width:max(calc(1.9*var(--u)),18px);height:max(calc(1.9*var(--u)),18px);border-radius:50%;display:grid;place-items:center;
+  background:rgba(20,12,24,.55);box-shadow:0 0 0 1.5px rgba(255,236,200,.85),0 2px 6px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.cgmov svg{width:52%;height:52%;fill:#FFF3DC;translate:8% 0}
 </style>
 </head>
 <body>
@@ -2226,7 +2231,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
     </div>
 
     <h3>遊戲</h3>
-    <p class="hint">遊戲一天等於現實 12 分鐘,開著才會走;打開設施、手機、選單或事件時,時間會暫停。</p>
+    <p class="hint">遊戲一天等於現實 36 分鐘(深夜走得比較快),開著才會走;讀對話、打開設施、手機、選單或事件時,時間會暫停,做完一件事會扣掉它花的遊戲時間。</p>
     <div class="row"><button class="b warn" id="resetBtn">從第一天重新開始</button></div>
 
     <h3>版本</h3>
