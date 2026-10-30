@@ -137,9 +137,16 @@ window.promoInfo=()=>S.promo?{...S.promo,end:S.promo.start+PROMO_LEN-1,active:!!
 window.setComeback=day=>{ S.comeback=day; save(true); toast2(`回歸日定在 ${fmtD(day)}`) };
 const fmtD=day=>{const d=dateOf(day);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`};
 window.fmtGameDay=fmtD;
+/* 專輯(2026-10-29):每次發行(出道、回歸)就是一張,a1 = 出道;最後一個是企劃室正在準備的「下一張」 */
+window.albumList=()=>{ const seen=new Set(), L=[];
+  for(const p of [...(S.promoHist||[]),...(S.promo?[S.promo]:[])]){ if(!p?.n||seen.has(p.n)) continue; seen.add(p.n); L.push({key:"a"+p.n,n:p.n,name:p.release||p.title||"",title:p.title||"",kind:p.kind,start:p.start}) }
+  L.sort((a,b)=>a.n-b.n); const nx=(L.at(-1)?.n||0)+1, sum=window.songSummary?.();
+  L.push({key:"a"+nx,n:nx,name:sum?.release||"",title:sum?.title?.name||"",upcoming:true}); return L };
+window.albumName=(k,short)=>{ const a=window.albumList().find(x=>x.key===k); if(!a) return k?"(已不存在的專輯)":"未分類";
+  const head=a.n===1?"出道":`第 ${a.n-1} 次回歸`, nm=a.name?`〈${a.name}〉`:""; return short?`${head}${nm}${a.upcoming?"・準備中":""}`:`${head}${nm}${a.upcoming?"(準備中)":""}` };
 
 function startPromo(kind){ const sum=window.songSummary?songSummary():null;
-  S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",tracks:sum?.tracks||[],n:(S.promoHist||[]).length+1};   // tracks:演唱會歌單可以選收錄曲
+  S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",tracks:sum?.tracks||[],n:(S.promoHist||[]).length+1}; window.songsArchive?.(S.promo.n);   // 這張專輯存進專輯紀錄   // tracks:演唱會歌單可以選收錄曲
   S.promoHist=[...(S.promoHist||[]),{...S.promo}]; window.logEvent?.("promo",{title:S.promo.title}); save(true);
   window.stageNewPromo?.(S.promo) }
 function bigEvent(kind){ setTimeout(()=>window.feedback?.("l"),600); if(kind==="debut") window.cgGroupUnlock?.("g_debut");

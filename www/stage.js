@@ -50,8 +50,16 @@ const weekOf=i=>Math.floor(i/6)+1, showOf=i=>SHOWS[i%6];
 let seed=0; const rnd=()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648};
 
 function defaultPlan(){return {looks:Object.fromEntries(M.map(m=>[m.id,(LOOKS.find(l=>l.g)||LOOKS[0])?.id||""])),ver:"orig",mic:"half",cam:SONG.killer,end:SONG.center,rest:{}}}
+/* 演出服裝(2026-10-29 使用者:可以自己排;忘了排就自動挑):這張專輯的打歌服(團體服優先)→ 她在這張專輯的造型 → 最近一張專輯的打歌服 → 其他。
+   同一個宣傳期裡盡量每場換一套;你自己在這張專輯排過的(lookAlb)就照你排的 */
+const curAlb=()=>{ const P=window.promoInfo?.(); return P?.active?"a"+P.n:(window.albumList?.().find(a=>a.upcoming)?.key||"a1") };
+const albN=k=>+(String(k||"").match(/^a(\d+)$/)?.[1]||0);
+function autoLook(mid,avoid){ const A=curAlb(), ok=LOOKS.filter(l=>l.g||l.own===mid), st=ok.filter(l=>l.occ==="打歌舞台");
+  const tiers=[st.filter(l=>l.alb===A&&l.g),st.filter(l=>l.alb===A),st.slice().sort((a,b)=>albN(b.alb)-albN(a.alb)||b.t-a.t),ok];
+  for(const c of tiers){ if(!c.length) continue; const f=c.filter(l=>l.id!==avoid); return (f[0]||c[0]).id } return "" }
 function ensurePlan(){ if(!S.plan) S.plan=S.prev?JSON.parse(JSON.stringify(S.prev)):defaultPlan();
-  for(const m of M){const ok=LOOKS.filter(l=>l.g||l.own===m.id); if(!ok.some(l=>l.id===S.plan.looks[m.id])) S.plan.looks[m.id]=ok[0]?.id||""}
+  const A=curAlb(); S.plan.lookAlb=S.plan.lookAlb||{};
+  for(const m of M){const ok=LOOKS.filter(l=>l.g||l.own===m.id); if(!ok.some(l=>l.id===S.plan.looks[m.id])||S.plan.lookAlb[m.id]!==A) S.plan.looks[m.id]=autoLook(m.id,S.prev?.looks?.[m.id])||ok[0]?.id||""}
   if(S.plan.ver==="goodbye"&&weekOf(S.idx)<4) S.plan.ver="orig"; if(+S.year<2017) S.plan.end="";
   if(!byId(S.plan.cam)) S.plan.cam=(byId(SONG.killer)?SONG.killer:M[0].id); if(S.plan.end&&!byId(S.plan.end)) S.plan.end=""; }
 
@@ -168,7 +176,7 @@ function loadLinked(){
   const looks=[];
   for(const it of Object.values(ITEMS||{})){ if(!it||it.deleted||(it.kind&&it.kind!=="look")) continue;
     const owners=Object.keys(it.members||{}).map(k=>WMEM[k]).filter(Boolean);
-    looks.push({id:it.code,n:it.name,g:it.type==="group"?1:0,own:it.type==="group"?"":owners[0],owners,occ:it.occasion||"打歌舞台",r:"R",a:{...{sweet:0,pure:0,lively:0,fancy:0,retro:0},...(it.attrs||{})}}) }
+    looks.push({id:it.code,n:it.name,g:it.type==="group"?1:0,own:it.type==="group"?"":owners[0],owners,occ:it.occasion||"打歌舞台",alb:it.album||"",t:it.updatedAt||0,r:"R",a:{...{sweet:0,pure:0,lively:0,fancy:0,retro:0},...(it.attrs||{})}}) }
   if(looks.length){ LOOKS=looks.flatMap(l=>l.g?[l]:l.owners.map(o=>({...l,id:l.id+"@"+o,own:o}))); parts.push(`造型:造型室 ${looks.length} 套`) }
   else {LOOKS=DEMO_LOOKS; parts.push("造型:造型室還沒有造型,先用示範造型")}
   srcText=parts.join("。")+"。";
@@ -251,7 +259,7 @@ function render(){ if(!OPEN) return; syncSkill();
   bind();
 }
 function bind(){ const B=$("#tvBody"), p=S.plan;
-  B.querySelectorAll("[data-look]").forEach(e=>e.onchange=()=>{p.looks[e.dataset.look]=e.value;save();render()});
+  B.querySelectorAll("[data-look]").forEach(e=>e.onchange=()=>{p.looks[e.dataset.look]=e.value;(p.lookAlb=p.lookAlb||{})[e.dataset.look]=curAlb();save();render()});   // 你排過就記住是哪張專輯排的
   B.querySelectorAll("[data-rest]").forEach(e=>e.onchange=()=>{p.rest[e.dataset.rest]=e.checked;save();render()});
   B.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{p[b.dataset.g]=b.dataset.k;save();render()});
   const g=$("#tvGroup"); if(g) g.onchange=e=>{if(e.target.value){M.forEach(m=>p.looks[m.id]=e.target.value);save();render()}};

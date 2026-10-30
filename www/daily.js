@@ -82,9 +82,17 @@ D.ACTS={
   roof:A("看夜景和星星","去頂樓看夜景",null,"戒備",["roof"],"20~27",60,{w:[[20,27]],first:1,eff:"心情",allv:3})};
 D.actBands=k=>{ const a=D.ACTS[k]; if(!a) return []; return Object.keys(D.BANDS).filter(b=>D.rank(D.BANDS[b][D.BANDS[b].length-1])>=D.rank(a.gate)) };
 /* 里程碑事件(沿用 event 格式,新的 ev;長對話寫,遊戲沒有內容時用內建的簡短版本) */
-D.MILESTONES={first_day:{n:"上任第一天",date:"2016-01-13",card:false},showcase_in:{n:"第一次公司內部展示",date:"2016-04",card:false},
-  group_name:{n:"團名與出道概念確定",date:"2016-06",card:false},debut_song:{n:"出道曲選定與錄音",date:"2016-08",card:false},
-  concept_shoot:{n:"概念照與 MV 拍攝",date:"2016-10",card:false},debut_announce:{n:"公布出道日與預告",date:"2016-11",card:true},rehearsal:{n:"Showcase 彩排",date:"2016-12",card:false}};
+D.MILESTONES={   /* 2026-10-29 使用者定案;at = 遊戲分鐘;cine = 前面有過場動畫(cine.js);dur = 花的遊戲時間(分) */
+  first_day:{n:"上任第一天",date:"2016-01-13",at:360,room:"practice",cine:1,dur:30},
+  first_eval:{n:"第一次月評",date:"2016-01-30",at:900,room:"practice",cine:1,dur:120},
+  showcase_in:{n:"第一次公司內部展示",date:"2016-04-22",at:840,room:"practice",cine:1,dur:120},
+  group_name:{n:"團名與出道概念確定",date:"2016-06-17",at:840,room:"meeting",cine:0,dur:120,ask:"團名"},
+  debut_song:{n:"出道曲定案與錄音",date:"2016-08-19",at:840,room:"studio",cine:1,dur:120},
+  chuseok:{n:"中秋夜",date:"2016-09-15",at:1200,room:"roof",cine:1,dur:60,who:["hy"],away:["2016-09-14","2016-09-16"]},
+  concept_shoot:{n:"概念照與 MV 拍攝",date:"2016-10-21",at:600,room:"photo",cine:1,dur:240},
+  debut_announce:{n:"公布出道日",date:"2016-11-21",at:720,room:"office",cine:1,dur:60,card:1},
+  final_eval:{n:"出道前最終評估",date:"2016-12-30",at:900,room:"practice",cine:0,dur:120},
+  rehearsal:{n:"Showcase 彩排",date:"2017-01-11",at:900,room:"backstage",cine:1,dur:180}};
 /* 作息(給提示詞) */
 D.SCHED_TEXT="練習生作息(週一到週六):06:00 起床(夏恩 6 點先起來做早餐;日和 6 點一個人在練習室做芭蕾伸展)→ 07:00 晨間體能(漢江或健身房)→ 08:00 早餐(宿舍)→ 09:00~12:00 個人課,各自分開(日和週一三五外出上韓語課、河嵐外出上聲樂課或在聲樂室、泰梨在錄音室練 Rap、夏恩在攝影棚或造型室、藝瑟在練習室或聲樂室)→ 12:00 午餐(公司)→ 13:00~18:00 團體練習(練習室;週二聲樂、週四錄音、週五評估;每月最後一個週六下午月評)→ 18:00 晚餐 → 19:00~22:00 自主練習、錄音、自由(河嵐留在錄音室練高音到最晚)→ 22:00 後宿舍時間(藝瑟 23:30 左右巡房)→ 0:00~1:00 睡覺(泰梨在房間寫詞到兩三點)。週日上午補眠、下午放假、晚上回宿舍。";
 /* 練習生期(2016/01/13~2017/01/13)的世界 */

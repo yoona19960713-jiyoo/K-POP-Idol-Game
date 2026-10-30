@@ -101,6 +101,11 @@ function template(gen){
   const ch=secs.find(s=>s.chorus); ch.lines[2].k=true; return secs;
 }
 let tid=0; const newTrack=(name,gen)=>({id:"t"+Date.now().toString(36)+(tid++),name,g:[gen,"",""],mood:"自信",prod:"kinyo",choreo:3,secs:template(gen)});
+/* 純音樂(2026-10-29 使用者:迷你、正規專輯要能放 INTRO、OUTRO):不分配歌詞、不算成員分量、不能當主打、不編舞;
+   品質看製作團隊與曲風是否擅長;迷你、正規專輯有放 INTRO 或 OUTRO,整張完成度各 +1 */
+const INSTK={intro:"INTRO",outro:"OUTRO"}, ALBUM_T=["mini","full"];
+const newInst=(kind,gen)=>({...newTrack(INSTK[kind],gen),inst:kind,choreo:0,secs:[]});
+const vocalTracks=()=>R.tracks.filter(x=>!x.inst);
 
 /* 狀態(由外層載入) */
 let R=null;
@@ -140,6 +145,8 @@ function genreInfo(T){
   return {gs,trend:Math.max(0,Math.min(100,trend+combo)),prodFit,notes,P};
 }
 function computeTrack(T){
+  if(T.inst){ const c=computeTrack({...T,inst:null,secs:template(T.g[0])}), P=PRODS[T.prod], fit=P.g.includes(T.g[0]);   // 純音樂:用一般曲目的結構算出欄位,再蓋掉分量與分數
+    const z={}; M.forEach(m=>z[m.id]=0); return {...c,inst:T.inst,score:Math.min(100,52+P.lv*7+(fit?8:0)),secOf:z,shares:{...z},all:[],killer:[],center:"",warns:[],LN:{t:80,v:0,i:80}} }
   const DN=window.choreoEval?.(T)||{has:false};   // 練習室的編舞(choreo.js);還沒編就用編舞強度滑桿
   const all=T.secs.flatMap((sec,si)=>sec.lines.map((l,li)=>({...l,si,li,sec})));
   const total=all.reduce((x,l)=>x+(+l.s||0),0)||1;
@@ -193,11 +200,11 @@ function computeTrack(T){
 const rankText=v=>v>=88?"音源冠軍候補":v>=78?"前十名":v>=68?"前三十名":v>=56?"百名內邊緣":"可能進不了榜";
 function computeRelease(){
   const RT=RTYPES[R.type]; const res=R.tracks.map(T=>({T,c:computeTrack(T)}));
-  const title=res.find(x=>x.T.id===R.title)||res[0]; const others=res.filter(x=>x!==title);
+  const title=res.find(x=>x.T.id===R.title&&!x.T.inst)||res.find(x=>!x.T.inst)||res[0]; const others=res.filter(x=>x!==title&&!x.T.inst);
   const bAvg=others.length?others.reduce((a,x)=>a+x.c.score,0)/others.length:null;
   const secAll={}; M.forEach(m=>secAll[m.id]=res.reduce((a,x)=>a+x.c.secOf[m.id],0));
   const totAll=Object.values(secAll).reduce((a,b)=>a+b,0)||1; const sharesAll={}; M.forEach(m=>sharesAll[m.id]=secAll[m.id]/totAll);
-  const fams=new Set(R.tracks.map(T=>GENRES[T.g[0]].f)), prim=new Set(R.tracks.map(T=>T.g[0]));
+  const VT=R.tracks.filter(T=>!T.inst), fams=new Set(VT.map(T=>GENRES[T.g[0]].f)), prim=new Set(VT.map(T=>T.g[0]));
   const w=[];
   const n=R.tracks.length;
   if(n<RT.min) w.push(["b",`${RT.n}至少要 ${RT.min} 首,現在只有 ${n} 首。`]);
@@ -206,6 +213,10 @@ function computeRelease(){
   if(n>=3&&prim.size===1){cohesion=-4;w.push(["w","每首都是同一個曲風,整張聽起來會單調。"])}
   else if(n>=3&&fams.size>=4){cohesion=-4;w.push(["w","曲風跳太多,專輯概念不夠統一。"])}
   else if(n>=3){cohesion=3;w.push(["g","收錄曲風有變化又不失統一,專輯完整度不錯。"])}
+  const nInst=R.tracks.filter(T=>T.inst).length;
+  if(ALBUM_T.includes(R.type)&&nInst){ cohesion+=nInst; w.push(["g",`有${R.tracks.filter(T=>T.inst).map(T=>INSTK[T.inst]).join("、")},整張專輯的開場和收尾更完整。`]) }
+  if(!ALBUM_T.includes(R.type)&&nInst) w.push(["w","單曲不放 INTRO、OUTRO;改成迷你或正規專輯才算進去。"]);
+  if(!VT.length) w.push(["b","至少要有一首有人唱的歌。"]);
   const albumDev=M.reduce((x,m)=>x+Math.abs(sharesAll[m.id]-m.exp),0);
   if(n>1&&albumDev<.2&&title.c.fairness<60) w.push(["g","主打分量不均,但收錄曲有幫其他成員補回來,粉絲比較能接受。"]);
   const quality=bAvg==null?title.c.score:title.c.score*.7+bAvg*.3;
@@ -232,9 +243,9 @@ function suggest(T){
 }
 
 
-function songSummary(){const T=R.tracks.find(x=>x.id===R.title)||R.tracks[0]; const C=computeTrack(T); const hl={};
+function songSummary(){const T=R.tracks.find(x=>x.id===R.title&&!x.inst)||vocalTracks()[0]||R.tracks[0]; const C=computeTrack(T); const hl={};
   T.secs.forEach(sec=>sec.lines.forEach(l=>{if(l.t==="high") l.who.forEach(id=>hl[id]=(hl[id]||0)+1)}));
-  return {title:{name:T.name||"未命名",score:C.score,killer:C.killer[0]||"",center:C.center||"",highLines:hl,genre:T.g[0],mood:T.mood,dance:window.choreoSummary?.(T)||{has:false}},release:R.name,type:R.type,tracks:R.tracks.map(x=>x.name).filter(Boolean)}}
+  return {title:{name:T.name||"未命名",score:C.score,killer:C.killer[0]||"",center:C.center||"",highLines:hl,genre:T.g[0],mood:T.mood,dance:window.choreoSummary?.(T)||{has:false}},release:R.name,type:R.type,tracks:vocalTracks().map(x=>x.name).filter(Boolean),inst:R.tracks.filter(x=>x.inst).map(x=>x.inst)}}
 
 /* ---------- 存檔與雲端(users/{uid}/songs/state,與歌曲企劃室同一份) ---------- */
 const SKEY="kpopGame.songs";
@@ -310,15 +321,16 @@ function renderPlan(){
       <label><select id="pMonth" ${fixed!=null?"disabled":""}>${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${+R.month===i+1?"selected":""}>${i+1}</option>`).join("")}</select>月</label>${fixed!=null?`<small class="psub">跟著${fixed===window.DEBUT_DAY?"出道日":"回歸日"}</small>`:""}</div>
     <h4>曲目</h4>
     <div class="tapes">${R.tracks.map((x,i)=>{const c=RL.res.find(r=>r.T.id===x.id).c;return `<button class="tape${x.id===R.cur?" on":""}" data-tk="${x.id}">
-      <span class="tno">${String(i+1).padStart(2,"0")}</span><span class="tnm">${esc(x.name||"未命名")}${x.id===R.title?`<i class="stamp">主打</i>`:""}</span>
-      <span class="tg">${GENRES[x.g[0]].n}</span><span class="tsc">${Math.round(c.score)}</span></button>`}).join("")}
-      ${R.tracks.length<RT.max?`<button class="tape add" id="pAdd">+ 新增曲目</button>`:""}</div>
+      <span class="tno">${String(i+1).padStart(2,"0")}</span><span class="tnm">${esc(x.name||"未命名")}${x.id===R.title?`<i class="stamp">主打</i>`:""}${x.inst?`<i class="stamp inst">純音樂</i>`:""}</span>
+      <span class="tg">${x.inst?INSTK[x.inst]:GENRES[x.g[0]].n}</span><span class="tsc">${Math.round(c.score)}</span></button>`}).join("")}
+      ${R.tracks.length<RT.max?`<button class="tape add" id="pAdd">+ 新增曲目</button>`:""}
+      ${ALBUM_T.includes(R.type)&&R.tracks.length<RT.max?Object.keys(INSTK).filter(k=>!R.tracks.some(x=>x.inst===k)).map(k=>`<button class="tape add" data-inst="${k}">+ ${INSTK[k]}(純音樂)</button>`).join(""):""}</div>
     ${releaseBox()}
   </div>
   <div class="pcol paper">
     <h3>曲目企劃</h3>
     <div class="prow"><input class="pin-in" id="pSong" value="${esc(T.name)}" placeholder="輸入歌名(不參與評分)" aria-label="歌名">
-      <button class="pbtn" id="pTitle" ${R.title===T.id?"disabled":""}>${R.title===T.id?"這首是主打":"設為主打"}</button><button class="pbtn ghost" id="pDel" ${R.tracks.length<=1?"disabled":""}>刪除</button></div>
+      <button class="pbtn" id="pTitle" ${R.title===T.id||T.inst?"disabled":""}>${T.inst?"純音樂不能當主打":R.title===T.id?"這首是主打":"設為主打"}</button><button class="pbtn ghost" id="pDel" ${R.tracks.length<=1?"disabled":""}>刪除</button></div>
     <h4>曲風</h4>
     <div class="prow3">${[0,1,2].map(i=>`<label>${["主曲風","混合一","混合二"][i]}<select data-g="${i}">${(i?`<option value="">(不混合)</option>`:"")+Object.entries(FAM).map(([f,fn])=>`<optgroup label="${fn}">${Object.entries(GENRES).filter(([,g])=>g.f===f).map(([k,g])=>`<option value="${k}" ${T.g[i]===k?"selected":""}>${g.n}</option>`).join("")}</optgroup>`).join("")}</select></label>`).join("")}</div>
     <h4>情緒</h4>
@@ -341,11 +353,17 @@ function renderPlan(){
   B.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{R.type=b.dataset.rt;save();render()});
   $("#pYear").onchange=e=>{R.year=+e.target.value;save();render()}; $("#pMonth").onchange=e=>{R.month=+e.target.value;save();render()};
   B.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{R.cur=b.dataset.tk;save(false);render()});
+  B.querySelectorAll("[data-inst]").forEach(b=>b.onclick=()=>{ const k=b.dataset.inst, N=newInst(k,vocalTracks()[0]?.g[0]||cur().g[0]); if(k==="intro") R.tracks.unshift(N); else R.tracks.push(N); R.cur=N.id; save(); render() });
+  if(T.inst){ B.querySelectorAll("[data-g]").forEach(e=>{ if(+e.dataset.g>0) e.closest("label").hidden=true });   // 純音樂:只留主曲風、情緒、製作團隊
+    for(const id of ["pGoDance","pGoRec","pChoreo"]) $("#"+id)?.closest(".prow,input")?.setAttribute("hidden","");
+    B.querySelectorAll("h4").forEach(h=>{ if(/^編舞/.test(h.textContent)) h.hidden=true }); B.querySelector(".pnote")?.setAttribute("hidden","");
+    const n=document.createElement("div"); n.innerHTML=`<p class="pnote">純音樂(${INSTK[T.inst]}):不用分配歌詞、不算成員分量、不編舞。品質看製作團隊和它擅不擅長這個曲風。</p><div class="prow"><button class="pbtn" id="pInstExp">${isNative?"複製製作單":"匯出製作單"}</button></div>`;
+    $("#pSong").closest(".prow").after(n); $("#pInstExp").onclick=()=>exportSheet(T) }
   const add=$("#pAdd"); if(add) add.onclick=()=>{const N=newTrack("",cur().g[0]);suggest(N);R.tracks.push(N);R.cur=N.id;save();render();$("#pSong").focus()};
   $("#pSong").oninput=e=>{cur().name=e.target.value;save()}; $("#pSong").onchange=()=>render();
   $("#pTitle").onclick=()=>{R.title=R.cur;save();render()};
   $("#pDel").onclick=()=>{ if(R.tracks.length<=1||!confirm("確定刪除這首?")) return; const i=R.tracks.findIndex(t=>t.id===R.cur); R.tracks.splice(i,1);
-    if(R.title===R.cur) R.title=R.tracks[0].id; R.cur=R.tracks[Math.max(0,i-1)].id; save(); render() };
+    if(R.title===R.cur) R.title=(vocalTracks()[0]||R.tracks[0]).id; R.cur=R.tracks[Math.max(0,i-1)].id; save(); render() };
   B.querySelectorAll("[data-g]").forEach(e=>e.onchange=()=>{const T=cur(),i=+e.dataset.g;T.g[i]=e.value; if(i===0){if(T.g[1]===T.g[0])T.g[1]="";if(T.g[2]===T.g[0])T.g[2]=""} if(T.g[2]&&!T.g[1]){T.g[1]=T.g[2];T.g[2]=""} save();render()});
   B.querySelectorAll("[data-mood]").forEach(b=>b.onclick=()=>{cur().mood=b.dataset.mood;save();render()});
   B.querySelectorAll("[data-prod]").forEach(b=>b.onclick=()=>{cur().prod=b.dataset.prod;save();render()});
@@ -373,11 +391,12 @@ const dayOfIso=v=>{const [y,m,d]=v.split("-").map(Number); return Math.round((ne
 function fillOf(l){ if(!l.who.length) return null; if(l.who.length===1) return byId(l.who[0]).c; const n=l.who.length;
   return `linear-gradient(90deg,${l.who.map((id,i)=>`${byId(id).c} ${i/n*100}% ${(i+1)/n*100}%`).join(",")})` }
 function renderRec(){
+  if(cur().inst){ const v=vocalTracks()[0]; if(v) R.cur=v.id }   // 純音樂不用分配歌詞
   const RL=computeRelease(), T=cur(), C=RL.res.find(x=>x.T.id===T.id).c, isT=R.title===T.id;
   const blocks=[]; let lastSi=-1;
   for(const l of C.all){ if(l.si!==lastSi){lastSi=l.si; const ins=instOf(T.secs[l.si]); if(ins>0) blocks.push(`<span class="blk inst" style="flex-grow:${ins}"></span>`)} blocks.push(l) }
   const rel=R.shareMode==="rel", sh=rel?RL.sharesAll:C.shares, sc=rel?RL.secAll:C.secOf;
-  $("#sfBody").innerHTML=`<div class="rtop"><div class="rtapes">${R.tracks.map((x,i)=>`<button class="rtape${x.id===R.cur?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?" ・主打":""}</button>`).join("")}</div>
+  $("#sfBody").innerHTML=`<div class="rtop"><div class="rtapes">${R.tracks.map((x,i)=>`<button class="rtape${x.id===R.cur?" on":""}" data-tk="${x.id}" ${x.inst?"disabled":""}>${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?" ・主打":""}${x.inst?" ・純音樂":""}</button>`).join("")}</div>
     <span class="rlinks"><button class="cbtn" data-room="planning">← 企劃室</button><button class="cbtn" data-room="choreo">練習室 →</button></span><span class="rlen">全長 <b>${fmt(C.LN.t)}</b>・人聲 ${fmt(C.LN.v)}・伴奏 ${fmt(C.LN.i)}・${R.year} 年常見約 ${fmt(C.ideal)}</span></div>
   <div class="ribbon"><div class="strip">${blocks.map(l=>{if(typeof l==="string") return l; const f=fillOf(l);
       return `<button class="blk${f?"":" empty"}" style="flex-grow:${l.s};${f?`background:${f}`:""}" data-go="${l.si}-${l.li}" title="${esc(l.sec.n)}・${TYPES[l.t]}・${l.s} 秒">${l.k?"<i>★</i>":""}</button>`}).join("")}</div>
@@ -434,6 +453,12 @@ function renderRec(){
    「匯出製作單」把這首的曲風、氣氛、製作團隊、段落秒數、逐句分配與歌詞、killing part、編舞強弱交給音樂生成對話
    (網頁版下載 JSON,APK 複製到剪貼簿)。回傳時沿用同樣的段落名稱與句子順序。 */
 function sheetOf(T){ const C=computeTrack(T), CH=window.choreoSections?.(T)||null;
+  if(T.inst){ const ti=R.tracks.find(x=>x.id===R.title&&!x.inst)||vocalTracks()[0];   // 純音樂的製作單:沒有歌詞,交代在專輯裡的位置與跟主打的關係
+    return {app:"kpop-song-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),code:T.id,title:T.name||INSTK[T.inst],instrumental:true,part:INSTK[T.inst],
+      release:R.name||"",releaseType:RTYPES[R.type]?.n||"",year:R.year,genres:[GENRES[T.g[0]]?.n||T.g[0]],mood:T.mood,producer:PRODS[T.prod]?.n||T.prod,lengthSec:[60,100],
+      titleTrack:ti?{title:ti.name||"",genres:ti.g.filter(Boolean).map(k=>GENRES[k]?.n||k),mood:ti.mood}:null,
+      tracklist:R.tracks.map(x=>x.inst?`(${INSTK[x.inst]})`:x.name||"未命名"),
+      note:T.inst==="intro"?"純音樂 INTRO:專輯第一軌,沒有人聲(可以有不成句的哼唱或環境音)。用主打歌的主題動機或和聲做預告,結尾自然接到第二軌。長度 60~100 秒。":"純音樂 OUTRO:專輯最後一軌,沒有人聲。把整張專輯的情緒收起來,可以回到主打歌的旋律片段,用漸弱或餘韻結束。長度 60~100 秒。"} }
   return {app:"kpop-song-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),
     code:T.id,title:T.name||"",isTitle:R.title===T.id,release:R.name||"",releaseType:RTYPES[R.rtype]?.n||"",year:R.year,
     genres:T.g.filter(Boolean).map(k=>GENRES[k]?.n||k),mood:T.mood,producer:PRODS[T.prod]?.n||T.prod,lengthSec:Math.round(C.LN.t),
@@ -470,7 +495,12 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
     if(!done.length){ toast2("沒有對上任何一首歌:請確認 code 或曲名"); return }
     save(); close(); render(); toast2("已匯入歌詞:"+done.join(";")+(skip?`;略過 ${skip} 份`:"")) } }
 /* 給 choreo.js(練習室)用 */
-window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T)};
+/* 專輯紀錄(2026-10-29):每次出道、回歸開始時把這次的發行存一份(R.archive),MV 室、唱片室可以選以前的專輯 */
+window.songsArchive=n=>{ R.archive=R.archive||[]; if(R.archive.some(a=>a.n===n)) return; R.archive.push({n,name:R.name||"",type:R.type,title:R.title,tracks:JSON.parse(JSON.stringify(R.tracks))}); save() };
+function albumsAll(){ const A=(R.archive||[]).map(a=>({...a,released:true})), last=A.at(-1), same=last&&last.tracks.map(x=>x.id).join()===R.tracks.map(x=>x.id).join();
+  if(!same) A.push({n:(last?.n||0)+1,name:R.name||"",type:R.type,title:R.title,tracks:R.tracks,current:true}); return A }
+window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
+  albums:albumsAll,track:id=>albumsAll().flatMap(a=>a.tracks).find(t=>t.id===id)||null};
 window.openSongFacility=open;
 window.songSummary=()=>{syncSkill(); return songSummary()};
 

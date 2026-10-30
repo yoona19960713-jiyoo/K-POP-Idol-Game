@@ -468,6 +468,9 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .fsumrow{display:flex;align-items:center;justify-content:space-between;gap:calc(1*var(--u));margin:calc(.2*var(--u)) 0 calc(1*var(--u))}
 .fsumrow .fsum{margin:0;min-width:0}
 .fac-wrap .fsumrow .fbtn{flex:none;padding:calc(.5*var(--u)) calc(1.1*var(--u));font-size:max(calc(.92*var(--u)),10.5px);letter-spacing:.1em}
+/* 衣櫃的小分類列與專輯欄(2026-10-29) */
+.fbar .fchips.sub{opacity:.95}.fbar .fchips.sub .fchip{font-size:max(calc(.85*var(--u)),11px)}
+.dalb{display:flex;align-items:center;gap:calc(.6*var(--u));margin:calc(.4*var(--u)) 0}.dalb b{font-size:max(calc(.9*var(--u)),12px)}.dalb select{max-width:100%;font-size:max(calc(.9*var(--u)),12px)}
 
 /* ===== 房間選擇(設施或拜訪) ===== */
 .chooser{position:absolute;inset:0;z-index:35;display:none;place-items:center;background:rgba(20,12,28,.45);-webkit-backdrop-filter:blur(calc(.4*var(--u)));backdrop-filter:blur(calc(.4*var(--u)))}
@@ -607,6 +610,9 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 /* 卡帶標題太長時,「主打」章不跟著被截掉:章固定在右端,標題在它前面省略(2026-10-24) */
 .tnm:has(.stamp){position:relative;padding:calc(.15*var(--u)) calc(3.4*var(--u)) calc(.15*var(--u)) 0;margin:calc(-.15*var(--u)) 0}
 .tnm .stamp{position:absolute;right:calc(.2*var(--u));top:50%;translate:0 -50%;margin:0}
+.stamp.inst{border-color:#8A7680;color:#8A7680}
+/* MV 室:依專輯分組(2026-10-29) */
+.pst-alb{margin:calc(1*var(--u)) 0 calc(.5*var(--u));font:700 max(calc(1.1*var(--u)),13px)/1.3 var(--serif);letter-spacing:.12em;color:#F3E4C2}
 
 /* ===== 製作者模式:編輯部的稿紙桌(象牙稿紙、紅筆批註) ===== */
 .th-writer{--gold:#B0473F;--gold2:#E8C9B8;--ink:#2B2522;--soft:#857870;--paper:#FBF8F1}
@@ -1689,6 +1695,37 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 #meet .mt-opt.act b{white-space:normal;font-size:max(calc(1.08*var(--u)),13px);line-height:1.25;letter-spacing:.04em}
 #meet .mt-opt.act small{font-size:11px}
 #meet .mt-opt.act small{white-space:normal;line-height:1.3}
+/* ===== 里程碑過場動畫(cine.js)===== */
+.cine{position:absolute;inset:0;z-index:70;background:#07040A;overflow:hidden;--u:max(1cqw,7.4px);cursor:pointer}
+.cine .cn-stage,.cine .cn-shot{position:absolute;inset:0}
+.cine .cn-bg{position:absolute;inset:-4%;background:center/cover no-repeat;will-change:transform}
+.cine .cn-shot::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(8,3,10,.55)),linear-gradient(180deg,rgba(8,3,10,.15),transparent 30%,transparent 62%,rgba(8,3,10,.55))}
+.cine .cn-fig{position:absolute;transform:translateX(-50%);aspect-ratio:900/2950;z-index:1;will-change:transform,opacity}
+.cine .cn-fig img{width:100%;height:100%;object-fit:contain;object-position:top;transform-origin:50% 100%}
+.cine .cn-bar{position:absolute;left:0;right:0;height:9%;background:#050307;z-index:5}
+.cine .cn-bar.t{top:0}.cine .cn-bar.b{bottom:0}
+.cine .cn-date{position:absolute;left:4.5%;top:12%;z-index:6;display:flex;flex-direction:column;gap:calc(.3*var(--u));color:#F3E4C2;opacity:0;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.cine .cn-date b{font:700 max(calc(1.25*var(--u)),13px)/1 var(--num);letter-spacing:.32em}
+.cine .cn-date span{font:600 max(calc(1*var(--u)),12px)/1 var(--num);letter-spacing:.28em;opacity:.8}
+.cine .cn-cap{position:absolute;left:8%;right:8%;z-index:6;text-align:center;color:#FFF7EE;font:500 max(calc(1.55*var(--u)),15px)/1.6 var(--serif);letter-spacing:.14em;text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 calc(1.4*var(--u)) rgba(0,0,0,.6)}
+.cine .cn-cap.b{bottom:13%}.cine .cn-cap.c{top:50%;margin-top:-1em;font-size:max(calc(2*var(--u)),18px);letter-spacing:.24em}
+.cine .cn-plate{position:absolute;top:26%;z-index:6;display:flex;flex-direction:column;gap:calc(.35*var(--u));padding:calc(.6*var(--u)) calc(1.4*var(--u));color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.cine .cn-plate.l{left:7%;border-left:2px solid var(--c)}.cine .cn-plate.r{right:7%;border-right:2px solid var(--c);text-align:right}
+.cine .cn-plate b{font:700 max(calc(2.6*var(--u)),22px)/1 var(--serif);letter-spacing:.24em}
+.cine .cn-plate em{font:700 max(calc(1*var(--u)),12px)/1 var(--num);letter-spacing:.42em;font-style:normal;color:color-mix(in srgb,var(--c) 45%,#fff)}
+.cine .cn-plate small{font:600 max(calc(.8*var(--u)),11px)/1 var(--num);letter-spacing:.3em;opacity:.78}
+.cine .cn-title{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(1*var(--u))}
+.cine .cn-title small{font:700 max(calc(1.1*var(--u)),12px)/1 var(--num);letter-spacing:.6em;color:#E4CC97}
+.cine .cn-title b{font:900 max(calc(4.4*var(--u)),34px)/1.2 var(--serif);letter-spacing:.32em;background:linear-gradient(180deg,#FFF6E8,#F3D9A4 45%,#C98B4E 60%,#F7E3B8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cine .cn-flash{position:absolute;inset:0;z-index:7;opacity:0;pointer-events:none}.cine .cn-flash.white{background:#FFF8EE}.cine .cn-flash.black{background:#050307}
+.cine .cn-skip{position:absolute;right:2.5%;bottom:11%;z-index:8;min-height:44px;padding:0 calc(1.4*var(--u));border-radius:999px;font:600 max(calc(1*var(--u)),13px)/1 var(--sans);letter-spacing:.2em;color:#FFF6E6;background:rgba(20,14,24,.6);border:1px solid rgba(228,204,151,.7)}
+/* 天氣粒子:雪(慢慢飄)、光點(往上浮) */
+.cine .cn-fx{position:absolute;inset:0;z-index:2;pointer-events:none}
+.cine .cn-fx i{position:absolute;top:-4%;left:var(--x);width:calc(.45*var(--u));height:calc(.45*var(--u));border-radius:50%;background:#fff;opacity:.85;animation:cnSnow calc(7s + var(--d)*.6s) linear calc(var(--i)*-.55s) infinite}
+.cine .cn-fx.dust i{top:auto;bottom:-4%;width:calc(.3*var(--u));height:calc(.3*var(--u));background:#FFE9B8;opacity:.6;animation:cnDust calc(8s + var(--d)*.5s) linear calc(var(--i)*-.7s) infinite}
+@keyframes cnSnow{to{transform:translate(4cqw,110cqh)}}
+@keyframes cnDust{to{transform:translate(-3cqw,-110cqh)}}
+@media (prefers-reduced-motion:reduce){.cine .cn-fx{display:none}}
 /* ===== MV(mvplay.js,2026-10-27):動態 MV 與 AI 影片 MV 的播放 ===== */
 .mvp,.mvv{position:absolute;inset:0;z-index:92;overflow:hidden;background:#07060A;color:#F6EEDF;font-family:var(--sans);container-type:inline-size}
 .mvv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
@@ -2163,6 +2200,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="meet.js"></script>
 <script src="act.js"></script>
 <script src="night.js"></script>
+<script src="cine.js"></script>
 <script src="mvplay.js"></script>
 <script src="center.js"></script>
 <script src="scripts.js"></script>

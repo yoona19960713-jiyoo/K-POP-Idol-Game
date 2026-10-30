@@ -386,7 +386,7 @@ function ensureWear(force){
   if(S.wear&&S.wear.day!==S.day) S.lastWear=S.wear.m;
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
-  if(g==="公司大樓") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
+  if(g==="公司大樓"||g==="製作中心") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
 const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 /* 以前處理的換衣立繪沒有「累」「驚訝」:用最接近的表情代替(不用重新處理) */
 const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"],pout:["shy","smile","neutral"],moved:["sad","smile","neutral"],serious:["neutral"],wink:["laugh","smile","neutral"]};

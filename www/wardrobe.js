@@ -11,8 +11,13 @@
 const W_SEASONS=["春","夏","秋","冬"];
 const wIsDaily=o=>o==="練習"||String(o||"").startsWith("日常");
 const wSeasonText=a=>Array.isArray(a)&&a.length&&a.length<4?W_SEASONS.filter(s=>a.includes(s)).join("、"):"四季";
-const W_CATS=[["all","全部"],["stage","舞台與活動"],["練習","練習服"],["日常・居家","居家"],["日常・外出","外出"],["日常・睡衣","睡衣"]];
-const wCatOf=o=>wIsDaily(o)?o:"stage";
+/* 衣櫃的分類(2026-10-29 使用者:演出服依專輯歸納,其他主項也細分):
+   打歌服、寫真 → 依專輯(發行紀錄;還沒發行的是「下一張(準備中)」,沒指定的是「未分類」)
+   舞台與活動 → 演唱會、頒獎典禮、綜藝、機場;練習服 → 季節;日常 → 居家、外出、睡衣+季節;節日 → 韓服、聖誕… */
+const W_CATS=[["all","全部"],["song","打歌服"],["photo","寫真"],["event","舞台與活動"],["練習","練習服"],["daily","日常"],["fest","節日"]];
+const W_EVENT=["演唱會","頒獎典禮","綜藝","機場"], W_DAILY=["日常・居家","日常・外出","日常・睡衣"];
+const wCatOf=o=>o==="打歌舞台"?"song":o==="寫真"?"photo":W_EVENT.includes(o)?"event":o==="練習"?"練習":W_DAILY.includes(o)?"daily":o==="節日"?"fest":"event";
+const wWear=o=>wIsDaily(o)||o==="節日";   // 會在遊戲裡穿的(處理成遊戲立繪):日常、練習、節日
 /* 定案姿勢:頭部位置與角度完全不動、手不靠近臉(換臉層才對得準);描述固定左右手與高度,五個人比出來一致
    [代號, 名稱, 分類, 英文描述] */
 const W_POSES=[
@@ -238,8 +243,8 @@ async function deleteLook(code,o={}){ const lk=ITEMS[code]; if(!lk) return false
    新版每位成員都收下新圖(日常服還要處理好遊戲立繪)之後,自動刪除 replaces 指向的舊造型(雲端一起);團體服要全員都好才刪 */
 const reps=it=>[].concat(it?.replaces||[]).filter(c=>c&&c!==it.code);
 const repMembers=it=>Object.entries(it?.members||{}).filter(([s,o])=>midOf(s)&&o?.outfit);
-function replaceReady(it){ const ms=repMembers(it); return !!ms.length&&ms.every(([,o])=>o.img&&!o.redo&&(!wIsDaily(it.occasion)||o.sprites)) }
-function readyNote(it){ if(!it) return "新版不見了"; const ms=repMembers(it), noImg=ms.filter(([,o])=>!o.img||o.redo).length, noSpr=wIsDaily(it.occasion)?ms.filter(([,o])=>o.img&&!o.redo&&!o.sprites).length:0;
+function replaceReady(it){ const ms=repMembers(it); return !!ms.length&&ms.every(([,o])=>o.img&&!o.redo&&(!wWear(it.occasion)||o.sprites)) }
+function readyNote(it){ if(!it) return "新版不見了"; const ms=repMembers(it), noImg=ms.filter(([,o])=>!o.img||o.redo).length, noSpr=wWear(it.occasion)?ms.filter(([,o])=>o.img&&!o.redo&&!o.sprites).length:0;
   return noImg?`新版還有 ${noImg} 人沒生圖或還沒收下`:noSpr?`新版還有 ${noSpr} 人的遊戲立繪沒處理`:"新版已完成" }
 async function checkReplaces(code,quiet){ const it=ITEMS[code]; if(!it||!reps(it).length||!replaceReady(it)) return 0; const names=[];
   for(const old of reps(it)){ const o=ITEMS[old]; if(!o||o.deleted) continue; names.push(o.name||old); await deleteLook(old,{to:code}) }
@@ -301,6 +306,8 @@ async function takeImport(){
       if(col==="items"&&it.members){ const ms={}; for(const [k,v] of Object.entries(it.members)) ms[byId(k)?(slotOf(k)||DEFAULT_SLOT[k]):k]=v; it.members=ms;
         if(it.target&&byId(it.target)) it.target=slotOf(it.target)||DEFAULT_SLOT[it.target];
         it.kind=it.kind||"look"; for(const v of Object.values(it.members)){ v.img=v.img||""; v.status=v.status||0 } }
+      if(col==="items"&&it.album!=null){ const al=String(it.album).trim();   // 專輯:「出道」→ 第一張;「下一張」→ 現在準備中的那張;已經是 a2 這種代號就照用
+        it.album=/^a\d+$/.test(al)?al:al==="出道"?"a1":al==="下一張"?(albums().find(x=>x.upcoming)?.key||""):"" }
       if(col==="items"&&reps(it).length) rp++;
       let doc=it; if(col==="items"&&ITEMS[it.code]&&!ITEMS[it.code].deleted){ doc=reviseLook(ITEMS[it.code],it); rv++ }
       if(!(await saveDoc(col,doc))) off++; n++ }
@@ -382,7 +389,7 @@ async function approve(id,quiet){
   const ok=await saveDoc("items",lk); if(!quiet) toast2(ok?"已收進衣櫃,並同步到雲端":"已收進衣櫃(還沒同步,登入後會自動上傳)");
   JOBS=JOBS.filter(j=>j.id!==id); renderFacility();
   let spriteFail=false;
-  if(wIsDaily(lk.occasion)&&window.processSprites){ if(!quiet) toast2("正在處理成遊戲立繪…");
+  if(wWear(lk.occasion)&&window.processSprites){ if(!quiet) toast2("正在處理成遊戲立繪…");
     try{ await processSprites(p.code,p.slot); if(!quiet) toast2(`${byId(midOf(p.slot))?.n}換上「${lk.name}」了:已去背並做好換臉層,可在卡片詳情看六種表情`) }
     catch(e){ spriteFail=true; if(!quiet) toast2("立繪處理失敗:"+(e.message||"請在卡片詳情按「處理成遊戲立繪」再試")) } renderFacility() }
   const replaced=await checkReplaces(p.code,quiet).catch(e=>{ window.logErr?.("改版取代",e); return 0 });
@@ -407,7 +414,7 @@ async function discard(id){ delete PENDING[id]; await IDB.set("pending",PENDING)
    造型室補完:委託設計(Gemini)、修改與刪除造型、成員生圖底模
    設計提示詞與衣帽間工坊相同
    ===================================================================== */
-const W_OCC=["打歌舞台","演唱會","頒獎典禮","寫真","綜藝","機場","練習","日常・居家","日常・外出","日常・睡衣"];
+const W_OCC=["打歌舞台","演唱會","頒獎典禮","寫真","綜藝","機場","節日","練習","日常・居家","日常・外出","日常・睡衣"];   // 2026-10-29 加「節日」(韓服、聖誕)
 const W_OCC_NOTE={
   "練習":"在公司練習室穿的練習服:方便跳舞的運動上衣、運動褲或運動短褲、運動鞋,可以加薄外套或綁在腰上的襯衫;簡單耐穿,不要舞台感。",
   "日常・居家":"在宿舍穿的居家服:寬鬆舒服的上衣、棉褲或居家短褲、襪子或室內拖鞋;放鬆的感覺,不要外出打扮,不要包包。",
@@ -606,7 +613,19 @@ function bindBases(B){
 /* =====================================================================
    畫面
    ===================================================================== */
-let FAC=null, fTab="closet", fMem="all", fCat="all", fDetail=null;
+let FAC=null, fTab="closet", fMem="all", fCat="all", fSub="all", fDetail=null;
+/* 專輯(growth.js 的 albumList:發行紀錄+下一張):a1 = 出道 */
+const albums=()=>window.albumList?.()||[{key:"a1",n:1,name:"出道作品",upcoming:true}];
+const albumN=k=>+(String(k||"").match(/^a(\d+)$/)?.[1]||0);
+const albumShort=k=>{ const a=albums().find(x=>x.key===k); return a?(a.n===1?"出道":`第 ${a.n-1} 次回歸`):"未分類" };   // 卡片上只寫哪一張(全名在小分類與詳情)
+const albumOpts=cur=>`<option value="" ${!cur?"selected":""}>未分類</option>`+albums().map(a=>`<option value="${a.key}" ${cur===a.key?"selected":""}>${esc(window.albumName?.(a.key)||a.name)}</option>`).join("");
+function subChips(c){ if(c==="song"||c==="photo") return [["all","全部"],...albums().slice().reverse().map(a=>[a.key,window.albumName?.(a.key,true)||a.name]),["none","未分類"]];
+  if(c==="event") return [["all","全部"],...W_EVENT.map(o=>[o,o])];
+  if(c==="daily") return [["all","全部"],...W_DAILY.map(o=>[o,o.replace("日常・","")]),...W_SEASONS.map(s=>["s:"+s,s+"季"])];
+  if(c==="練習") return [["all","全部"],...W_SEASONS.map(s=>["s:"+s,s+"季"])];
+  return [] }
+function subOk(l){ if(fSub==="all") return true; if(fSub==="none") return !l.album; if(/^a\d+$/.test(fSub)) return l.album===fSub;
+  if(fSub.startsWith("s:")){ const s=fSub.slice(2); return !l.seasons?.length||l.seasons.includes(s) } return l.occasion===fSub }
 function facShell(){
   if($("#facility")) return;
   const el=document.createElement("section"); el.id="facility"; el.className="fac-wrap hide"; el.setAttribute("aria-label","造型室");
@@ -639,14 +658,15 @@ function cardHTML(lk,mid){
   return `<button class="wcard" data-look="${esc(lk.code)}" data-slot="${slot}">
     <span class="wframe"></span><span class="wimg" data-ref="${has?esc(o.img):""}">${has?"":`<span class="wnone">尚未生圖</span>`}</span>
     ${m?`<span class="wwho" style="--mc:${m.c}">${lk.type==="group"?"全員":m.n}</span>`:""}
-    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}${Object.values(lk.members||{}).some(x=>x?.redo)?`<span class="wrev">改版待生圖</span>`:REPL_SET.has(lk.code)?`<span class="wrev wold">已有改版</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
+    ${o.model==="gpt-image-1.5"?`<span class="wmod">1.5</span>`:""}${Object.values(lk.members||{}).some(x=>x?.redo)?`<span class="wrev">改版待生圖</span>`:REPL_SET.has(lk.code)?`<span class="wrev wold">已有改版</span>`:""}<span class="wname">${esc(lk.name||lk.code)}</span><span class="wmeta">${esc(wIsDaily(lk.occasion)?lk.occasion.replace("日常・",""):(wCatOf(lk.occasion)==="song"||wCatOf(lk.occasion)==="photo")&&lk.album?albumShort(lk.album):lk.occasion||"")}${wSeasonText(lk.seasons)!=="四季"?"・"+wSeasonText(lk.seasons):""}${lk.pose&&lk.pose!=="stand"?"・"+poseOf(lk.pose)[1]:""}${sprite?"・可穿":""}</span></button>`}
 function renderCloset(){
   const RL=replacedList(); REPL_SET=new Set(RL.map(x=>x.old));
   const mems=[["all","全員"],...M.map(m=>[m.id,m.n,m.c])];
-  let list=wLooks().filter(l=>(fCat==="all"||wCatOf(l.occasion)===fCat)&&(fMem==="all"||Object.keys(l.members||{}).some(s=>midOf(s)===fMem)));
-  list.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)||String(b.code).localeCompare(String(a.code)));
+  const subs=subChips(fCat); if(!subs.some(([k])=>k===fSub)) fSub="all";
+  let list=wLooks().filter(l=>(fCat==="all"||wCatOf(l.occasion)===fCat)&&(fMem==="all"||Object.keys(l.members||{}).some(s=>midOf(s)===fMem))&&subOk(l));
+  list.sort((a,b)=>(fCat==="song"||fCat==="photo"?(albumN(b.album)-albumN(a.album))||((b.type==="group")-(a.type==="group")):0)||(b.updatedAt||0)-(a.updatedAt||0)||String(b.code).localeCompare(String(a.code)));
   const have=list.filter(l=>Object.values(l.members||{}).some(o=>o?.img)).length;
-  return `<div class="fbar"><div class="fchips">${chipRow(mems,fMem,"fm")}</div><div class="fchips">${chipRow(W_CATS,fCat,"fc")}</div></div>
+  return `<div class="fbar"><div class="fchips">${chipRow(mems,fMem,"fm")}</div><div class="fchips">${chipRow(W_CATS,fCat,"fc")}</div>${subs.length>1?`<div class="fchips sub">${chipRow(subs,fSub,"fs")}</div>`:""}</div>
     <div class="fsumrow"><p class="fsum">共 ${list.length} 套,已有圖 ${have} 套${wLooks().length?"":(syAuth()?"。還沒讀到造型:到選單按「立即同步」":"。還沒讀到造型:請先在選單登入雲端同步")}</p><span class="fbtns">${RL.length?`<button class="fbtn" id="fReplOld">刪除已被改版取代的舊造型(${RL.length})</button>`:""}${wLooks().length?`<button class="fbtn" id="fExport" title="衣櫃全部造型的清單(JSON),給服裝批次設計對話比對用">${isNative?"複製造型清單":"匯出造型清單"}</button>`:""}</span></div>
     <div class="wgrid">${list.map(l=>cardHTML(l,fMem==="all"?null:fMem)).join("")||`<p class="fempty">這個分類還沒有造型</p>`}</div>`}
 function renderStudio(){
@@ -674,7 +694,8 @@ async function renderFacility(){
   const body=$("#facBody"); body.innerHTML=fTab==="closet"?renderCloset():fTab==="design"?renderDesign():fTab==="bases"?renderBases():renderStudio();
   if(fTab==="design") bindDesign(body); if(fTab==="bases") bindBases(body);
   body.querySelectorAll("[data-fm]").forEach(b=>b.onclick=()=>{fMem=b.dataset.fm;renderFacility()});
-  body.querySelectorAll("[data-fc]").forEach(b=>b.onclick=()=>{fCat=b.dataset.fc;renderFacility()});
+  body.querySelectorAll("[data-fc]").forEach(b=>b.onclick=()=>{fCat=b.dataset.fc;fSub="all";renderFacility()});
+  body.querySelectorAll("[data-fs]").forEach(b=>b.onclick=()=>{fSub=b.dataset.fs;renderFacility()});
   body.querySelectorAll("[data-look]").forEach(b=>b.onclick=()=>openDetail(b.dataset.look,b.dataset.slot));
   body.querySelectorAll("[data-ok]").forEach(b=>b.onclick=()=>{ if(!BULK) approve(b.dataset.ok) });
   const oa=$("#fOkAll"); if(oa) oa.onclick=approveAll;
@@ -738,12 +759,14 @@ async function openDetail(code,slot){
       ${o.redo?`<p class="dcon drev">這套改版了:新的描述還沒生圖,遊戲裡先穿舊版。到「設計工作台」按「全部開始生圖」;收下新圖後舊圖會保留,可以改回。</p>`:""}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
         <button class="fbtn" id="dRegen">重新生圖…</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dHalf">半身照</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
-      ${wIsDaily(lk.occasion)&&o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">已處理,遊戲裡會依地點換穿</span>`:`<span class="no">還沒處理</span>`}
+      ${(wCatOf(lk.occasion)==="song"||wCatOf(lk.occasion)==="photo")?`<p class="dalb"><b>專輯</b><select id="dAlbum">${albumOpts(lk.album)}</select></p>`:""}
+      ${o.img?`<div class="dsp"><b>遊戲立繪</b> ${o.sprites?`<span class="ok">${wWear(lk.occasion)?"已處理,遊戲裡會依地點換穿":"已處理,過場與劇情會用到"}</span>`:`<span class="no">${wWear(lk.occasion)?"還沒處理":"還沒處理(打歌服、寫真要用在過場或劇情時再處理)"}</span>`}
         <button class="fbtn" id="dProc">${o.sprites?"重新處理":"處理成遊戲立繪"}</button><div class="dspr" id="dSpr"></div></div>`:""}
       ${o.twist?`<p class="dcon"><b style="color:${m?.c}">${m?.n} 的小巧思</b> ${esc(o.twist)}</p>`:""}
       <details><summary>服裝描述(英文)</summary><p class="dout">${esc(o.outfit||"")}</p></details></div></div>`;
   d.classList.remove("hide");
   $("#dClose").onclick=()=>d.classList.add("hide"); $("#dEdit").onclick=()=>editLook(code);
+  const da=$("#dAlbum"); if(da) da.onchange=async()=>{ lk.album=da.value; lk.updatedAt=Date.now(); const ok=await saveDoc("items",lk); toast2(ok?"已改專輯並同步":"已改專輯(還沒同步)"); renderFacility() };
   d.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>openDetail(code,b.dataset.ds));
   const rg=$("#dRegen"); if(rg) rg.onclick=()=>regenPanel(code,slot,rg);
   const fname=`完美女團_${lk.name||code}_${byId(midOf(slot))?.n||slot}`;

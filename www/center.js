@@ -58,14 +58,14 @@ function mvPackDialog(R){ document.getElementById("mvPackDlg")?.remove(); const 
   const stageFirst=looks.sort((a,b)=>(/打歌|舞台|演唱|頒獎/.test(b.occasion||"")?1:0)-(/打歌|舞台|演唱|頒獎/.test(a.occasion||"")?1:0)||(b.type==="group")-(a.type==="group"));
   const el=document.createElement("div"); el.id="mvPackDlg"; el.className="fac-detail";
   el.innerHTML=`<div class="mvpk"><h3>匯出 MV 素材包</h3>
-    <label>歌曲<select id="mpSong">${R.tracks.map(t=>`<option value="${esc(t.id)}"${t.id===R.title?" selected":""}>${esc(t.name||"未命名")}${t.id===R.title?"(主打)":""}</option>`).join("")}</select></label>
+    <label>歌曲<select id="mpSong">${window.SONGS_API.albums().slice().reverse().map(A=>`<optgroup label="${esc(window.albumName?.("a"+A.n)||A.name||"")}">${A.tracks.filter(t=>!t.inst).map(t=>`<option value="${esc(t.id)}"${A.current&&t.id===A.title?" selected":""}>${esc(t.name||"未命名")}${t.id===A.title?"(主打)":""}</option>`).join("")}</optgroup>`).join("")}</select></label>
     <label>造型<select id="mpLook">${stageFirst.map(l=>`<option value="${esc(l.code)}">${esc(l.name||l.code)}・${l.type==="group"?"團體服":"個人"}・${esc(l.occasion||"")}</option>`).join("")||`<option value="">衣櫃裡還沒有有圖的造型</option>`}</select></label>
     <p class="fnote">ZIP 裡有:製作單(JSON)、這套造型每位成員的全身照與半身照、說明。MV 剪好後檔名用歌曲代號。${isNative?"<br><b>手機 App 不能存 ZIP,請在電腦版或網頁版匯出。</b>":""}</p>
     <div class="frow"><button class="pbtn pri" id="mpGo"${isNative?" disabled":""}>匯出</button><button class="pbtn" id="mpX">取消</button></div></div>`;
   document.getElementById("stage").appendChild(el);
   el.querySelector("#mpX").onclick=()=>el.remove();
   el.querySelector("#mpGo").onclick=async()=>{ const b=el.querySelector("#mpGo"); b.disabled=true; b.textContent="打包中…";
-    try{ const T=R.tracks.find(t=>t.id===el.querySelector("#mpSong").value), lk=ITEMS[el.querySelector("#mpLook").value];
+    try{ const T=window.SONGS_API.track(el.querySelector("#mpSong").value), lk=ITEMS[el.querySelector("#mpLook").value];
       const files=[], enc=new TextEncoder(), clean=x=>String(x||"").replace(/[\\/:*?"<>|]/g,"");
       const sheet=window.SONGS_API?.sheetOf?.(T); if(sheet) files.push({name:`製作單_${clean(T.name)}.json`,data:enc.encode(JSON.stringify(sheet,null,1))});
       let n=0;
@@ -77,15 +77,16 @@ function mvPackDialog(R){ document.getElementById("mvPackDlg")?.remove(); const 
     catch(e){ window.logErr?.("center",e); toast2("匯出失敗"); b.disabled=false; b.textContent="匯出" } } }
 window.openMVRoom=async()=>{ const B=room("mvRoom",{title:"攝影棚・MV 試映",sub:"PRODUCTION CENTER ・ 1F ・ PHOTO STUDIO",bg:"photo",pause:"mvroom"}); const R=window.SONGS_API?.R;
   if(!R?.tracks?.length){ B.innerHTML=`<p class="rec-empty">企劃室還沒有歌。</p>`; return }
-  B.innerHTML=`<div class="pst-grid">${R.tracks.map((t,i)=>{ const [c1,c2,c3]=palOf(t.name||t.id); return `<button class="pst" data-mv="${esc(t.id)}" style="--c1:${c1};--c2:${c2};--c3:${c3}">
+  const ALBS=window.SONGS_API.albums().slice().reverse();   // 先選專輯再選歌(2026-10-29);純音樂不拍 MV
+  B.innerHTML=`${ALBS.map(A=>`<h4 class="pst-alb">${esc(window.albumName?.("a"+A.n)||A.name||"")}${A.current?"":"・已發行"}</h4><div class="pst-grid">${A.tracks.filter(t=>!t.inst).map((t,i)=>{ const [c1,c2,c3]=palOf(t.name||t.id); return `<button class="pst" data-mv="${esc(t.id)}" style="--c1:${c1};--c2:${c2};--c3:${c3}">
       <span class="pst-art"></span><span class="pst-film"></span>
-      <span class="pst-top"><span class="pst-no">${String(i+1).padStart(2,"0")}</span>${t.id===R.title?`<i class="pst-badge">TITLE TRACK</i>`:""}</span>
+      <span class="pst-top"><span class="pst-no">${String(i+1).padStart(2,"0")}</span>${t.id===A.title?`<i class="pst-badge">TITLE TRACK</i>`:""}</span>
       <b class="pst-t">${esc(t.name||"未命名")}</b><span class="pst-g">PERFECT GIRL GROUP</span>
-      <small class="pst-k">代號 ${esc(t.id)}・<span data-kind="${esc(t.id)}">檢查中…</span></small><span class="pst-play">▶ 播放</span></button>` }).join("")}</div>
+      <small class="pst-k">代號 ${esc(t.id)}・<span data-kind="${esc(t.id)}">檢查中…</span></small><span class="pst-play">▶ 播放</span></button>` }).join("")}</div>`).join("")}
     <div class="pst-pack"><b>MV 素材包</b><span>製作單+每人造型的全身照與半身照,打包成一個 ZIP 交給 MV 製作對話</span><button class="pbtn pri" id="mvPack">匯出素材包…</button></div>
     <p class="rec-empty pst-note">AI 影片 MV 由 MV 製作對話剪好,檔名用上面的代號,放進 www/assets/mv/ 上傳 GitHub 就會播;沒有的歌播遊戲內的動態 MV。</p>`;
-  B.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ const T=R.tracks.find(x=>x.id===b.dataset.mv); window.openMV?.(T) });
+  B.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ const T=window.SONGS_API.track(b.dataset.mv); window.openMV?.(T) });
   B.querySelector("#mvPack").onclick=()=>mvPackDialog(R);
-  for(const t of R.tracks){ const u=await window.mvFileOf?.(t); const e=B.querySelector(`[data-kind="${CSS.escape(t.id)}"]`); if(e) e.textContent=u?"AI 影片 MV":"動態 MV";
+  for(const t of ALBS.flatMap(A=>A.tracks).filter(t=>!t.inst)){ const u=await window.mvFileOf?.(t); const e=B.querySelector(`[data-kind="${CSS.escape(t.id)}"]`); if(e) e.textContent=u?"AI 影片 MV":"動態 MV";
     if(u){ const art=B.querySelector(`[data-mv="${CSS.escape(t.id)}"] .pst-art`); if(art){ const v=document.createElement("video"); v.muted=true; v.playsInline=true; v.preload="metadata"; v.src=u+"#t=2"; art.appendChild(v); art.classList.add("has") } } } };
 })();
