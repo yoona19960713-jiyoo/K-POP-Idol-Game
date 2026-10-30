@@ -289,6 +289,11 @@ function reviseLook(old,neu){ const out={...old,...neu,createdAt:old.createdAt||
   for(const [slot,o] of Object.entries(old.members||{})) if(!out.members[slot]) out.members[slot]=o;
   return out }
 
+/* ---------- 給里程碑用(mile.js):找指定的造型、拿圖、看能不能穿 ---------- */
+window.findLook=({occ,album,name,mid}={})=>{ const L=wLooks().filter(l=>(!occ||l.occasion===occ)&&(!album||l.album===album)&&(!name||String(l.name||"").includes(name))&&(!mid||Object.keys(l.members||{}).some(s=>midOf(s)===mid)));
+  return (L.find(l=>l.type==="group")||L.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0])?.code||null };
+window.lookImages=async code=>{ const lk=ITEMS[code], out={}; if(!lk) return out; for(const [slot,o] of Object.entries(lk.members||{})){ const mid=midOf(slot); if(mid&&o?.img){ try{ const s=await getBlob(o.img); if(s) out[mid]=s }catch(e){} } } return out };
+window.lookWearable=(code,mid)=>{ const lk=ITEMS[code]; if(!lk) return false; const s=Object.keys(lk.members||{}).find(k=>midOf(k)===mid); return !!(s&&lk.members[s]?.sprites) };
 /* ---------- 直接收:Claude 創作室送來的造型或長對話 ---------- */
 async function takeImport(){
   const m=location.hash.match(/^#import=(z?)\.([A-Za-z0-9_-]+)$/); if(!m) return;

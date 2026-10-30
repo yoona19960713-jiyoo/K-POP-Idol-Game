@@ -42,7 +42,7 @@ async function announce(c){
   if(!c.first) return announce2(c);
   const V0=VENUES[c.venue], gate=await pick(ART.gate), el=document.createElement("div"); el.className="bigev";
   el.innerHTML=`<div class="bg-shot" style="background-image:url(${gate})"></div><div class="bg-veil"></div><div class="bigcard"><small>1ST CONCERT ・ ${fmt(c.day)}</small>
-    <h2>首場演唱會〈${esc(c.title)}〉決定了</h2><p class="lead">出道一週年,完美女團的第一場單獨演唱會定在 ${fmt(c.day)},場地是 ${V0.n}(${V0.cap.toLocaleString()} 席)。消息一公布,粉絲的應援已經開始了。</p>
+    <h2>首場演唱會〈${esc(c.title)}〉決定了</h2><p class="lead">出道一週年,${esc(window.groupName?.()||"完美女團")}的第一場單獨演唱會定在 ${fmt(c.day)},場地是 ${V0.n}(${V0.cap.toLocaleString()} 席)。消息一公布,粉絲的應援已經開始了。</p>
     <div class="evlines">${[["ys","第一場演唱會……我想讓每一位粉絲都記得這一天。","smile"],["hr","我要準備一首只有吉他的歌!代表要來聽喔!","laugh"],["tr","……一定會是最好的舞台。","smile"]].map(([id,t,e])=>{const m=byId(id);return `<div class="evl"><span class="pface" style="--c:${m.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${m.c}">${m.n}</b>${esc(t)}</p></div>`}).join("")}</div>
     <button class="fbtn pri" id="cnOk">開始準備</button></div>`;
   $("#stage").appendChild(el); setPause("bigev",true);
@@ -116,7 +116,7 @@ async function runConcert(c){
       timer=setTimeout(()=>{screen(null);step()},s.fan?6000:4400); return }
     if(s.k==="mc"){ screen(null); wave=.4; let j=0; const nx=()=>{ if(j>=s.who.length){ step(); return } const id=s.who[j++]; say(id,(c.first?MC:MC2)[id],"smile"); timer=setTimeout(nx,3600) }; LN.onclick=e=>{e.stopPropagation(); clearTimeout(timer); nx()}; nx(); return }
     if(s.k==="encore"){ el.classList.add("dark","encore"); wave=2; col="#FF2E63"; T.querySelector("small").textContent="燈暗了,台下的手燈卻沒有一支熄滅"; T.querySelector("b").textContent="安可!安可!"; T.classList.add("on"); timer=setTimeout(step,3600); return }
-    if(s.k==="end"){ el.classList.add("finale"); wave=.8; T.querySelector("small").textContent="THANK YOU"; T.querySelector("b").textContent="完美女團,謝謝大家!"; T.classList.add("on"); timer=setTimeout(step,3800) } };
+    if(s.k==="end"){ el.classList.add("finale"); wave=.8; T.querySelector("small").textContent="THANK YOU"; T.querySelector("b").textContent=`${window.groupName?.()||"完美女團"},謝謝大家!`; T.classList.add("on"); timer=setTimeout(step,3800) } };
   el.onclick=e=>{ if(e.target.closest(".cnskip")) return; step() };
   $c(".cnskip").onclick=e=>{ e.stopPropagation(); skip=true; i=L.length; step() };
   step();
@@ -240,7 +240,7 @@ async function announce2(c){
   const V0=VENUES[c.venue], gate=await pick(ART.gate), el=document.createElement("div"); el.className="bigev";
   const lines=[["he","又要辦演唱會了!這次要準備什麼驚喜好呢?","laugh"],["ys","〈"+c.title+"〉……我會讓它比上一場更好。","smile"],["hr","代表,彩排的時候要來看喔!","laugh"]];
   el.innerHTML=`<div class="bg-shot" style="background-image:url(${gate})"></div><div class="bg-veil"></div><div class="bigcard"><small>CONCERT ・ ${fmt(c.day)}</small>
-    <h2>演唱會〈${esc(c.title)}〉決定了</h2><p class="lead">完美女團的演唱會定在 ${fmt(c.day)},場地是 ${V0.n}(${V0.cap.toLocaleString()} 席)。從現在起,演出前三週每週會有一次彩排。</p>
+    <h2>演唱會〈${esc(c.title)}〉決定了</h2><p class="lead">${esc(window.groupName?.()||"完美女團")}的演唱會定在 ${fmt(c.day)},場地是 ${V0.n}(${V0.cap.toLocaleString()} 席)。從現在起,演出前三週每週會有一次彩排。</p>
     <div class="evlines">${lines.map(([id,t,e])=>{const m=byId(id);return `<div class="evl"><span class="pface" style="--c:${m.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${m.c}">${m.n}</b>${esc(t)}</p></div>`}).join("")}</div>
     <button class="fbtn pri" id="cnOk">開始準備</button></div>`;
   $("#stage").appendChild(el); setPause("bigev",true);

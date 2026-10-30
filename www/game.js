@@ -305,7 +305,7 @@ window.logEvent=(k,d={})=>{ S.evLog=[...(S.evLog||[]),{k,day:S.day,d}].slice(-60
 const lastEv=k=>{ const L=S.evLog||[]; for(let i=L.length-1;i>=0;i--) if(L[i].k===k) return L[i]; return null };
 const VENUE_N={hall:"星環 Live Hall",arena:"漢江體育館",dome:"首爾巨蛋"};
 const lastConcert=()=>{ const e=lastEv("concert"); if(e) return {day:e.day,title:e.d.title,venue:e.d.venue}; const c=(S.concerts||[]).slice(-1)[0]; return c?{day:c.day,title:c.title,venue:VENUE_N[c.venue]||c.venue}:null };
-const STORY_VARS={最新主打:()=>S.promo?.title||(S.promoHist||[]).slice(-1)[0]?.title||null, 演唱會:()=>lastConcert()?.title||null, 場館:()=>lastConcert()?.venue||null,
+const STORY_VARS={團名:()=>window.mileVar?.團名(),出道曲:()=>window.mileVar?.出道曲(),最新主打:()=>S.promo?.title||(S.promoHist||[]).slice(-1)[0]?.title||null, 演唱會:()=>lastConcert()?.title||null, 場館:()=>lastConcert()?.venue||null,
   一位節目:()=>lastEv("win")?.d.show||null, 一位歌曲:()=>lastEv("win")?.d.song||null};
 const sinceDays=e=>e?S.day-e.day:Infinity, mdNow=()=>{ const d=dateOf(S.day); return (d.getMonth()+1)*100+d.getDate() };
 const STORY_REQ={after_concert:()=>sinceDays(lastConcert())<=7, after_win:()=>sinceDays(lastEv("win"))<=5, promo:()=>!!window.promoInfo?.()?.active,
@@ -417,7 +417,7 @@ const seedOf=(...xs)=>xs.reduce((h,x)=>Math.imul(h^(typeof x==="string"?[...x].r
 function pickKey(w,r){const ks=Object.keys(w);let x=r()*ks.reduce((s,k)=>s+w[k],0);for(const k of ks){x-=w[k];if(x<=0)return k}return ks[ks.length-1]}
 /* 作息表(改版 1.0 第 3 輪):成員依時間在不同地方(DAILY.SCHED),同一段裡位置固定;每到下一段才換位置。
    邀約的時間點由 life.js 的 lifeWhere 蓋上去(她會在約好的地方等你) */
-function blockAt(min=S.min,day=S.day){ const B=dateOf(day).getDay()===0?DAILY.SCHED.sun:DAILY.SCHED.wk; let b=B[0], nx=null;
+function blockAt(min=S.min,day=S.day){ const B=dateOf(day).getDay()===0||window.mileHoliday?.(day)?DAILY.SCHED.sun:DAILY.SCHED.wk;   /* 中秋連假照週日 */ let b=B[0], nx=null;
   for(let i=0;i<B.length;i++) if(min>=B[i].at){ b=B[i]; nx=B[i+1]||null } return {b,nx} }
 function doingOf(b,id,place,wd){ if(place?.startsWith("外出:")) return place.slice(3); const base=b.wdn?.[wd]||b.n;
   if(b.n==="自主練習"&&/^(living|kitchen|bed_)/.test(place||"")) return b.doing?.[id]==="寫詞"?"寫詞":"休息"; return b.doing?.[id]||base }
@@ -427,7 +427,7 @@ function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxN
     if(wk!=="clear") delete w.river;
     const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k]?.open.includes(S.slot)));
     let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2; S.doing[m.id]=doingOf(b,m.id,w2,wd) }
-  window.lifeWhere?.(); window.nightWhere?.(); S.whereKey=whereKey() }
+  window.lifeWhere?.(); window.nightWhere?.(); window.mileWhere?.(); S.whereKey=whereKey() }
 const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0)+"|"+(window.nightKey?.()||"");   // 深夜事件(night.js)開始、結束也換位置
 let FIG_FADE=false;
 
@@ -622,7 +622,7 @@ let last=performance.now();
 function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
   if(paused()) return; const sl=SLOTS[S.slot];
   S.min+=dt*(sl.to-sl.from)/sl.sec;
-  window.nightTick?.();
+  window.nightTick?.(); window.mileTick?.();   // 深夜訊息、里程碑(mile.js)
   if(S.min>=sl.to) passSlots(); else { if(S.whereKey!==whereKey()){ assign(); FIG_FADE=true; renderAll() } renderHud(); if(TFX&&!TFX_RUN) playTimeFx() } }
 /* 互動完成時扣遊戲時間(改版 1.0):時鐘往前跳。對話、設施開著時先記著,畫面都關了、時鐘再走的時候才處理跨過的時段,
    頂部的時間「往前轉」到新的時間,旁邊冒出「+20 分」 */
@@ -685,16 +685,18 @@ function vsubSet(add){ const el=$("#vsub"); if(!el) return; el.innerHTML=`${SLOT
   const v=el.querySelector(".vplus"); if(v&&!RM.matches) v.animate([{opacity:0,translate:"0 30%"},{opacity:1,translate:"0 0"}],{duration:420,easing:"ease-out"}) }
 /* 互動面板的「聊天」:進她在的房間,直接跟她聊(不演進場的小片段) */
 window.visitTalk=(pid,id)=>visit(pid,{talk:id});
-window.visitAct=(pid,id,k)=>visit(pid,{act:{id,k}});   // 日常活動(act.js):兩個人一起到活動的地點
+window.visitAct=(pid,id,k)=>visit(pid,{act:{id,k}});
+window.visitMile=(pid,k,who)=>visit(pid,{mile:{k,who}});   // 里程碑(mile.js):在那個地點演   // 日常活動(act.js):兩個人一起到活動的地點
 function visit(pid,o={}){
-  const p=PL[pid]; if(!p.open.includes(S.slot)||V) return;
+  const p=PL[pid]||(o.mile?{n:{backstage:"Showcase 場地"}[pid]||pid,open:[0,1,2,3,4],g:"外面"}:null); if(!p||(!o.mile&&!p.open.includes(S.slot))||V) return;
   const snap=JSON.stringify(S), first=!S.entered.includes(pid);
   if(first) S.entered.push(pid); save(true); setPause("visit",true);
-  const ppl=o.act?[o.act.id]:pid==="office"?[]:who(pid).map(m=>m.id);
-  V={pid,room:pid,present:ppl,talked:new Set(o.act?[o.act.id]:[]),summoned:null,snap,spent:0,act:o.act||null}; logLines=[]; setBack();
+  const ppl=o.mile?o.mile.who:o.act?[o.act.id]:pid==="office"?[]:who(pid).map(m=>m.id);
+  V={pid,room:pid,present:ppl,talked:new Set(o.mile?o.mile.who:o.act?[o.act.id]:[]),summoned:null,snap,spent:0,act:o.act||null,mile:o.mile||null}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; vsubSet(0);
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
+  if(o.mile){ window.milePlay?.(o.mile.k,pid); return }
   if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid); return }
   const ns=window.nightScene?.(pid,o.talk);   // 深夜:她睡不著、偷吃宵夜、在頂樓(night.js)
   if(ns){ V.talked.add(ns.id); setBack(); play(ns.sn,()=>{ ns.done(); menu() }); return }

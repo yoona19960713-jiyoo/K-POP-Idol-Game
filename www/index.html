@@ -1726,6 +1726,21 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 @keyframes cnSnow{to{transform:translate(4cqw,110cqh)}}
 @keyframes cnDust{to{transform:translate(-3cqw,-110cqh)}}
 @media (prefers-reduced-motion:reduce){.cine .cn-fx{display:none}}
+/* 照片(概念照):加白框的相片;海報(預告);攝影棚閃光 */
+.cine .cn-photo{position:absolute;z-index:3;aspect-ratio:3/4;padding:calc(.7*var(--u)) calc(.7*var(--u)) calc(2.6*var(--u));background:#FBF7F0;box-shadow:0 calc(.8*var(--u)) calc(2.4*var(--u)) rgba(0,0,0,.45);transform:rotate(var(--r))}
+.cine .cn-photo img{width:100%;height:100%;object-fit:cover;object-position:50% 12%;display:block;background:#ddd}
+.cine .cn-poster{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(1.1*var(--u));
+  background:radial-gradient(70% 80% at 50% 45%,#3A0F1C,#12060B 70%);color:#F3E4C2;text-align:center}
+.cine .cn-poster small{font:700 max(calc(1.1*var(--u)),12px)/1 var(--num);letter-spacing:.7em;color:#C98B4E}
+.cine .cn-poster b{font:900 max(calc(5.2*var(--u)),36px)/1.1 var(--serif);letter-spacing:.24em;color:#FFF3E2;text-shadow:0 0 calc(2*var(--u)) rgba(200,16,46,.55)}
+.cine .cn-poster span{font:700 max(calc(1.3*var(--u)),14px)/1 var(--num);letter-spacing:.5em;color:#E4CC97;border-top:1px solid rgba(228,204,151,.5);padding-top:calc(1*var(--u))}
+.cine .cn-flashes{position:absolute;inset:0;z-index:4;pointer-events:none}
+.cine .cn-flashes i{position:absolute;inset:0;background:#fff;opacity:0;animation:cnFlash 2.4s ease-out calc(.6s + var(--i)*1.1s) 1}
+@keyframes cnFlash{0%{opacity:0}4%{opacity:.75}22%{opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.cine .cn-flashes{display:none}}
+/* 6/17 團名輸入 */
+.mname input#mnIn{display:block;width:100%;margin:calc(.6*var(--u)) 0 calc(.3*var(--u));padding:calc(.7*var(--u)) calc(1*var(--u));font:700 max(calc(1.8*var(--u)),18px)/1.2 var(--serif);letter-spacing:.2em;text-align:center;color:#FFF3EC;background:rgba(255,255,255,.08);border:1px solid rgba(228,204,151,.7);border-radius:calc(.6*var(--u))}
+.mname .mnErr{min-height:1.2em;margin:0;font-size:max(calc(.9*var(--u)),12px);color:#F2A0A0}
 /* ===== MV(mvplay.js,2026-10-27):動態 MV 與 AI 影片 MV 的播放 ===== */
 .mvp,.mvv{position:absolute;inset:0;z-index:92;overflow:hidden;background:#07060A;color:#F6EEDF;font-family:var(--sans);container-type:inline-size}
 .mvv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
@@ -2201,6 +2216,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 <script src="act.js"></script>
 <script src="night.js"></script>
 <script src="cine.js"></script>
+<script src="mile.js"></script>
 <script src="mvplay.js"></script>
 <script src="center.js"></script>
 <script src="scripts.js"></script>

@@ -91,7 +91,7 @@ window.gameSkill=()=>S.skill;
 window.growthGrow=(id,k,v)=>grow(id,k,v);   // 練習室練舞會小幅提升舞蹈
 
 /* ---------- 月評:每月最後一個週六的下午 ---------- */
-const isEvalDay=d=>{const x=new Date(d.getFullYear(),d.getMonth()+1,0); while(x.getDay()!==6) x.setDate(x.getDate()-1); return x.getDate()===d.getDate()};
+const isEvalDay=d=>{const x=new Date(d.getFullYear(),d.getMonth()+1,0); while(x.getDay()!==6) x.setDate(x.getDate()-1); if(x.getMonth()===11&&x.getDate()===31) x.setDate(30); return x.getDate()===d.getDate()};   // 12/31 是跨年夜:改到前一天(2016 年是 12/30 出道前最終評估)
 window.isEvalDay=isEvalDay;
 function monthlyEval(){
   const d=dateOf(S.day), rows=M.map(m=>{ const a=S.skill[m.id], b=S.evalSnap[m.id]||a; const diff=Object.keys(SK).map(k=>[k,a[k]-(b[k]||a[k])]).filter(([,v])=>v>.05).sort((x,y)=>y[1]-x[1]);
@@ -156,7 +156,7 @@ function bigEvent(kind){ setTimeout(()=>window.feedback?.("l"),600); if(kind==="
   const lines=window.eventLines?.(deb?"debut":"comeback",lines0)||lines0;   // 內容庫有事件劇本就用
   const el=document.createElement("div"); el.className="bigev";
   el.innerHTML=`<div class="bg-shot" style="background-image:url(assets/bg/ev_showcase.webp)"></div><div class="bg-veil"></div><div class="bigcard"><small>${deb?`DEBUT SHOWCASE ・ ${(d=>`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`)(dateOf(DEBUT_DAY))}`:"COMEBACK"}</small>
-    <h2>${deb?"完美女團,正式出道":"完美女團 回歸"}</h2><p class="lead">${deb?"從代表上任那天算起,整整一年的練習生生活,在這一天畫下句點。Showcase 的燈光亮起,台下坐滿了記者和第一批粉絲。":"新的企劃、新的舞台。回歸 Showcase 的燈光再次亮起。"}${sum?.title?`主打歌〈${esc(sum.title.name)}〉`:""}今天起四週的打歌期開始了,電視台正式開放。</p>
+    <h2>${deb?`${esc(window.groupName?.()||"完美女團")},正式出道`:`${esc(window.groupName?.()||"完美女團")} 回歸`}</h2><p class="lead">${deb?"從代表上任那天算起,整整一年的練習生生活,在這一天畫下句點。Showcase 的燈光亮起,台下坐滿了記者和第一批粉絲。":"新的企劃、新的舞台。回歸 Showcase 的燈光再次亮起。"}${sum?.title?`主打歌〈${esc(sum.title.name)}〉`:""}今天起四週的打歌期開始了,電視台正式開放。</p>
     <div class="evlines">${lines.map(([id,t,e])=>{const mm=byId(id);return `<div class="evl"><span class="pface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><p><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p></div>`}).join("")}</div>
     <button class="fbtn pri" id="bigOk">${deb?"一起走下去":"上台吧"}</button></div>`;
   $("#stage").appendChild(el); setPause("bigev",true);
@@ -184,7 +184,7 @@ window.onShowResult=r=>{ const s=st(), promo=window.promoActive?.(); if(!promo) 
   if(r.win){ window.logEvent?.("win",{show:r.sh?.n||"音樂節目",song:S.promo?.title||""}); s.wins++; s.winsByYear[yr()]=(s.winsByYear[yr()]||0)+1; s.fans+=3+Math.min(6,(r.views||0)/80); if(!s.firstWin){ s.firstWin=true; first=true; window.cgGroupUnlock?.("g_firstwin"); for(const m of M){S.m[m.id].xp+=200; S.m[m.id].mood=Math.min(100,S.m[m.id].mood+20)} addBond(M.map(x=>x.id),4) } }
   else s.fans+=1+Math.min(3,(r.views||0)/150);
   S.promo.wins=(S.promo.wins||0)+(r.win?1:0); S.promo.shows=(S.promo.shows||0)+1; if(!r.auto) window.spendTime?.(180,"打歌"); save(true);   // 跟去電視台打歌:扣 3 小時(改版 1.0;1.2 重做宣傳期)
-  if(first&&r.auto) setTimeout(()=>window.showCard({tag:"FIRST WIN",bg:"assets/bg/ev_stage.webp",title:"第一個一位!",lead:`你不在電視台的那天,完美女團在《${r.sh?.n||"音樂節目"}》拿下了出道後的第一個一位。一回到宿舍,五個人就衝過來抱住你。`,
+  if(first&&r.auto) setTimeout(()=>window.showCard({tag:"FIRST WIN",bg:"assets/bg/ev_stage.webp",title:"第一個一位!",lead:`你不在電視台的那天,${window.groupName?.()||"完美女團"}在《${r.sh?.n||"音樂節目"}》拿下了出道後的第一個一位。一回到宿舍,五個人就衝過來抱住你。`,
     lines:(L0=>(window.feedback?.("l"),window.eventLines?.("first_win",L0)||L0))([["he","代表……我們拿到一位了!","sad"],["hr","代表!!我們是一位!!","laugh"],["tr","……下次,你要在台下看。","shy"]]),ok:"抱緊她們"}),1500);
   return first?[["he","代表……我們拿到一位了,真的嗎?","sad"],["ys","不要哭啦,夏恩……(她自己也哭了)","sad"],["hr","代表!代表!!我們是一位!!","laugh"],["tr","……這是我這輩子最開心的一天。","shy"],["hy","代表、本當にありがとう……謝謝你。","laugh"]]:null };
 /* 一次只顯示一張事件卡,其他的排隊 */
@@ -213,7 +213,7 @@ function awards(){ const s=st(), y=yr(), w=s.winsByYear[y]||0, debutYear=dateOf(
   const firstDaesang=got.some(g=>g.includes("大賞"))&&!s.awards.some(a=>(a.got||[]).some(g=>g.includes("大賞")));
   s.awards.push({y,got}); for(const m of M) S.m[m.id].xp+=got.length*80; if(firstDaesang) window.cgGroupUnlock?.("g_daesang");
   card({tag:`ASIA MUSIC AWARDS ・ ${y}`,bg:"assets/bg/ev_awards.webp",title:got.length?`拿下 ${got.length} 個獎`:"第一次站上頒獎典禮",
-    lead:got.length?`今年的完美女團拿下了:${got.join("、")}。${got.some(g=>g.includes("大賞"))?"出道第一年就拿下大賞,整個會場都在喊她們的名字。":""}`:"這一年雖然沒有拿獎,但能站在這個舞台上表演,已經是很多團體夢寐以求的事。",
+    lead:got.length?`今年的${window.groupName?.()||"完美女團"}拿下了:${got.join("、")}。${got.some(g=>g.includes("大賞"))?"出道第一年就拿下大賞,整個會場都在喊她們的名字。":""}`:"這一年雖然沒有拿獎,但能站在這個舞台上表演,已經是很多團體夢寐以求的事。",
     stats:[["今年一位",`${w} 次`],["粉絲總數",fansText()]],
     lines:got.length?[["ys","代表……這座獎,是我們六個人一起拿的。","sad"],["hr","我要把獎盃帶回濟州給外婆看!","laugh"]]:[["he","明年,我們一定會拿到。","smile"]],ok:"一起拍張照"}) }
 function festival(){ const y=yr(); window.cgGroupUnlock?.("g_newyear");
