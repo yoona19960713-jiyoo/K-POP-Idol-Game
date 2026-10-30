@@ -105,6 +105,11 @@ button:disabled{cursor:default}
 .toast.show{animation:toast 2.4s ease forwards}
 @keyframes toast{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.toast.show{animation-duration:.01s;opacity:0}}
+/* 三個人以上在場時,選項移到臉的下面(drawPeople 加 .crowd) */
+#visit.crowd .vopts{left:50%;right:auto;transform:translateX(-50%);top:calc(10.5*var(--u));width:calc(62*var(--u));max-height:calc(100% - 10.5*var(--u) - 15.1*var(--u) - 2.4*var(--u))}
+#visit.crowd .vopts:has(.vopt){display:grid;grid-template-columns:1fr 1fr;gap:calc(.6*var(--u))}
+#visit.crowd .vopts .vopt{min-height:44px}
+#visit.crowd .vopts:has(.vopt:nth-child(5):not(.choice)){grid-template-columns:repeat(3,1fr)}   /* 五人在場的選單:三欄兩排,不用捲 */
 
 /* ===== 遊戲本體追加 ===== */
 .boot{position:absolute;inset:0;z-index:60;display:grid;place-items:center;background:#1A1420;color:#fff;font-size:calc(1.6*var(--u));letter-spacing:.2em;transition:opacity .5s}

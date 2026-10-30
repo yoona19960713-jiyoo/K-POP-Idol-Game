@@ -84,7 +84,7 @@ function playIntro(title,ti,withShots){
       const fin=.16/d, hold=(d-.1)/d;
       A(L,s,[{opacity:0},{opacity:1,offset:fin},{opacity:1,offset:hold},{opacity:0}],d,t,"linear");
       // 結尾妖精的鏡頭:快速推近再停住,最後還在很慢地推
-      A(L,s.querySelector(".ti-img"),[{scale:1.0,translate:`${dir*-.8}% 0`},{scale:1.075,translate:"0 0",offset:.62},{scale:1.095,translate:"0 0"}],d,t,OUT);
+      A(L,s.querySelector(".ti-img"),[{scale:1.0,translate:`${dir*-.4}% 0`},{scale:1.028,translate:"0 0",offset:.62},{scale:1.035,translate:"0 0"}],d,t,OUT);   /* 推近改小(2026-10-29):以前放大到 1.095,手機上手和衣服的邊會被裁掉 */
       // 聚光燈:打下來一亮,再穩定
       A(L,s.querySelector(".ti-beam"),[{opacity:0,scale:".7 .9"},{opacity:.95,scale:"1 1",offset:.14},{opacity:.42,scale:"1 1",offset:.5},{opacity:.36,scale:"1.04 1"}],d,t,"ease-out");
       A(L,s.querySelector(".ti-src"),[{opacity:0,scale:.6},{opacity:1,scale:1.08,offset:.12},{opacity:.7,scale:1}],d,t,"ease-out");

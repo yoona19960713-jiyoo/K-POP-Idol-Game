@@ -713,9 +713,14 @@ function visit(pid,o={}){
   const sn=pickW(wxs.length&&Math.random()<.75?wxs:all);   // 對應天氣的片段優先
   if(sn) play(wl&&!sn.sc&&!sn.wx?{...sn,sc:wl}:sn,menu,"entry"); else {narr(wl+(PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:byTime(SCN[baseOf(pid)]))+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
 }
+/* 在場的人怎麼站(2026-10-29 使用者:多人時不要疊在一起、身體不要被切掉):
+   一兩個人站左半邊(右邊留給選項);三個人以上用整個寬度平均分配,人越多立繪越小,相鄰的只重疊到立繪兩側的透明邊;
+   這時選項往下移到臉的下面(#visit.crowd),不會蓋到右邊成員的臉 */
 function drawPeople(){
-  const ids=[...V.present,...(V.summoned?[V.summoned]:[])], n=ids.length, ch=n<=1?120:n===2?104:n===3?92:82;
-  const xs=n<=1?[$("#stage").clientWidth<900?36:30]:ids.map((_,i)=>(n<=3?17:13)+(n===2?26:n===3?36:46)*i/(n-1));
+  const ids=[...V.present,...(V.summoned?[V.summoned]:[])], n=ids.length, crowd=n>=3, L=crowd?6:8, R=crowd?94:62, BASE=n<=1?120:n===2?104:92;
+  const w=Math.min(BASE*.305,(R-L)/Math.max(1,n)*1.25), ch=n<=1?120:Math.round(w/.305);
+  const xs=n<=1?[$("#stage").clientWidth<900?36:30]:n===2?[18,46]:ids.map((_,i)=>+(L+(R-L)*(i+.5)/n).toFixed(2));
+  $("#visit").classList.toggle("crowd",crowd);
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
     return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 let lastSpk=null;
