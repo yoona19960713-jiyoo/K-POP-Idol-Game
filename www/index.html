@@ -1080,6 +1080,9 @@ h3.msep{margin-top:calc(2.2*var(--u));padding-top:calc(1*var(--u));border-top:ca
 .bigcard .cardNote{display:block;margin-top:calc(.4*var(--u));font-size:max(calc(.9*var(--u)),11px);line-height:1.6;letter-spacing:.04em;color:#E8CFA0}
 .evlines.two{display:grid;grid-template-columns:1fr 1fr;gap:calc(.5*var(--u)) calc(1.6*var(--u))}
 .evlines.two .evl:last-child:nth-child(odd){grid-column:1/-1}
+/* 會動的 CG(2026-10-30) */
+.cgimg .cgvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease;pointer-events:none}
+.cgimg .cgvid.on{opacity:1}
 
 /* ===== 對話介面的精緻化(D8/D9,2026-10-24):香檳金細線、星形飾點、按下回饋。整檔拿掉即可還原 ===== */
 
@@ -1749,6 +1752,8 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 /* 6/17 團名輸入 */
 .mname input#mnIn{display:block;width:100%;margin:calc(.6*var(--u)) 0 calc(.3*var(--u));padding:calc(.7*var(--u)) calc(1*var(--u));font:700 max(calc(1.8*var(--u)),18px)/1.2 var(--serif);letter-spacing:.2em;text-align:center;color:#FFF3EC;background:rgba(255,255,255,.08);border:1px solid rgba(228,204,151,.7);border-radius:calc(.6*var(--u))}
 .mname .mnErr{min-height:1.2em;margin:0;font-size:max(calc(.9*var(--u)),12px);color:#F2A0A0}
+.cine .cn-bg .cn-vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease}
+.cine .cn-bg .cn-vid.on{opacity:1}
 /* ===== MV(mvplay.js,2026-10-27):動態 MV 與 AI 影片 MV 的播放 ===== */
 .mvp,.mvv{position:absolute;inset:0;z-index:92;overflow:hidden;background:#07060A;color:#F6EEDF;font-family:var(--sans);container-type:inline-size}
 .mvv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}

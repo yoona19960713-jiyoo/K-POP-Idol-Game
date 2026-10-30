@@ -113,15 +113,20 @@ function scan(){
 every(1200,()=>{ try{ scan(); if(QUEUE.length&&!paused()&&!document.querySelector(".bigev:not(.out),#cgView,.bigev")){ const q=QUEUE.shift(); q[0]==="duo"?showDuo(q[1],true):q[0]==="extra"?showExtra(q[1],true):show(q[0],q[1],true) } }catch(e){window.logErr?.("cg",e)} });
 
 /* ---------- 全螢幕顯示 ---------- */
+/* 會動的 CG(2026-10-30):Hugging Face 的 Wan 2.2 圖轉影片(免費額度)做的短片,正放+倒放接成無縫循環,放在 assets/cgv/(GitHub,不佔 Firebase)。
+   有影片的就在圖上播(靜音、循環),播起來才淡入;載不到就照舊顯示圖 */
+const CG_VIDEO={g_debut:"assets/cgv/g_debut.mp4"};
+window.CG_VIDEO=CG_VIDEO;
 function view(o,fresh,onClose){
   const el=document.createElement("div"); el.id="cgView"; el.className="cgview"+(fresh?" fresh":"");
   el.style.setProperty("--c",o.c);
-  el.innerHTML=`<div class="cgimg" style="background-image:url(${o.img})"></div><div class="cgshade"></div>
+  el.innerHTML=`<div class="cgimg" style="background-image:url(${o.img})">${o.video?`<video class="cgvid" src="${o.video}" muted loop playsinline autoplay preload="auto" aria-hidden="true"></video>`:""}</div><div class="cgshade"></div>
     <div class="cgcap"><small>${fresh?"NEW MEMORY":"MEMORY"} ・ ${esc(o.kind)}</small>
       <div class="cgwho">${o.who}</div><h2>「${esc(o.t)}」</h2>${o.line}
       ${fresh?`<span class="cgsaved">已收進手機「相簿」,隨時可以重看</span>`:""}</div>
     <div class="cgbtns"><button class="cgb" data-hide>只看圖</button><button class="cgb" data-dl>下載・設桌布</button><button class="cgb pri" data-close>${fresh?"收進相簿":"關閉"}</button></div>`;
   $("#stage").appendChild(el); setPause("cg",true); if(fresh) setTimeout(()=>window.feedback?.("l"),300);
+  const vd=el.querySelector(".cgvid"); if(vd){ vd.addEventListener("playing",()=>vd.classList.add("on"),{once:true}); vd.play?.().catch(()=>{}) }
   const cap=()=>el.classList.toggle("bare");
   el.querySelector("[data-hide]").onclick=e=>{e.stopPropagation();cap(); if(!S.flags.cgBareTip){S.flags.cgBareTip=1; toast2("點一下畫面,按鈕和文字就會回來")}};
   el.querySelector("[data-dl]").onclick=e=>{e.stopPropagation(); window.saveImage?.(o.img,o.dl,true)};
@@ -134,7 +139,7 @@ function showDuo(k,fresh,onClose){ const [a,b]=k.split("-").map(byId), [t,L]=DUO
   view({img:duoSrc(k),c:a.c,kind:"戀愛紀念",who:`<b>${esc(a.n)} × ${esc(b.n)}</b><i>多人親密</i>`,t,dl:`完美女團_${a.n}x${b.n}_多人親密`,
     line:`<p class="cgduo">${L.map(([w,x])=>{ const m=byId(w); return `<span style="--q:${m.c}"><em>${esc(m.n)}</em>${esc(x)}</span>` }).join("")}</p>`},fresh,onClose) }
 function showExtra(k,fresh,onClose){ const e=exInfo(k); if(!e) return;
-  view({img:e.img,c:e.c,kind:"特別回憶",who:`<b>完美女團</b><i>${esc(e.tag)}</i>`,t:e.t,line:`<p>${esc(e.line)}</p>`,dl:e.dl},fresh,onClose) }
+  view({img:e.img,video:CG_VIDEO[k],c:e.c,kind:"特別回憶",who:`<b>${esc(window.groupName?.()||"完美女團")}</b><i>${esc(e.tag)}</i>`,t:e.t,line:`<p>${esc(e.line)}</p>`,dl:e.dl},fresh,onClose) }
 
 
 /* ---------- 手機相簿 ---------- */

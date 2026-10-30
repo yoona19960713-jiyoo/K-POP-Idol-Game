@@ -16,7 +16,8 @@ let RUN=null;
 /* 成員立繪:她現在穿的衣服(或指定的造型) */
 const figSrc=(f)=>spr(f.id,f.outfit!==undefined?f.outfit:outfitAt(f.id,f.room||S.where[f.id],f.slot??S.slot),f.e||"neutral");
 function shotEl(sh){ const L=mk("div","cn-shot");
-  if(sh.bg){ const b=mk("div","cn-bg"); b.style.backgroundImage=`url("${sh.bg}")`; if(sh.pos) b.style.backgroundPosition=sh.pos; L.appendChild(b); L._bg=b }
+  if(sh.bg){ const b=mk("div","cn-bg"); b.style.backgroundImage=`url("${sh.bg}")`; if(sh.pos) b.style.backgroundPosition=sh.pos; L.appendChild(b); L._bg=b;
+    if(sh.video){ const v=mk("video","cn-vid"); Object.assign(v,{src:sh.video,muted:true,loop:true,playsInline:true,autoplay:true}); v.setAttribute("playsinline",""); v.addEventListener("playing",()=>v.classList.add("on"),{once:true}); b.appendChild(v); v.play?.().catch(()=>{}) } }   // 會動的 CG(載不到就看背景圖)
   if(sh.fx) L.appendChild(mk("div","cn-fx "+sh.fx,Array.from({length:sh.fx==="snow"?26:14},(_,i)=>`<i style="--i:${i};--x:${(i*37)%100}%;--d:${(i*7)%10}"></i>`).join("")));
   L._figs=(sh.figs||[]).map(f=>{ const w=mk("div","cn-fig"); w.style.cssText=`left:${f.x}%;top:${f.top??10}%;height:${f.h??124}%;--c:${byId(f.id)?.c||"#fff"}`; const im=mk("img"); im.src=figSrc(f); im.alt=""; w.appendChild(im); L.appendChild(w); return [w,f] });
   if(sh.cap){ const c=mk("div","cn-cap "+(sh.cap.at||"b"),esc(sh.cap.t)); L.appendChild(c); L._cap=c }
@@ -128,7 +129,7 @@ window.CINE={
   rehearsal:v=>({shots:[
     {dur:4600,bg:"assets/bg/ev_stage.webp",kb:[1.02,1.12,0,0,0,0],fx:"dust",date:["2017.01.11 WED","15:00"],cap:{t:"Showcase 的場地。",at:"c",delay:900},trans:"slow"},
     {dur:4200,bg:BG("backstage","day"),kb:[1.04,1.1,-1,1,0,0],cap:{t:"兩天後,這裡會坐滿人。",delay:700}},
-    {dur:5200,bg:"assets/cg/g_debut.webp",kb:[1.02,1.1,0,0,0,0],cap:{t:"最後一次彩排。",delay:1400},trans:"slow"},
+    {dur:5200,bg:"assets/cg/g_debut.webp",video:window.CG_VIDEO?.g_debut,kb:[1.02,1.08,0,0,0,0],cap:{t:"最後一次彩排。",delay:1400},trans:"slow"},
     {dur:4300,bg:BG("backstage","day"),kb:[1.12,1.16,0,0,0,0],figs:[{id:"ys",x:44,h:124,from:"l",e:"serious",drift:1,outfit:v.look||undefined,room:"practice",slot:2}],cap:{t:"藝瑟沒有笑。她在記每一個走位。",delay:1300}},
     {dur:4300,bg:BG("backstage","day"),kb:[1.14,1.18,0,0,0,0],figs:[{id:"hr",x:56,h:124,from:"r",e:"shy",drift:1,outfit:v.look||undefined,room:"practice",slot:2}],cap:{t:"河嵐的手心,全是汗。",delay:1300}},
     {dur:5600,bg:"assets/bg/ev_stage.webp",kb:[1.12,1.02,0,0,0,0],trans:"white",fx:"dust",figs:G5("practice",2,["serious","serious","smile","smile","shy"],v.look),cap:{t:"燈,亮了。",at:"c",delay:2400}},
