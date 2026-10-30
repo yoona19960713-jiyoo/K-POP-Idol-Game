@@ -169,6 +169,12 @@ async function makeSprites(mid,imgURL,pose){
   const K=Math.max(1,Math.min(2,Math.round(exI.neutral.naturalHeight/ch)));   // 表情組是 2 倍高清時,換衣立繪也輸出 2 倍
   const nD=ex.neutral.getContext("2d",{willReadFrequently:true}).getImageData(0,0,cw,ch).data;
   const pos=locate(oD,W,H,nD,cw,ch,face);
+  /* 手伸出表情組的框時(揮手、比手勢):左右各多留一樣寬的透明邊,把手完整留下來(2026-10-29 使用者回報手被切掉)。
+     兩邊留一樣寬,立繪的中心不變,眨眼層、殘影層照原本的位置對得上;沒有伸出去的就跟以前一樣寬 */
+  const PAD=(()=>{ const y0=Math.max(0,pos.y), y1=Math.min(H,pos.y+ch), cnt=new Uint16Array(W);
+    for(let y=y0;y<y1;y+=2) for(let x=0;x<W;x++) if(oD[(y*W+x)*4+3]>60) cnt[x]++;
+    let mn=-1,mx=-1; for(let x=0;x<W;x++) if(cnt[x]>=4){ if(mn<0) mn=x; mx=x }
+    if(mn<0) return 0; const over=Math.max(pos.x-mn,(mx+1)-(pos.x+cw)); return over>4?Math.min(Math.round(cw*.8),over+12):0 })();
   // 羽化橢圓遮罩
   const [cx,cy]=face, ax=AXR[0], ay=AXR[1], mask=new Float32Array(cw*ch);
   for(let y=Math.max(0,cy-ay-FEATHER);y<Math.min(ch,cy+ay+FEATHER);y++) for(let x=Math.max(0,cx-ax-FEATHER);x<Math.min(cw,cx+ax+FEATHER);x++){
@@ -212,10 +218,13 @@ async function makeSprites(mid,imgURL,pose){
           if(diff>=45&&ba>=200) continue;                       // 造型自己的東西(耳環、髮飾)保留
           for(let c=0;c<3;c++) HD[i+c]=HD[i+c]*(1-w)+HE[i+c]*w; HD[i+3]=Math.round(ba*(1-w)+ea*w) } }
       x2.putImageData(Hd,0,0) }
-    let u=c2.toDataURL("image/webp",.86); if(!u.startsWith("data:image/webp")) u=c2.toDataURL("image/png"); out[e]=u }
-  return {sprites:out,pos,keyed,err:pos.err};
+    let fin=c2; if(PAD){ const pw=PAD*K, c3=canvas(W2+2*pw,H2), x3=c3.getContext("2d"); x3.imageSmoothingQuality="high";
+      x3.drawImage(oc,pos.x-PAD,pos.y,PAD,ch,0,0,pw,H2); x3.drawImage(oc,pos.x+cw,pos.y,PAD,ch,pw+W2,0,pw,H2); x3.drawImage(c2,pw,0); fin=c3 }   // 左右兩條直接用去背後的造型圖
+    let u=fin.toDataURL("image/webp",.86); if(!u.startsWith("data:image/webp")) u=fin.toDataURL("image/png"); out[e]=u }
+  return {sprites:out,pos,keyed,err:pos.err,pad:PAD};
 }
 
+window.__makeSprites=makeSprites;   // 測試用(r5_sprite.py)
 /* ---- 遊戲讀取:DYN[code@mid][表情] = 物件網址 ---- */
 const DYN={}, LOADING=new Set(); window.DYN=DYN;
 function toBlobURL(u){const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return URL.createObjectURL(new Blob([a],{type:mime}))}
@@ -228,7 +237,7 @@ window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) re
 /* ---- 立繪處理版本(2026-10-27):目前是第 4 版(精準遮罩去背+2 倍輸出、臉用高清表情組)。
    新處理的會記 spriteV;以前處理、沒記版本的,看立繪高度判斷:2 倍輸出高約 2900px,舊版約 1480px。
    判斷只讀圖檔開頭的尺寸欄位(不解碼整張圖),結果記在這台裝置(kpopGame.sprOK),選單只在真的有舊版時才出現更新鍵 ---- */
-const SPRITE_V=4; window.SPRITE_V=SPRITE_V;
+const SPRITE_V=5;   // 5(2026-10-29):手伸出表情組的框時左右留邊,手不會被切掉 window.SPRITE_V=SPRITE_V;
 function imgSize(u){ try{ const b64=String(u).split(",")[1]||""; const bin=atob(b64.slice(0,80)), b=[...bin].map(c=>c.charCodeAt(0)), str=(i,n)=>String.fromCharCode(...b.slice(i,i+n));
   if(str(1,3)==="PNG") return {w:(b[16]<<24|b[17]<<16|b[18]<<8|b[19])>>>0,h:(b[20]<<24|b[21]<<16|b[22]<<8|b[23])>>>0};
   if(str(0,4)==="RIFF"&&str(8,4)==="WEBP"){ const k=str(12,4);
@@ -237,7 +246,8 @@ function imgSize(u){ try{ const b64=String(u).split(",")[1]||""; const bin=atob(
     if(k==="VP8X") return {w:1+(b[24]|b[25]<<8|b[26]<<16),h:1+(b[27]|b[28]<<8|b[29]<<16)} } }catch(e){} return null }
 const SOK_K="kpopGame.sprOK"; let SOK=null;
 const sokGet=()=>SOK||(SOK=new Set((()=>{try{return JSON.parse(localStorage.getItem(SOK_K)||"[]")}catch(e){return []}})()));
-window.spriteOutdated=async o=>{ if(!o?.sprites) return false; if((o.spriteV||0)>=SPRITE_V) return false;
+window.spriteOutdated=async(o,lk)=>{ if(!o?.sprites) return false; if((o.spriteV||0)>=SPRITE_V) return false;
+  if(lk?.pose&&lk.pose!=="stand") return true;   // 不是自然站姿的(揮手、比手勢…):舊的處理會把伸出去的手切掉,要重新處理
   const ref=o.sprites.neutral||Object.values(o.sprites)[0]; if(!ref) return false; const ok=sokGet(); if(ok.has(ref)) return false;
   const u=await getBlob(ref); if(!u) return false;   // 圖還沒下載到這台:先不算舊版,免得誤報
   const sz=imgSize(u); if(sz&&sz.h>=2000){ ok.add(ref); try{ localStorage.setItem(SOK_K,JSON.stringify([...ok].slice(-2000))) }catch(e){} return false }

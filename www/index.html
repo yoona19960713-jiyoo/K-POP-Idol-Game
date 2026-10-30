@@ -1609,7 +1609,7 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 /* 半身立繪:她的配色在背後微微發光 */
 #meet .mt-por{position:absolute;left:-1.5%;bottom:0;height:97%;aspect-ratio:900/1380;z-index:1}
 #meet .mt-por::before{content:"";position:absolute;inset:20% 6% 2%;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--pm) 60%,#fff 10%),transparent);opacity:.55;filter:blur(calc(1.6*var(--u)))}
-#meet .mt-por i{position:absolute;inset:0;background:no-repeat 50% 0/100% auto;transform-origin:50% 100%;animation:breathe 4.8s ease-in-out infinite;
+#meet .mt-por i{position:absolute;top:0;bottom:0;left:-45%;right:-45%;background:no-repeat 50% 0/auto 213.8%;transform-origin:50% 100%;animation:breathe 4.8s ease-in-out infinite;
   -webkit-mask:linear-gradient(180deg,#000 74%,transparent 97%);mask:linear-gradient(180deg,#000 74%,transparent 97%);filter:drop-shadow(0 calc(.3*var(--u)) calc(.8*var(--u)) rgba(20,8,20,.35))}
 /* 返回 */
 #meet .mt-x{position:absolute;right:1.6%;top:3.2%;z-index:3;display:flex;align-items:center;gap:calc(.4*var(--u));min-height:44px;padding:0 calc(1.4*var(--u)) 0 calc(.9*var(--u));border-radius:999px;
@@ -1705,8 +1705,8 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .cine .cn-stage,.cine .cn-shot{position:absolute;inset:0}
 .cine .cn-bg{position:absolute;inset:-4%;background:center/cover no-repeat;will-change:transform}
 .cine .cn-shot::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(8,3,10,.55)),linear-gradient(180deg,rgba(8,3,10,.15),transparent 30%,transparent 62%,rgba(8,3,10,.55))}
-.cine .cn-fig{position:absolute;transform:translateX(-50%);aspect-ratio:900/2950;z-index:1;will-change:transform,opacity}
-.cine .cn-fig img{width:100%;height:100%;object-fit:contain;object-position:top;transform-origin:50% 100%}
+.cine .cn-fig{position:absolute;transform:translateX(-50%);z-index:1;will-change:transform,opacity}   /* 寬度跟著立繪(手伸出去的立繪比較寬) */
+.cine .cn-fig img{display:block;height:100%;width:auto;transform-origin:50% 100%}
 .cine .cn-bar{position:absolute;left:0;right:0;height:9%;background:#050307;z-index:5}
 .cine .cn-bar.t{top:0}.cine .cn-bar.b{bottom:0}
 .cine .cn-date{position:absolute;left:4.5%;top:12%;z-index:6;display:flex;flex-direction:column;gap:calc(.3*var(--u));color:#F3E4C2;opacity:0;text-shadow:0 1px 6px rgba(0,0,0,.6)}

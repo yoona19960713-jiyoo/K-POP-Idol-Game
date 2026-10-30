@@ -976,13 +976,13 @@ async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; U
 $("#useBtn")&&($("#useBtn").onclick=()=>{ const el=$("#usePanel"); if(!el.classList.contains("hidden")&&!USE_BUSY){ el.classList.add("hidden"); return } renderUse() });
 /* 日常立繪更新(2026-10-27):只有還是舊版處理方式的立繪才提醒;更新完就不再出現 */
 async function outdatedSprites(){ const jobs=[]; if(!window.spriteOutdated) return jobs;
-  for(const l of Object.values(ITEMS)){ if(!l||l.deleted||!(l.occasion==="練習"||String(l.occasion).startsWith("日常"))) continue;
-    for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]&&await spriteOutdated(o)) jobs.push([l.code,slot]) }
+  for(const l of Object.values(ITEMS)){ if(!l||l.deleted||!(l.occasion==="練習"||l.occasion==="節日"||String(l.occasion).startsWith("日常"))) continue;
+    for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]&&await spriteOutdated(o,l)) jobs.push([l.code,slot]) }
   return jobs }
 let REPROC_BUSY=false;
 async function renderReproc(){ const row=$("#reprocRow"), note=$("#reprocNote"); if(!row||REPROC_BUSY) return;
   const jobs=await outdatedSprites(); row.hidden=note.hidden=!jobs.length;
-  if(jobs.length){ $("#reprocAll").textContent=`更新 ${jobs.length} 張舊版日常立繪`; note.textContent=`去背與清晰度改版過;這 ${jobs.length} 張還是舊的處理方式,按一次就會換成新版(更新過的不會再出現)。` } }
+  if(jobs.length){ $("#reprocAll").textContent=`更新 ${jobs.length} 張舊版日常立繪`; note.textContent=`立繪處理改版過(手伸出去的姿勢會完整保留、去背與清晰度更好);這 ${jobs.length} 張還是舊的處理方式,按一次就會換成新版(更新過的不會再出現)。` } }
 $("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if(!window.processSprites||REPROC_BUSY) return;
   const jobs=await outdatedSprites(); if(!jobs.length){ toast2("日常立繪都是新版了"); renderReproc(); return }
   if(!confirm(`更新 ${jobs.length} 張舊版日常立繪?手機上每張約 5~10 秒,處理時可以繼續玩。`)) return;
