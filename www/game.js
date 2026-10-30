@@ -427,8 +427,8 @@ function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxN
     if(wk!=="clear") delete w.river;
     const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k]?.open.includes(S.slot)));
     let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2; S.doing[m.id]=doingOf(b,m.id,w2,wd) }
-  window.lifeWhere?.(); S.whereKey=whereKey() }
-const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0);
+  window.lifeWhere?.(); window.nightWhere?.(); S.whereKey=whereKey() }
+const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0)+"|"+(window.nightKey?.()||"");   // 深夜事件(night.js)開始、結束也換位置
 let FIG_FADE=false;
 
 const stageOf=id=>window.stageOfXp?stageOfXp(id):"戒備";
@@ -622,6 +622,7 @@ let last=performance.now();
 function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
   if(paused()) return; const sl=SLOTS[S.slot];
   S.min+=dt*(sl.to-sl.from)/sl.sec;
+  window.nightTick?.();
   if(S.min>=sl.to) passSlots(); else { if(S.whereKey!==whereKey()){ assign(); FIG_FADE=true; renderAll() } renderHud(); if(TFX&&!TFX_RUN) playTimeFx() } }
 /* 互動完成時扣遊戲時間(改版 1.0):時鐘往前跳。對話、設施開著時先記著,畫面都關了、時鐘再走的時候才處理跨過的時段,
    頂部的時間「往前轉」到新的時間,旁邊冒出「+20 分」 */
@@ -695,6 +696,8 @@ function visit(pid,o={}){
   $("#vtitle").textContent=p.n; vsubSet(0);
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
   if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid); return }
+  const ns=window.nightScene?.(pid,o.talk);   // 深夜:她睡不著、偷吃宵夜、在頂樓(night.js)
+  if(ns){ V.talked.add(ns.id); setBack(); play(ns.sn,()=>{ ns.done(); menu() }); return }
   if(o.talk&&ppl.includes(o.talk)){ narr(`你走到${byId(o.talk).n}身邊。`); talk(o.talk); return }
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;

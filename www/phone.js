@@ -27,6 +27,8 @@ function pushLines(key,lines){ const p=ph(), t=p.threads[key]=p.threads[key]||[]
   if(t.length>80) t.splice(0,t.length-80) }
 /* 其他模組送來的訊息(真人化:生日、週年、邀約):lines=[[說話者,內容,表情]],key 是成員代號或 "group" */
 window.phoneSay=(key,lines)=>{ pushLines(key,lines); recount() };
+/* 內容庫的片段當訊息傳來(深夜訊息用;有選項的話可以回)。那個人已經有一則等你回的就不傳 */
+window.phoneSnip=(key,sn)=>{ const p=ph(); if(p.pend[key]) return false; S.seen[sn.code]=S.day; pushLines(key,sn.nodes.start.L); if(sn.nodes.start.C?.length&&snipBy(sn.code)) p.pend[key]={code:sn.code,node:"start"}; recount(); return true };
 /* 其他模組發的貼文(例如演唱會後):o={id,lines,sc?,img?(完整路徑),big?,code?} */
 window.phonePost=o=>{ const p=ph(), r=Math.random, pop=Math.max(5,(S.m[o.id]?.trust||10)), k=o.big?6:1;
   p.feed.unshift({code:o.code||("post-"+S.day+"-"+o.id),id:o.id,sc:o.sc||"",lines:o.lines||[],likes:Math.round((800+r()*2200)*(1+pop/40)*k),cm:Math.round((40+r()*260)*(1+pop/60)*k),...stamp(),seen:false,choice:null,
