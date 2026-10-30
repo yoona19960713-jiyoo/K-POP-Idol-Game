@@ -668,7 +668,10 @@ function newMessage(r){ window.phoneIncoming?.(r) }   // 訊息、群組、STARL
 function slotEnd(){
   const r=rng(seedOf(S.day,S.slot,"end"));
   S.absent=absentReports(r);
-  for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+(S.slot<=2?2:S.slot===4?-6:-1),0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood),0,100)}
+  /* 壓力(改版 1.0 第 5 輪):平日上午個人課 +3、下午團體練習 +4(評估日再 +4)、清晨與晚上 +1、睡覺 −6;週日與中秋連假整天往下 */
+  const hol=dateOf(S.day).getDay()===0||window.mileHoliday?.(S.day), evalD=window.isEvalDay?.(dateOf(S.day));
+  const dS=hol?[-2,-4,-4,-3,-5][S.slot]:[1,3,4+(evalD?4:0),1,-6][S.slot];   /* 一週約打平(平日 +3、週日 −18),評估日多 +4 */
+  for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+dS,0,100);s.mood=clamp(s.mood+Math.sign(60-s.mood)-(s.stress>=75&&S.slot===2?1:0),0,100)}
   if(window.growthOnSlotEnd) growthOnSlotEnd();
   window.choreoOnSlotEnd?.(who("practice").map(m=>m.id));   // 待在練習室的成員自己練主打的編舞
   S.slot++; if(S.slot>4){S.slot=0;S.day++;S.min-=1440; wxDaily()}

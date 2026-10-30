@@ -69,7 +69,10 @@ window.teamBond=()=>{ const v=Object.values(S.bond||{}); return v.length?v.reduc
 const SK={vocal:"唱功",dance:"舞蹈",rap:"Rap",expr:"表情管理",kor:"韓語"};
 const MAIN={ys:["vocal","dance"],tr:["rap","dance"],hy:["dance","expr"],he:["expr","vocal"],hr:["vocal"]};
 window.SKILL_NAMES=SK;
-function grow(id,k,v){ const s=S.skill[id]; if(!s||s[k]==null) return; const cap=capOf(id,k); s[k]=Math.min(cap,s[k]+v*Math.max(0,1-s[k]/cap)) }
+/* 改版 1.0 第 5 輪(2026-10-29):一年就出道(以前兩年),每天成長大約快一倍;主項再快一點,出道時主項約 90~95(整年模擬:r5_year.py) */
+const GROW={rate:2.2,main:1.3};
+function grow(id,k,v){ const s=S.skill[id]; if(!s||s[k]==null) return; const cap=capOf(id,k), T=window.GROW_TUNE||GROW, mul=(S.day<debutDay?T.rate:1.2)*(MAIN[id]?.includes(k)?T.main:1);   /* 出道後回到慢一點(打歌、演唱會的實戰經驗另外加) */
+  s[k]=Math.min(cap,s[k]+v*mul*Math.max(0,1-s[k]/cap)) }
 const LESSON={1:[["dance",.08]],2:[["vocal",.08]],3:[["dance",.08]],4:[["vocal",.06],["rap",.06]],5:[["dance",.04],["expr",.04]],6:["weak"]};
 function dailyRoutine(){ for(const m of M) for(const k of Object.keys(SK)) grow(m.id,k,MAIN[m.id].includes(k)?.07:.06) }
 function slotGrowth(){ const wd=dateOf(S.day).getDay(), sl=S.slot;
