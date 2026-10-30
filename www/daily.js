@@ -105,12 +105,12 @@ D.SCHED={
     {at:1080,n:"晚餐",w:{all:{kitchen:2,living:1},he:{kitchen:3}}},
     {at:1140,n:"自主練習",w:{ys:{practice:2,living:1},tr:{studio:2,bedroom:1},hy:{practice:2,living:1},he:{kitchen:1,living:2,styling:1},hr:{vocal:2,studio:1,practice:1}},
       doing:{tr:"寫詞",he:"休息",hr:"練高音"}},
-    {at:1320,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,store:1},hy:{living:1,bedroom:2},he:{living:2,kitchen:1},hr:{living:2,store:1,kitchen:1}},doing:{ys:"巡房前的休息"}},
+    {at:1320,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,store:1,roof:1},hy:{living:1,bedroom:2},he:{living:2,kitchen:1},hr:{living:2,store:1,kitchen:1,roof:.6}},doing:{ys:"巡房前的休息"}},
     {at:1440,n:"睡覺",w:{all:{bedroom:1}},doing:{tr:"還在寫詞"}}],
   sun:[
     {at:360,n:"補眠",w:{all:{bedroom:1}},doing:{he:"睡到自然醒"}},
     {at:630,n:"早午餐",w:{all:{kitchen:2,living:2}}},
-    {at:720,n:"休假",w:{ys:{living:2,"外出:逛街":1,river:1},tr:{bedroom:2,store:1,"外出:唱片行":1},hy:{living:1,river:1,"外出:咖啡廳":1},he:{kitchen:1,living:1,"外出:逛街":2},hr:{living:1,river:2,store:1}}},
+    {at:720,n:"休假",w:{ys:{living:2,"外出:逛街":1,river:1,roof:.6},tr:{bedroom:2,store:1,"外出:唱片行":1},hy:{living:1,river:1,"外出:咖啡廳":1},he:{kitchen:1,living:1,"外出:逛街":2},hr:{living:1,river:2,store:1}}},
     {at:1080,n:"晚餐",w:{all:{kitchen:2,living:1}}},
     {at:1140,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,studio:1},hy:{living:2,bedroom:1},he:{living:2,kitchen:1},hr:{living:2,store:1}}},
     {at:1440,n:"睡覺",w:{all:{bedroom:1}},doing:{tr:"還在寫詞"}}]};
