@@ -33,7 +33,7 @@ const SHOWS=[
   {d:"週六",n:"CORE STAGE",w:{digital:.5,sales:.1,views:.1,social:.1,stage:.2}},
   {d:"週日",n:"STAR GAYO",w:{digital:.55,sales:.1,views:.15,social:.1,stage:.1}},
 ];
-const RIVAL={n:"NOXVEIL",note:"三代頂流女團,同週回歸"};
+const RIVAL={n:"CARAT NOIR",note:"三代頂流女團,同週回歸"};
 const VERS={orig:{n:"原版",s:"最穩定",st:0,fresh:0},special:{n:"特別編舞版",s:"新鮮感高,體力消耗大",st:6,fresh:8},long:{n:"加長舞蹈段",s:"日和發揮空間,體力消耗大",st:5,fresh:5},goodbye:{n:"告別舞台",s:"只限最後一週,情緒拉滿",st:3,fresh:12}};
 const MICS={live:{n:"全開麥",s:"評價最高,最怕失誤"},half:{n:"部分墊音",s:"穩定與評價折衷"},lip:{n:"整首對嘴",s:"最穩,但被抓到就是輿論"}};
 const OCC={"打歌舞台":1,"演唱會":.85,"頒獎典禮":.85,"寫真":.7,"綜藝":.65,"機場":.55,"日常":.55,"日常・外出":.55,"日常・居家":.5,"日常・睡衣":.45,"練習":.5};

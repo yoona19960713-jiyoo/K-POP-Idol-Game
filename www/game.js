@@ -305,7 +305,7 @@ window.logEvent=(k,d={})=>{ S.evLog=[...(S.evLog||[]),{k,day:S.day,d}].slice(-60
 const lastEv=k=>{ const L=S.evLog||[]; for(let i=L.length-1;i>=0;i--) if(L[i].k===k) return L[i]; return null };
 const VENUE_N={hall:"星環 Live Hall",arena:"漢江體育館",dome:"首爾巨蛋"};
 const lastConcert=()=>{ const e=lastEv("concert"); if(e) return {day:e.day,title:e.d.title,venue:e.d.venue}; const c=(S.concerts||[]).slice(-1)[0]; return c?{day:c.day,title:c.title,venue:VENUE_N[c.venue]||c.venue}:null };
-const STORY_VARS={團名:()=>window.mileVar?.團名(),出道曲:()=>window.mileVar?.出道曲(),最新主打:()=>S.promo?.title||(S.promoHist||[]).slice(-1)[0]?.title||null, 演唱會:()=>lastConcert()?.title||null, 場館:()=>lastConcert()?.venue||null,
+const STORY_VARS={團名:()=>window.mileVar?.團名(),出道曲:()=>window.mileVar?.出道曲(),粉絲名:()=>window.mileVar?.粉絲名?.(),最新主打:()=>S.promo?.title||(S.promoHist||[]).slice(-1)[0]?.title||null, 演唱會:()=>lastConcert()?.title||null, 場館:()=>lastConcert()?.venue||null,
   一位節目:()=>lastEv("win")?.d.show||null, 一位歌曲:()=>lastEv("win")?.d.song||null};
 const sinceDays=e=>e?S.day-e.day:Infinity, mdNow=()=>{ const d=dateOf(S.day); return (d.getMonth()+1)*100+d.getDate() };
 const STORY_REQ={after_concert:()=>sinceDays(lastConcert())<=7, after_win:()=>sinceDays(lastEv("win"))<=5, promo:()=>!!window.promoInfo?.()?.active,
@@ -348,7 +348,11 @@ const ymdNow=()=>{ const d=dateOf(S.day); return `${d.getFullYear()}-${pad(d.get
 function dateOk(sn){ const d=sn.date; if(!Array.isArray(d)) return true; const n=ymdNow(); return (!d[0]||n>=d[0])&&(!d[1]||n<=d[1]) }
 function reqOk(sn){ if(!dateOk(sn)) return false; if(sn.req&&[].concat(sn.req).some(k=>!STORY_REQ[k]?.())) return false; return varsOf(sn).every(k=>STORY_VARS[k]?.()!=null) }
 function fillVars(sn){ if(!varsOf(sn).length) return sn;
-  const rep=t=>typeof t==="string"?t.replace(VAR_RE,(m,k)=>STORY_VARS[k]?.()??m):t, L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
+  /* 英文名字(團名、粉絲名、歌名)接在中文字旁邊時補一個空格(「我們是 NOXVEIL!」);中文名字、旁邊是標點時不加 */
+  const HAN=/[\u3400-\u9fff\uf900-\ufaff]/, LAT=/[A-Za-z0-9\u00c0-\u024f]/;
+  const rep=t=>typeof t==="string"?t.replace(VAR_RE,(m,k,off,str)=>{ const v=STORY_VARS[k]?.(); if(v==null) return m; let o=String(v);
+      if(LAT.test(o[0])&&HAN.test(str[off-1]||"")) o=" "+o; if(LAT.test(o[o.length-1])&&HAN.test(str[off+m.length]||"")) o+=" "; return o }):t,
+    L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
   const nodes={}; for(const [k,n] of Object.entries(sn.nodes||{})) nodes[k]={...n,L:L(n.L),C:(n.C||[]).map(c=>({...c,t:rep(c.t),...(c.r?{r:L(c.r)}:{})}))};
   return {...sn,sc:rep(sn.sc),nodes} }
 window.eventSnip=(ev,fallback)=>{ const list=snips().filter(sn=>sn.type==="event"&&sn.ev===ev&&sn.nodes?.start&&(!sn.period||sn.period===periodNow())&&reqOk(sn));

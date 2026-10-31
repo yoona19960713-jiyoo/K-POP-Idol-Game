@@ -5,7 +5,7 @@
      ① 有過場的先播過場(cine.js)② 要你決定的先決定(6/17 團名)③ 到那個地點演小劇情(內容庫的 event,
      沒有就用下面的內建版本)或事件卡 ④ 扣那件事的時間、記下來(S.mile)。
    中秋 9/14~16:其他四人回家(外出),作息照週日(放假);只有日和留下。
-   {團名}(6/17 之後)、{出道曲}(8/19 之後)給台詞用。
+   {團名}(6/17 之後)、{出道曲}(8/19 之後)、{粉絲名}(2017/02/14 之後,直接是 DAILY.FAN_NAME)給台詞用。
    ===================================================================== */
 (()=>{
 const DY=window.DAILY, MS=DY.MILESTONES;
@@ -16,7 +16,7 @@ const todayMile=()=>Object.keys(MS).find(k=>DAYS[k]<=S.day&&S.day<=DAYS[k]+1&&!d
 let RUNNING=false, NOTIFIED=null;
 /* 團名、出道曲 */
 window.groupName=()=>S.groupName||"完美女團";
-window.mileVar={團名:()=>S.groupName||null,出道曲:()=>S.day>=DAYS.debut_song?(window.albumList?.().find(a=>a.n===1)?.title||window.songSummary?.()?.title?.name||null):null};
+window.mileVar={粉絲名:()=>S.day>=DAYS.fan_name?DY.FAN_NAME:null,團名:()=>S.groupName||null,出道曲:()=>S.day>=DAYS.debut_song?(window.albumList?.().find(a=>a.n===1)?.title||window.songSummary?.()?.title?.name||null):null};
 /* 中秋:9/14~16 其他人回家、照假日作息 */
 const away=()=>{ const a=MS.chuseok.away; return a?[dayOfDate(a[0]),dayOfDate(a[1])]:null };
 window.mileHoliday=day=>{ const a=away(); return !!a&&day>=a[0]&&day<=a[1] };
@@ -24,7 +24,8 @@ window.mileWhere=()=>{ if(!window.mileHoliday(S.day)) return; for(const m of M) 
 /* 清晨的通知(群組,藝瑟傳) */
 const NOTE={first_eval:"大家!今天下午三點是月評!代表也會來看喔,加油!",showcase_in:"今天下午兩點,公司內部展示。大家吃飽一點,不要緊張~",group_name:"今天下午兩點在會議室開會……聽說要決定團名了!",
   debut_song:"今天下午兩點,錄音室!出道曲要開始錄了!",chuseok:"中秋快樂~我們回家囉!日和,宿舍就交給你了,記得吃飯!",concept_shoot:"今天早上十點攝影棚,概念照!大家昨晚有好好睡覺吧?",
-  debut_announce:"中午十二點,公司要公布出道日了……我好緊張。",final_eval:"今年最後一次評估,下午三點。大家,最後一次了!",rehearsal:"下午三點,Showcase 場地彩排。兩天後就是出道了。"};
+  debut_announce:"中午十二點,公司要公布出道日了……我好緊張。",final_eval:"今年最後一次評估,下午三點。大家,最後一次了!",rehearsal:"下午三點,Showcase 場地彩排。兩天後就是出道了。",
+  fan_name:"今天晚上八點 Spotlight Live!要公布粉絲名了,大家記得準時上線~"};
 function notify(){ const k=Object.keys(MS).find(x=>DAYS[x]===S.day&&!done(x)); if(!k||NOTIFIED===S.day+k||k==="first_day") return; NOTIFIED=S.day+k;
   if(NOTE[k]) window.phoneSay?.("group",[["ys",NOTE[k]]]); toast2(`今天 ${hm(MS[k].at)}:${MS[k].n}`) }
 /* ---------- 內建版本(內容庫還沒有里程碑劇情時;品質照正式內容) ---------- */
@@ -56,7 +57,13 @@ const FB={
     b:{L:[N("(社長站起來,第一個鼓掌。)"),["hr","……我說不哭的。","moved"],["ys","代表,我們準備好了。","smile"]],C:[]}},
   rehearsal:{start:{L:[N("(Showcase 場地的後台,工作人員來來去去,舞台上的燈一盞一盞試亮。)"),["ys","最後一次彩排。兩天後,台下會坐滿人。","serious"],["tr","耳返的音量,再調一次。","serious"],["hy","代表……我的手有點冰。","shy"],["he","大家,看我!深呼吸——呼——","laugh"],["hr","我不緊張!……騙人的,我好緊張。","shy"]],
     C:[C("(握一下日和冰冷的手。)","安慰","hy",4,[["hy","……暖和了。謝謝代表。","shy"]]),C("「這一年,你們比任何人都努力。」","鼓勵","ys",3),C("「河嵐,緊張就看我。我會在第一排。」","陪著","hr",3,[["hr","說好了!第一排!","laugh"]])]},
-    b:{L:[N("(彩排結束,五個人站在空蕩蕩的舞台上,看著台下一排一排的空位。)"),["ys","代表,兩天後見。在這裡。","smile"]],C:[]}}};
+    b:{L:[N("(彩排結束,五個人站在空蕩蕩的舞台上,看著台下一排一排的空位。)"),["ys","代表,兩天後見。在這裡。","smile"]],C:[]}},
+  /* 2026-10-31:粉絲名公布(Spotlight Live) */
+  fan_name:{start:{L:[N("(練習室的鏡子前架好了手機和補光燈。直播一開,留言就一行一行往上跑。)"),["ys","大家好,我們是{團名}!今天有一件很重要的事要說。","smile"],["he","我們想了好久、吵了好久……終於決定了!","laugh"],
+      ["hr","我數三聲!三、二、一——","laugh"],["ys","我們的粉絲名是——{粉絲名}!","moved"],["tr","……法文,「光」的意思。","smile"],["hy","因為大家是照亮我們舞台的光。……這句是我想的!","shy"],
+      N("(留言一下子被同一個詞洗滿了。直播結束,補光燈一關,五個人一起轉過來看你。)")],
+    C:[C("「{粉絲名},取得很好。」","鼓勵","ys",3,[["ys","嘿嘿……其實是大家一起想的。","shy"]]),C("「從今天起,你們不是只有自己了。」","陪著","hy",3,[["hy","……嗯。多了好多好多光。","moved"]]),C("「河嵐,剛剛倒數的聲音最大。」","開玩笑","hr",3,[["hr","那是因為太開心了嘛!","laugh"]])]},
+    b:{L:[["he","從明天開始,每天都要跟{粉絲名}說晚安了~","smile"],["tr","……應援色的事,下次再吵。","smile"]],C:[]}}};
 const CARD={debut_announce:()=>({tag:`2016.11.21 ・ D-${(window.DEBUT_DAY||366)-S.day}`,bg:"assets/bg/office_day.webp",title:"出道日公開",
   lead:`公司的官方帳號公開了出道日:2017 年 1 月 13 日。${S.groupName?`「${esc(S.groupName)}」`:"她們"}的名字,第一次出現在這麼多人面前。`,
   lines:[["ys","大家……我們的名字在網路上了。","moved"],["he","留言好多!有人說會等我們!","laugh"],["tr","……五十三天。夠了。","serious"],["hr","我要截圖!全部截圖!","laugh"]],ok:"倒數開始",cols:true})};

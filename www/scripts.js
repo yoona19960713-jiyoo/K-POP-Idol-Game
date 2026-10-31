@@ -158,8 +158,8 @@ const v3Label=sn=>sn.ev?EVENTS[sn.ev]?.n||sn.ev:sn.req?SITU[sn.req]?.n||sn.req:"
 const WORLD_BASE="公司:星環娛樂(老牌大公司)、黑鑽(嘻哈 girl crush)、晨光(親民、選秀組團)、方舟音樂(粉絲經營崛起)、楓葉娛樂(藝瑟的前公司)。打歌節目:週二 SHOW PULSE、週三 CHAMPION LIVE、週四 COUNTDOWN M、週五 MUSIC VAULT、週六 CORE STAGE、週日 STAR GAYO。頒獎:NOTE AWARDS(12 月,海外舉辦)、旋律音樂獎(12 月)、金盤獎(1 月)、首爾歌謠大賞(1 月)。音源平台 Melodi,排行榜圓音榜,入口網站 Nexa(熱搜與留言),八卦媒體 D-Scope。頂級製作人團隊 Lighthouse。";
 const WORLD_PERIOD={
  練習生期:window.DAILY.WORLD_2016,
- 出道與上升期:"2017 年 1 月 13 日出道(冬天出道)。活躍的女團:GLOW、TWINKLE(2016 年最紅)、VELVET ROSE、HARMONY、PRISM 9(2016 年 5 月由選秀節目 SPOTLIGHT 99 選出的期間限定團)、NOXVEIL(黑鑽 2016 年 8 月出道,藝瑟的舊同伴是成員)。BLAZE、WONDER POP、SUNNY DAY 在 2016 底到 2017 年陸續解散。2016 年底起中國市場關閉(限韓令)。2017 年 NOVA 在美國頒獎典禮得獎,西方市場打開。",
- 巔峰期:"活躍的女團:TWINKLE、VELVET ROSE、NOXVEIL、HARMONY、IRIS 12(2018 年 10 月韓日合作選秀)、ZEST(2019 年出道)。日本市場熱絡,2019 年起短影音平台 Clip 普及;2019 年有娛樂圈大型醜聞,輿論緊縮。",
+ 出道與上升期:"2017 年 1 月 13 日出道(冬天出道)。活躍的女團:GLOW、TWINKLE(2016 年最紅)、VELVET ROSE、HARMONY、PRISM 9(2016 年 5 月由選秀節目 SPOTLIGHT 99 選出的期間限定團)、CARAT NOIR(黑鑽 2016 年 8 月出道,藝瑟的舊同伴是成員)。粉絲名在 2017 年 2 月 14 日才公布,這個時期的片段不要提粉絲名。BLAZE、WONDER POP、SUNNY DAY 在 2016 底到 2017 年陸續解散。2016 年底起中國市場關閉(限韓令)。2017 年 NOVA 在美國頒獎典禮得獎,西方市場打開。",
+ 巔峰期:"活躍的女團:TWINKLE、VELVET ROSE、CARAT NOIR、HARMONY、IRIS 12(2018 年 10 月韓日合作選秀)、ZEST(2019 年出道)。日本市場熱絡,2019 年起短影音平台 Clip 普及;2019 年有娛樂圈大型醜聞,輿論緊縮。",
  轉型期:"2020 年起新冠疫情,演唱會全停、打歌無觀眾錄影、線上演唱會;粉絲通訊 Pocket 上線、Clip 舞蹈挑戰是宣傳主力。NEOVERSE(2020 年 11 月)、2022 年 SERAPH、NEW DAY 出道。2022 年疫情解封、巡演回歸,也是第一份七年合約到期的時候。"};
 
 /* ---------- 格式檢查 ---------- */
@@ -1243,9 +1243,12 @@ function edit(sn){ const {nodes,sc,at,sl,who,w,cd}=sn; const d=$("#mkDlg");
   $("#ejs").onclick=async()=>{try{const o=JSON.parse($("#ej").value); await saveItem({...sn,...o}); d.classList.add("hide"); toast2("已更新")}catch(e){toast2("JSON 格式有誤,請檢查逗號與括號")}} }
 function renderAuto(){ if(OPEN&&tab==="auto") renderAll() }
 setInterval(()=>{ if(OPEN&&tab==="auto"&&!document.querySelector("#makerFac input:focus")) renderAll() },1000);
-/* 2026-10-25 對手女團改名 LUMIÈRE → NOXVEIL:內容庫裡提到舊名字的片段一起換掉並同步到雲端(沒有就什麼都不做) */
-const RENAMES=[[/LUMI[ÈE]RE|Lumi[èe]re/g,"NOXVEIL"]];
-async function renameOld(){ for(const it of [...items]){ const s=JSON.stringify(it); let t=s; for(const [re,to] of RENAMES) t=t.replace(re,to); if(t!==s) await saveItem(JSON.parse(t)) } }
+/* 2026-10-31 對手女團改名 CARAT NOIR。之前(10/25)把 LUMIÈRE 改成 NOXVEIL 是誤會:NOXVEIL 是使用者自己團的預定團名(遊戲裡 6/17 自己輸入)、
+   LUMIÈRE 是粉絲名。內容庫裡把對手寫成 NOXVEIL 或 LUMIÈRE 的片段,每台裝置只換一次(做過就記在 localStorage),之後 LUMIÈRE 是粉絲名,不能再自動換 */
+const RENAMES=[[/NOXVEIL|Noxveil|LUMI[ÈE]RE|Lumi[èe]re/g,"CARAT NOIR"]], RENAME_V="rival-carat-noir";
+async function renameOld(){ try{ if(localStorage.getItem("kpopScripts.renamed")===RENAME_V) return;
+  for(const it of [...items]){ const s=JSON.stringify(it); let t=s; for(const [re,to] of RENAMES) t=t.replace(re,to); if(t!==s) await saveItem(JSON.parse(t)) }
+  localStorage.setItem("kpopScripts.renamed",RENAME_V) }catch(e){ window.logErr?.("對手改名",e) } }
 const itemsReady=(async()=>{ for(let i=0;i<40&&!IDB.db;i++) await new Promise(r=>setTimeout(r,100)); items=Object.values(await IDB.get("scriptsAll")||{}); await renameOld() })();
 
 })();
