@@ -134,7 +134,8 @@ function evalDance(T){ const D=T?.dance?getD(T):null; if(!D) return {has:false};
   let hook=0; if(ch.length){ if(hm?.hook) hook+=45;
     if(kp) { if(kp.every) hook+=20 } else { const chm=ch.map(x=>D.secs[x.i].mv); if(chm.every(x=>x===chm[0])) hook+=20 }
     if(named) hook+=15;
-    const ks=SI.find(s=>s.kill); if(ks&&ks.killer&&(kp?kp.lead===ks.killer||kp.lead==="all":D.secs[ks.i].focus===ks.killer)) hook+=20;
+    const ks=SI.find(s=>s.kill); if(ks&&ks.killer){ const ksec=D.secs[ks.i], kl=edLines(T,ks).find(l=>l.k), fk=kl?movesAt(cuesOf(ksec,ks.beats),kl.b+.25,ksec.mv).foc:null;
+      if((fk!=null?fk:ksec.focus)===ks.killer) hook+=20 }   /* killing part 那一句的焦點是唱的人(2.0 看那一拍) */
     if(kp&&kp.len>4) hook-=10 }
   hook=cl(hook,0,100);
   const states=[]; D.secs.forEach(s=>{ states.push(s.f); formsOf(s).forEach(k=>states.push(k.f||"free")) });
@@ -191,7 +192,7 @@ function fromJSON(T,o){ const bpm=+o.bpm>=50&&+o.bpm<=240?+o.bpm:0;
     if(v0){ const mv=mvCode(x.move)||"groove"; cues=[{b:0,len:nb,mv,who:"all",focus:IDS.includes(x.focus)?x.focus:null}];
       (Array.isArray(x.detail)?x.detail:[]).forEach(d=>{ const b=(+d.at||0)/bs; if(b>0&&b<nb) cues.push({b:Math.round(b*2)/2,len:Math.max(.5,Math.round((+d.dur||2)/bs*2)/2),mv,who:whoIds(d.who).length===5?"all":whoIds(d.who),focus:null,desc:String(d.desc||"").slice(0,60)}) }) }
     else (Array.isArray(x.cues)?x.cues:[]).forEach(c=>{ const mv=mvCode(c.move); if(!mv){ warn.push(`${si.n}:看不懂的動作「${c.move}」`); return } const who=whoIds(c.who);
-      if(!who.length) return; cues.push({b:Math.round(cnt(c.count)*2)/2,len:Math.max(.5,Math.round((+c.beats||8)*2)/2),mv,who:who.length===5?"all":who,focus:IDS.includes(c.focus)?c.focus:null,desc:String(c.desc||"").slice(0,60)}) });
+      if(!who.length) return; cues.push({b:Math.round(cnt(c.count)*2)/2,len:Math.max(.5,Math.round((+c.beats||8)*2)/2),mv,who:who.length===5?"all":who,focus:IDS.includes(c.focus)?c.focus:null,desc:String(c.desc||"").slice(0,120)}) });
     cues=cues.filter(c=>c.b<nb).sort((a,b)=>a.b-b.b); if(!cues.length) cues=[{b:0,len:nb,mv:"groove",who:"all",focus:null}];
     if(cues.some(c=>c.b+c.len>nb+.01)) warn.push(`${si.n}:有片段超過這段的長度(${Math.round(nb)} 拍)`);
     const forms=(Array.isArray(x.forms)?x.forms:[]).map(k=>{ let kf=FM[k.formation]?k.formation:"free", kp2=posObj(k.positions); if(!kp2){ if(kf==="free") return null; kp2=place(kf,orderFor(x.focus||null,pos)) }
@@ -205,7 +206,7 @@ function fromJSON(T,o){ const bpm=+o.bpm>=50&&+o.bpm<=240?+o.bpm:0;
       b:K.count!=null?Math.round(cnt(K.count)*2)/2:(K.from!=null?Math.round(+K.from/bs*2)/2:0),len:+K.beats||(K.to!=null&&K.from!=null?Math.round((K.to-K.from)/bs):4),
       lead:K.lead==="all"||IDS.includes(K.lead)?K.lead:null,steps:(Array.isArray(K.steps)?K.steps:Array.isArray(K.beats)?K.beats:[]).map(x=>String(x).slice(0,40)).slice(0,8),
       why:String(K.why||"").slice(0,120),final:K.final&&typeof K.final==="object"?{sec:SI.findIndex(x=>x.n===K.final.section),lead:K.final.lead||null,change:String(K.final.change||"").slice(0,120)}:(K.finalVariation?{change:String(K.finalVariation).slice(0,120)}:null)} }
-  const hl=(Array.isArray(o.highlights)?o.highlights:[]).map(h=>({sec:SI.findIndex(x=>x.n===h.section),b:Math.round(cnt(h.count)*2)/2,len:+h.beats||8,who:whoIds(h.who),desc:String(h.desc||"").slice(0,60)})).filter(h=>h.sec>=0).slice(0,3);
+  const hl=(Array.isArray(o.highlights)?o.highlights:[]).map(h=>({sec:SI.findIndex(x=>x.n===h.section),b:Math.round(cnt(h.count)*2)/2,len:+h.beats||8,who:whoIds(h.who),desc:String(h.desc||"").slice(0,200)})).filter(h=>h.sec>=0).slice(0,3);
   const D={v:2,secs,kp,hl,concept:String(o.concept||"").slice(0,300),hook:{name:kp?.name||""},prof:{...(T.dance?.prof||Object.fromEntries(IDS.map(i=>[i,0])))},at:Date.now(),src:{ver:v0?0:1,at:Date.now()}};
   return {D,sync,bpm,miss,warn,needs:Array.isArray(o.needs)?o.needs.slice(0,6):[]} }
 /* 現在的編舞 → ver 1(匯出編舞單時帶給編舞室對話) */
@@ -250,9 +251,9 @@ function trialUI(T,o,rerender){ const r=fromJSON(T,o), e0=T.dance?evalDance(T):n
     return `<div class="c2bar${e0&&b<a-2?" dn":""}"><span>${n}</span><span class="t"><i style="width:${b}%"></i>${e0?`<u style="left:${a}%"></u>`:""}</span><span class="n">${e0?`<s>${a}</s> → `:""}<b>${b}</b></span></div>` }).join("");
   const L=[`<li>${changed} 段換新:<b>動作片段 ${nCue} 個</b>、換隊形 ${nForm} 次</li>`];
   if(r.D.kp) L.push(`<li>KEY POINT <b>「${esc(r.D.kp.name)}」</b>:${esc(T.secs[r.D.kp.sec]?.n||"")}第 ${r.D.kp.line} 句,${r.D.kp.lead==="all"?"全員":nm(r.D.kp.lead)}領舞</li>`);
-  if(r.D.hl.length) L.push(`<li>小亮點:${r.D.hl.map(h=>esc(h.desc||T.secs[h.sec]?.n||"")).join("、")}</li>`);
+  if(r.D.hl.length) L.push(`<li>小亮點:${r.D.hl.map(h=>`${esc(T.secs[h.sec]?.n||"")} ${cntTxt(h.b)}(${h.who.length===5?"全員":h.who.map(nm).join("、")})`).join("、")}</li>`);
   if(r.bpm||r.sync) L.push(`<li>${r.bpm?`BPM ${r.bpm}`:""}${r.sync?`${r.bpm?"、":""}對拍 ${Object.keys(r.sync.bars).length} 段(段落長度照 mp3)`:""}</li>`);
-  if(e0) L.push(`<li class="w">熟練度:改到的部分要重練,平均 <b>${Math.round(p0)}% → ${p1}%</b></li>`);
+  if(e0&&p0>=1) L.push(`<li class="w">熟練度:改到的部分要重練,平均 <b>${Math.round(p0)}% → ${p1}%</b></li>`);
   e1.notes.filter(n=>n[0]==="b").slice(0,2).forEach(n=>L.push(`<li class="b">${esc(n[1])}</li>`));
   e1.walks.slice(0,2).forEach(w=>L.push(`<li class="w">${esc(w.n)} ${cntTxt(w.b)}:${nm(w.id)}走位來不及(約 ${Math.round(w.d)} 公尺)</li>`));
   r.miss.length&&L.push(`<li class="w">對不上的段落(用建議版補):${r.miss.map(esc).join("、")}</li>`);
@@ -406,14 +407,15 @@ function edRender(){ if(!ED) return; const {T,SI,si,s,nb,D}=edSec(), e=evalDance
   /* 時間軸 */
   const tk=Array.from({length:Math.floor(nb)},(_,b)=>`<span class="tk${b%4===0?" h":""}" style="left:${P(b)}%"></span>`).join("")+Array.from({length:Math.ceil(nb/8)},(_,k)=>`<span class="ec" style="left:${P(k*8)}%">${k+1}<small>八拍</small></span>`).join("");
   const rows=edRows(C), nr=Math.max(...rows,0)+1;
+  const laneH=nr===1?30:nr===2?38:46;
   const cz=C.map((c,z)=>{ const w=whoIds(c.who), f=c.focus||(w.length===1?w[0]:null);
     return `<button class="c2cue${isKP(c)?" kp":""}${ED.sel?.t==="cue"&&ED.sel.i===z?" sel":""}${c.len<3?" nar":""}" data-ed-cue="${z}" style="left:calc(${P(c.b)}% + 1px);width:calc(${P(Math.min(c.len,nb-c.b))}% - 2px);top:${rows[z]/nr*100}%;height:calc(${100/nr}% - 2px);--h:${hueOf(c.mv)};--fc:${f?byId(f).c:"transparent"}"><b>${isKP(c)&&c.len>=6?"✦ ":""}${esc(MV[c.mv].n)}</b>${nr<2?`<i>${w.length===5?"全員":w.map(id=>byId(id).n).join("")}</i>`:""}</button>` }).join("");
-  const kz=F.map((k,z)=>{ const bad=ws.some(w=>Math.abs(w.b-k.b)<.01); return `${k.walk>0?`<span class="c2tr${bad?" bad":""}" style="left:${P(k.b-k.walk)}%;width:${P(k.walk)}%"></span>`:""}<button class="c2kf${ED.sel?.t==="form"&&ED.sel.i===z?" sel":""}${bad?" bad":""}" data-ed-form="${z}" style="left:${P(k.b)}%" aria-label="換隊形 ${cntTxt(k.b)}"></button><span class="c2kfl" style="left:${P(k.b)}%">${k.f==="free"?"自訂":FM[k.f]?.n}</span>` }).join("");
+  const kz=F.map((k,z)=>{ const bad=ws.some(w=>Math.abs(w.b-k.b)<.01); return `${k.walk>0?`<span class="c2tr${bad?" bad":""}" style="left:${P(k.b-k.walk)}%;width:${P(k.walk)}%"></span>`:""}<button class="c2kf${ED.sel?.t==="form"&&ED.sel.i===z?" sel":""}${bad?" bad":""}" data-ed-form="${z}" style="left:${P(k.b)}%" aria-label="換隊形 ${cntTxt(k.b)}"></button><span class="c2kfl${P(k.b)>82?" r":""}" style="left:${P(k.b)}%">${k.f==="free"?"自訂":FM[k.f]?.n}</span>` }).join("");
   const lz=edLines(T,si).filter(l=>l.len>0).map(l=>`<span class="c2ly${l.k?" k":""}" style="left:calc(${P(l.b)}% + 1px);width:calc(${P(l.len)}% - 2px);--c:${l.who.length===1?byId(l.who[0]).c:"#B8955A"}">${l.who.length>=5?"全員":l.who.map(id=>byId(id).n).join("")}${l.k?" ★":""}</span>`).join("");
   const tl=`<div class="c2tl"><div class="c2th"><b>時間軸</b><span class="leg"><span><i style="background:#E3BF6E"></i>KEY POINT</span><span><i style="background:#3A2A1C"></i>換隊形</span><span><i style="background:repeating-linear-gradient(90deg,#C9A24B 0 3px,transparent 3px 5px)"></i>走位</span></span>
       <span class="sp"></span><button data-ed="snap" class="${ED.snap===1?"on":""}">對齊:${ED.snap===1?"拍":"半拍"}</button><button data-ed="addc">+ 動作</button><button data-ed="addf">+ 隊形</button></div>
     <div class="c2grid"><span class="ln"></span><div class="c2trk c2ruler" data-ed-trk>${tk}</div>
-      <span class="ln">動作</span><div class="c2trk c2lane" data-ed-trk>${cz}<span class="c2ph" id="edPh" style="left:${P(ED.ph)}%"></span></div>
+      <span class="ln">動作</span><div class="c2trk c2lane${nr>1?" multi":""}" data-ed-trk style="height:${laneH}px">${cz}<span class="c2ph" id="edPh" style="left:${P(ED.ph)}%"></span></div>
       <span class="ln">隊形</span><div class="c2trk c2flane" data-ed-trk>${kz}</div>
       <span class="ln">歌詞</span><div class="c2trk c2llane" data-ed-trk>${lz}</div></div></div>`;
   const top=`<div class="c2top"><button class="c2pill" data-ed="close">‹ 練習室</button><button class="c2nav" data-ed="prev" aria-label="上一段"${ED.si?"":" disabled"}>‹</button>
