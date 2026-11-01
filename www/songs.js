@@ -462,7 +462,7 @@ function sheetOf(T){ const C=computeTrack(T), CH=window.choreoSections?.(T)||nul
   return {app:"kpop-song-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),
     code:T.id,title:T.name||"",isTitle:R.title===T.id,release:R.name||"",releaseType:RTYPES[R.rtype]?.n||"",year:R.year,
     genres:T.g.filter(Boolean).map(k=>GENRES[k]?.n||k),mood:T.mood,producer:PRODS[T.prod]?.n||T.prod,lengthSec:Math.round(C.LN.t),
-    note:"段落 sections 的 name 與順序不能改。錄音室對話可以重排每段的句子(句數、who、type、sec、difficulty、killing、ko、zh),但每段的 sec 加起來要跟原本一樣;合唱段可以給 center。只寫歌詞時沿用每段 lines 的順序。用同樣的結構回傳,遊戲在錄音室按「匯入歌詞與分配」貼上。who 是成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。type 是唱法(主唱句、高音、和聲、即興、Rap、唸白)。sec 是這句的秒數(1~12),difficulty 1~5,instSec 是這段的伴奏秒數,killing 是 killing part,dance 是這段的編舞(動作、強度 1~5、焦點成員)。members 是成員現在的能力與應有分量,analysis 是遊戲對目前分配的評估,releaseShares 是整張專輯到目前為止各人的分量(%)。",
+    note:"段落 sections 的 name 與順序不能改。錄音室對話可以重排每段的句子(句數、who、type、sec、difficulty、killing、ko、zh),但每段的 sec 加起來要跟原本一樣;合唱段可以給 center。只寫歌詞時沿用每段 lines 的順序。用同樣的結構回傳,遊戲在錄音室按「匯入歌詞與分配」貼上。who 是成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。type 是唱法(主唱句、高音、和聲、即興、Rap、唸白)。sec 是這句的秒數(1~12),difficulty 1~5,instSec 是這段的伴奏秒數(0~40,在企劃階段由音樂生成對話規劃;要改時在段落上寫 instSec),killing 是 killing part,dance 是這段的編舞(動作、強度 1~5、焦點成員)。members 是成員現在的能力與應有分量,analysis 是遊戲對目前分配的評估,releaseShares 是整張專輯到目前為止各人的分量(%)。",
     members:M.map(m=>({id:m.id,name:m.n,vocal:m.vocal,dance:m.dance,rap:m.rap,expr:m.expr,kor:m.kor,expectedShare:Math.round(m.exp*100)})),
     analysis:{score:Math.round(C.score),shares:Object.fromEntries(M.map(m=>[m.id,Math.round((C.shares[m.id]||0)*100)])),warnings:C.warns.filter(w=>w[0]!=="g").map(w=>w[1])},
     releaseShares:(()=>{ try{ const RL=computeRelease(); return Object.fromEntries(M.map(m=>[m.id,Math.round((RL.sharesAll[m.id]||0)*100)])) }catch(e){ return null } })(),
@@ -485,15 +485,17 @@ function allocSec(s,lines){ const before=s.lines.reduce((x,l)=>x+(+l.s||0),0);
   const after=L2.reduce((x,l)=>x+l.s,0);
   if(before>0&&after>0&&Math.abs(after-before)>.25){ const f=before/after; L2.forEach(l=>l.s=Math.min(12,Math.max(1,half(l.s*f)))); const d=half(before-L2.reduce((x,l)=>x+l.s,0)); if(d&&L2.length){ const z=L2[L2.length-1]; z.s=Math.min(12,Math.max(1,z.s+d)) } }
   return {L2,before,after} }
-function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,scaled=0; const secs=Array.isArray(src.sections)?src.sections:[], used=new Set();
+function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,scaled=0,inst=0; const secs=Array.isArray(src.sections)?src.sections:[], used=new Set();
   T.secs.forEach((s,si)=>{ let xi=secs.findIndex((y,yi)=>!used.has(yi)&&y?.name===s.n); if(xi<0&&secs[si]&&!used.has(si)) xi=si;
     if(xi<0){ miss+=s.lines.length; return } used.add(xi); const x=secs[xi];
+    if(x.instSec!=null&&isFinite(+x.instSec)){ const v=Math.max(0,Math.min(40,half(+x.instSec))); if(v!==instOf(s)){ s.inst=v; inst++ } }   // 2026-10-31:伴奏秒數(音樂生成對話規劃時給)
+    if(!Array.isArray(x.lines)&&!x.ko&&!x.zh) return;
     const lines=Array.isArray(x.lines)?x.lines:Array.from({length:Math.max(x.ko?.length||0,x.zh?.length||0)},(_,i)=>({ko:x.ko?.[i],zh:x.zh?.[i]}));
     if(lines.length&&lines.some(y=>y&&y.who!=null)){ const r=allocSec(s,lines); s.lines=r.L2; alloc++; if(Math.abs(r.after-r.before)>.25) scaled++;
       if(s.chorus&&x.center!==undefined) s.c=byId(x.center)?x.center:""; n+=r.L2.length; ko+=r.L2.filter(l=>l.ko).length; zh+=r.L2.filter(l=>l.zh).length; return }
     s.lines.forEach((l,li)=>{ const y=lines[li]; if(!y){ miss++; return } if(y.ko){ l.ko=String(y.ko).trim(); ko++ } if(y.zh){ l.zh=String(y.zh).trim(); zh++ } n++ });
     if(lines.length>s.lines.length) miss+=lines.length-s.lines.length });
-  T.lyricsAt=Date.now(); return {n,ko,zh,miss,alloc,scaled} }
+  T.lyricsAt=Date.now(); return {n,ko,zh,miss,alloc,scaled,inst} }
 const shareTxt=C=>M.map(m=>`${m.n} ${Math.round((C.shares[m.id]||0)*100)}%`).join("、");
 function importLyricsUI(T){ const box=document.createElement("div"); box.className="sfmodal";
   box.innerHTML=`<div class="sfm-card"><h3>匯入歌詞與分配</h3><p>把錄音室對話(或音樂生成對話)回傳的 JSON 貼在下面,也可以選檔案。有分配(誰唱)的段落會整段換成新的分配;只有歌詞的段落照句子順序放進韓文與中文。</p>
@@ -507,12 +509,13 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
       let t=R.tracks.find(x=>x.id===sg.code||x.id===sg.track)||R.tracks.find(x=>sg.title&&normN(x.name)===normN(sg.title))||R.tracks.find(x=>sg.titleZh&&normN(x.name)===normN(sg.titleZh));
       if(!t&&list.length===1){ if(!confirm(`找不到同名的歌,要把這份歌詞放進目前這首《${T.name||"未命名"}》嗎?`)) return; t=T }
       if(!t){ skip++; continue }
-      const hasAlloc=sg.sections.some(x=>Array.isArray(x?.lines)&&x.lines.some(y=>y&&y.who!=null));
-      if(hasAlloc){ /* 先試算給使用者看,確認才換;換之前留一份,錄音室可以「還原匯入前」 */
+      const hasAlloc=sg.sections.some(x=>Array.isArray(x?.lines)&&x.lines.some(y=>y&&y.who!=null)), hasInst=sg.sections.some(x=>x?.instSec!=null);
+      if(hasAlloc||hasInst){ /* 先試算給使用者看,確認才換;換之前留一份,錄音室可以「還原匯入前」 */
         const C0=computeTrack(t), trial={...t,secs:JSON.parse(JSON.stringify(t.secs))}; applyLyrics(trial,sg); const C1=computeTrack(trial);
-        if(!confirm(`《${t.name||"未命名"}》會換成錄音室對話的分配。\n分數 ${Math.round(C0.score)} → ${Math.round(C1.score)}\n${shareTxt(C1)}\n要套用嗎?(之後可以在錄音室按「還原匯入前」)`)){ skip++; continue }
+        const L0=lengthOf(t), L1=lengthOf(trial);
+        if(!confirm(`《${t.name||"未命名"}》${hasAlloc?"會換成錄音室對話的分配":"會改伴奏秒數"}。\n分數 ${Math.round(C0.score)} → ${Math.round(C1.score)}${Math.abs(L1.t-L0.t)>.4?`,全長 ${fmt(L0.t)} → ${fmt(L1.t)}`:""}\n${shareTxt(C1)}\n要套用嗎?(之後可以在錄音室按「還原匯入前」)`)){ skip++; continue }
         t.secsBak=JSON.parse(JSON.stringify(t.secs)) }
-      const r=applyLyrics(t,sg); done.push(`《${t.name||"未命名"}》${r.alloc?`換了 ${r.alloc} 段的分配、`:""}${r.n} 句(韓文 ${r.ko}、中文 ${r.zh}${r.miss?`,${r.miss} 句對不上`:""}${r.scaled?`,${r.scaled} 段的秒數照原本長度調整`:""})`) }
+      const r=applyLyrics(t,sg); done.push(`《${t.name||"未命名"}》${r.alloc?`換了 ${r.alloc} 段的分配、`:""}${r.inst?`${r.inst} 段的伴奏秒數、`:""}${r.n} 句(韓文 ${r.ko}、中文 ${r.zh}${r.miss?`,${r.miss} 句對不上`:""}${r.scaled?`,${r.scaled} 段的秒數照原本長度調整`:""})`) }
     if(!done.length){ toast2(skip?"沒有套用":"沒有對上任何一首歌:請確認 code 或曲名"); return }
     save(); close(); render(); toast2("已匯入歌詞:"+done.join(";")+(skip?`;略過 ${skip} 份`:"")) } }
 /* 給 choreo.js(練習室)用 */
