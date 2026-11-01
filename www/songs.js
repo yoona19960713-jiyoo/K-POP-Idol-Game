@@ -460,7 +460,7 @@ function sheetOf(T){ const C=computeTrack(T), CH=window.choreoSections?.(T)||nul
       tracklist:R.tracks.map(x=>x.inst?`(${INSTK[x.inst]})`:x.name||"未命名"),
       note:T.inst==="intro"?"純音樂 INTRO:專輯第一軌,沒有人聲(可以有不成句的哼唱或環境音)。用主打歌的主題動機或和聲做預告,結尾自然接到第二軌。長度 60~100 秒。":"純音樂 OUTRO:專輯最後一軌,沒有人聲。把整張專輯的情緒收起來,可以回到主打歌的旋律片段,用漸弱或餘韻結束。長度 60~100 秒。"} }
   return {app:"kpop-song-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),
-    code:T.id,title:T.name||"",isTitle:R.title===T.id,release:R.name||"",releaseType:RTYPES[R.rtype]?.n||"",year:R.year,
+    code:T.id,title:T.name||"",isTitle:R.title===T.id,bpm:+T.bpm||null,release:R.name||"",releaseType:RTYPES[R.rtype]?.n||"",year:R.year,
     genres:T.g.filter(Boolean).map(k=>GENRES[k]?.n||k),mood:T.mood,producer:PRODS[T.prod]?.n||T.prod,lengthSec:Math.round(C.LN.t),
     note:"段落 sections 的 name 與順序不能改。錄音室對話可以重排每段的句子(句數、who、type、sec、difficulty、killing、ko、zh),這段的人聲秒數就是匯入句子 sec 的總和(遊戲照給的,不縮放);合唱段可以給 center。只寫歌詞時沿用每段 lines 的順序。用同樣的結構回傳,遊戲在錄音室按「匯入歌詞與分配」貼上。who 是成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。type 是唱法(主唱句、高音、和聲、即興、Rap、唸白)。sec 是這句的秒數(1~12),difficulty 1~5,instSec 是這段的伴奏秒數(0~40,在企劃階段由音樂生成對話規劃;要改時在段落上寫 instSec),killing 是 killing part,dance 是這段的編舞(動作、強度 1~5、焦點成員)。members 是成員現在的能力與應有分量,analysis 是遊戲對目前分配的評估,releaseShares 是整張專輯到目前為止各人的分量(%)。",
     members:M.map(m=>({id:m.id,name:m.n,vocal:m.vocal,dance:m.dance,rap:m.rap,expr:m.expr,kor:m.kor,expectedShare:Math.round(m.exp*100)})),
@@ -496,6 +496,7 @@ function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,vchg=0,inst=0; con
       if(s.chorus&&x.center!==undefined) s.c=byId(x.center)?x.center:""; n+=r.L2.length; ko+=r.L2.filter(l=>l.ko).length; zh+=r.L2.filter(l=>l.zh).length; return }
     s.lines.forEach((l,li)=>{ const y=lines[li]; if(!y){ miss++; return } if(y.ko){ l.ko=String(y.ko).trim(); ko++ } if(y.zh){ l.zh=String(y.zh).trim(); zh++ } n++ });
     if(lines.length>s.lines.length) miss+=lines.length-s.lines.length });
+  if(+src.bpm>=50&&+src.bpm<=240) T.bpm=Math.round(+src.bpm*100)/100;   // 2026-11-01:企劃或錄音室給的 BPM
   T.lyricsAt=Date.now(); return {n,ko,zh,miss,alloc,vchg,inst} }
 const shareTxt=C=>M.map(m=>`${m.n} ${Math.round((C.shares[m.id]||0)*100)}%`).join("、");
 function importLyricsUI(T){ const box=document.createElement("div"); box.className="sfmodal";

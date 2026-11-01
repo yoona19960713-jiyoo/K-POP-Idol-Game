@@ -62,11 +62,37 @@ const prom=p=>p?Math.hypot(p[0]-.5,p[1]):9;   // 越小越顯眼(越前、越中
 const byId=id=>API().M.find(m=>m.id===id);
 
 /* ---------- 段落資訊(秒數、這段唱最多的人、killing part) ---------- */
-function secInfo(T){ const A=API(); return T.secs.map((s,i)=>{ const v=s.lines.reduce((x,l)=>x+(+l.s||0),0), dur=v+A.instOf(s), by={};
+function secInfo(T){ const A=API(), bs=beatSec(T), SB=T.sync?.bars||null; return T.secs.map((s,i)=>{ const v=s.lines.reduce((x,l)=>x+(+l.s||0),0), by={};
+  let dur=v+A.instOf(s); if(SB&&SB[i]!=null&&SB[i+1]!=null&&SB[i+1]>SB[i]) dur=(SB[i+1]-SB[i])*4*bs; else if(SB&&SB[i]!=null&&i===T.secs.length-1&&+T.sync.end>0){ const st=(+T.sync.downbeat||0)+(SB[i]-1)*4*bs; if(T.sync.end>st) dur=T.sync.end-st }   // 2.0:對過拍的段落用 mp3 實際的長度
   s.lines.forEach(l=>l.who.forEach(id=>by[id]=(by[id]||0)+(+l.s||0)/l.who.length));
   const k=s.lines.find(l=>l.k);
-  return {i,n:s.n,chorus:!!s.chorus,dur,top:Object.entries(by).sort((a,b)=>b[1]-a[1])[0]?.[0]||null,
-    rap:s.lines.filter(l=>l.t==="rap").length/(s.lines.length||1),kill:!!k,killer:k?.who?.[0]||null} }) }
+  return {i,n:s.n,chorus:!!s.chorus,dur,beats:dur/bs,top:Object.entries(by).sort((a,b)=>b[1]-a[1])[0]?.[0]||null,
+    rap:s.lines.filter(l=>l.t==="rap").length/(s.lines.length||1),kill:!!k,killer:k?.who?.[0]||null,killLine:k?s.lines.indexOf(k)+1:0} }) }
+/* ---------- 2.0 拍子與時間軸(2026-11-01):一段可以有很多動作片段(cues)與換隊形(forms),位置都以「拍」算 ---------- */
+const bpmOf=T=>{ const b=+T?.bpm; return b>=50&&b<=240?b:0 };
+const beatSec=T=>60/(bpmOf(T)||120);           // 沒有 BPM 時先當 120
+const cnt=c=>{ if(typeof c==="number") return Math.max(0,c); const m=/^\s*(\d+)\s*-\s*(\d+(?:\.5)?)\s*$/.exec(String(c||"")); return m?Math.max(0,(+m[1]-1)*8+(+m[2]-1)):0 };
+const cntTxt=b=>`${Math.floor(b/8)+1}-${+(b%8+1).toFixed(1)}`;
+const whoIds=w=>w==="all"||!w?IDS.slice():[].concat(w).filter(id=>IDS.includes(id));
+const STAGE_W=10, STAGE_D=6, RUN=3.2;          // 舞台約 10×6 公尺;走位超過每秒 3.2 公尺就來不及
+/* 每段的動作片段:舊的編舞(一段一個動作)當成整段一個片段 */
+function cuesOf(s,nb){ const C=Array.isArray(s.cues)&&s.cues.length?s.cues:[{b:0,len:nb,mv:s.mv,who:"all",focus:s.focus}];
+  return C.map(c=>({...c,b:Math.max(0,+c.b||0),len:Math.max(.5,+c.len||nb),mv:MV[c.mv]?c.mv:(s.mv||"groove"),who:c.who||"all"})).sort((a,b)=>a.b-b.b) }
+function formsOf(s){ return (Array.isArray(s.forms)?s.forms:[]).filter(k=>k&&k.pos).map(k=>({...k,b:Math.max(0,+k.b||0),walk:Math.max(0,+k.walk||0)})).sort((a,b)=>a.b-b.b) }
+/* 某一拍每個人在哪裡(換隊形時依走位拍數線性移動) */
+function posAt(s,b){ let cur=s.pos||{}; for(const k of formsOf(s)){ if(b>=k.b) { cur=k.pos; continue } const t0=k.b-k.walk; if(k.walk>0&&b>t0){ const r=(b-t0)/k.walk, o={};
+      IDS.forEach(id=>{ const a=cur[id]||[.5,.5], z=k.pos[id]||a; o[id]=[a[0]+(z[0]-a[0])*r,a[1]+(z[1]-a[1])*r] }); return o } break }
+  return cur }
+/* 某一拍每個人在做的動作:同一個人取最近開始的片段(片段結束後沒有新的,就延續) */
+function movesAt(C,b,fallback){ const o={}; IDS.forEach(id=>o[id]=fallback); let foc=null;
+  for(const c of C){ if(c.b>b+1e-6) break; whoIds(c.who).forEach(id=>o[id]=c.mv); if(c.focus!==undefined) foc=c.focus||null } return {o,foc} }
+/* 走位來不及:換隊形時每個人要走的距離 ÷ 走位時間 */
+function walkIssues(T,D,SI){ const bs=beatSec(T), out=[];
+  D.secs.forEach((s,i)=>{ let prev=s.pos||{}; for(const k of formsOf(s)){ let worst=null;
+      IDS.forEach(id=>{ const a=prev[id]||[.5,.5], z=k.pos[id]||a, d=Math.hypot((z[0]-a[0])*STAGE_W,(z[1]-a[1])*STAGE_D), t=k.walk*bs;
+        if(d>.6&&(k.walk===0?d>2.5:d/t>RUN)&&(!worst||d>worst.d)) worst={id,d,t} });
+      if(worst) out.push({sec:i,n:SI[i].n,b:k.b,...worst}); prev=k.pos } });
+  return out }
 const kindOf=si=>/舞蹈段|後副歌/.test(si.n)?"brk":/最後副歌/.test(si.n)?"final":si.chorus||/副歌/.test(si.n)?"chorus":/導歌/.test(si.n)?"pre":/橋段/.test(si.n)?"bridge":/前奏/.test(si.n)?"intro":/尾奏/.test(si.n)?"outro":"verse";
 function expectE(si,T){ const k=kindOf(si); let e={brk:5,final:4.5,chorus:4,pre:3,bridge:2.5,intro:2,outro:1.5,verse:si.rap>=.5?3.5:2.5}[k];
   const f=API().GENRES[T.g?.[0]]?.f; if(f==="bal") e-=1.5; else if(f==="rnb") e-=.5; else if(f==="hip") e+=.3; return cl(e,1,5) }
@@ -90,46 +116,161 @@ function getD(T){ const D=T?.dance; if(!D||!Array.isArray(D.secs)) return null; 
   if(D.secs.length!==SI.length||D.secs.some((s,i)=>s.n!==SI[i].n)){ const sg=suggest(T), pool={}; D.secs.forEach(s=>(pool[s.n]=pool[s.n]||[]).push(s)); D.secs=SI.map((si,i)=>pool[si.n]?.shift()||sg.secs[i]) }
   D.prof=D.prof||{}; IDS.forEach(i=>{ D.prof[i]=+D.prof[i]||0 }); D.hook=D.hook||{name:""}; return D }
 
-/* ---------- 評分 ---------- */
+/* ---------- 評分(2.0:依時間加權,半拍一格;舊的一段一個動作算出來跟以前一樣) ---------- */
 function evalDance(T){ const D=T?.dance?getD(T):null; if(!D) return {has:false};
-  const SI=secInfo(T), mood=T.mood, tot=SI.reduce((x,s)=>x+s.dur,0)||1, focT={}, cenT={}; IDS.forEach(i=>{focT[i]=0;cenT[i]=0});
-  let fit=0,con=0,eAvg=0,dAvg=0,imp=0, chE=[],veE=[];
-  SI.forEach((si,i)=>{ const s=D.secs[i], mv=MV[s.mv]||MV.groove, w=si.dur/tot, E=expectE(si,T);
-    fit+=w*cl(100-Math.abs(mv.e-E)*22,0,100); con+=w*(mv.md.includes(mood)?100:mv.md.length>=6?65:20);
-    eAvg+=w*mv.e; dAvg+=w*mv.d; imp+=w*(mv.e*.6+mv.d*.4);
-    const k=kindOf(si); if(k==="chorus"||k==="final") chE.push(mv.e); if(k==="verse") veE.push(mv.e);
-    if(s.focus) focT[s.focus]+=si.dur; const c=IDS.slice().sort((a,b)=>prom(s.pos[a])-prom(s.pos[b]))[0]; cenT[c]+=si.dur });
-  const ch=SI.filter(s=>s.chorus), chm=ch.map(s=>D.secs[s.i].mv), hm=MV[chm[0]], named=(D.hook.name||"").trim();
-  let hook=0; if(ch.length){ if(hm?.hook) hook+=45; if(chm.every(x=>x===chm[0])) hook+=20; if(named) hook+=15;
-    const ks=SI.find(s=>s.kill); if(ks&&ks.killer&&D.secs[ks.i].focus===ks.killer) hook+=20 }
+  const SI=secInfo(T), mood=T.mood, tot=SI.reduce((x,s)=>x+s.dur,0)||1, focT={}, cenT={}, dT={}, focTot={}; IDS.forEach(i=>{focT[i]=0;cenT[i]=0;dT[i]=0});
+  let fit=0,con=0,eAvg=0,dAvg=0,imp=0; const chE=[],veE=[];
+  SI.forEach((si,i)=>{ const s=D.secs[i], nb=Math.max(.5,si.beats), C=cuesOf(s,nb), E=expectE(si,T), k=kindOf(si), step=.5, n=Math.max(1,Math.round(nb/step)), w=si.dur/tot/n;
+    for(let q=0;q<n;q++){ const b=q*step+step/2, {o,foc}=movesAt(C,b,s.mv||"groove"), ms=IDS.map(id=>MV[o[id]]||MV.groove);
+      const eMax=Math.max(...ms.map(m=>m.e)), eAv=ms.reduce((x,m)=>x+m.e,0)/5, e=eMax*.7+eAv*.3;
+      fit+=w*cl(100-Math.abs(e-E)*22,0,100); con+=w*ms.reduce((x,m)=>x+(m.md.includes(mood)?100:m.md.length>=6?65:20),0)/5;
+      eAvg+=w*e; const dd=ms.reduce((x,m)=>x+m.d,0)/5; dAvg+=w*dd; imp+=w*(e*.6+dd*.4);
+      IDS.forEach((id,z)=>dT[id]+=w*ms[z].d);
+      if(k==="chorus"||k==="final") chE.push(e); if(k==="verse") veE.push(e);
+      const f=foc!==null&&foc!==undefined?foc:s.focus; if(f) focT[f]+=si.dur/n;
+      const P=posAt(s,b), c=IDS.slice().sort((a,b2)=>prom(P[a])-prom(P[b2]))[0]; cenT[c]+=si.dur/n } });
+  const ch=SI.filter(s=>s.chorus), kp=kpOf(T,D,SI);
+  const hm=kp?MV[kp.mv]:MV[D.secs[ch[0]?.i]?.mv], named=(kp?.name||D.hook?.name||"").trim();
+  let hook=0; if(ch.length){ if(hm?.hook) hook+=45;
+    if(kp) { if(kp.every) hook+=20 } else { const chm=ch.map(x=>D.secs[x.i].mv); if(chm.every(x=>x===chm[0])) hook+=20 }
+    if(named) hook+=15;
+    const ks=SI.find(s=>s.kill); if(ks&&ks.killer&&(kp?kp.lead===ks.killer||kp.lead==="all":D.secs[ks.i].focus===ks.killer)) hook+=20;
+    if(kp&&kp.len>4) hook-=10 }
   hook=cl(hook,0,100);
-  const fs=D.secs.map(s=>s.f), distinct=new Set(fs).size, ideal=cl(Math.round(SI.length*.55),3,7); let run=1,maxRun=1;
-  for(let i=1;i<fs.length;i++){ if(fs[i]===fs[i-1]&&fs[i]!=="free"){ run++; maxRun=Math.max(maxRun,run) } else run=1 }
-  const form=cl(100-Math.abs(distinct-ideal)*14-Math.max(0,maxRun-2)*12,0,100);
+  const states=[]; D.secs.forEach(s=>{ states.push(s.f); formsOf(s).forEach(k=>states.push(k.f||"free")) });
+  const distinct=new Set(states).size, ideal=cl(Math.round(SI.length*.55),3,7), fs=D.secs.map(s=>s.f); let run=1,maxRun=1;
+  for(let i=1;i<fs.length;i++){ if(fs[i]===fs[i-1]&&fs[i]!=="free"&&!formsOf(D.secs[i-1]).length){ run++; maxRun=Math.max(maxRun,run) } else run=1 }
+  const walks=walkIssues(T,D,SI);
+  const form=cl(100-Math.abs(Math.min(distinct,ideal+2)-ideal)*14-Math.max(0,distinct-ideal-2)*6-Math.max(0,maxRun-2)*12-Math.min(30,walks.length*10),0,100);
   const share=Object.fromEntries(IDS.map(i=>[i,(focT[i]*.6+cenT[i]*.4)/tot])), mx=Math.max(...IDS.map(i=>share[i]));
   const fair=cl(100-IDS.reduce((x,i)=>x+Math.max(0,.12-share[i])*420,0)-Math.max(0,mx-.4)*200,0,100);
-  const need=35+dAvg*11, gaps=Object.fromEntries(IDS.map(i=>[i,need+focT[i]/tot*20-byId(i).dance]));
+  const gaps=Object.fromEntries(IDS.map(i=>[i,35+dT[i]*11+focT[i]/tot*20-byId(i).dance]));
   const exec=cl(100-IDS.reduce((x,i)=>x+Math.max(0,gaps[i]),0)/5*2.5,0,100);
   const score=fit*.24+con*.18+hook*.2+form*.1+fair*.14+exec*.14, avgProf=IDS.reduce((x,i)=>x+D.prof[i],0)/5;
   const N=[], nm=i=>byId(i).n, avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
   if(chE.length&&veE.length&&avg(chE)<=avg(veE)) N.push(["w","副歌的動作沒有比主歌強,高潮會起不來。"]);
   if(fit<60) N.push(["w","動作強弱跟歌曲起伏對不太上,參考每段的「期待強度」。"]);
   if(con<55) N.push(["w",`這首是「${mood}」的歌,很多動作不是這個感覺。`]);
-  if(ch.length&&!hm?.hook) N.push(["w","副歌的動作不適合當記憶點,試試招牌手勢、比心、指向、人浪或鏡面。"]);
+  if(ch.length&&!hm?.hook) N.push(["w",kp?"KEY POINT 的動作不適合當記憶點,試試招牌手勢、比心、指向、人浪或鏡面。":"副歌的動作不適合當記憶點,試試招牌手勢、比心、指向、人浪或鏡面。"]);
   else if(ch.length&&!named) N.push(["w","記憶點舞步還沒取名字,粉絲比較難跟著跳。"]);
-  if(ch.length>1&&!chm.every(x=>x===chm[0])) N.push(["w","每次副歌的動作不一樣,記憶點會被稀釋。"]);
-  if(distinct<3) N.push(["w","隊形幾乎沒變,舞台會很平。"]); else if(distinct>ideal+3) N.push(["w","隊形換得太頻繁,看起來會亂。"]);
+  if(kp&&kp.len>4) N.push(["w",`KEY POINT 有 ${kp.len} 拍,超過 4 拍不好學。`]);
+  if(!kp&&ch.length>1){ const chm=ch.map(x=>D.secs[x.i].mv); if(!chm.every(x=>x===chm[0])) N.push(["w","每次副歌的動作不一樣,記憶點會被稀釋。"]) }
+  walks.slice(0,2).forEach(w=>N.push(["w",`${w.n} ${cntTxt(w.b)}:${nm(w.id)}走位來不及(${w.t>0?`${+(w.t).toFixed(1)} 秒`:"瞬間"}要移動約 ${Math.round(w.d)} 公尺)。`]));
+  if(distinct<3) N.push(["w","隊形幾乎沒變,舞台會很平。"]); else if(distinct>ideal+4) N.push(["w","隊形換得太頻繁,看起來會亂。"]);
   if(maxRun>=4) N.push(["w",`連續 ${maxRun} 段用同一個隊形。`]);
   IDS.filter(i=>share[i]<.05).forEach(i=>N.push(["b",`${nm(i)}一整首都沒有焦點,也幾乎沒站中間,個人粉會不滿。`]));
   IDS.filter(i=>share[i]>.45).forEach(i=>N.push(["w",`${nm(i)}的焦點太多,會被說公司偏心。`]));
   const weak=IDS.filter(i=>gaps[i]>8); if(weak.length) N.push(["b",`${weak.map(nm).join("、")}的舞蹈實力撐不住這份編舞,要多練或換簡單一點的動作。`]);
-  const brk=SI.find(s=>kindOf(s)==="brk"), bd=bestDancer(); if(brk&&D.secs[brk.i].focus!==bd) N.push(["w",`${brk.n}可以交給${nm(bd)}領舞,她最擅長。`]);
+  const brk=SI.find(s=>kindOf(s)==="brk"), bd=bestDancer(); if(brk&&D.secs[brk.i].focus!==bd&&!cuesOf(D.secs[brk.i],brk.beats).some(c=>c.focus===bd)) N.push(["w",`${brk.n}可以交給${nm(bd)}領舞,她最擅長。`]);
   if(score>=80) N.push(["g","這份編舞很完整,上打歌會很有看頭。"]); if(hook>=80) N.push(["g","副歌舞步很好記,有機會變成挑戰。"]);
-  return {has:true,score,fit,concept:con,hook,form,fair,exec,energy:eAvg,diff:dAvg,impact:cl((imp-1)/4*100,0,100),share,gaps,avgProf,prof:{...D.prof},hookName:named,hookMove:hm?.n||"",notes:N} }
+  return {has:true,score,fit,concept:con,hook,form,fair,exec,energy:eAvg,diff:dAvg,impact:cl((imp-1)/4*100,0,100),share,gaps,avgProf,prof:{...D.prof},hookName:named,hookMove:hm?.n||"",notes:N,walks,kp} }
+/* KEY POINT:第一次出現的段落與拍子;每次副歌同一拍有同一個動作就算「每次都有」 */
+function kpOf(T,D,SI){ const k=D.kp; if(!k||!k.name) return null; const i=cl(+k.sec||0,0,SI.length-1), s=D.secs[i], C=cuesOf(s,SI[i].beats);
+  const at=C.filter(c=>c.b<=k.b+1e-6&&(k.lead==="all"||whoIds(c.who).includes(k.lead))).pop()||C[0], mv=at?.mv||s.mv;
+  const every=SI.filter(x=>x.chorus).every(x=>{ const c=cuesOf(D.secs[x.i],x.beats).filter(c=>c.b<=k.b+1e-6).pop(); return c?.mv===mv });
+  return {...k,sec:i,mv,every,len:+k.len||4} }
 window.choreoEval=T=>evalDance(T);
 window.choreoSections=T=>{ const D=getD(T); return D?D.secs.map(s=>({move:MV[s.mv]?.n||"",energy:MV[s.mv]?.e||0,focus:s.focus,f:s.f,pos:s.pos})):null };
 window.choreoSummary=T=>{ const e=evalDance(T); return e.has?{has:true,score:e.score,impact:e.impact,diff:e.diff,energy:e.energy,hook:e.hook,hookName:e.hookName||e.hookMove,prof:e.prof}:{has:false} };
 
+/* ---------- 2.0 編舞的匯入、匯出(2026-11-01;格式見《編舞室_專用對話說明》第 6 節,ver 1;ver 0 會自動轉) ---------- */
+const MVN=Object.fromEntries(MOVES.map(m=>[m.n,m.id]));
+const mvCode=x=>MV[x]?x:MVN[String(x||"").trim()]||null;
+const posObj=p=>{ if(!p) return null; const o={}; if(Array.isArray(p)) IDS.forEach((id,k)=>{ if(Array.isArray(p[k])) o[id]=p[k] }); else IDS.forEach(id=>{ if(Array.isArray(p[id])) o[id]=p[id] });
+  if(IDS.some(id=>!o[id])) return null; IDS.forEach(id=>o[id]=[+cl(+o[id][0]||0,0,1).toFixed(3),+cl(+o[id][1]||0,0,1).toFixed(3)]); return o };
+/* 段落名稱照順序對(兩個「副歌」:第 1 個對第 1 個) */
+function matchSecs(T,arr){ const used=new Set(); return T.secs.map((s,i)=>{ let k=arr.findIndex((y,yi)=>!used.has(yi)&&y?.name===s.n); if(k<0&&arr[i]&&!used.has(i)&&!arr.some(y=>y?.name===s.n)) k=i; if(k<0) return null; used.add(k); return arr[k] }) }
+function fromJSON(T,o){ const bpm=+o.bpm>=50&&+o.bpm<=240?+o.bpm:0;
+  let sync=null; if(o.sync&&Array.isArray(o.sync.sections)){ const SX=matchSecs(T,o.sync.sections), bars={}; SX.forEach((y,i)=>{ if(y&&+y.bar>=1) bars[i]=+y.bar });
+    if(Object.keys(bars).length) sync={downbeat:+o.sync.downbeat||0,bars,...(+o.sync.end>0?{end:+o.sync.end}:{})} }
+  const TT={...T,bpm:bpm||T.bpm,sync:sync||T.sync}, SI=secInfo(TT), bs=beatSec(TT), X=matchSecs(T,Array.isArray(o.sections)?o.sections:[]), miss=[], warn=[];
+  let prev=null; const v0=+o.ver===0||(!o.ver&&X.some(x=>x&&!x.cues&&(x.move||x.detail)));
+  const secs=SI.map((si,i)=>{ const x=X[i]; if(!x){ miss.push(si.n); const sg=suggest(TT).secs[i]; prev=sg.pos; return sg }
+    const nb=Math.max(1,Math.round(si.beats*2)/2); let f=FM[x.formation]?x.formation:"free", pos=posObj(x.positions); /* 有寫位置就照位置(預設隊形也可以微調) */ if(!pos){ if(f==="free") f="line"; pos=place(f,orderFor(x.focus||null,prev)) }
+    let cues=[];
+    if(v0){ const mv=mvCode(x.move)||"groove"; cues=[{b:0,len:nb,mv,who:"all",focus:IDS.includes(x.focus)?x.focus:null}];
+      (Array.isArray(x.detail)?x.detail:[]).forEach(d=>{ const b=(+d.at||0)/bs; if(b>0&&b<nb) cues.push({b:Math.round(b*2)/2,len:Math.max(.5,Math.round((+d.dur||2)/bs*2)/2),mv,who:whoIds(d.who).length===5?"all":whoIds(d.who),focus:null,desc:String(d.desc||"").slice(0,60)}) }) }
+    else (Array.isArray(x.cues)?x.cues:[]).forEach(c=>{ const mv=mvCode(c.move); if(!mv){ warn.push(`${si.n}:看不懂的動作「${c.move}」`); return } const who=whoIds(c.who);
+      if(!who.length) return; cues.push({b:Math.round(cnt(c.count)*2)/2,len:Math.max(.5,Math.round((+c.beats||8)*2)/2),mv,who:who.length===5?"all":who,focus:IDS.includes(c.focus)?c.focus:null,desc:String(c.desc||"").slice(0,60)}) });
+    cues=cues.filter(c=>c.b<nb).sort((a,b)=>a.b-b.b); if(!cues.length) cues=[{b:0,len:nb,mv:"groove",who:"all",focus:null}];
+    if(cues.some(c=>c.b+c.len>nb+.01)) warn.push(`${si.n}:有片段超過這段的長度(${Math.round(nb)} 拍)`);
+    const forms=(Array.isArray(x.forms)?x.forms:[]).map(k=>{ let kf=FM[k.formation]?k.formation:"free", kp2=posObj(k.positions); if(!kp2){ if(kf==="free") return null; kp2=place(kf,orderFor(x.focus||null,pos)) }
+      return {b:Math.round(cnt(k.count)*2)/2,walk:Math.max(0,Math.round((+k.walk||0)*2)/2),f:kf,pos:kp2} }).filter(k=>k&&k.b<=nb).sort((a,b)=>a.b-b.b);
+    const tally={}; cues.forEach((c,z)=>{ const end=cues.slice(z+1).find(d=>d.b>c.b)?.b??nb; tally[c.mv]=(tally[c.mv]||0)+(end-c.b)*whoIds(c.who).length });
+    const mv=Object.entries(tally).sort((a,b)=>b[1]-a[1])[0][0], focus=IDS.includes(x.focus)?x.focus:(cues.find(c=>c.focus)?.focus||null);
+    prev=forms.length?forms.at(-1).pos:pos;
+    return {n:si.n,f,pos,mv,focus,cues,forms,note:String(x.note||"").slice(0,120),tr:String(x.transition||"").slice(0,80)} });
+  let kp=null; const K=o.keyPoint; if(K&&K.name){ let ks=SI.findIndex(x=>x.n===K.section); if(ks<0) ks=SI.findIndex(x=>x.chorus);
+    kp={name:String(K.name).slice(0,16),nameKo:String(K.nameKo||"").slice(0,24),nameEn:String(K.nameEn||"").slice(0,24),sec:Math.max(0,ks),line:+K.line||1,
+      b:K.count!=null?Math.round(cnt(K.count)*2)/2:(K.from!=null?Math.round(+K.from/bs*2)/2:0),len:+K.beats||(K.to!=null&&K.from!=null?Math.round((K.to-K.from)/bs):4),
+      lead:K.lead==="all"||IDS.includes(K.lead)?K.lead:null,steps:(Array.isArray(K.steps)?K.steps:Array.isArray(K.beats)?K.beats:[]).map(x=>String(x).slice(0,40)).slice(0,8),
+      why:String(K.why||"").slice(0,120),final:K.final&&typeof K.final==="object"?{sec:SI.findIndex(x=>x.n===K.final.section),lead:K.final.lead||null,change:String(K.final.change||"").slice(0,120)}:(K.finalVariation?{change:String(K.finalVariation).slice(0,120)}:null)} }
+  const hl=(Array.isArray(o.highlights)?o.highlights:[]).map(h=>({sec:SI.findIndex(x=>x.n===h.section),b:Math.round(cnt(h.count)*2)/2,len:+h.beats||8,who:whoIds(h.who),desc:String(h.desc||"").slice(0,60)})).filter(h=>h.sec>=0).slice(0,3);
+  const D={v:2,secs,kp,hl,concept:String(o.concept||"").slice(0,300),hook:{name:kp?.name||""},prof:{...(T.dance?.prof||Object.fromEntries(IDS.map(i=>[i,0])))},at:Date.now(),src:{ver:v0?0:1,at:Date.now()}};
+  return {D,sync,bpm,miss,warn,needs:Array.isArray(o.needs)?o.needs.slice(0,6):[]} }
+/* 現在的編舞 → ver 1(匯出編舞單時帶給編舞室對話) */
+function toJSON(T){ const D=getD(T), SI=secInfo(T); if(!D) return null; const pz=p=>Object.fromEntries(IDS.map(id=>[id,p[id]]));
+  return {app:"kpop-choreo",ver:1,code:T.id,title:T.name||"",bpm:bpmOf(T)||null,
+    sync:T.sync?{downbeat:T.sync.downbeat,...(T.sync.end?{end:T.sync.end}:{}),sections:SI.map((si,i)=>T.sync.bars[i]!=null?{name:si.n,bar:T.sync.bars[i]}:null).filter(Boolean)}:null,
+    concept:D.concept||"",keyPoint:D.kp?{...D.kp,section:SI[D.kp.sec]?.n,count:cntTxt(D.kp.b),beats:D.kp.len,final:D.kp.final?{...D.kp.final,section:SI[D.kp.final.sec]?.n||null}:null}:null,
+    highlights:(D.hl||[]).map(h=>({section:SI[h.sec]?.n,count:cntTxt(h.b),beats:h.len,who:h.who,desc:h.desc})),
+    sections:D.secs.map((s,i)=>({name:SI[i].n,formation:s.f,positions:pz(s.pos),focus:s.focus||null,
+      cues:cuesOf(s,SI[i].beats).map(c=>({count:cntTxt(c.b),beats:c.len,move:c.mv,who:c.who,focus:c.focus??null,desc:c.desc||""})),
+      forms:formsOf(s).map(k=>({count:cntTxt(k.b),walk:k.walk,formation:k.f,positions:pz(k.pos)})),transition:s.tr||"",note:s.note||""})),needs:[]} }
+function exportChoreo(T){ const A=API(), sh=A.sheetOf(T), SI=secInfo(T), bs=beatSec(T);
+  const o={app:"kpop-choreo-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),code:T.id,title:T.name||"",isTitle:A.R.title===T.id,genres:sh.genres,mood:T.mood,
+    bpm:bpmOf(T)||null,lengthSec:Math.round(SI.reduce((x,s)=>x+s.dur,0)),
+    note:"給編舞室對話:sections 是段落(名稱與順序不能改)、每段秒數與拍數、逐句分配;current 是練習室目前的編舞(ver 1 格式);members 的 dance、expr 是現在的舞蹈實力與表現力;prof 是熟練度。回傳 ver 1 的完整編舞 JSON,在 4F 練習室「匯入編舞」貼上。",
+    sections:SI.map((si,i)=>({name:si.n,chorus:si.chorus,sec:+si.dur.toFixed(2),beats:bpmOf(T)?+si.beats.toFixed(1):null,bar:T.sync?.bars?.[i]??null,instSec:sh.sections[i]?.instSec,center:sh.sections[i]?.center||null,
+      lines:sh.sections[i]?.lines.map(l=>({who:l.who,type:l.type,sec:l.sec,killing:l.killing,zh:l.zh}))||[]})),
+    members:sh.members.map(m=>({id:m.id,name:m.name,dance:m.dance,expr:m.expr})),current:T.dance?toJSON(T):null,prof:T.dance?.prof||null,
+    evaluation:(()=>{ const e=evalDance(T); return e.has?{score:Math.round(e.score),fit:Math.round(e.fit),concept:Math.round(e.concept),hook:Math.round(e.hook),form:Math.round(e.form),fair:Math.round(e.fair),exec:Math.round(e.exec),notes:e.notes.map(n=>n[1])}:null })()};
+  const txt=JSON.stringify(o,null,1), d=new Date(), pad=n=>String(n).padStart(2,"0"), name=`完美女團_編舞單_${(T.name||"未命名").replace(/[\\/:*?"<>|]/g,"")}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  if(typeof isNative!=="undefined"&&isNative){ copyText(txt).then(ok=>toast2(ok?"已複製這首的編舞單,可以直接貼到編舞室對話":"複製失敗")); return }
+  const u=URL.createObjectURL(new Blob([txt],{type:"application/json"})), a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),4000);
+  toast2(`已匯出編舞單(${name})`) }
+/* 匯入:貼上 → 試算(樣張 3)→ 確認才換,換之前留一份 */
+function importChoreoUI(T,rerender){ const box=document.createElement("div"); box.className="sfmodal";
+  box.innerHTML=`<div class="sfm-card"><h3>匯入編舞</h3><p>把編舞室對話回傳的完整編舞 JSON 貼在下面,也可以選檔案。會先試算給你看,確認才換。</p>
+    <textarea id="chTxt" placeholder='{"app":"kpop-choreo","ver":1,"code":"…","sections":[…]}'></textarea>
+    <div class="sfm-row"><label class="cbtn">選檔案<input type="file" id="chFile" accept=".json,application/json,text/plain" hidden></label><span class="sp"></span><button class="cbtn" id="chNo">取消</button><button class="cbtn pri" id="chGo">試算</button></div></div>`;
+  $("#songFac").appendChild(box); const close=()=>box.remove();
+  $("#chNo").onclick=close; $("#chFile").onchange=async e=>{ const f=e.target.files?.[0]; if(f) $("#chTxt").value=await f.text() };
+  $("#chGo").onclick=()=>{ let o; try{ o=JSON.parse($("#chTxt").value.trim().replace(/^```(json)?|```$/g,"")) }catch(e){ toast2("看不懂這段內容:請貼編舞室對話給的 JSON"); return }
+    if(!Array.isArray(o?.sections)){ toast2("這不是編舞 JSON(沒有 sections)"); return }
+    const A=API(); let t=A.R.tracks.find(x=>x.id===o.code)||A.R.tracks.find(x=>o.title&&String(x.name||"").trim().toLowerCase()===String(o.title).trim().toLowerCase());
+    if(!t){ if(!confirm(`找不到這首歌(code ${o.code||"無"}),要放進目前這首《${T.name||"未命名"}》嗎?`)) return; t=T }
+    close(); trialUI(t,o,rerender) } }
+function trialUI(T,o,rerender){ const r=fromJSON(T,o), e0=T.dance?evalDance(T):null;
+  const t2={...T,dance:r.D,bpm:r.bpm||T.bpm,sync:r.sync||T.sync}; const e1=evalDance(t2);
+  const changed=T.dance?r.D.secs.filter((s,i)=>{ const a=T.dance.secs[i]; return !a||JSON.stringify([a.mv,a.f,a.cues||null,a.forms||null])!==JSON.stringify([s.mv,s.f,s.cues,s.forms]) }).length:r.D.secs.length;
+  const frac=changed/Math.max(1,r.D.secs.length), p0=e0?e0.avgProf:0, p1=Math.floor(p0*(1-.6*frac));
+  const nCue=r.D.secs.reduce((x,s)=>x+s.cues.length,0), nForm=r.D.secs.reduce((x,s)=>x+s.forms.length,0), nm=i=>byId(i)?.n||i;
+  const bars=[["歌舞契合","fit"],["概念一致","concept"],["記憶點","hook"],["隊形變化","form"],["亮點公平","fair"],["難度與實力","exec"]].map(([n,k])=>{ const a=e0?Math.round(e0[k]):0, b=Math.round(e1[k]);
+    return `<div class="c2bar${e0&&b<a-2?" dn":""}"><span>${n}</span><span class="t"><i style="width:${b}%"></i>${e0?`<u style="left:${a}%"></u>`:""}</span><span class="n">${e0?`<s>${a}</s> → `:""}<b>${b}</b></span></div>` }).join("");
+  const L=[`<li>${changed} 段換新:<b>動作片段 ${nCue} 個</b>、換隊形 ${nForm} 次</li>`];
+  if(r.D.kp) L.push(`<li>KEY POINT <b>「${esc(r.D.kp.name)}」</b>:${esc(T.secs[r.D.kp.sec]?.n||"")}第 ${r.D.kp.line} 句,${r.D.kp.lead==="all"?"全員":nm(r.D.kp.lead)}領舞</li>`);
+  if(r.D.hl.length) L.push(`<li>小亮點:${r.D.hl.map(h=>esc(h.desc||T.secs[h.sec]?.n||"")).join("、")}</li>`);
+  if(r.bpm||r.sync) L.push(`<li>${r.bpm?`BPM ${r.bpm}`:""}${r.sync?`${r.bpm?"、":""}對拍 ${Object.keys(r.sync.bars).length} 段(段落長度照 mp3)`:""}</li>`);
+  if(e0) L.push(`<li class="w">熟練度:改到的部分要重練,平均 <b>${Math.round(p0)}% → ${p1}%</b></li>`);
+  e1.notes.filter(n=>n[0]==="b").slice(0,2).forEach(n=>L.push(`<li class="b">${esc(n[1])}</li>`));
+  e1.walks.slice(0,2).forEach(w=>L.push(`<li class="w">${esc(w.n)} ${cntTxt(w.b)}:${nm(w.id)}走位來不及(約 ${Math.round(w.d)} 公尺)</li>`));
+  r.miss.length&&L.push(`<li class="w">對不上的段落(用建議版補):${r.miss.map(esc).join("、")}</li>`);
+  r.warn.slice(0,2).forEach(w=>L.push(`<li class="w">${esc(w)}</li>`));
+  const box=document.createElement("div"); box.className="c2 c2dim"; box.id="chTrial";
+  box.innerHTML=`<div class="c2sheet" style="width:min(94%,680px)"><div class="c2sh"><span class="eb">匯入編舞・先試算</span><span class="c2src">《${esc(T.name||"未命名")}》・編舞室對話・格式 ver ${r.D.src.ver}</span><span class="sp"></span></div>
+    <div class="c2imp"><div><div class="c2big">${e0?`<span class="o">${Math.round(e0.score)}</span><span class="ar">→</span>`:""}<b>${Math.round(e1.score)}</b><small>編舞分</small></div>${bars}
+      ${e0?`<p class="c2note" style="margin:4px 0 0">細線是現在、色條是匯入後。</p>`:""}</div>
+    <div class="c2scroll"><p class="c2h5">${e0?"會換掉的":"這份編舞"}</p><ul class="c2list">${L.join("")}</ul></div></div>
+    <div class="c2foot"><span class="c2note">${e0?"匯入前的編舞會留一份,練習室可以「還原匯入前」。":"之後可以在練習室慢慢調整。"}</span><button class="c2b" id="chCancel">取消</button><button class="c2b pri" id="chOk">確認匯入</button></div></div>`;
+  $("#songFac").appendChild(box);
+  $("#chCancel").onclick=()=>box.remove();
+  $("#chOk").onclick=()=>{ if(T.dance) T.danceBak={dance:JSON.parse(JSON.stringify(T.dance)),bpm:T.bpm||null,sync:T.sync?JSON.parse(JSON.stringify(T.sync)):null,at:Date.now()};
+    const prof=Object.fromEntries(IDS.map(i=>[i,Math.floor((+T.dance?.prof?.[i]||0)*(1-.6*frac))]));
+    T.dance=r.D; T.dance.prof=prof; if(r.bpm) T.bpm=r.bpm; if(r.sync) T.sync=r.sync; box.remove(); SEL=0; PICK=null; commit(T,false,rerender);
+    toast2(`已匯入編舞:${Math.round(e1.score)} 分${r.needs.length?`;編舞室對話提了 ${r.needs.length} 個需求,請轉給大腦`:""}`) } }
+function restoreChoreo(T,rerender){ const B=T.danceBak; if(!B||!confirm("把這首的編舞還原成匯入前的樣子?")) return; T.dance=B.dance; T.bpm=B.bpm||undefined; T.sync=B.sync||undefined; delete T.danceBak; SEL=0; commit(T,false,rerender); toast2("已還原匯入前的編舞") }
+window.choreoImportJSON=(T,o)=>fromJSON(T,o); window.choreoToJSON=T=>toJSON(T);   // 測試與之後的排舞模式用
 /* ---------- 熟練度:練習(花行動)、待在練習室自己練、打歌後進步 ---------- */
 const titleT=()=>{ const R=API()?.R; return R?R.tracks.find(t=>t.id===R.title):null };
 function gain(D,id,base){ const g=Math.max(1,Math.round(base*(1-D.prof[id]/110))); D.prof[id]=Math.min(100,D.prof[id]+g); return g }
@@ -144,9 +285,12 @@ function practice(T){ const D=getD(T), e=evalDance(T); S.lastPrac=S.day; let tot
 /* ---------- 畫面 ---------- */
 let SEL=0, PICK=null, PREV=null;
 function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
-  const tapes=`<div class="cr-tapes">${R.tracks.map((x,i)=>`<button class="cr-tape${x.id===T.id?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?"・主打":""}</button>`).join("")}<span class="cr-info">${esc(A.GENRES[T.g?.[0]]?.n||"")}・${esc(T.mood||"")}</span><button class="cr-tape" data-goroom="recording">← 錄音室</button></div>`;
+  const tapes=`<div class="cr-tapes">${R.tracks.map((x,i)=>`<button class="cr-tape${x.id===T.id?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?"・主打":""}</button>`).join("")}<span class="cr-info">${esc(A.GENRES[T.g?.[0]]?.n||"")}・${esc(T.mood||"")}</span><label class="cr-bpm">BPM<input id="dBpm" type="number" inputmode="decimal" min="50" max="240" step="0.01" value="${bpmOf(T)||""}" placeholder="—"></label><button class="cr-tape" data-goroom="recording">← 錄音室</button></div>
+  <div class="cr-io"><button class="cr-tape" id="dExp">匯出編舞單</button><button class="cr-tape" id="dImp">匯入編舞</button>${T.danceBak?`<button class="cr-tape" id="dUndo">還原匯入前</button>`:""}${T.sync?`<span class="cr-sync">已對拍 ${Object.keys(T.sync.bars||{}).length} 段</span>`:""}</div>`;
   const bindTapes=()=>{ body.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{ stopPrev(); R.cur=b.dataset.tk; SEL=0; PICK=null; A.save(false); rerender() });
-    body.querySelectorAll("[data-goroom]").forEach(b=>b.onclick=()=>{ stopPrev(); A.open(b.dataset.goroom) }) };
+    body.querySelectorAll("[data-goroom]").forEach(b=>b.onclick=()=>{ stopPrev(); A.open(b.dataset.goroom) });
+    $("#dExp").onclick=()=>exportChoreo(T); $("#dImp").onclick=()=>{ stopPrev(); importChoreoUI(T,rerender) }; $("#dUndo")&&($("#dUndo").onclick=()=>restoreChoreo(T,rerender));
+    $("#dBpm").onchange=ev=>{ const v=+ev.target.value; if(v&&(v<50||v>240)){ toast2("BPM 要在 50~240 之間"); ev.target.value=bpmOf(T)||""; return } T.bpm=v?Math.round(v*100)/100:undefined; A.save(); rerender() } };
   if(!T.dance){ body.innerHTML=`${tapes}<div class="cr-card cr-start"><h4>《${esc(T.name||"未命名")}》還沒有編舞</h4>
       <p>依錄音室的段落,一段一段決定隊形、動作和焦點成員。主打的編舞會影響打歌舞台、短影音挑戰和音源反應;還沒編之前,用公司的預設編舞(普通)。</p>
       <div class="cr-btns"><button class="pbtn pri" id="dNewSug">用建議版開始</button><button class="pbtn" id="dNewBlank">從空白開始</button></div></div>`;
@@ -156,7 +300,8 @@ function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
   body.innerHTML=`${tapes}
   <div class="cr-ribbon">${SI.map((x,i)=>`<button class="cr-sec${i===SEL?" on":""}" data-si="${i}" style="flex-grow:${Math.max(1,Math.round(x.dur))};--c:${D.secs[i].focus?byId(D.secs[i].focus).c:"#B9AD9C"}" title="${esc(x.n)}">${esc(x.n)}</button>`).join("")}</div>
   <div class="cr-grid">
-    <div class="cr-card cr-main"><h4>${esc(si.n)}<small>${Math.round(si.dur)} 秒・期待強度 ${E.toFixed(1)}</small></h4>
+    <div class="cr-card cr-main"><h4>${esc(si.n)}<small>${Math.round(si.dur)} 秒${bpmOf(T)?`・${Math.round(si.beats)} 拍`:""}・期待強度 ${E.toFixed(1)}</small></h4>
+      ${(s.cues?.length>1||s.forms?.length)?`<div class="cr-cues">${cuesOf(s,si.beats).map(c=>`<span class="cr-cue${D.kp&&(D.kp.sec===SEL||SI[SEL].chorus)&&Math.abs(c.b-D.kp.b)<.01?" kp":""}"><i>${cntTxt(c.b)}</i>${esc(MV[c.mv].n)}${c.who==="all"?"":`・${whoIds(c.who).map(id=>byId(id).n).join("")}`}</span>`).join("")}${formsOf(s).map(k=>`<span class="cr-cue fm"><i>${cntTxt(k.b)}</i>◆${k.f==="free"?"自訂":FM[k.f]?.n||""}</span>`).join("")}</div>`:""}
       <div class="cr-stagebox"><div class="cr-stage" id="dStage"><span class="cr-back">舞台後方</span><span class="cr-front">觀眾</span><span class="cr-mvlab" id="dMvLab">${esc(MV[s.mv]?.n||"")}</span>
         ${IDS.map(id=>{ const p=s.pos[id]||[.5,.5], m=byId(id); return `<button class="cr-dot${PICK===id?" sel":""}${s.focus===id?" foc":""}" data-dot="${id}" style="--c:${m.c};left:${6+p[0]*88}%;top:${10+(1-p[1])*80}%" aria-label="${m.n}">${m.n[0]}</button>` }).join("")}</div></div>
       <div class="cr-ctrl"><div class="cr-chips">${FORMS.map(f=>`<button class="cr-chip${s.f===f.id?" on":""}" data-form="${f.id}">${f.n}</button>`).join("")}${s.f==="free"?`<span class="cr-chip on">自訂</span>`:""}</div>
@@ -176,7 +321,9 @@ function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
   bindTapes();
   body.querySelectorAll("[data-si]").forEach(b=>b.onclick=()=>{ stopPrev(); SEL=+b.dataset.si; PICK=null; rerender() });
   body.querySelectorAll("[data-form]").forEach(b=>b.onclick=()=>{ s.f=b.dataset.form; s.pos=place(s.f,orderFor(s.focus,s.pos)); PICK=null; commit(T,true,rerender) });
-  body.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ if(s.mv===b.dataset.mv) return; s.mv=b.dataset.mv; commit(T,true,rerender) });
+  body.querySelectorAll("[data-mv]").forEach(b=>b.onclick=()=>{ if(s.mv===b.dataset.mv&&!(s.cues?.length>1)) return;
+    if(s.cues?.length>1&&!confirm(`這段有 ${s.cues.length} 個動作片段,要整段換成「${MV[b.dataset.mv].n}」嗎?`)) return;
+    s.mv=b.dataset.mv; if(s.cues?.length) s.cues=[{b:0,len:Math.max(.5,si.beats),mv:s.mv,who:"all",focus:s.focus}]; commit(T,true,rerender) });
   body.querySelectorAll("[data-foc]").forEach(b=>b.onclick=()=>{ s.focus=s.focus===b.dataset.foc?null:b.dataset.foc; commit(T,false,rerender) });
   $("#dHook").onchange=ev=>{ D.hook={name:ev.target.value.trim()}; commit(T,false,rerender) };
   $("#dPrac").onclick=()=>{ practice(T); rerender() };
