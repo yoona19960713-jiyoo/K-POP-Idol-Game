@@ -1517,6 +1517,22 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 /* 雲端用量:圖片細項、省空間按鈕(2026-10-30) */
 .usel li.sub{padding-left:1.2em;opacity:.85}.usel li.sub span{font-size:.92em}
 .useact{margin-top:.6em;border-top:1px dashed rgba(0,0,0,.15);padding-top:.4em}
+/* 原圖壓縮・先看一張(2026-11-01):選單上面再疊一層;左邊原圖與壓縮後並排(點圖片兩張一起放大到臉部),右邊說明與按鈕 */
+dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
+.sqzin{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(150px,1fr);gap:14px;padding-top:10px}
+.sqzc{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+.sqzc figure{margin:0;min-width:0}
+.sqzc figcaption{font-size:12.5px;margin-bottom:4px;font-variant-numeric:tabular-nums;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sqzp{height:min(60vh,460px);border-radius:10px;overflow:hidden;background:#2B2430;border:1px solid rgba(201,162,75,.55);display:flex;justify-content:center;cursor:zoom-in}
+.sqzp img{height:100%;width:auto;max-width:none;display:block;transform-origin:50% 4%;transition:transform .35s ease}
+.sqzc.zoom .sqzp{cursor:zoom-out}.sqzc.zoom .sqzp img{transform:scale(2.6)}
+.sqzside{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sqzside .sqzt{margin:0;font-weight:600}
+.sqzbtns{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.sqzbtns .b{width:100%;min-height:36px}
+@media (max-height:440px){ .sqzd header{padding:8px 14px} .sqzd header b{font-size:15px} .sqzin{padding-top:6px;padding-bottom:10px;gap:10px} .sqzp{height:calc(100vh - 118px)} .sqzside .hint{font-size:12px} }
+@media (max-width:560px){ .sqzin{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){ .sqzp img{transition:none} }
 /* ===== 練習室(編舞)2026-10-26:choreo.js 的畫面。整檔拿掉只影響練習室 ===== */
 .th-dance #sfBody{display:flex;flex-direction:column;gap:calc(.8*var(--u))}
 .cr-tapes{display:flex;gap:calc(.5*var(--u));flex-wrap:wrap;align-items:center}

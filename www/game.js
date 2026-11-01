@@ -965,16 +965,18 @@ function blobGroups(){ const R=o=>window.refsOf?refsOf(o):new Set(), g={img:new 
   return g }
 async function blobUsage(prog){ const refs=new Set((JSON.stringify([Object.values(ITEMS),WMETA]).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));
   const cache=await IDB.get("blobSizes")||{}; let known=0, sum=0, miss=0, i=0, dirty=false;
+  /* 2026-11-01:雲端有兩種存法。文字(base64)的長度就是位元組數;二進位的只有文字長度的四分之三 */
+  const v2=await (window.blobV2Set?.()||new Set()), all2=await (window.blobV2All?.()||false), cb=h=>cache[h]==null?null:(all2||v2.has(h)?cache[h]*.75:cache[h]);
   for(const h of refs){ i++; let n=cache[h];
-    if(n==null){ const s=await IDB.get("blob:"+h); if(typeof s==="string"){ n=s.length; cache[h]=n; dirty=true } }   // 圖片以 base64 文字存在雲端,長度就是位元組數
-    if(n!=null){ sum+=n; known++ } else miss++;
+    if(n==null){ const s=await IDB.get("blob:"+h); if(typeof s==="string"){ n=s.length; cache[h]=n; dirty=true } }   // 快取記的是 data URL 文字的長度
+    if(n!=null){ sum+=cb(h); known++ } else miss++;
     if(i%20===0){ prog?.(i,refs.size); await new Promise(r=>setTimeout(r,0)) } }
   if(dirty) await IDB.set("blobSizes",cache);
-  const avg=known?sum/known:350000, G=blobGroups(), sz=s=>{ let b=0; for(const h of s) b+=(cache[h]??avg)+300; return Math.round(b) };
-  return {n:refs.size,miss,bytes:Math.round(sum+miss*avg+refs.size*300),avg,cache,groups:{img:[G.img.size,sz(G.img)],spr:[G.spr.size,sz(G.spr)],prev:[G.prev.size,sz(G.prev)],meta:[G.meta.size+G.other.size,sz(new Set([...G.meta,...G.other]))]}} }
+  const avg=known?sum/known:350000, G=blobGroups(), sz=s=>{ let b=0; for(const h of s) b+=(cb(h)??avg)+300; return Math.round(b) };
+  return {n:refs.size,miss,bytes:Math.round(sum+miss*avg+refs.size*300),avg,cache,cb,v2,all2,groups:{img:[G.img.size,sz(G.img)],spr:[G.spr.size,sz(G.spr)],prev:[G.prev.size,sz(G.prev)],meta:[G.meta.size+G.other.size,sz(new Set([...G.meta,...G.other]))]}} }
 async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; USE_BUSY=true; el.classList.remove("hidden"); el.innerHTML=`<p class="hint">計算中…</p>`;
   try{ const sc=window.scriptsUsage?await scriptsUsage():null;
-    const img=await blobUsage((i,n)=>{ el.innerHTML=`<p class="hint">計算中…圖片 ${i}/${n}</p>` });
+    const img=await blobUsage((i,n)=>{ el.innerHTML=`<p class="hint">計算中…圖片 ${i}/${n}</p>` }); img.sq=await window.squeezeScan?.().catch(e=>{ logErr("雲端用量",e); return null })||null;
     const ls=k=>(localStorage.getItem(k)||"").length, meta=JSON.stringify(await IDB.get("wmetaRaw")||{}).length;
     const save=new TextEncoder().encode(JSON.stringify(S)).length, other=ls("kpopGame.songs")+ls("kpopGame.stage")+meta;
     const story=sc?(sc.mode==="packs"?sc.packBytes+sc.looseBytes:sc.legacyBytes):0, legacy=sc&&sc.mode==="packs"?sc.legacyBytes:0;
@@ -987,15 +989,20 @@ async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; U
       ${legacy?`<li><span>舊的逐段劇情</span><b>${fmtB(legacy)}</b><small>舊版封存還會用到,先保留</small></li>`:""}
       <li><span>存檔與其他</span><b>${fmtB(save+other)}</b><small>遊戲存檔、歌曲、打歌、成員設定</small></li></ul>
       <p class="hint">這台裝置今天:讀取 ${N(o.r)} 次、寫入 ${N(o.w)} 次、刪除 ${N(o.x)} 次。免費額度每天讀取 5 萬、寫入與刪除各 2 萬(兩台裝置合計,台灣時間下午三、四點重置)。</p>
-      <p class="hint">${pct>=85?"快到 1 GiB 了:先用下面的「立繪瘦身」「刪除上一版備份」把空間省下來。":"離 1 GiB 還遠。"}</p>
+      <p class="hint">${pct>=85?"快到 1 GiB 了:先用下面的「原圖壓縮與轉存」「立繪瘦身」「刪除上一版備份」把空間省下來。":"離 1 GiB 還遠。"}</p>
       ${slimHTML(img)}` ; bindSlim(img) }
   catch(e){ el.innerHTML=`<p class="hint">算不出來:${esc(String(e?.message||e))}</p>`; logErr("雲端用量",e) }
   finally{ USE_BUSY=false } }
 /* 省空間(2026-10-30):立繪瘦身(12 張全身 → 1 張全身+11 張臉部小圖)、刪除上一版備份。都要登入,做完自動同步、刪掉雲端的舊圖 */
-function slimHTML(img){ const sl=window.slimList?.()||[], pv=window.prevList?.()||[];
+/* 原圖壓縮與轉存(2026-11-01)的估計:原圖壓成品質 90 約剩 55%(實際看比對那張),再存二進位 ×0.75;其他圖片轉存二進位省 25% */
+function sqzEst(img){ const q=img.sq; if(!q) return null; const ac=(()=>{ let s=0,n=0; for(const v of Object.values(img.cache)){ s+=v; n++ } return n?s/n:400000 })();
+  let save=0; for(const {h} of q.orig){ const str=img.cache[h]??ac; save+=(img.cb(h)??str)-str*.55*.75 } for(const h of q.conv) save+=(img.cache[h]??ac)*.25;
+  return {orig:q.orig.length,conv:q.conv.length,save:Math.max(0,Math.round(save))} }
+function slimHTML(img){ const sl=window.slimList?.()||[], pv=window.prevList?.()||[], sq=sqzEst(img), busy=!!window.squeezeBusy?.();
   const per=img.groups.spr[0]?img.groups.spr[1]/img.groups.spr[0]:250000, slimSave=Math.round(sl.length*11*per*.9);   /* 實測:臉部小圖約是全身的一成 */
-  let pvB=0; for(const [c,s] of pv) for(const h of refsOf(ITEMS[c].members[s].prev)) pvB+=(img.cache[h]??img.avg)+300;
-  return `<div class="useact">${sl.length?`<p class="hint">立繪瘦身:${sl.length} 組立繪還是 12 張全身的舊格式。改成 1 張全身+11 張臉部小圖之後,看起來一樣,大約可以省 ${fmtB(slimSave)}。直接用現有的立繪裁,不用重新生圖、不花錢;每組約幾秒,處理時可以繼續玩。</p><div class="row"><button class="b pri" id="slimGo">立繪瘦身(${sl.length} 組)</button></div>`:""}
+  let pvB=0; for(const [c,s] of pv) for(const h of refsOf(ITEMS[c].members[s].prev)) pvB+=(img.cb(h)??img.avg)+300;
+  return `<div class="useact">${sq&&(sq.orig||sq.conv)||busy?`<p class="hint">原圖壓縮與轉存:${[sq?.orig?`${sq.orig} 張生圖原圖還是最高品質的大檔,會重新壓成品質 90(看起來一樣,先給你比對一張)`:"",sq?.conv?`${sq.conv} 張圖片(立繪、底模等)改用二進位存在雲端,畫質完全不變`:""].filter(Boolean).join(";")||"進行中"}${sq?.save?`。大約可以省 ${fmtB(sq.save)}`:""}。不花錢、不用重新生圖;建議用電腦版做(圖片大多已經在電腦上,不用重新下載)。中途可以停,下次再按會接著做。</p>
+      <div class="row"><button class="b pri" id="sqzGo"${busy?" disabled":""}>${busy?"處理中…":sq.orig?`先比對一張,再開始(${sq.orig+sq.conv} 張)`:`開始轉存(${sq.conv} 張)`}</button><button class="b${busy?"":" hidden"}" id="sqzStop">停下來</button></div>`:""}${sl.length?`<p class="hint">立繪瘦身:${sl.length} 組立繪還是 12 張全身的舊格式。改成 1 張全身+11 張臉部小圖之後,看起來一樣,大約可以省 ${fmtB(slimSave)}。直接用現有的立繪裁,不用重新生圖、不花錢;每組約幾秒,處理時可以繼續玩。</p><div class="row"><button class="b pri" id="slimGo">立繪瘦身(${sl.length} 組)</button></div>`:""}
     ${pv.length?`<p class="hint">上一版備份:${pv.length} 位成員的造型留著重新生圖前的舊圖(可以「回到上一版」),約 ${fmtB(pvB)}。確定不會回去的話可以刪掉。</p><div class="row"><button class="b" id="prevGo">刪除上一版備份(${pv.length} 個)</button></div>`:""}
     <p class="hint" id="slimMsg"></p></div>` }
 function bindSlim(img){ const msg=$("#slimMsg");
@@ -1003,7 +1010,38 @@ function bindSlim(img){ const msg=$("#slimMsg");
     for(const [i,[c,s]] of list.entries()){ msg.textContent=`${label}中 ${i+1}/${list.length}…`; try{ await fn(c,s); ok++ }catch(e){ fail++; logErr(label,e) } }
     msg.textContent=`${label}完成:${ok} 個${fail?`,${fail} 個沒成功(之後可以再按一次)`:""}。`; btn.disabled=false; setTimeout(()=>renderUse(),800) };
   const s=$("#slimGo"); if(s) s.onclick=()=>{ const L=slimList(); if(confirm(`把 ${L.length} 組立繪改成瘦身格式?畫面看起來不變,舊的全身表情圖會從雲端刪掉。`)) run(s,L,slimOne,"立繪瘦身") };
-  const p=$("#prevGo"); if(p) p.onclick=()=>{ const L=prevList(); if(confirm(`刪除 ${L.length} 個上一版備份?刪掉之後這些造型就不能「回到上一版」。`)) run(p,L,prevDrop,"刪除備份") } }
+  const p=$("#prevGo"); if(p) p.onclick=()=>{ const L=prevList(); if(confirm(`刪除 ${L.length} 個上一版備份?刪掉之後這些造型就不能「回到上一版」。`)) run(p,L,prevDrop,"刪除備份") };
+  const g=$("#sqzGo"); if(g) g.onclick=()=>{ if(!syAuth()||!syCfg()){ toast2("要先登入雲端同步"); return } if(window.squeezeBusy?.()) return;
+    if(img.sq?.orig.length) sqzCompare(sqzRun); else if(confirm(`把 ${img.sq?.conv.length||0} 張圖片改用二進位存在雲端?畫質完全不變,做完雲端會變小。`)) sqzRun() };
+  const st=$("#sqzStop"); if(st) st.onclick=()=>{ window.squeezeStop?.(); st.disabled=true; st.textContent="停下中…" } }
+/* 原圖壓縮與轉存:進度寫在 #slimMsg(關掉選單也會繼續做,做完跳提示) */
+async function sqzRun(){ const m=()=>$("#slimMsg"), btn=()=>$("#sqzGo"), stop=()=>$("#sqzStop");
+  if(btn()){ btn().disabled=true; btn().textContent="處理中…" } stop()?.classList.remove("hidden");
+  let R=null; try{ R=await window.squeezeRun((k,i,n,r)=>{ const x=m(); if(x) x.textContent=`${k==="orig"?"原圖壓縮":"圖片轉存"} ${i}/${n}…已省約 ${fmtB(r.saved)}` }) }
+  catch(e){ toast2(String(e?.message||e)); logErr("原圖壓縮",e) }
+  if(!R) return;
+  const did=[R.orig?`原圖壓縮 ${R.orig} 張`:"",R.conv?`轉存 ${R.conv} 張`:""].filter(Boolean).join("、")||"沒有要處理的", tail=`${R.fail?`;${R.fail} 張沒成功,之後再按一次`:""}${R.miss?`;${R.miss} 張雲端已經找不到,跳過`:""}`;
+  const msg=R.quota?`今天的雲端寫入額度用完了:${did},省約 ${fmtB(R.saved)}。明天(台灣時間下午四點後)再按一次會接著做${tail}。`
+    :R.stopped?`已停下:${did},省約 ${fmtB(R.saved)}。下次再按會接著做${tail}。`:`完成:${did},省約 ${fmtB(R.saved)}${tail}。`;
+  if(m()) m().textContent=msg; toast2(msg.length>60?msg.slice(0,58)+"…":msg); setTimeout(()=>renderUse(),1200) }
+/* 先看一張:原圖與壓縮後並排,點圖片兩張一起放大到臉部 */
+async function sqzCompare(go){ const dlg=document.createElement("dialog"); dlg.className="set sqzd"; dlg.id="sqzDlg"; document.body.appendChild(dlg);
+  let next=0, zoom=false; const close=()=>{ try{ dlg.close() }catch(e){} }; dlg.addEventListener("close",()=>dlg.remove());
+  const kb=n=>fmtB(Math.round(n*.75));
+  const load=async()=>{ dlg.innerHTML=`<header><b>原圖壓縮・先看一張</b></header><div class="in"><p class="hint">準備比對的圖…</p></div>`;
+    const r=await window.squeezeSample?.(next).catch(e=>{ logErr("原圖壓縮",e); return null });
+    if(!dlg.isConnected) return;
+    if(!r){ dlg.innerHTML=`<header><b>原圖壓縮</b><span class="hbtns"><button class="b" data-x>關閉</button></span></header><div class="in"><p>找不到可以比對的原圖:這台裝置沒有,雲端也讀不到。</p></div>`; dlg.querySelector("[data-x]").onclick=close; return }
+    next=r.next;
+    dlg.innerHTML=`<header><b>原圖壓縮・先看一張</b><span class="hbtns"><button class="b" data-x>取消</button></span></header>
+      <div class="in sqzin"><div class="sqzc${zoom?" zoom":""}"><figure><figcaption>原本・${kb(r.from)}</figcaption><div class="sqzp"><img alt="原本的圖" src="${r.src}"></div></figure>
+        <figure><figcaption>壓縮後・${kb(r.to)}(小 ${Math.max(0,Math.round((1-r.to/r.from)*100))}%)</figcaption><div class="sqzp"><img alt="壓縮後的圖" src="${r.z}"></div></figure></div>
+      <div class="sqzside"><p class="sqzt">〈${esc(r.name)}〉${esc(r.who)}</p><p class="hint">點圖片,兩張一起放大到臉部;再點一次回到全身。</p><p class="hint">還有 ${r.n} 張原圖要壓,其他圖片只改存法、畫質不變。</p>
+        <div class="sqzbtns">${r.n>1?`<button class="b" id="sqzNext">換一張比對</button>`:""}<button class="b pri" id="sqzYes">看起來一樣,全部開始</button></div></div></div>`;
+    dlg.querySelectorAll(".sqzp").forEach(p=>p.onclick=()=>{ zoom=!zoom; dlg.querySelector(".sqzc").classList.toggle("zoom",zoom) });
+    dlg.querySelector("[data-x]").onclick=close; const nx=dlg.querySelector("#sqzNext"); if(nx) nx.onclick=load;
+    dlg.querySelector("#sqzYes").onclick=()=>{ close(); go() } };
+  dlg.showModal(); await load() }
 $("#useBtn")&&($("#useBtn").onclick=()=>{ const el=$("#usePanel"); if(!el.classList.contains("hidden")&&!USE_BUSY){ el.classList.add("hidden"); return } renderUse() });
 /* 日常立繪更新(2026-10-27):只有還是舊版處理方式的立繪才提醒;更新完就不再出現 */
 async function outdatedSprites(){ const jobs=[]; if(!window.spriteOutdated) return jobs;

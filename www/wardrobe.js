@@ -109,16 +109,41 @@ const slotOf=mid=>Object.keys(WMEM).find(k=>WMEM[k]===mid);
 const midOf=slot=>WMEM[slot];
 const wLooks=()=>Object.values(ITEMS).filter(l=>l&&(!l.kind||l.kind==="look")&&!l.deleted);
 
-/* ---------- 雲端圖片(衣帽間把圖片以雜湊存在 users/{uid}/blobs) ---------- */
-const BLOBMEM=new Map();
+/* ---------- 雲端圖片(衣帽間把圖片以雜湊存在 users/{uid}/blobs) ----------
+   2026-11-01 省空間:新上傳的圖改存「二進位」(bytesValue),比 base64 文字省四分之一,畫質完全一樣。
+   新格式 blobs/<雜湊>:m 類型、b 二進位、n 塊數(第 2 塊起是 blobs/<雜湊>-b1、-b2…;一塊 96 萬位元組,大部分的圖一塊就夠)。
+   舊格式 blobs/<雜湊>-0、-1…:d 是 data URL 文字(一塊 90 萬字)。讀的時候先找新格式,沒有再找舊的。
+   雜湊照舊是 data URL 文字的 SHA-256,本機(IDB)照舊存 data URL 文字,所以其他程式都不用改 */
+const BLOBMEM=new Map(), B64C=1280000;   // 128 萬個 base64 字 = 96 萬位元組(4 的倍數,每塊直接接起來就是完整的 base64)
+const blobV2Get=async()=>new Set(await IDB.get("blobsV2")||[]);
+async function blobV2Add(h){ const v=await blobV2Get(); if(v.has(h)) return; v.add(h); await IDB.set("blobsV2",[...v]) }
+async function blobCloudGet(h,skipNew){
+  if(!skipNew){ const d=await syGet(`blobs/${h}`);
+    if(d?.fields?.b){ const n=+d.fields.n?.integerValue||1; let p=d.fields.b.bytesValue||"";
+      for(let i=1;i<n;i++){ const x=await syGet(`blobs/${h}-b${i}`); p+=x?.fields?.b?.bytesValue||"" }
+      blobV2Add(h).catch(()=>{}); return `data:${d.fields.m?.stringValue||"application/octet-stream"};base64,${p}` } }
+  const first=await syGet(`blobs/${h}-0`); if(!first?.fields?.d) return "";
+  const n=+first.fields.n.integerValue; let s=first.fields.d.stringValue;
+  for(let i=1;i<n;i++){const d=await syGet(`blobs/${h}-${i}`); s+=d?.fields?.d?.stringValue||""}
+  return s }
+/* 上傳一張圖:base64 的 data URL 存成新格式(後面的塊先寫、第一塊最後寫:讀得到第一塊時,其他塊一定已經在了);其他的照舊存文字 */
+async function blobCloudPut(h,s){ const m=/^data:([^;,]+);base64,/.exec(s);
+  if(!m){ const parts=[]; for(let i=0;i<s.length;i+=900000) parts.push(s.slice(i,i+900000));
+    for(let i=0;i<parts.length;i++) await syPatchPath(`blobs/${h}-${i}`,{d:{stringValue:parts[i]},n:{integerValue:String(parts.length)}}); return }
+  const p=s.slice(m[0].length), parts=[]; for(let i=0;i<p.length;i+=B64C) parts.push(p.slice(i,i+B64C)); if(!parts.length) parts.push("");
+  for(let i=parts.length-1;i>=1;i--) await syPatchPath(`blobs/${h}-b${i}`,{b:{bytesValue:parts[i]}});
+  await syPatchPath(`blobs/${h}`,{m:{stringValue:m[1]},b:{bytesValue:parts[0]},n:{integerValue:String(parts.length)}});
+  await blobV2Add(h) }
+/* 刪雲端的圖:新舊兩種格式都找一次(which:"old" 只刪舊格式,轉存時用) */
+async function blobCloudDel(h,which){ const t=await syToken(), del=p=>syJSON(syBase()+"/blobs/"+p,{method:"DELETE",headers:{Authorization:"Bearer "+t}}).catch(e=>{ if(e?.status!==404) throw e });
+  if(which!=="old"){ const d=await syGet(`blobs/${h}`); if(d?.fields){ const n=+d.fields.n?.integerValue||1; for(let i=1;i<n;i++) await del(`${h}-b${i}`); await del(h) }
+    const v=await blobV2Get(); if(v.delete(h)) await IDB.set("blobsV2",[...v]) }
+  const d0=await syGet(`blobs/${h}-0`); if(d0?.fields){ const n=+d0.fields.n?.integerValue||1; for(let i=0;i<n;i++) await del(`${h}-${i}`) } }
 async function getBlob(ref,noKeep){
   if(!ref) return ""; if(String(ref).startsWith("data:")) return ref;
   const h=String(ref).replace(/^blob:/,""); if(BLOBMEM.has(h)) return BLOBMEM.get(h);
   let s=await IDB.get("blob:"+h);
-  if(!s&&syAuth()&&syCfg()){ const first=await syGet(`blobs/${h}-0`); if(!first) return "";
-    const n=+first.fields.n.integerValue; s=first.fields.d.stringValue;
-    for(let i=1;i<n;i++){const d=await syGet(`blobs/${h}-${i}`); s+=d?.fields?.d?.stringValue||""}
-    await IDB.set("blob:"+h,s) }
+  if(!s&&syAuth()&&syCfg()){ s=await blobCloudGet(h); if(!s) return ""; await IDB.set("blob:"+h,s) }
   if(s&&!noKeep) BLOBMEM.set(h,s); return s||"";
 }
 /* ---------- 縮圖(衣櫃卡片、底模、待審舊圖) ----------
@@ -200,8 +225,7 @@ async function pushDoc(col,it){
   const blobs=new Map(), json=JSON.stringify(await wStrip(it,blobs));
   const up=new Set(await IDB.get("blobsUp")||[]);
   for(const [h,s] of blobs){ if(up.has(h)) continue;
-    const parts=[];for(let i=0;i<s.length;i+=900000) parts.push(s.slice(i,i+900000));
-    for(let i=0;i<parts.length;i++) await syPatchPath(`blobs/${h}-${i}`,{d:{stringValue:parts[i]},n:{integerValue:String(parts.length)}});
+    await blobCloudPut(h,s);
     up.add(h); BLOBMEM.set(h,s); await IDB.set("blob:"+h,s); await IDB.set("blobsUp",[...up]) }
   await syPatchPath(`${col}/${encodeURIComponent(it.code)}`,{json:{stringValue:json},updatedAt:{integerValue:String(Math.round(it.updatedAt||Date.now()))},deleted:{booleanValue:false}});
   return JSON.parse(json);
@@ -222,9 +246,64 @@ async function tombLook(code){ try{ if(!syAuth()||!syCfg()) throw {code:"未登�
 window.dropUnusedBlobs=hs=>dropBlobs(hs,true);   // 給 sprites.js:重新處理立繪後刪掉被換掉的舊圖(還有人用的不會刪)
 async function dropBlobs(hashes,force){ if(!hashes.size) return 0;   /* force:確定是被換掉的舊圖,不是這台上傳的也從雲端刪 */ const used=blobRefs([Object.values(ITEMS),WMETA]), up=new Set(await IDB.get("blobsUp")||[]); let n=0;
   for(const h of hashes){ if(used.has(h)) continue; BLOBMEM.delete(h); await IDB.del("blob:"+h); n++;
-    if(syAuth()&&syCfg()&&(up.has(h)||force)){ try{ const d0=await syGet(`blobs/${h}-0`), parts=+d0?.fields?.n?.integerValue||1, t=await syToken();
-        for(let i=0;i<parts;i++) await syJSON(syBase()+`/blobs/${h}-${i}`,{method:"DELETE",headers:{Authorization:"Bearer "+t}}); up.delete(h) }catch(e){ window.logErr?.("刪除雲端圖片",e) } } }
+    if(syAuth()&&syCfg()&&(up.has(h)||force)){ try{ await blobCloudDel(h); up.delete(h) }catch(e){ window.logErr?.("刪除雲端圖片",e) } } }
   await IDB.set("blobsUp",[...up]); return n }
+/* ---------- 省空間(2026-11-01):生圖原圖重新壓縮+雲端圖片改存二進位 ----------
+   原圖:衣櫃每位成員的生圖(members[欄位].img)與上一版備份(prev.img)。iq 等於現在這張圖的參照 = 已經壓過(或壓了也不會變小),跳過。
+   同一張圖被好幾套造型共用時一起換成新圖;舊的那張沒人用了,本機與雲端一起刪。縮圖照用(換成新雜湊的名字)。
+   其他圖片(立繪、臉部小圖、底模):內容不變,只把雲端的存法改成二進位(先寫新格式、再刪舊格式)。
+   中途可以停;每一張做完就存好,下次按會接著做。全部轉完在雲端記 meta/blobfmt,其他裝置的雲端用量就照二進位算 */
+const V2ALL_K="kpopGame.blobV2all";
+async function blobV2All(){ try{ if(localStorage.getItem(V2ALL_K)==="1") return true }catch(e){}
+  if(!syAuth()||!syCfg()) return false;
+  try{ const d=await syGet("meta/blobfmt"); if(d?.fields?.v2?.booleanValue){ try{ localStorage.setItem(V2ALL_K,"1") }catch(e){} return true } }catch(e){} return false }
+window.blobV2All=blobV2All; window.blobV2Set=blobV2Get;
+async function squeezeScan(){ const orig=new Map();
+  for(const lk of Object.values(ITEMS)){ if(!lk||lk.deleted) continue; for(const [slot,m] of Object.entries(lk.members||{})){ if(!m) continue;
+    for(const [kind,o] of [["img",m],["prev",m.prev]]){ const r=o?.img; if(typeof r!=="string"||!r.startsWith("blob:")||o.iq===r) continue;
+      const h=r.slice(5); if(!orig.has(h)) orig.set(h,[]); orig.get(h).push([lk.code,slot,kind]) } } }
+  const v2=await blobV2Get(), done=await blobV2All(), conv=done?[]:[...blobRefs([Object.values(ITEMS).filter(l=>l&&!l.deleted),WMETA])].filter(h=>!v2.has(h)&&!orig.has(h));
+  return {orig:[...orig].map(([h,refs])=>({h,refs})),conv} }
+window.squeezeScan=squeezeScan;
+/* 一張圖轉成二進位存法(已經是就跳過) */
+async function blobToV2(h,s){ if((await blobV2Get()).has(h)) return {k:"had"};
+  const head=await syGet(`blobs/${h}`); if(head?.fields?.b){ await blobV2Add(h); return {k:"had"} }
+  if(!s){ s=await IDB.get("blob:"+h); if(!s) s=await blobCloudGet(h,true) }   // 不在這台:從雲端讀(不留在本機)
+  if(!s||!/^data:[^;,]+;base64,/.test(s)){ await blobV2Add(h); return {k:"miss"} }   // 雲端也沒有(或不是圖):不用轉
+  await blobCloudPut(h,s); await blobCloudDel(h,"old"); return {k:"ok",n:s.length} }
+/* 一張原圖:壓成品質 90,變小 15% 以上才換;所有用到它的造型一起改,舊圖沒人用了就刪 */
+async function squeezeOne(job){ const {h,refs}=job, src=await getBlob("blob:"+h,true); if(!src) throw {code:"miss"}; const was=(await blobV2Get()).has(h)?src.length*.75:src.length;   /* 雲端原本佔多少 */
+  let out=src; try{ const z=await squeezeImg(src); if(z&&z.length<src.length*.85) out=z }catch(e){ window.logErr?.("原圖壓縮",e) }
+  const nref="blob:"+(out===src?h:await wHash(out));
+  for(const code of new Set(refs.map(r=>r[0]))){ const lk=JSON.parse(JSON.stringify(ITEMS[code]||{})); if(!lk.code) continue; let hit=0;
+    for(const [c2,slot,kind] of refs){ if(c2!==code) continue; const o=kind==="img"?lk.members?.[slot]:lk.members?.[slot]?.prev; if(!o||o.img!=="blob:"+h) continue; if(out!==src) o.img=out; o.iq=nref; hit++ }
+    if(!hit) continue; lk.updatedAt=Date.now(); const slim=await pushDoc("items",lk); ITEMS[code]=slim; await IDB.set("items",ITEMS) }   // 失敗會丟出錯誤(額度用完時整批停下來)
+  if(out===src){ await blobToV2(h,src); return {from:was,to:src.length*.75} }
+  const nh=nref.slice(5); try{ const t=await IDB.get("thumb2:"+h); if(t instanceof Blob) await IDB.set("thumb2:"+nh,t) }catch(e){}
+  await dropBlobs(new Set([h]),true); return {from:was,to:out.length*.75} }
+const isQuota=e=>e?.status===429||/RESOURCE_EXHAUSTED|quota/i.test(String(e?.code||"")+String(e?.st||""));
+let SQ=null;
+window.squeezeBusy=()=>!!SQ; window.squeezeStop=()=>{ if(SQ) SQ.stop=true };
+window.squeezeRun=async prog=>{ if(SQ) return null; if(!syAuth()||!syCfg()) throw new Error("要先登入雲端同步");
+  SQ={stop:false}; const R={orig:0,saved:0,conv:0,miss:0,fail:0,quota:false,stopped:false,done:false};
+  try{ const {orig,conv}=await squeezeScan(), tot=orig.length+conv.length; let i=0;
+    for(const job of orig){ if(SQ.stop) break; prog?.("orig",++i,tot,R);
+      try{ const r=await squeezeOne(job); R.orig++; R.saved+=Math.max(0,Math.round(r.from-r.to)) }catch(e){ if(isQuota(e)){ R.quota=true; break } if(e?.code==="miss") R.miss++; else { R.fail++; window.logErr?.("原圖壓縮",e) } }
+      await new Promise(r=>setTimeout(r,0)) }
+    if(!R.quota) for(const h of conv){ if(SQ.stop) break; prog?.("conv",++i,tot,R);
+      try{ const r=await blobToV2(h); if(r.k==="ok"){ R.conv++; R.saved+=Math.round(r.n*.25) } else if(r.k==="miss") R.miss++ }catch(e){ if(isQuota(e)){ R.quota=true; break } R.fail++; window.logErr?.("圖片轉存",e) } }
+    R.stopped=SQ.stop;
+    if(!R.stopped&&!R.quota&&!R.fail){ const left=await squeezeScan(); if(!left.conv.length&&!left.orig.length){
+      try{ await syPatchPath("meta/blobfmt",{v2:{booleanValue:true},at:{integerValue:String(Date.now())}}); localStorage.setItem(V2ALL_K,"1"); R.done=true }catch(e){ window.logErr?.("圖片轉存",e) } } }
+  }finally{ SQ=null }
+  return R };
+/* 先看一張:挑一張還沒壓的原圖(優先挑最大的),回傳壓縮前後給比對畫面 */
+window.squeezeSample=async(skip=0)=>{ const {orig}=await squeezeScan(), cache=await IDB.get("blobSizes")||{};
+  const L=orig.filter(j=>j.refs.some(r=>r[2]==="img")); if(!L.length) return null; L.sort((a,b)=>(cache[b.h]||0)-(cache[a.h]||0));
+  for(let k=0;k<Math.min(L.length,6);k++){ const job=L[(skip+k)%L.length], src=await getBlob("blob:"+job.h,true); if(!src) continue;
+    const z=await squeezeImg(src).catch(()=>null); if(!z) continue; const r=job.refs.find(r=>r[2]==="img");
+    return {src,z,from:src.length,to:z.length,name:ITEMS[r[0]]?.name||r[0],who:byId(midOf(r[1]))?.n||"",n:L.length,next:skip+k+1} }
+  return null };
 async function deleteLook(code,o={}){ const lk=ITEMS[code]; if(!lk) return false; const to=o.to&&ITEMS[o.to]?o.to:null, refs=blobRefs(lk);
   delete ITEMS[code]; await IDB.set("items",ITEMS);
   const ob=await IDB.get("outbox")||[], ob2=ob.filter(x=>!(x.col==="items"&&x.it?.code===code)); if(ob2.length!==ob.length) await IDB.set("outbox",ob2);
@@ -339,12 +418,17 @@ async function baseFor(slot,pose){const m=WMETA.find(x=>x.id===slot); if(!m?.gen
   if(pose&&pose!=="stand"){ if(m.poses?.[pose]) return await getBlob(m.poses[pose]); const a=poseAsset(slot,pose); if(a) return await urlToData(a) }   // 姿勢底模
   return await getBlob(m.gen)}
 const hasPoseBase=(slot,pose)=>!!WMETA.find(x=>x.id===slot)?.poses?.[pose]||!!poseAsset(slot,pose);
+/* 原圖的壓縮(2026-11-01 省空間):請 OpenAI 直接輸出品質 90 的 webp(以前沒指定 = 最高品質,檔案大約大 1.7 倍,看起來一樣)。
+   萬一這個模型不收這個參數,就照舊拿最高品質的圖,收到後在遊戲裡自己壓成品質 90(只在真的變小時才換) */
+const OAI_COMP=90, NOCOMP_K="kpopGame.oaiNoComp";
+const oaiNoComp=()=>{ try{ return localStorage.getItem(NOCOMP_K)==="1" }catch(e){ return false } };
 async function oaiEdit(prompt,baseURL,model,quality){
   const o=oai(); if(!o.key) throw {code:"no_key"};
-  const fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
-  fd.append("size","1024x1536"); fd.append("quality",quality||o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp");
+  const noComp=oaiNoComp(), fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
+  fd.append("size","1024x1536"); fd.append("quality",quality||o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp"); if(!noComp) fd.append("output_compression",String(OAI_COMP));
   let r; try{ r=await fetch("https://api.openai.com/v1/images/edits",{method:"POST",headers:{Authorization:"Bearer "+o.key},body:fd}) }catch(e){throw {code:"network"}}
   const j=await r.json().catch(()=>({}));
+  if(!r.ok&&!noComp&&r.status===400&&/output_compression/i.test(String(j?.error?.message||"")+String(j?.error?.param||""))){ try{ localStorage.setItem(NOCOMP_K,"1") }catch(e){} return oaiEdit(prompt,baseURL,model,quality) }
   if(!r.ok){ const msg=j?.error?.message||"", code=j?.error?.code||"";
     if(r.status===401) throw {code:"bad_key",msg};
     if(r.status===429) throw {code:/quota|billing/i.test(msg)?"quota":"rate",msg};
@@ -353,8 +437,23 @@ async function oaiEdit(prompt,baseURL,model,quality){
     if(/verif/i.test(msg)) throw {code:"verify",msg};
     throw {code:"server",msg} }
   const b=j.data?.[0]?.b64_json; if(!b) throw {code:"server",msg:"沒有收到圖片"};
-  return "data:image/webp;base64,"+b;
+  const u="data:image/webp;base64,"+b; if(!noComp) return u;
+  const z=await squeezeImg(u).catch(()=>null); return z&&z.length<u.length*.85?z:u;
 }
+/* 重新壓縮一張圖(webp 品質 90):在背景執行緒做,主畫面不卡;不支援的瀏覽器在主畫面做 */
+let SQW=null, sqSeq=0; const sqWait=new Map();
+function sqWorker(){ if(SQW!==null) return SQW; if(!(window.Worker&&window.OffscreenCanvas&&window.createImageBitmap)) return SQW=false;
+  const code=`onmessage=async e=>{const {id,u,q}=e.data;try{const raw=await (await fetch(u)).blob();const b=await createImageBitmap(raw,{colorSpaceConversion:"none",premultiplyAlpha:"none"});
+ const c=new OffscreenCanvas(b.width,b.height);c.getContext("2d").drawImage(b,0,0);b.close&&b.close();const out=await c.convertToBlob({type:"image/webp",quality:q});
+ if(out.type!=="image/webp") throw new Error("這個瀏覽器不能壓 webp");postMessage({id,url:new FileReaderSync().readAsDataURL(out)})}catch(err){postMessage({id,err:String(err)})}};`;
+  try{ SQW=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"}))); SQW.onmessage=e=>{ const f=sqWait.get(e.data.id); if(f){ sqWait.delete(e.data.id); f(e.data) } }; SQW.onerror=()=>{ SQW=false } }catch(e){ SQW=false }
+  return SQW }
+async function squeezeImg(u,q=OAI_COMP/100){ const W=sqWorker();
+  if(W){ const r=await new Promise(ok=>{ const id=++sqSeq; sqWait.set(id,ok); W.postMessage({id,u,q}) }); if(r.url) return r.url; if(!/webp/.test(r.err||"")) throw new Error(r.err||"壓縮失敗") }
+  const im=await new Promise((ok,no)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=no; i.src=u });
+  const c=document.createElement("canvas"); c.width=im.naturalWidth; c.height=im.naturalHeight; c.getContext("2d").drawImage(im,0,0);
+  const out=c.toDataURL("image/webp",q); if(!out.startsWith("data:image/webp")) throw new Error("這個瀏覽器不能壓 webp"); return out }
+window.squeezeImg=squeezeImg;
 const OAI_ERR={no_key:"還沒設定 OpenAI 金鑰(選單 → AI 生圖)",bad_key:"OpenAI 金鑰不正確",quota:"OpenAI 帳戶額度不足,請到 OpenAI 儲值",rate:"太頻繁了,稍等再試",
   blocked:"被 OpenAI 的安全審查擋下,可以改一下服裝描述再試",bad_model:"gpt-image-2 目前不能用(不會自動改用其他模型)",verify:"這個模型需要先在 OpenAI 完成組織驗證",network:"連不上 OpenAI",server:"OpenAI 回傳錯誤"};
 
@@ -378,7 +477,7 @@ async function runQueue(){
       const q=job.q||o.quality||"medium", note=String(job.note||"").trim();
       const prompt=wLookPrompt(lk,job.slot)+(note?`\n\nRevision request from the designer (apply it while keeping the same member, face, body, pose and overall outfit concept): ${note}`:"");
       const img=await oaiEdit(prompt,base,model,q), used=model;
-      PENDING[job.id]={code:job.code,slot:job.slot,img,model:used,quality:q,note:note||undefined,at:Date.now()}; await IDB.set("pending",PENDING); job.state="done";
+      PENDING[job.id]={code:job.code,slot:job.slot,img,iq:1,model:used,quality:q,note:note||undefined,at:Date.now()};   // iq:這張已經是壓縮過的原圖 await IDB.set("pending",PENDING); job.state="done";
     }catch(e){ job.state="err"; job.err=e.code==="no_base"?"還沒有這位成員的生圖底模(造型室 → 成員底模)":(OAI_ERR[e.code]||"失敗")+(e.msg?`:${String(e.msg).slice(0,80)}`:"");
       if(["no_key","bad_key","quota","verify","bad_model"].includes(e.code)){STOP=true; toast2(OAI_ERR[e.code])}
       if(e.code==="rate"){ job.state="wait"; await new Promise(r=>setTimeout(r,20000)) } }
@@ -389,8 +488,9 @@ async function approve(id,quiet){
   const p=PENDING[id]; if(!p) return; const lk=JSON.parse(JSON.stringify(ITEMS[p.code]||{})); if(!lk.code) return;
   // 還原其他成員已有的圖片參照即可(pushDoc 只會上傳 data: 開頭的新圖)
   const old=lk.members[p.slot]||{};
-  const prev=old.img?{img:old.img,model:old.model||"",sprites:old.sprites||null,at:old.spriteAt||0,outfit:old.redo?(old.prevOutfit||""):(old.outfit||"")}:(old.prev||null);   // 舊圖不刪,可以改回
-  lk.members[p.slot]={...old,img:p.img,model:p.model||"",status:1,prev}; delete lk.members[p.slot].sprites; delete lk.members[p.slot].redo; delete lk.members[p.slot].prevOutfit; lk.updatedAt=Date.now();
+  const prev=old.img?{img:old.img,model:old.model||"",sprites:old.sprites||null,at:old.spriteAt||0,outfit:old.redo?(old.prevOutfit||""):(old.outfit||""),...(old.iq?{iq:old.iq}:{})}:(old.prev||null);   // 舊圖不刪,可以改回
+  lk.members[p.slot]={...old,img:p.img,model:p.model||"",status:1,prev}; delete lk.members[p.slot].sprites; delete lk.members[p.slot].redo; delete lk.members[p.slot].prevOutfit; delete lk.members[p.slot].iq;
+  if(p.iq) lk.members[p.slot].iq="blob:"+await wHash(p.img);   /* 原圖已經壓縮過(iq 等於現在這張圖的參照):「原圖壓縮」會跳過 */ lk.updatedAt=Date.now();
   delete PENDING[id]; await IDB.set("pending",PENDING);
   const ok=await saveDoc("items",lk); if(!quiet) toast2(ok?"已收進衣櫃,並同步到雲端":"已收進衣櫃(還沒同步,登入後會自動上傳)");
   JOBS=JOBS.filter(j=>j.id!==id); renderFacility();
@@ -590,8 +690,7 @@ async function saveMetaCloud(){
   await IDB.set("wmeta",WMETA); await IDB.set("wmem",WMEM);
   if(!syAuth()||!syCfg()){toast2("還沒登入雲端,登入後再改一次才會同步");return false}
   const blobs=new Map(), json=JSON.stringify(await wStrip(obj,blobs)); const up=new Set(await IDB.get("blobsUp")||[]);
-  for(const [h,s] of blobs){ if(up.has(h)) continue; const parts=[];for(let i=0;i<s.length;i+=900000) parts.push(s.slice(i,i+900000));
-    for(let i=0;i<parts.length;i++) await syPatchPath(`blobs/${h}-${i}`,{d:{stringValue:parts[i]},n:{integerValue:String(parts.length)}}); up.add(h); BLOBMEM.set(h,s); await IDB.set("blob:"+h,s); await IDB.set("blobsUp",[...up]) }
+  for(const [h,s] of blobs){ if(up.has(h)) continue; await blobCloudPut(h,s); up.add(h); BLOBMEM.set(h,s); await IDB.set("blob:"+h,s); await IDB.set("blobsUp",[...up]) }
   await syPatchPath("meta/state",{json:{stringValue:json},updatedAt:{integerValue:String(Date.now())}});
   WMETA=JSON.parse(json).members; await IDB.set("wmeta",WMETA); await IDB.set("wmetaRaw",JSON.parse(json)); return true }
 function bindBases(B){
@@ -789,8 +888,8 @@ async function openDetail(code,slot){
   const di=$("#dImg"); if(di&&o.img){ di.style.cursor="zoom-in"; di.onclick=view("full") }
   const rs=$("#dRestore"); if(rs) rs.onclick=async()=>{ if(!confirm("改回舊圖?現在的圖會變成「舊圖」,之後還能再換回來。")) return;
     const lk2=JSON.parse(JSON.stringify(ITEMS[code])), m2=lk2.members[slot], pv=m2.prev;
-    lk2.members[slot]={...m2,img:pv.img,model:pv.model||"",sprites:pv.sprites||undefined,...(pv.outfit?{outfit:pv.outfit}:{}),prev:{img:m2.img,model:m2.model||"",sprites:m2.sprites||null,outfit:m2.outfit||""}};
-    if(!lk2.members[slot].sprites) delete lk2.members[slot].sprites; lk2.updatedAt=Date.now();
+    lk2.members[slot]={...m2,img:pv.img,model:pv.model||"",sprites:pv.sprites||undefined,...(pv.outfit?{outfit:pv.outfit}:{}),iq:pv.iq,prev:{img:m2.img,model:m2.model||"",sprites:m2.sprites||null,outfit:m2.outfit||"",...(m2.iq?{iq:m2.iq}:{})}};
+    if(!lk2.members[slot].sprites) delete lk2.members[slot].sprites; if(!lk2.members[slot].iq) delete lk2.members[slot].iq; lk2.updatedAt=Date.now();
     delete (window.DYN||{})[code+"@"+midOf(slot)]; await saveDoc("items",lk2); ensureWear(true); toast2("已改回舊圖"); openDetail(code,slot); renderFacility() };
   const pb=$("#dProc"); if(pb) pb.onclick=async()=>{ pb.disabled=true; pb.textContent="處理中…(約幾秒)";
     try{ await processSprites(code,slot); const rd=await checkReplaces(code,true); toast2("已重新去背並做好換臉層"+(rd?`;被這套取代的 ${rd} 套舊造型已刪除`:"")); if(ITEMS[code]) openDetail(code,slot) }catch(e){ toast2("處理失敗:"+(e.message||"")); pb.disabled=false; pb.textContent="再試一次" } };
