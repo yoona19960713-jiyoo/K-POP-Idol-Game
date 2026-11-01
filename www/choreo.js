@@ -281,6 +281,7 @@ window.choreoTapState=()=>TAP; window.choreoImportJSON=(T,o)=>fromJSON(T,o); win
 const titleT=()=>{ const R=API()?.R; return R?R.tracks.find(t=>t.id===R.title):null };
 function gain(D,id,base){ const g=Math.max(1,Math.round(base*(1-D.prof[id]/110))); D.prof[id]=Math.min(100,D.prof[id]+g); return g }
 window.choreoOnSlotEnd=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,3)); API().save() };
+window.choreoKPHeat=n=>{ const T=titleT(), D=getD(T); if(!D||!n) return; D.heat=(+D.heat||0)+n; API().save() };   /* KEY POINT 的短影音挑戰熱度(打歌後累積) */
 window.choreoAfterShow=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,2)); API().save() };
 function practice(T){ const D=getD(T), e=evalDance(T); S.lastPrac=S.day; let tot=0;   // 改版 1.0:全員練一次花 1 小時(以前花 1 次行動)
   for(const id of IDS){ const st=S.m[id]; tot+=gain(D,id,14*(.6+byId(id).dance/200)*(1.25-e.diff*.07)*(st.stress>75?.6:1));
@@ -511,7 +512,7 @@ function kpCard(T,rerender,editing){ document.querySelector("#kpCard")?.remove()
     <div><p class="c2h5">每拍分解</p>${steps.length?`<div class="c2beats" style="grid-template-columns:repeat(${Math.min(4,steps.length)},minmax(0,1fr))">${steps.slice(0,8).map((x,z)=>`<div class="c2beat"><em>${z+1}</em>${esc(x)}</div>`).join("")}</div>`:`<p class="c2p">還沒有每拍分解:編舞室對話交回的編舞會帶,也可以按「編輯」自己寫。</p>`}
       ${k.why?`<p class="c2h5" style="margin-top:7px">為什麼好記</p><p class="c2p">${esc(k.why)}</p>`:""}
       ${k.final?.change?`<p class="c2h5" style="margin-top:5px">最後副歌的變化</p><p class="c2p">${esc(k.final.change)}</p>`:""}</div></div>
-    <div class="c2mem"><b>${Math.round(e.hook)}</b><span class="lb">記憶點</span><span class="ck">${ck.map(([ok,tx])=>`<span class="${ok?"":"no"}">${tx}</span>`).join("")}</span><span class="kpm">KEY POINT 熟練 ${avgM}%</span></div>`;
+    <div class="c2mem"><b>${Math.round(e.hook)}</b><span class="lb">記憶點</span><span class="ck">${ck.map(([ok,tx])=>`<span class="${ok?"":"no"}">${tx}</span>`).join("")}</span><span class="kpm">KEY POINT 熟練 ${avgM}%${D.heat?`・挑戰熱度 ${D.heat}`:""}</span></div>`;
   box.innerHTML=`<div class="c2sheet"><div class="c2sh"><span class="eb">✦ KEY POINT・這首的招牌動作</span><span class="sp"></span><button class="c2x" id="kpX">${editing?"取消":"關閉"}</button></div>${body}
     <div class="c2foot">${editing?`<span class="c2note">名字也會改掉練習室的「記憶點舞步」。</span><button class="c2b pri" id="kpSave">儲存</button>`
       :`<span class="use">會用在:<b>打歌特寫</b>・<b>短影音挑戰</b>・粉絲反應・STARLOG・成員台詞</span><button class="c2b" id="kpSee">在舞台預覽看</button><button class="c2b" id="kpEd">編輯</button><button class="c2b pri" id="kpPrac">練 KEY POINT・30 分</button>`}</div></div>`;

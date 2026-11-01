@@ -109,7 +109,10 @@ function perform(){ syncSkill();
   const endViral=p.end&&!p.rest[p.end]&&rnd()<.18+(S.m[p.end].mood/500);
   if(endViral) social+=12;
   if(+S.year>=2020) social+=5;
-  let viral=false; if(DN?.has){ social+=(DN.hook-50)*.12; if(DN.hook>=70&&rnd()<.12+DN.hook/400){ viral=true; social+=10 } }
+  let viral=false, kpRes=0; if(DN?.has){ social+=(DN.hook-50)*.12; if(DN.hook>=70&&rnd()<.12+DN.hook/400+((DN.kpm||0)-40)/600){ viral=true; social+=10 }
+    /* 2.0 第 3 包:KEY POINT 那幾秒的特寫,看 KEY POINT 熟練、整體熟練、領舞有沒有跳錯 */
+    if(DN.kp?.name){ const ld=DN.kp.lead, q=(DN.kpm||0)*.6+avgPr*.4-(dmiss.some(m=>m.id===ld)?25:0)+(rnd()*20-10)-(ld&&ld!=="all"&&p.rest[ld]?15:0);
+      if(q>=65){ kpRes=1; social+=6 } else if(q<35){ kpRes=-1; social-=3 } } }
   // 一位計分
   const decay=[0,.92,1,.9,.78][wk];
   const us={digital:SONG.score*decay,sales:70,views:Math.min(100,views/3.4),social:Math.min(100,social*.95),stage};
@@ -127,17 +130,26 @@ function perform(){ syncSkill();
   mistakes.forEach(m=>log.push(["bad",`${m.n}在高音段破音了,網路上開始出現剪輯。`]));
   dmiss.forEach(m=>log.push(["bad",`${m.n}有一段動作慢了半拍,被眼尖的粉絲剪成影片。`]));
   if(DN?.has&&!dmiss.length&&avgPr>=85&&DN.score>=75) log.push(["good","整齊度被稱讚是「刀群舞」,練習室的努力看得出來。"]);
+  if(kpRes){ const k=DN.kp, ln=k.lead&&k.lead!=="all"?byId(k.lead)?.n:"全員";
+    log.push(kpRes>0?["good",`KEY POINT「${k.name}」的特寫:${ln}領的那一下被剪成短影音,留言都在學。`]:["bad",`KEY POINT「${k.name}」有人慢了半拍,特寫鏡頭沒抓到最整齊的那一下。`]) }
   if(viral) log.push(["good",`「${DN.hookName||"副歌舞步"}」挑戰在短影音上流行起來。`]);
   if(caught) log.push(["bad","有粉絲比對出今天是整首對嘴,熱搜出現「假唱」字眼。"]);
   if(endViral) log.push(["good",`Ending 鏡頭停在${byId(p.end).n}身上的那一秒被瘋傳。`]);
   if(views>260) log.push(["good",`${camM.n}的直拍衝上影音熱門。`]);
   if(win) say("ys","我們……拿到一位了?大家,謝謝你們。");
-  return {i,wk,sh,O,stage,grade,views,social,us,rv,up,rp,win,mistakes,dmiss,viral,caught,endViral,log};
+  return {i,wk,sh,O,stage,grade,views,social,us,rv,up,rp,win,mistakes,dmiss,viral,caught,endViral,log,kpRes,kp:DN?.kp||null};
 }
 function applyResult(r){
   const p=S.plan, V=VERS[p.ver];
   if(window.growthOnShow) growthOnShow(M.filter(m=>!p.rest[m.id]).map(m=>m.id));
   window.choreoAfterShow?.(M.filter(m=>!p.rest[m.id]).map(m=>m.id));   // 上台也是練習
+  /* KEY POINT:挑戰熱度累積;流行起來時領舞的人發 STARLOG */
+  if(r.kp?.name){ window.choreoKPHeat?.(r.viral?3:r.kpRes>0?1:0);
+    if(r.viral&&window.phonePost&&!(S.kpPost&&(S.idx||0)-S.kpPost.idx<4)){ const n=(S.kpPost?.n||0), ids=["ys","tr","hy","he","hr"], lead=r.kp.lead&&r.kp.lead!=="all"?r.kp.lead:"ys",
+        ld=n===0?lead:ids[(ids.indexOf(lead)+n)%5], tag=`#${r.kp.name}挑戰`;   /* 隔 4 場打歌以上才再發一篇(這裡的 S 是待機室自己的存檔);第一篇是領舞的人,之後輪流 */
+      const T={ys:[`${tag} 隊長先來!大家一起跳~`,`${tag} 宿舍版!夏恩做飯做到一半也被我抓來跳了。`],tr:[`${tag} ……我做了。Your turn.`,`${tag} 練習室,凌晨兩點。……不准笑。`],
+        hy:[`${tag} やってみて!手指也要跳舞喔~`,`${tag} 芭蕾版。腳尖也差一公分。`],he:[`${tag} 大家都在跳耶!我也再來一次~`,`${tag} 吃飯前先跳一次!……好,可以吃了。`],hr:[`${tag} 交給我!咻——換你們了!`,`${tag} 濟州的橘子也來挑戰了!(橘子沒有手)`]};
+      window.phonePost({id:ld,lines:[[ld,T[ld][n<5?0:1],"laugh"]],sc:"練習室的鏡子前",big:n===0,code:`kp-show${S.idx||0}`}); S.kpPost={idx:S.idx||0,n:n+1} } }
   r.first=window.onShowResult?.(r)||null;
   for(const m of M){const st=S.m[m.id];
     if(p.rest[m.id]){st.stamina=Math.min(100,st.stamina+18);st.throat=Math.min(100,st.throat+12);if(st.cond&&rnd()<.6) st.cond="";continue}
@@ -170,7 +182,7 @@ let srcText="";
 function loadLinked(){
   const parts=[];
   const sum=window.songSummary?songSummary():null;
-  if(sum?.title){const t=sum.title; SONG={name:t.name||"未命名",score:Math.round(t.score),killer:t.killer||"",center:t.center||"",highLines:t.highLines||{},target:targetOf(t),genre:t.genre,mood:t.mood};
+  if(sum?.title){const t=sum.title; SONG={name:t.name||"未命名",score:Math.round(t.score),killer:t.killer||"",center:t.center||"",highLines:t.highLines||{},target:targetOf(t),genre:t.genre,mood:t.mood,dance:t.dance||{has:false}};   /* 2026-11-01:以前漏了 dance,練習室的編舞一直沒影響到打歌 */
     parts.push(`主打歌:企劃室《${sum.release||""}》的〈${SONG.name}〉,預估 ${SONG.score} 分`)}
   else {SONG=DEMO_SONG; parts.push("主打歌:企劃室還沒有主打,先用示範歌曲")}
   const looks=[];

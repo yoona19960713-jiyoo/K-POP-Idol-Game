@@ -38,7 +38,8 @@ const T={
  concert:{ys:["〈{title}〉結束好幾天了,我還常常想起那片手燈海。","smile"],tr:["演唱會那天……謝謝你在台下。","shy"],hy:["演唱會那天的歡呼聲,我一直都記得。","smile"],he:["演唱會的照片我存了好多張,代表要看嗎?","laugh"],hr:["〈{title}〉的安可我是不是破音了?……沒有?太好了!","laugh"]},
  promo:{ys:["這次的宣傳期,我們一定會讓大家看到最好的舞台。","smile"],tr:["打歌期開始了。這次不會輸。","neutral"],hy:["宣傳期開始了……動作我都背熟了,不會出錯的。","smile"],he:["打歌期開始了~我每天都會漂漂亮亮地上台!","laugh"],hr:["宣傳期開跑!我已經準備好每天被拍得很好看了!","laugh"]},
  hook:{ys:["副歌那個「{hook}」,我在宿舍刷牙的時候都在比。","laugh"],tr:["「{hook}」那個動作……我承認,有點洗腦。","smile"],hy:["「{hook}」的角度,我還想再修一下。","neutral"],he:["粉絲好像都在學「{hook}」耶,好開心!","laugh"],hr:["「{hook}」!我連吃飯都忍不住在比!","laugh"]},
- m_worry:{ys:["上次跟你說的煩惱……後來好多了,謝謝你那時候陪我。","smile"],tr:["上次那件事……你說的我有在想。","shy"],hy:["上次您聽我說那些話……我後來好好睡了一覺。","smile"],he:["上次在你面前哭,好丟臉……不過謝謝你。","shy"],hr:["上次代表說的話,我抄在手機備忘錄裡了!","laugh"]},
+ hook_lead:{ys:["「{hook}」我領的那一下,手一直在抖……不過有對上。","laugh"],tr:["「{hook}」的領舞……鏡頭推過來的時候,我忍住沒眨眼。","smile"],hy:["領「{hook}」的時候,我想讓手指也在跳舞。","smile"],he:["大家都在學「{hook}」耶!我領舞的那一下,有好看嗎?","laugh"],hr:["「{hook}」我領!鏡頭一推過來,咻——我就笑出來了!","laugh"]},
+  m_worry:{ys:["上次跟你說的煩惱……後來好多了,謝謝你那時候陪我。","smile"],tr:["上次那件事……你說的我有在想。","shy"],hy:["上次您聽我說那些話……我後來好好睡了一覺。","smile"],he:["上次在你面前哭,好丟臉……不過謝謝你。","shy"],hr:["上次代表說的話,我抄在手機備忘錄裡了!","laugh"]},
  m_request:{ys:["上次你答應我的事,我可還記得喔。","smile"],tr:["上次說好的,別忘了。","neutral"],hy:["上次拜託您的事……真的很謝謝您。","smile"],he:["上次的約定~代表沒有忘記吧?","laugh"],hr:["上次代表答應我的!要算數喔!","laugh"]},
  m_practice:{ys:["上次你陪我練的那段,我今天終於跳順了。","laugh"],tr:["上次你說我那個動作太急……我改了。","smile"],hy:["上次您給的建議,我今天試了,感覺好多了。","smile"],he:["上次你說我轉圈很漂亮,我今天又多練了十次!","laugh"],hr:["上次代表陪我練的高音,今天一次就上去了!","laugh"]},
  m_chat:{ys:["上次跟你聊完之後,心情一直很好。","smile"],tr:["……上次聊得還不錯。","smile"],hy:["上次和您聊天,很開心。","shy"],he:["上次聊的那個,我後來又想到好多想跟你說的~","laugh"],hr:["上次聊到一半就被叫走了,今天要聊個夠!","laugh"]},
@@ -71,7 +72,7 @@ window.lifeOpener=(id,sn)=>{ try{
     if(e.k==="win"){ use(id,key); return pick(line("win",id)) }
     if(e.k==="concert"){ use(id,key); return pick(line("concert",id,{title:e.d?.title||"演唱會"})) }
     if(e.k==="promo"){ use(id,key); return pick(line("promo",id)) } }
-  const hk=window.songSummary?.()?.title?.dance; if(hk?.has&&hk.hookName&&window.promoActive?.()&&!used(id,"hook"+hk.hookName)&&r01(id+"hk")<.35){ use(id,"hook"+hk.hookName); return pick(line("hook",id,{hook:hk.hookName})) }
+  const hk=window.songSummary?.()?.title?.dance; if(hk?.has&&hk.hookName&&window.promoActive?.()&&!used(id,"hook"+hk.hookName)&&r01(id+"hk")<.35){ use(id,"hook"+hk.hookName); return pick(line(hk.kp?.lead===id?"hook_lead":"hook",id,{hook:hk.hookName})) }   /* 2.0 第 3 包:KEY POINT 的領舞有自己的台詞 */
   // ② 回憶
   const mem=(lf.mem[id]||[]).find(x=>!x.u&&S.day-x.day>=2&&S.day-x.day<=10);
   if(mem&&r01(id+"m")<.3){ mem.u=1; return pick(line(MEMK(mem.ty),id)) }
