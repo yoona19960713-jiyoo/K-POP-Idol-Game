@@ -1098,6 +1098,7 @@ function titleReady(){
     ()=>window.closePhoto?.(),
     ()=>{const d=[...document.querySelectorAll("dialog[open]")].pop(); if(d){d.close(); return true}},
     ()=>window.meetBack?.(),   // 互動面板
+    ()=>window.choreoBack?.(),   // 練習室:排舞模式、匯入編舞(2026-11-01)
     ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
     ()=>{const d=document.querySelector("#facDetail"); if(d&&!d.classList.contains("hide")){(d.querySelector("#dClose")||d).click(); d.classList.add("hide"); return true}},
     ()=>{const p=document.querySelector("#phone"); if(p&&p.classList.contains("on")){document.querySelector("#pHome")?.click(); return true}},
