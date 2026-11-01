@@ -1776,6 +1776,27 @@ button:not(:disabled):not(.room):not(.blk):active,[role=button]:active{scale:.96
 .c2lane.multi .c2cue{padding:0 3px;border-radius:4px}
 .c2lane.multi .c2cue b{font-size:9px;line-height:1.1}
 .c2kfl.r{transform:translate(-100%,-50%);margin-left:-8px}
+/* ===== 逐句對拍(2026-11-01,choreo.js 的 tapRender)===== */
+.c2tap{z-index:86;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;padding:6px 8px 7px;color:#F6EEDF;
+  background:radial-gradient(90% 70% at 50% 45%,rgba(120,40,70,.35),transparent 70%),linear-gradient(180deg,#140C14,#0B0710)}
+.c2tap .tp-top{display:flex;align-items:center;gap:6px;min-height:32px}
+.c2tap .tp-top small{display:block;font-size:9.5px;letter-spacing:.14em;color:#D9B878}
+.c2tap .tp-top b{font:700 14px/1.2 var(--serif);color:#FFF4DE;letter-spacing:.05em}
+.c2tap .tp-sp{flex:1}.c2tap .tp-n{font:600 11px var(--num);color:#E8D6B0;white-space:nowrap}
+.c2tap .tp-hit{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:0;padding:8px 14px;border-radius:12px;
+  border:1px solid rgba(232,196,112,.55);background:linear-gradient(180deg,rgba(255,240,210,.06),rgba(255,240,210,.02));color:inherit;font:inherit;cursor:pointer;touch-action:manipulation;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 6px 18px rgba(0,0,0,.4)}
+.c2tap .tp-hit:not(:disabled):active{background:rgba(232,196,112,.22);transform:scale(.995)}
+.c2tap .tp-hit:disabled{opacity:.75;cursor:default}
+.c2tap .tp-prev{position:absolute;top:7px;left:12px;right:12px;font-size:10px;color:#BFA982;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.c2tap .tp-who{font-size:11px;color:#FFB4BE;letter-spacing:.06em}
+.c2tap .tp-zh{font:600 18px/1.35 var(--serif);color:#FFF6E6;text-align:center;max-width:100%}
+.c2tap .tp-ko{font-size:11px;color:#D8C6A6;text-align:center}
+.c2tap .tp-cta{margin-top:4px;font-size:10.5px;color:#E8C470;letter-spacing:.08em}
+.c2tap .tp-ctl{display:flex;align-items:center;gap:6px}
+.c2tap .tp-t{margin-left:auto;font:600 11px var(--num);color:#E8D6B0}
+.c2tap .c2btn:disabled{opacity:.4}
+.c2tap .tp-next{position:absolute;bottom:7px;left:12px;right:12px;font-size:10px;color:#9F8C70;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ===== 真人化第三批(life.js,2026-10-27):成員之間的小對話泡泡 ===== */
 .lbub{position:absolute;z-index:6;transform:translate(-50%,-100%);max-width:46%;padding:6px 10px;border-radius:12px;border:1.5px solid var(--c);background:rgba(255,253,248,.96);color:#3A2A1C;font:600 max(calc(.85*var(--u)),11px)/1.3 var(--sans);white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.25);animation:lbubIn .35s ease-out;cursor:pointer}
 .lbub::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;background:inherit;border-right:1.5px solid var(--c);border-bottom:1.5px solid var(--c);transform:translateX(-50%) rotate(45deg)}

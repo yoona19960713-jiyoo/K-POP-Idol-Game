@@ -492,7 +492,7 @@ function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,vchg=0,inst=0; con
     if(x.instSec!=null&&isFinite(+x.instSec)){ const v=Math.max(0,Math.min(40,half(+x.instSec))); if(v!==instOf(s)){ s.inst=v; inst++ } }   // 2026-10-31:伴奏秒數(音樂生成對話規劃時給)
     if(!Array.isArray(x.lines)&&!x.ko&&!x.zh) return;
     const lines=Array.isArray(x.lines)?x.lines:Array.from({length:Math.max(x.ko?.length||0,x.zh?.length||0)},(_,i)=>({ko:x.ko?.[i],zh:x.zh?.[i]}));
-    if(lines.length&&lines.some(y=>y&&y.who!=null)){ const r=allocSec(s,lines); s.lines=r.L2; alloc++; if(Math.abs(r.after-r.before)>.25) vchg++;
+    if(lines.length&&lines.some(y=>y&&y.who!=null)){ const r=allocSec(s,lines); s.lines=r.L2; alloc++; if(T.sync?.lines) delete T.sync.lines[si];   /* 句子換了,這段的逐句對拍要重點 */ if(Math.abs(r.after-r.before)>.25) vchg++;
       if(s.chorus&&x.center!==undefined) s.c=byId(x.center)?x.center:""; n+=r.L2.length; ko+=r.L2.filter(l=>l.ko).length; zh+=r.L2.filter(l=>l.zh).length; return }
     s.lines.forEach((l,li)=>{ const y=lines[li]; if(!y){ miss++; return } if(y.ko){ l.ko=String(y.ko).trim(); ko++ } if(y.zh){ l.zh=String(y.zh).trim(); zh++ } n++ });
     if(lines.length>s.lines.length) miss+=lines.length-s.lines.length });

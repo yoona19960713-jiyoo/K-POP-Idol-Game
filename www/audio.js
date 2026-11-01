@@ -50,7 +50,7 @@ window.bgm=setScene;
 const ROOM={practice:"practice",studio:"recording",office:"office",styling:"wardrobe",living:"dorm",kitchen:"dorm",bedroom:"dorm",out:"outside",river:"outside",store:"outside"};
 function resolve(){ const on=s=>{ const e=document.querySelector(s); return !!(e&&e.offsetParent!==null) };
   if(document.querySelector("#exitv")) return "exit";
-  if(document.querySelector("#spv,.mvv,.mvp,.c2ed.songplay")) return "song";   // 2026-11-01:舞台預覽、動態 MV、排舞模式在播歌,背景音樂淡出   // 離開遊戲的動畫:音樂淡出(沒有這個場景的曲目)
+  if(document.querySelector("#spv,.mvv,.mvp,.c2ed.songplay,#c2tap")) return "song";   // 2026-11-01:舞台預覽、動態 MV、排舞模式在播歌,背景音樂淡出   // 離開遊戲的動畫:音樂淡出(沒有這個場景的曲目)
   if(document.querySelector("#title:not(.out):not(.leaving)")) return "title";
   if(document.querySelector("#cnView")) return "concert";
   if(document.querySelector("#cgView")) return "memory";

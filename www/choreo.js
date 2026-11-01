@@ -223,7 +223,7 @@ function exportChoreo(T){ const A=API(), sh=A.sheetOf(T), SI=secInfo(T), bs=beat
     bpm:bpmOf(T)||null,lengthSec:Math.round(SI.reduce((x,s)=>x+s.dur,0)),
     note:"給編舞室對話:sections 是段落(名稱與順序不能改)、每段秒數與拍數、逐句分配;current 是練習室目前的編舞(ver 1 格式);members 的 dance、expr 是現在的舞蹈實力與表現力;prof 是熟練度。回傳 ver 1 的完整編舞 JSON,在 4F 練習室「匯入編舞」貼上。",
     sections:SI.map((si,i)=>({name:si.n,chorus:si.chorus,sec:+si.dur.toFixed(2),beats:bpmOf(T)?+si.beats.toFixed(1):null,bar:T.sync?.bars?.[i]??null,instSec:sh.sections[i]?.instSec,center:sh.sections[i]?.center||null,
-      lines:sh.sections[i]?.lines.map(l=>({who:l.who,type:l.type,sec:l.sec,killing:l.killing,zh:l.zh}))||[]})),
+      lines:sh.sections[i]?.lines.map((l,li)=>({who:l.who,type:l.type,sec:l.sec,killing:l.killing,zh:l.zh,...(T.sync?.lines?.[i]?.[li]!=null?{count:cntTxt(T.sync.lines[i][li])}:{})}))||[]})),
     members:sh.members.map(m=>({id:m.id,name:m.name,dance:m.dance,expr:m.expr})),current:T.dance?toJSON(T):null,prof:T.dance?.prof||null,
     evaluation:(()=>{ const e=evalDance(T); return e.has?{score:Math.round(e.score),fit:Math.round(e.fit),concept:Math.round(e.concept),hook:Math.round(e.hook),form:Math.round(e.form),fair:Math.round(e.fair),exec:Math.round(e.exec),notes:e.notes.map(n=>n[1])}:null })()};
   const txt=JSON.stringify(o,null,1), d=new Date(), pad=n=>String(n).padStart(2,"0"), name=`完美女團_編舞單_${(T.name||"未命名").replace(/[\\/:*?"<>|]/g,"")}_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
@@ -268,10 +268,10 @@ function trialUI(T,o,rerender){ const r=fromJSON(T,o), e0=T.dance?evalDance(T):n
   $("#chCancel").onclick=()=>box.remove();
   $("#chOk").onclick=()=>{ if(T.dance) T.danceBak={dance:JSON.parse(JSON.stringify(T.dance)),bpm:T.bpm||null,sync:T.sync?JSON.parse(JSON.stringify(T.sync)):null,at:Date.now()};
     const prof=Object.fromEntries(IDS.map(i=>[i,Math.floor((+T.dance?.prof?.[i]||0)*(1-.6*frac))]));
-    T.dance=r.D; T.dance.prof=prof; if(r.bpm) T.bpm=r.bpm; if(r.sync) T.sync=r.sync; box.remove(); SEL=0; PICK=null; commit(T,false,rerender);
+    T.dance=r.D; T.dance.prof=prof; if(r.bpm) T.bpm=r.bpm; if(r.sync) T.sync={...r.sync,...(T.sync?.lines?{lines:T.sync.lines}:{})}; box.remove(); SEL=0; PICK=null; commit(T,false,rerender);
     toast2(`已匯入編舞:${Math.round(e1.score)} 分${r.needs.length?`;編舞室對話提了 ${r.needs.length} 個需求,請轉給大腦`:""}`) } }
 function restoreChoreo(T,rerender){ const B=T.danceBak; if(!B||!confirm("把這首的編舞還原成匯入前的樣子?")) return; T.dance=B.dance; T.bpm=B.bpm||undefined; T.sync=B.sync||undefined; delete T.danceBak; SEL=0; commit(T,false,rerender); toast2("已還原匯入前的編舞") }
-window.choreoImportJSON=(T,o)=>fromJSON(T,o); window.choreoToJSON=T=>toJSON(T);   // 測試與之後的排舞模式用
+window.choreoTapState=()=>TAP; window.choreoImportJSON=(T,o)=>fromJSON(T,o); window.choreoToJSON=T=>toJSON(T);   // 測試與之後的排舞模式用
 /* ---------- 熟練度:練習(花行動)、待在練習室自己練、打歌後進步 ---------- */
 const titleT=()=>{ const R=API()?.R; return R?R.tracks.find(t=>t.id===R.title):null };
 function gain(D,id,base){ const g=Math.max(1,Math.round(base*(1-D.prof[id]/110))); D.prof[id]=Math.min(100,D.prof[id]+g); return g }
@@ -287,10 +287,10 @@ function practice(T){ const D=getD(T), e=evalDance(T); S.lastPrac=S.day; let tot
 let SEL=0, PICK=null, PREV=null;
 function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
   const tapes=`<div class="cr-tapes">${R.tracks.map((x,i)=>`<button class="cr-tape${x.id===T.id?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?"・主打":""}</button>`).join("")}<span class="cr-info">${esc(A.GENRES[T.g?.[0]]?.n||"")}・${esc(T.mood||"")}</span><label class="cr-bpm">BPM<input id="dBpm" type="number" inputmode="decimal" min="50" max="240" step="0.01" value="${bpmOf(T)||""}" placeholder="—"></label><button class="cr-tape" data-goroom="recording">← 錄音室</button></div>
-  <div class="cr-io"><button class="cr-tape" id="dExp">匯出編舞單</button><button class="cr-tape" id="dImp">匯入編舞</button>${T.danceBak?`<button class="cr-tape" id="dUndo">還原匯入前</button>`:""}${T.sync?`<span class="cr-sync">已對拍 ${Object.keys(T.sync.bars||{}).length} 段</span>`:""}</div>`;
+  <div class="cr-io"><button class="cr-tape" id="dExp">匯出編舞單</button><button class="cr-tape" id="dImp">匯入編舞</button>${T.danceBak?`<button class="cr-tape" id="dUndo">還原匯入前</button>`:""}${window.songHasAudio?.(T)?`<button class="cr-tape" id="dTap">逐句對拍</button>`:""}${T.sync?`<span class="cr-sync">已對拍 ${Object.keys(T.sync.bars||{}).length} 段${T.sync.lines?`・${Object.values(T.sync.lines).reduce((x,a)=>x+a.filter(v=>v!=null).length,0)} 句`:""}</span>`:""}</div>`;
   const bindTapes=()=>{ body.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{ stopPrev(); R.cur=b.dataset.tk; SEL=0; PICK=null; A.save(false); rerender() });
     body.querySelectorAll("[data-goroom]").forEach(b=>b.onclick=()=>{ stopPrev(); A.open(b.dataset.goroom) });
-    $("#dExp").onclick=()=>exportChoreo(T); $("#dImp").onclick=()=>{ stopPrev(); importChoreoUI(T,rerender) }; $("#dUndo")&&($("#dUndo").onclick=()=>restoreChoreo(T,rerender));
+    $("#dTap")&&($("#dTap").onclick=()=>{ stopPrev(); tapOpen(T,rerender) }); $("#dExp").onclick=()=>exportChoreo(T); $("#dImp").onclick=()=>{ stopPrev(); importChoreoUI(T,rerender) }; $("#dUndo")&&($("#dUndo").onclick=()=>restoreChoreo(T,rerender));
     $("#dBpm").onchange=ev=>{ const v=+ev.target.value; if(v&&(v<50||v>240)){ toast2("BPM 要在 50~240 之間"); ev.target.value=bpmOf(T)||""; return } T.bpm=v?Math.round(v*100)/100:undefined; A.save(); rerender() } };
   if(!T.dance){ body.innerHTML=`${tapes}<div class="cr-card cr-start"><h4>《${esc(T.name||"未命名")}》還沒有編舞</h4>
       <p>依錄音室的段落,一段一段決定隊形、動作和焦點成員。主打的編舞會影響打歌舞台、短影音挑戰和音源反應;還沒編之前,用公司的預設編舞(普通)。</p>
@@ -371,8 +371,8 @@ function edOpen(T,si,rerender){ stopPrev(); if(ED) edClose(); const el=document.
   $("#songFac").appendChild(el); ED={T,si,el,rr:rerender,sel:null,ph:0,snap:1,undo:[],dirty:false,pick:false}; edRender() }
 window.choreoEditorOpen=(si)=>{ const T=API().cur(); if(!T?.dance) return; edOpen(T,si??SEL,()=>API().render()) };
 /* 這段裡每一句歌詞的位置(拍):照錄音室的秒數,有對拍時依 mp3 的長度等比例縮放 */
-function edLines(T,si){ const sec=T.secs[si.i], A=API(), raw=sec.lines.reduce((x,l)=>x+(+l.s||0),0)+A.instOf(sec), k=raw>0?si.dur/raw:1, bs=beatSec(T); let t=0;
-  return sec.lines.map(l=>{ const a=t; t+=(+l.s||0); return {b:a*k/bs,len:(+l.s||0)*k/bs,who:l.who||[],k:!!l.k} }) }
+function edLines(T,si){ const L=window.songTimeline(T), sec=L.secs[si.i], bs=beatSec(T);
+  return L.ev.filter(e=>e.si===si.i).map(e=>({b:(e.t0-sec.t0)/bs,len:(e.t1-e.t0)/bs,who:e.who,k:e.k})) }
 function edRows(C){ const rows=[]; return C.map(c=>{ let r=rows.findIndex(e=>e<=c.b+1e-6); if(r<0){ r=rows.length; rows.push(0) } rows[r]=c.b+c.len; return Math.min(r,2) }) }
 function edRender(){ if(!ED) return; const {T,SI,si,s,nb,D}=edSec(), e=evalDance(T), bs=beatSec(T), C=cuesOf(s,nb), F=formsOf(s), P=b=>cl(b/nb*100,0,100);
   const kp=e.kp, isKP=c=>kp&&(kp.sec===ED.si||si.chorus)&&Math.abs(c.b-kp.b)<.01;
@@ -484,8 +484,40 @@ window.songTimeline=T=>{ const A=API(), ev=[], secs=[], SB=T.sync?.bars, bs=beat
       ev.push({si,li,t0:a,t1:a+d,who:l.who||[],zh:l.zh||"",ko:l.ko||"",type:l.t,k:!!l.k}); u=a+d });
     secs.push({si,t0,t1,n:s.n,chorus:!!s.chorus,lines:s.lines.length}); t=t1 });
   return {ev,secs,total:Math.max(1,t)} };
+/* ---------- 逐句對拍(2.0 第 2 包後半,2026-11-01):放歌,每一句開始唱時點一下;存成 T.sync.lines[段][句] = 這句在段落裡第幾拍(對齊到半拍) ---------- */
+let TAP=null; const TAP_LAT=.06;   // 人點下去通常晚一點點
+function tapOpen(T,rerender){ if(!window.songHasAudio?.(T)){ toast2("這首還沒有音檔"); return } const L=window.songTimeline(T), list=L.ev.filter(e=>e.who.length||e.zh);
+  if(!list.length){ toast2("這首還沒有歌詞"); return }
+  const el=document.createElement("div"); el.className="c2 c2tap"; el.id="c2tap"; $("#songFac").appendChild(el);
+  TAP={T,L,list,i:0,taps:{},el,au:null,rr:rerender,paused:false};
+  window.songAudioURL(T).then(u=>{ if(!TAP||TAP.el!==el) return; const au=new Audio(); au.preload="auto"; au.src=u; TAP.au=au; au.ontimeupdate=()=>tapTime(); au.onended=()=>tapRender(); tapRender() });
+  tapRender() }
+function tapClose(save){ if(!TAP) return; const {T,L,list,taps,el,au,rr}=TAP; au?.pause(); TAP=null; el.remove();
+  if(save&&Object.keys(taps).length){ const bs=beatSec(T); T.sync=T.sync||{downbeat:0,bars:{}}; T.sync.lines=T.sync.lines||{}; let n=0;
+    list.forEach(e=>{ const t=taps[e.si+":"+e.li]; if(t==null) return; const b=Math.max(0,Math.round((t-L.secs[e.si].t0)/bs*2)/2); (T.sync.lines[e.si]=T.sync.lines[e.si]||[])[e.li]=b; n++ });
+    API().save(); toast2(`已存逐句對拍:${n} 句`) }
+  rr?.() }
+function tapTime(){ const x=TAP?.el.querySelector("#tapT"); if(x&&TAP.au) x.textContent=`${API().fmt(TAP.au.currentTime)} / ${API().fmt(TAP.L.total)}` }
+function tapSeek(t){ const au=TAP?.au; if(!au) return; t=Math.max(0,t); if(au.readyState>=1) au.currentTime=t; else au.addEventListener("loadedmetadata",()=>{ au.currentTime=t },{once:true}) }
+function tapRender(){ if(!TAP) return; const {T,L,list,i,taps,el,au}=TAP, e=list[i], prev=list[i-1], nm=id=>byId(id)?.n||id, sec=e?L.secs[e.si]:null;
+  const who=x=>x.who.length>=5?"全員":x.who.map(nm).join("、"), done=Object.keys(taps).length, started=au&&!au.paused;
+  el.innerHTML=`<div class="tp-top"><div><small>逐句對拍・${esc(T.name||"未命名")}</small><b>${e?esc(sec.n):"全部點完了"}</b></div><span class="tp-sp"></span><span class="tp-n">${Math.min(i+1,list.length)} / ${list.length} 句</span>
+      <button class="c2btn" data-tp="close">取消</button><button class="c2btn pri" data-tp="save"${done?"":" disabled"}>儲存(${done} 句)</button></div>
+    <button class="tp-hit" data-tp="tap"${e&&started?"":" disabled"}>
+      ${prev?`<span class="tp-prev">✓ ${esc(who(prev))}:${esc(prev.zh||"♪")}</span>`:""}
+      ${e?`<span class="tp-who">${esc(who(e))}${e.k?"・killing part":""}</span><span class="tp-zh">${esc(e.zh||"(這句還沒寫歌詞)")}</span><span class="tp-ko">${esc(e.ko||"")}</span>
+        <span class="tp-cta">${started?"這句一開始唱,就點這裡":au?"按下面的「▶ 開始」":"音檔載入中…"}</span>${list[i+1]?`<span class="tp-next">下一句 ${esc(who(list[i+1]))}:${esc(list[i+1].zh||"♪")}</span>`:""}`:`<span class="tp-zh">按「儲存」</span>`}</button>
+    <div class="tp-ctl"><button class="c2btn pri" data-tp="play">${started?"❚❚ 暫停":i?"▶ 繼續":"▶ 開始"}</button><button class="c2btn" data-tp="back"${i?"":" disabled"}>◀ 退一句</button><button class="c2btn" data-tp="sec"${e?"":" disabled"}>這段重點</button><span id="tapT" class="tp-t"></span></div>`;
+  el.querySelectorAll("[data-tp]").forEach(b=>b.onclick=()=>tapAct(b.dataset.tp)); tapTime() }
+function tapAct(k){ const P=TAP; if(!P) return; const {L,list,au}=P;
+  if(k==="close"){ if(Object.keys(P.taps).length&&!confirm("點好的還沒儲存,要放棄嗎?")) return; tapClose(false); return }
+  if(k==="save"){ tapClose(true); return }
+  if(k==="play"){ if(!au) return; if(au.paused){ if(!P.i) tapSeek(0); au.play().catch(()=>{}) } else au.pause(); setTimeout(tapRender,30); return }
+  if(k==="tap"){ const e=list[P.i]; if(!e||!au||au.paused) return; P.taps[e.si+":"+e.li]=Math.max(0,au.currentTime-TAP_LAT); P.i++; tapRender(); return }
+  if(k==="back"){ P.i=Math.max(0,P.i-1); const e=list[P.i]; delete P.taps[e.si+":"+e.li]; const pv=list[P.i-1]; tapSeek((pv?P.taps[pv.si+":"+pv.li]??L.secs[e.si].t0:L.secs[e.si].t0)-1.5); tapRender(); return }
+  if(k==="sec"){ if(!au) return; const e=list[P.i], f=list.findIndex(x=>x.si===e.si); list.forEach((x,z)=>{ if(x.si===e.si) delete P.taps[x.si+":"+x.li] }); P.i=f; tapSeek(L.secs[e.si].t0-1); if(au.paused) au.play().catch(()=>{}); setTimeout(tapRender,30) } }
 /* Android 返回鍵:試算視窗 → 匯入視窗 → 換動作清單 → 排舞模式 */
-window.choreoBack=()=>{ const t=document.querySelector("#chTrial"); if(t){ t.remove(); return true } const m=document.querySelector("#songFac .sfmodal #chTxt"); if(m){ m.closest(".sfmodal").remove(); return true }
+window.choreoBack=()=>{ if(TAP){ tapAct("close"); return true } const t=document.querySelector("#chTrial"); if(t){ t.remove(); return true } const m=document.querySelector("#songFac .sfmodal #chTxt"); if(m){ m.closest(".sfmodal").remove(); return true }
   if(ED){ if(ED.pick){ ED.pick=false; edRender() } else edClose(); return true } return false };
 window.choreoRender=(body,rerender)=>render(body,rerender);
 })();
