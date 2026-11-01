@@ -197,7 +197,7 @@ function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); if(fillPhotos()) 
 
 /* ---------- 設定 ---------- */
 function settings(){ const p=ph();
-  return head("設定")+`<div class="pscroll"><h4>桌布</h4><div class="pwalls">${Object.entries({title:"完美女團",group:"緋紅搖籃曲",styling:"造型室的傍晚",night:"夜晚的街區",...(HAS_PORTRAIT?{portrait:"直式合照"}:{})}).map(([k,n])=>`<button class="pwal${curWall()===k?" on":""}" data-wall="${k}">${wallHTML(k)}<small>${n}</small></button>`).join("")}</div>
+  return head("設定")+`<div class="pscroll"><h4>桌布</h4><div class="pwalls">${Object.entries({title:"完美女團",group:"紅黑舞台",styling:"造型室的傍晚",night:"夜晚的街區",...(HAS_PORTRAIT?{portrait:"直式合照"}:{})}).map(([k,n])=>`<button class="pwal${curWall()===k?" on":""}" data-wall="${k}">${wallHTML(k)}<small>${n}</small></button>`).join("")}</div>
     <h4>關於</h4><div class="pnote"><b>完美女團 ・ 公司配發手機</b><p>訊息、群組與社群的內容來自製作者模式的片段;內容越多,手機越熱鬧。</p></div></div>`}
 
 function bind(B){

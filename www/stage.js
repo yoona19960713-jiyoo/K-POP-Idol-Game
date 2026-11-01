@@ -13,7 +13,7 @@ const M=[
   {id:"hr",n:"河嵐",c:"#7FAF2C",vocal:74,dance:55,expr:55},
 ];
 const byId=id=>M.find(m=>m.id===id);
-let SONG={name:"Crimson Lullaby",score:82,killer:"hy",center:"he",target:{sweet:2,pure:0,lively:1,fancy:-2,retro:0},highLines:{hr:2,ys:1}};
+let SONG={name:"出道曲",score:82,killer:"hy",center:"he",target:{sweet:2,pure:0,lively:1,fancy:-2,retro:0},highLines:{hr:2,ys:1}};
 const AX=["sweet","pure","lively","fancy","retro"];
 let LOOKS=[
   {id:"L1",n:"緋紅童話",g:1,occ:"打歌舞台",r:"SR",a:{sweet:2,pure:0,lively:1,fancy:-2,retro:-1}},

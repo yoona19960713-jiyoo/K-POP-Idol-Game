@@ -110,9 +110,9 @@ const vocalTracks=()=>R.tracks.filter(x=>!x.inst);
 /* 狀態(由外層載入) */
 let R=null;
 function fresh(){
-  const a=newTrack("Crimson Lullaby","girlcrush"); a.g=["girlcrush","orchestral",""]; a.mood="神祕"; a.prod="light"; a.choreo=4;
-  const b=newTrack("Paper Moon","citypop"); b.g=["citypop","synthpop",""]; b.mood="療癒"; b.prod="dawn"; b.choreo=2;
-  return {name:"NOCTURNE",type:"single",year:2016,month:10,tracks:[a,b],title:a.id,cur:a.id,shareMode:"song"};
+  /* 2026-11-01:原本的 Crimson Lullaby、Paper Moon 是早期測試用的歌,拿掉(使用者:忘記這首)。沒有存檔時只放一首空白的歌(出道單曲 NOCTURNE 的曲風設定) */
+  const a=newTrack("","poprock"); a.g=["poprock","edmpop",""]; a.mood="神祕"; a.prod="light"; a.choreo=4;
+  return {name:"NOCTURNE",type:"single",year:2016,month:10,tracks:[a],title:a.id,cur:a.id,shareMode:"song"};
 }
 const cur=()=>R.tracks.find(t=>t.id===R.cur)||R.tracks[0];
 /* 計算 */
