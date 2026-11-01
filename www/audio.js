@@ -4,6 +4,7 @@
    - 背景音樂依「目前畫面」自動切換:標題、地圖(白天/夜晚)、各設施、拜訪地點、事件、回憶(CG)、演唱會
      換場景時 1.5 秒淡入淡出;同一個場景有好幾首時輪流放、不連續重複同一首
    - 語音播放時音樂自動壓低(之後的角色語音用);音效每次播放音高隨機 ±4%,不會像機關槍
+   - 地圖的場景:清晨 dawn、白天與傍晚 map_day、晚上與深夜 map_night(清晨沒有曲子時用 map_night)
    - 曲目清單:assets/bgm/list.json({"場景代號":["檔名.m4a",…]});沒有清單就安靜,不影響遊戲
    ===================================================================== */
 (()=>{
@@ -26,12 +27,14 @@ window.audioCtx=()=>{ try{ ctx(); return {ctx:AC,sfx:bus.sfx} }catch(e){ return 
 const P=[0,1].map(()=>{ const a=new Audio(); a.preload="auto"; return {a,g:null} });
 let cur=0, curTrack="";
 function wire(p){ if(p.g) return; const s=AC.createMediaElementSource(p.a); p.g=AC.createGain(); p.g.gain.value=0; s.connect(p.g); p.g.connect(bus.duck);
-  p.a.onended=()=>{ if(P[cur]===p) nextTrack() } }
-const FALL={practice:"map_day",recording:"practice",office:"map_day",wardrobe:"office",stage:"event",dorm:"map_night",outside:"map_day",event:"map_day",memory:"dorm",concert:"event",title:"map_day",map_night:"map_day",map_day:"title"};
+  p.a.onended=()=>{ if(P[cur]===p) nextTrack() };
+  /* 2026-11-01:曲子快結束時(淡入淡出的長度之前)就交叉淡入下一首;只有一首時就接回自己的開頭,不會有空白 */
+  p.a.ontimeupdate=()=>{ const d=p.a.duration; if(P[cur]!==p||!curTrack||!isFinite(d)||d<FADE*4||p.xf) return; if(p.a.currentTime>d-FADE-.3){ p.xf=1; nextTrack() } } }
+const FALL={dawn:"map_night",practice:"map_day",recording:"practice",office:"map_day",wardrobe:"office",stage:"event",dorm:"map_night",outside:"map_day",event:"map_day",memory:"dorm",concert:"event",title:"map_day",map_night:"map_day",map_day:"title"};
 function pool(k){ const seen=new Set(); while(k&&!seen.has(k)){ seen.add(k); const L=LIST?.[k]; if(L?.length) return L; k=FALL[k] } return [] }
 function pick(L){ const c=L.filter(f=>f!==curTrack); return (c.length?c:L)[Math.floor(Math.random()*(c.length?c.length:L.length))] }
 function play(file){ ctx(); const nx=P[1-cur], old=P[cur]; wire(nx); wire(old);
-  nx.a.src="assets/bgm/"+file; nx.a.currentTime=0; nx.a.play().catch(()=>{});
+  nx.xf=0; nx.a.src="assets/bgm/"+file; nx.a.currentTime=0; nx.a.play().catch(()=>{});
   const t=AC.currentTime; nx.g.gain.cancelScheduledValues(t); nx.g.gain.setValueAtTime(0,t); nx.g.gain.linearRampToValueAtTime(1,t+FADE);
   old.g.gain.cancelScheduledValues(t); old.g.gain.setValueAtTime(old.g.gain.value,t); old.g.gain.linearRampToValueAtTime(0,t+FADE);
   setTimeout(()=>{ if(P[cur]!==old) old.a.pause() },FADE*1000+150); cur=1-cur; curTrack=file }
@@ -56,7 +59,7 @@ function resolve(){ const on=s=>{ const e=document.querySelector(s); return !!(e
   if(document.querySelector("#stageFac:not(.hide)")) return "stage";
   const v=typeof V!=="undefined"?V:null;   // game.js 的全域變數(不在 window 上)
   if(document.querySelector("#visit.on")) return ROOM[v?.room]||(String(v?.room||"").startsWith("bed")?"dorm":"map_day");
-  const light=typeof SLOTS!=="undefined"&&typeof S!=="undefined"?SLOTS[S.slot]?.light:"day"; return light==="night"||light==="dawn"?"map_night":"map_day" }
+  const light=typeof SLOTS!=="undefined"&&typeof S!=="undefined"?SLOTS[S.slot]?.light:"day"; return light==="dawn"?"dawn":light==="night"?"map_night":"map_day" }   // 2026-11-01:清晨有自己的曲子(dawn),沒有就用晚上的
 every(1000,()=>{ try{ setScene(resolve()) }catch(e){window.logErr?.("audio",e)} });
 /* 第一次觸碰才能出聲(瀏覽器與 Android 的自動播放限制) */
 const unlock=()=>{ if(unlocked) return; unlocked=true; try{ ctx(); AC.resume?.() }catch(e){window.logErr?.("audio",e)} const k=curScene; curScene=""; if(k) setScene(k) };
