@@ -84,8 +84,13 @@ function posAt(s,b){ let cur=s.pos||{}; for(const k of formsOf(s)){ if(b>=k.b) {
       IDS.forEach(id=>{ const a=cur[id]||[.5,.5], z=k.pos[id]||a; o[id]=[a[0]+(z[0]-a[0])*r,a[1]+(z[1]-a[1])*r] }); return o } break }
   return cur }
 /* 某一拍每個人在做的動作:同一個人取最近開始的片段(片段結束後沒有新的,就延續) */
-function movesAt(C,b,fallback){ const o={}; IDS.forEach(id=>o[id]=fallback); let foc=null;
-  for(const c of C){ if(c.b>b+1e-6) break; whoIds(c.who).forEach(id=>o[id]=c.mv); if(c.focus!==undefined) foc=c.focus||null } return {o,foc} }
+function movesAt(C,b,fallback){ const o={}, ez={}; IDS.forEach(id=>o[id]=fallback); let foc=null;
+  for(const c of C){ if(c.b>b+1e-6) break; whoIds(c.who).forEach(id=>{ o[id]=c.mv; ez[id]=!!c.easy }); if(c.focus!==undefined) foc=c.focus||null } return {o,foc,ez} }
+/* 簡化版(2.0 第 3 包):同一套動作的簡化版,難度 −1.5、強度 −0.5 */
+const effMv=(m,easy)=>easy?{...m,e:Math.max(1,m.e-.5),d:Math.max(1,m.d-1.5)}:m;
+/* 曲風也算進概念(2.0 第 3 包):節奏強的曲風,力量型的群舞、技巧動作也算合 */
+const DRIVE=new Set(["edmpop","poprock","house","futurebass","girlcrush","trap","drill","njs","disco","moombah"]);
+const conOf=(m,mood,drive)=>m.md.includes(mood)?100:(drive&&m.e>=4&&["群舞","技巧","個人"].includes(m.cat))?85:m.md.length>=6?65:20;
 /* 走位來不及:換隊形時每個人要走的距離 ÷ 走位時間 */
 function walkIssues(T,D,SI){ const bs=beatSec(T), out=[];
   D.secs.forEach((s,i)=>{ let prev=s.pos||{}; for(const k of formsOf(s)){ let worst=null;
@@ -119,11 +124,11 @@ function getD(T){ const D=T?.dance; if(!D||!Array.isArray(D.secs)) return null; 
 /* ---------- 評分(2.0:依時間加權,半拍一格;舊的一段一個動作算出來跟以前一樣) ---------- */
 function evalDance(T){ const D=T?.dance?getD(T):null; if(!D) return {has:false};
   const SI=secInfo(T), mood=T.mood, tot=SI.reduce((x,s)=>x+s.dur,0)||1, focT={}, cenT={}, dT={}, focTot={}; IDS.forEach(i=>{focT[i]=0;cenT[i]=0;dT[i]=0});
-  let fit=0,con=0,eAvg=0,dAvg=0,imp=0; const chE=[],veE=[];
+  let fit=0,con=0,eAvg=0,dAvg=0,imp=0; const chE=[],veE=[], drive=(T.g||[]).some(g=>DRIVE.has(g));
   SI.forEach((si,i)=>{ const s=D.secs[i], nb=Math.max(.5,si.beats), C=cuesOf(s,nb), E=expectE(si,T), k=kindOf(si), step=.5, n=Math.max(1,Math.round(nb/step)), w=si.dur/tot/n;
-    for(let q=0;q<n;q++){ const b=q*step+step/2, {o,foc}=movesAt(C,b,s.mv||"groove"), ms=IDS.map(id=>MV[o[id]]||MV.groove);
+    for(let q=0;q<n;q++){ const b=q*step+step/2, {o,foc,ez}=movesAt(C,b,s.mv||"groove"), ms=IDS.map(id=>effMv(MV[o[id]]||MV.groove,ez[id]));
       const eMax=Math.max(...ms.map(m=>m.e)), eAv=ms.reduce((x,m)=>x+m.e,0)/5, e=eMax*.7+eAv*.3;
-      fit+=w*cl(100-Math.abs(e-E)*22,0,100); con+=w*ms.reduce((x,m)=>x+(m.md.includes(mood)?100:m.md.length>=6?65:20),0)/5;
+      fit+=w*cl(100-Math.abs(e-E)*22,0,100); con+=w*ms.reduce((x,m)=>x+conOf(m,mood,drive),0)/5;
       eAvg+=w*e; const dd=ms.reduce((x,m)=>x+m.d,0)/5; dAvg+=w*dd; imp+=w*(e*.6+dd*.4);
       IDS.forEach((id,z)=>dT[id]+=w*ms[z].d);
       if(k==="chorus"||k==="final") chE.push(e); if(k==="verse") veE.push(e);
@@ -166,14 +171,14 @@ function evalDance(T){ const D=T?.dance?getD(T):null; if(!D) return {has:false};
   if(score>=80) N.push(["g","這份編舞很完整,上打歌會很有看頭。"]); if(hook>=80) N.push(["g","副歌舞步很好記,有機會變成挑戰。"]);
   return {has:true,score,fit,concept:con,hook,form,fair,exec,energy:eAvg,diff:dAvg,impact:cl((imp-1)/4*100,0,100),share,gaps,avgProf,prof:{...D.prof},hookName:named,hookMove:hm?.n||"",notes:N,walks,kp} }
 /* KEY POINT:第一次出現的段落與拍子;每次副歌同一拍有同一個動作就算「每次都有」 */
-function kpOf(T,D,SI){ const k=D.kp; if(!k||!k.name) return null; const i=cl(+k.sec||0,0,SI.length-1), s=D.secs[i], C=cuesOf(s,SI[i].beats);
-  const at=C.filter(c=>c.b<=k.b+1e-6&&(k.lead==="all"||whoIds(c.who).includes(k.lead))).pop()||C[0], mv=at?.mv||s.mv;
-  const every=SI.filter(x=>x.chorus).every(x=>{ const c=cuesOf(D.secs[x.i],x.beats).filter(c=>c.b<=k.b+1e-6).pop(); return c?.mv===mv });
-  return {...k,sec:i,mv,every,len:+k.len||4} }
+function kpOf(T,D,SI){ const k=D.kp; if(!k||!k.name&&k.b==null) return null; const i=cl(+k.sec||0,0,SI.length-1), s=D.secs[i], C=cuesOf(s,SI[i].beats);
+  const pos=kpPos(k), at=C.filter(c=>c.b<=k.b+1e-6&&(k.lead==="all"||!k.lead||whoIds(c.who).includes(k.lead))).pop()||C[0], mv=at?.mv||s.mv;
+  const every=SI.filter(x=>x.chorus).every(x=>{ const CC=cuesOf(D.secs[x.i],x.beats); return pos.every(b=>CC.filter(c=>c.b<=b+1e-6).pop()?.mv===mv) });
+  return {...k,sec:i,mv,every,len:+k.len||4,pos} }
+const kpPos=k=>[k.b,...(Array.isArray(k.also)?k.also.map(a=>a.b):[])].filter(b=>b!=null);
 window.choreoEval=T=>evalDance(T);
 window.choreoSections=T=>{ const D=getD(T); return D?D.secs.map(s=>({move:MV[s.mv]?.n||"",energy:MV[s.mv]?.e||0,focus:s.focus,f:s.f,pos:s.pos})):null };
-window.choreoSummary=T=>{ const e=evalDance(T); return e.has?{has:true,score:e.score,impact:e.impact,diff:e.diff,energy:e.energy,hook:e.hook,hookName:e.hookName||e.hookMove,prof:e.prof}:{has:false} };
-
+window.choreoSummary=T=>{ const e=evalDance(T); return e.has?{has:true,score:e.score,impact:e.impact,diff:e.diff,energy:e.energy,hook:e.hook,hookName:e.hookName||e.hookMove,prof:e.prof,kp:e.kp?{name:e.kp.name||"",lead:e.kp.lead||"all",len:e.kp.len}:null,kpm:(()=>{ const D=getD(T), m=D?.kpm||{}; return Math.round(IDS.reduce((x,i)=>x+(+m[i]||0),0)/5) })()}:{has:false} };
 /* ---------- 2.0 編舞的匯入、匯出(2026-11-01;格式見《編舞室_專用對話說明》第 6 節,ver 1;ver 0 會自動轉) ---------- */
 const MVN=Object.fromEntries(MOVES.map(m=>[m.n,m.id]));
 const mvCode=x=>MV[x]?x:MVN[String(x||"").trim()]||null;
@@ -192,7 +197,7 @@ function fromJSON(T,o){ const bpm=+o.bpm>=50&&+o.bpm<=240?+o.bpm:0;
     if(v0){ const mv=mvCode(x.move)||"groove"; cues=[{b:0,len:nb,mv,who:"all",focus:IDS.includes(x.focus)?x.focus:null}];
       (Array.isArray(x.detail)?x.detail:[]).forEach(d=>{ const b=(+d.at||0)/bs; if(b>0&&b<nb) cues.push({b:Math.round(b*2)/2,len:Math.max(.5,Math.round((+d.dur||2)/bs*2)/2),mv,who:whoIds(d.who).length===5?"all":whoIds(d.who),focus:null,desc:String(d.desc||"").slice(0,60)}) }) }
     else (Array.isArray(x.cues)?x.cues:[]).forEach(c=>{ const mv=mvCode(c.move); if(!mv){ warn.push(`${si.n}:看不懂的動作「${c.move}」`); return } const who=whoIds(c.who);
-      if(!who.length) return; cues.push({b:Math.round(cnt(c.count)*2)/2,len:Math.max(.5,Math.round((+c.beats||8)*2)/2),mv,who:who.length===5?"all":who,focus:IDS.includes(c.focus)?c.focus:null,desc:String(c.desc||"").slice(0,120)}) });
+      if(!who.length) return; cues.push({b:Math.round(cnt(c.count)*2)/2,len:Math.max(.5,Math.round((+c.beats||8)*2)/2),mv,who:who.length===5?"all":who,focus:IDS.includes(c.focus)?c.focus:null,desc:String(c.desc||"").slice(0,120),...(c.easy||c.simple?{easy:true}:{})}) });
     cues=cues.filter(c=>c.b<nb).sort((a,b)=>a.b-b.b); if(!cues.length) cues=[{b:0,len:nb,mv:"groove",who:"all",focus:null}];
     if(cues.some(c=>c.b+c.len>nb+.01)) warn.push(`${si.n}:有片段超過這段的長度(${Math.round(nb)} 拍)`);
     const forms=(Array.isArray(x.forms)?x.forms:[]).map(k=>{ let kf=FM[k.formation]?k.formation:"free", kp2=posObj(k.positions); if(!kp2){ if(kf==="free") return null; kp2=place(kf,orderFor(x.focus||null,pos)) }
@@ -204,7 +209,7 @@ function fromJSON(T,o){ const bpm=+o.bpm>=50&&+o.bpm<=240?+o.bpm:0;
   let kp=null; const K=o.keyPoint; if(K&&K.name){ let ks=SI.findIndex(x=>x.n===K.section); if(ks<0) ks=SI.findIndex(x=>x.chorus);
     kp={name:String(K.name).slice(0,16),nameKo:String(K.nameKo||"").slice(0,24),nameEn:String(K.nameEn||"").slice(0,24),sec:Math.max(0,ks),line:+K.line||1,
       b:K.count!=null?Math.round(cnt(K.count)*2)/2:(K.from!=null?Math.round(+K.from/bs*2)/2:0),len:+K.beats||(K.to!=null&&K.from!=null?Math.round((K.to-K.from)/bs):4),
-      lead:K.lead==="all"||IDS.includes(K.lead)?K.lead:null,steps:(Array.isArray(K.steps)?K.steps:Array.isArray(K.beats)?K.beats:[]).map(x=>String(x).slice(0,40)).slice(0,8),
+      lead:K.lead==="all"||IDS.includes(K.lead)?K.lead:null,also:(Array.isArray(K.also)?K.also:[]).map(a=>({line:+a.line||0,b:Math.round(cnt(a.count)*2)/2})).filter(a=>a.b>0).slice(0,3),steps:(Array.isArray(K.steps)?K.steps:Array.isArray(K.beats)?K.beats:[]).map(x=>String(x).slice(0,100)).slice(0,8),
       why:String(K.why||"").slice(0,120),final:K.final&&typeof K.final==="object"?{sec:SI.findIndex(x=>x.n===K.final.section),lead:K.final.lead||null,change:String(K.final.change||"").slice(0,120)}:(K.finalVariation?{change:String(K.finalVariation).slice(0,120)}:null)} }
   const hl=(Array.isArray(o.highlights)?o.highlights:[]).map(h=>({sec:SI.findIndex(x=>x.n===h.section),b:Math.round(cnt(h.count)*2)/2,len:+h.beats||8,who:whoIds(h.who),desc:String(h.desc||"").slice(0,200)})).filter(h=>h.sec>=0).slice(0,3);
   const D={v:2,secs,kp,hl,concept:String(o.concept||"").slice(0,300),hook:{name:kp?.name||""},prof:{...(T.dance?.prof||Object.fromEntries(IDS.map(i=>[i,0])))},at:Date.now(),src:{ver:v0?0:1,at:Date.now()}};
@@ -213,10 +218,10 @@ function fromJSON(T,o){ const bpm=+o.bpm>=50&&+o.bpm<=240?+o.bpm:0;
 function toJSON(T){ const D=getD(T), SI=secInfo(T); if(!D) return null; const pz=p=>Object.fromEntries(IDS.map(id=>[id,p[id]]));
   return {app:"kpop-choreo",ver:1,code:T.id,title:T.name||"",bpm:bpmOf(T)||null,
     sync:T.sync?{downbeat:T.sync.downbeat,...(T.sync.end?{end:T.sync.end}:{}),sections:SI.map((si,i)=>T.sync.bars[i]!=null?{name:si.n,bar:T.sync.bars[i]}:null).filter(Boolean)}:null,
-    concept:D.concept||"",keyPoint:D.kp?{...D.kp,section:SI[D.kp.sec]?.n,count:cntTxt(D.kp.b),beats:D.kp.len,final:D.kp.final?{...D.kp.final,section:SI[D.kp.final.sec]?.n||null}:null}:null,
+    concept:D.concept||"",keyPoint:D.kp?{...D.kp,section:SI[D.kp.sec]?.n,count:cntTxt(D.kp.b),beats:D.kp.len,also:(D.kp.also||[]).map(a=>({line:a.line,count:cntTxt(a.b)})),final:D.kp.final?{...D.kp.final,section:SI[D.kp.final.sec]?.n||null}:null}:null,
     highlights:(D.hl||[]).map(h=>({section:SI[h.sec]?.n,count:cntTxt(h.b),beats:h.len,who:h.who,desc:h.desc})),
     sections:D.secs.map((s,i)=>({name:SI[i].n,formation:s.f,positions:pz(s.pos),focus:s.focus||null,
-      cues:cuesOf(s,SI[i].beats).map(c=>({count:cntTxt(c.b),beats:c.len,move:c.mv,who:c.who,focus:c.focus??null,desc:c.desc||""})),
+      cues:cuesOf(s,SI[i].beats).map(c=>({count:cntTxt(c.b),beats:c.len,move:c.mv,who:c.who,focus:c.focus??null,desc:c.desc||"",...(c.easy?{easy:true}:{})})),
       forms:formsOf(s).map(k=>({count:cntTxt(k.b),walk:k.walk,formation:k.f,positions:pz(k.pos)})),transition:s.tr||"",note:s.note||""})),needs:[]} }
 function exportChoreo(T){ const A=API(), sh=A.sheetOf(T), SI=secInfo(T), bs=beatSec(T);
   const o={app:"kpop-choreo-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),code:T.id,title:T.name||"",isTitle:A.R.title===T.id,genres:sh.genres,mood:T.mood,
@@ -287,10 +292,10 @@ function practice(T){ const D=getD(T), e=evalDance(T); S.lastPrac=S.day; let tot
 let SEL=0, PICK=null, PREV=null;
 function render(body,rerender){ const A=API(), R=A.R, T=A.cur(), M=A.M;
   const tapes=`<div class="cr-tapes">${R.tracks.map((x,i)=>`<button class="cr-tape${x.id===T.id?" on":""}" data-tk="${x.id}">${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?"・主打":""}</button>`).join("")}<span class="cr-info">${esc(A.GENRES[T.g?.[0]]?.n||"")}・${esc(T.mood||"")}</span><label class="cr-bpm">BPM<input id="dBpm" type="number" inputmode="decimal" min="50" max="240" step="0.01" value="${bpmOf(T)||""}" placeholder="—"></label><button class="cr-tape" data-goroom="recording">← 錄音室</button></div>
-  <div class="cr-io"><button class="cr-tape" id="dExp">匯出編舞單</button><button class="cr-tape" id="dImp">匯入編舞</button>${T.danceBak?`<button class="cr-tape" id="dUndo">還原匯入前</button>`:""}${window.songHasAudio?.(T)?`<button class="cr-tape" id="dTap">逐句對拍</button>`:""}${T.sync?`<span class="cr-sync">已對拍 ${Object.keys(T.sync.bars||{}).length} 段${T.sync.lines?`・${Object.values(T.sync.lines).reduce((x,a)=>x+a.filter(v=>v!=null).length,0)} 句`:""}</span>`:""}</div>`;
+  <div class="cr-io">${T.dance?.kp?`<button class="cr-tape kpb" id="dKP">✦ ${esc(T.dance.kp.name||"KEY POINT")}</button>`:""}<button class="cr-tape" id="dExp">匯出編舞單</button><button class="cr-tape" id="dImp">匯入編舞</button>${T.danceBak?`<button class="cr-tape" id="dUndo">還原匯入前</button>`:""}${window.songHasAudio?.(T)?`<button class="cr-tape" id="dTap">逐句對拍</button>`:""}${T.sync?`<span class="cr-sync">已對拍 ${Object.keys(T.sync.bars||{}).length} 段${T.sync.lines?`・${Object.values(T.sync.lines).reduce((x,a)=>x+a.filter(v=>v!=null).length,0)} 句`:""}</span>`:""}</div>`;
   const bindTapes=()=>{ body.querySelectorAll("[data-tk]").forEach(b=>b.onclick=()=>{ stopPrev(); R.cur=b.dataset.tk; SEL=0; PICK=null; A.save(false); rerender() });
     body.querySelectorAll("[data-goroom]").forEach(b=>b.onclick=()=>{ stopPrev(); A.open(b.dataset.goroom) });
-    $("#dTap")&&($("#dTap").onclick=()=>{ stopPrev(); tapOpen(T,rerender) }); $("#dExp").onclick=()=>exportChoreo(T); $("#dImp").onclick=()=>{ stopPrev(); importChoreoUI(T,rerender) }; $("#dUndo")&&($("#dUndo").onclick=()=>restoreChoreo(T,rerender));
+    $("#dKP")&&($("#dKP").onclick=()=>{ stopPrev(); kpCard(T,rerender) }); $("#dTap")&&($("#dTap").onclick=()=>{ stopPrev(); tapOpen(T,rerender) }); $("#dExp").onclick=()=>exportChoreo(T); $("#dImp").onclick=()=>{ stopPrev(); importChoreoUI(T,rerender) }; $("#dUndo")&&($("#dUndo").onclick=()=>restoreChoreo(T,rerender));
     $("#dBpm").onchange=ev=>{ const v=+ev.target.value; if(v&&(v<50||v>240)){ toast2("BPM 要在 50~240 之間"); ev.target.value=bpmOf(T)||""; return } T.bpm=v?Math.round(v*100)/100:undefined; A.save(); rerender() } };
   if(!T.dance){ body.innerHTML=`${tapes}<div class="cr-card cr-start"><h4>《${esc(T.name||"未命名")}》還沒有編舞</h4>
       <p>依錄音室的段落,一段一段決定隊形、動作和焦點成員。主打的編舞會影響打歌舞台、短影音挑戰和音源反應;還沒編之前,用公司的預設編舞(普通)。</p>
@@ -359,7 +364,7 @@ let ED=null;
 const EDH=[200,30,265,330,20,240,90,0,300,170,45];   // 動作片段的色相(依動作類別)
 const hueOf=mv=>EDH[CATS.indexOf(MV[mv]?.cat)]??30;
 function edSec(){ const T=ED.T, SI=secInfo(T), si=SI[ED.si], s=getD(T).secs[ED.si], nb=Math.max(1,Math.ceil(si.beats*2)/2); return {T,SI,si,s,nb,D:getD(T)} }
-function edMat(s,nb){ if(!Array.isArray(s.cues)||!s.cues.length) s.cues=cuesOf(s,nb).map(c=>({b:c.b,len:c.len,mv:c.mv,who:c.who,focus:c.focus??null})); if(!Array.isArray(s.forms)) s.forms=[] }
+function edMat(s,nb){ if(!Array.isArray(s.cues)||!s.cues.length) s.cues=cuesOf(s,nb).map(c=>({...c,focus:c.focus??null})); if(!Array.isArray(s.forms)) s.forms=[] }
 function edPush(){ const {s}=edSec(); ED.undo.push({si:ED.si,s:JSON.stringify(s),kp:JSON.stringify(getD(ED.T).kp||null)}); if(ED.undo.length>30) ED.undo.shift() }
 function edDone(after){ const {s,nb,D}=edSec(); s.cues.sort((a,b)=>a.b-b.b); s.forms.sort((a,b)=>a.b-b.b); after?.(s);
   const tally={}; s.cues.forEach((c,z)=>{ const end=Math.min(nb,s.cues.slice(z+1).find(d=>d.b>c.b)?.b??nb); tally[c.mv]=(tally[c.mv]||0)+Math.max(.5,end-c.b)*whoIds(c.who).length });
@@ -375,7 +380,7 @@ function edLines(T,si){ const L=window.songTimeline(T), sec=L.secs[si.i], bs=bea
   return L.ev.filter(e=>e.si===si.i).map(e=>({b:(e.t0-sec.t0)/bs,len:(e.t1-e.t0)/bs,who:e.who,k:e.k})) }
 function edRows(C){ const rows=[]; return C.map(c=>{ let r=rows.findIndex(e=>e<=c.b+1e-6); if(r<0){ r=rows.length; rows.push(0) } rows[r]=c.b+c.len; return Math.min(r,2) }) }
 function edRender(){ if(!ED) return; const {T,SI,si,s,nb,D}=edSec(), e=evalDance(T), bs=beatSec(T), C=cuesOf(s,nb), F=formsOf(s), P=b=>cl(b/nb*100,0,100);
-  const kp=e.kp, isKP=c=>kp&&(kp.sec===ED.si||si.chorus)&&Math.abs(c.b-kp.b)<.01;
+  const kp=e.kp, isKP=c=>!!kp&&(kp.sec===ED.si||si.chorus)&&kp.pos.some(b=>Math.abs(c.b-b)<.01);
   const pos=posAt(s,ED.ph), nk=F.find(k=>k.b>ED.ph+1e-6), {o:mvNow}=movesAt(C,ED.ph,s.mv), ws=walkIssues(T,D,SI).filter(w=>w.sec===ED.si);
   const lead=C.filter(c=>c.b<=ED.ph+1e-6).pop(), fNow=lead?.focus||s.focus;
   const dots=IDS.map(id=>{ const p=pos[id]||[.5,.5], m=byId(id); return `<button class="c2dot${fNow===id?" foc":""}" data-ed-dot="${id}" style="--c:${m.c};left:${(6+p[0]*88).toFixed(2)}%;top:${(10+(1-p[1])*80).toFixed(2)}%" aria-label="${m.n}">${m.n[0]}</button>` }).join("");
@@ -394,7 +399,7 @@ function edRender(){ if(!ED) return; const {T,SI,si,s,nb,D}=edSec(), e=evalDance
       <div class="c2r"><label>動作</label><button class="c2sel" data-ed="pick"><b>${esc(m.n)}</b><i>強 ${m.e}・難 ${m.d}${m.hook?"・記憶點":""}</i><span class="ar">換 ▸</span></button></div>
       <div class="c2r"><label>拍子</label><div class="c2steps">${stepper("開始",cntTxt(c.b),"cb")}${stepper("長度",c.len+" 拍","cl")}</div></div>
       <div class="c2r"><label>誰跳</label><div class="c2who">${IDS.map(id=>`<button class="c2m${who.includes(id)?"":" off"}${c.focus===id?" st":""}" data-ed-who="${id}" style="--c:${byId(id).c}" aria-label="${byId(id).n}">${byId(id).n[0]}</button>`).join("")}<button class="c2fb" data-ed="foc">焦點:${c.focus?byId(c.focus).n:"無"} ▸</button></div></div>
-      <div class="c2acts"><button data-ed="split">拆成兩段</button><button data-ed="copych"${si.chorus?"":" disabled"}>套用到每次副歌</button><button class="del" data-ed="del">刪除</button></div></div>` }
+      <div class="c2acts"><button data-ed="split">拆成兩段</button><button data-ed="copych"${si.chorus?"":" disabled"}>套用到副歌</button><button data-ed="easy" class="${c.easy?"on":""}">${c.easy?"✓ 簡化版":"簡化版"}</button><button class="del" data-ed="del">刪除</button></div></div>` }
   else if(ED.sel?.t==="form"&&F[ED.sel.i]){ const k=F[ED.sel.i], w=ws.find(x=>Math.abs(x.b-k.b)<.01);
     insp=`<div class="c2insp"><div class="c2ih"><b>換隊形 ${ED.sel.i+1}/${F.length}</b><small>${cntTxt(k.b)} 站好・走位 ${k.walk} 拍</small></div>
       <div class="c2r"><label>隊形</label><select class="c2sel" id="edForm">${FORMS.map(f=>`<option value="${f.id}"${k.f===f.id?" selected":""}>${f.n}</option>`).join("")}<option value="free"${k.f==="free"?" selected":""}>自訂(拖曳)</option></select></div>
@@ -409,7 +414,7 @@ function edRender(){ if(!ED) return; const {T,SI,si,s,nb,D}=edSec(), e=evalDance
   const rows=edRows(C), nr=Math.max(...rows,0)+1;
   const laneH=nr===1?30:nr===2?38:46;
   const cz=C.map((c,z)=>{ const w=whoIds(c.who), f=c.focus||(w.length===1?w[0]:null);
-    return `<button class="c2cue${isKP(c)?" kp":""}${ED.sel?.t==="cue"&&ED.sel.i===z?" sel":""}${c.len<3?" nar":""}" data-ed-cue="${z}" style="left:calc(${P(c.b)}% + 1px);width:calc(${P(Math.min(c.len,nb-c.b))}% - 2px);top:${rows[z]/nr*100}%;height:calc(${100/nr}% - 2px);--h:${hueOf(c.mv)};--fc:${f?byId(f).c:"transparent"}"><b>${isKP(c)&&c.len>=6?"✦ ":""}${esc(MV[c.mv].n)}</b>${nr<2?`<i>${w.length===5?"全員":w.map(id=>byId(id).n).join("")}</i>`:""}</button>` }).join("");
+    return `<button class="c2cue${isKP(c)?" kp":""}${ED.sel?.t==="cue"&&ED.sel.i===z?" sel":""}${c.len<3?" nar":""}" data-ed-cue="${z}" style="left:calc(${P(c.b)}% + 1px);width:calc(${P(Math.min(c.len,nb-c.b))}% - 2px);top:${rows[z]/nr*100}%;height:calc(${100/nr}% - 2px);--h:${hueOf(c.mv)};--fc:${f?byId(f).c:"transparent"}"><b>${isKP(c)&&c.len>=6?"✦ ":""}${esc(MV[c.mv].n)}${c.easy?"・簡":""}</b>${nr<2?`<i>${w.length===5?"全員":w.map(id=>byId(id).n).join("")}${c.easy?"・簡化版":""}</i>`:""}</button>` }).join("");
   const kz=F.map((k,z)=>{ const bad=ws.some(w=>Math.abs(w.b-k.b)<.01); return `${k.walk>0?`<span class="c2tr${bad?" bad":""}" style="left:${P(k.b-k.walk)}%;width:${P(k.walk)}%"></span>`:""}<button class="c2kf${ED.sel?.t==="form"&&ED.sel.i===z?" sel":""}${bad?" bad":""}" data-ed-form="${z}" style="left:${P(k.b)}%" aria-label="換隊形 ${cntTxt(k.b)}"></button><span class="c2kfl${P(k.b)>82?" r":""}" style="left:${P(k.b)}%">${k.f==="free"?"自訂":FM[k.f]?.n}</span>` }).join("");
   const lz=edLines(T,si).filter(l=>l.len>0).map(l=>`<span class="c2ly${l.k?" k":""}" style="left:calc(${P(l.b)}% + 1px);width:calc(${P(l.len)}% - 2px);--c:${l.who.length===1?byId(l.who[0]).c:"#B8955A"}">${l.who.length>=5?"全員":l.who.map(id=>byId(id).n).join("")}${l.k?" ★":""}</span>`).join("");
   const tl=`<div class="c2tl"><div class="c2th"><b>時間軸</b><span class="leg"><span><i style="background:#E3BF6E"></i>KEY POINT</span><span><i style="background:#3A2A1C"></i>換隊形</span><span><i style="background:repeating-linear-gradient(90deg,#C9A24B 0 3px,transparent 3px 5px)"></i>走位</span></span>
@@ -431,10 +436,14 @@ function edBind(){ const el=ED.el, {T,SI,si,s,nb,D}=edSec(), C=cuesOf(s,nb), sn=
     pick:()=>{ ED.pick=true; edRender() }, pickx:()=>{ ED.pick=false; edRender() },
     addc:()=>{ edPush(); edMat(s,nb); const b=cl(q(ED.ph),0,nb-.5), cur=movesAt(cuesOf(s,nb),b,s.mv).o.ys, nc={b,len:Math.min(4,nb-b),mv:cur||"groove",who:"all",focus:s.focus||null}; s.cues.push(nc); edDone(x=>{ ED.sel={t:"cue",i:x.cues.indexOf(nc)} }) },
     addf:()=>{ const b=cl(q(ED.ph),.5,nb); edMat(s,nb); if(s.forms.some(k=>Math.abs(k.b-b)<.01)){ toast2("這一拍已經有換隊形了"); return } edPush(); const nk={b,walk:Math.min(2,b),f:"free",pos:JSON.parse(JSON.stringify(posAt(s,b)))}; s.forms.push(nk); edDone(x=>{ ED.sel={t:"form",i:x.forms.indexOf(nk)} }) },
-    kp:()=>{ const c=C[ED.sel.i]; edPush(); const d=getD(T), on=d.kp&&(d.kp.sec===ED.si||si.chorus)&&Math.abs(c.b-d.kp.b)<.01;
-      if(on){ d.kp=null; toast2("取消 KEY POINT") } else { const w=whoIds(c.who), ln=edLines(T,si).findIndex(l=>c.b>=l.b-.01&&c.b<l.b+l.len);
-        d.kp={...(d.kp||{}),name:d.kp?.name||d.hook?.name||"",sec:ED.si,line:ln>=0?ln+1:1,b:c.b,len:c.len,lead:c.focus||(w.length===1?w[0]:"all")}; if(!d.kp.name) toast2("在練習室的「記憶點舞步」替它取個名字") }
+    kp:()=>{ const c=C[ED.sel.i]; edPush(); const d=getD(T), k=d.kp, inSec=!!k&&(k.sec===ED.si||si.chorus), hit=inSec?kpPos(k).findIndex(b=>Math.abs(b-c.b)<.01):-1,
+        ln=edLines(T,si).findIndex(l=>c.b>=l.b-.01&&c.b<l.b+l.len), w=whoIds(c.who);
+      if(hit===0){ if(k.also?.length){ const a=k.also.shift(); k.b=a.b; k.line=a.line||k.line; toast2("這個位置取消了,第二個位置變成主要的") } else { d.kp=null; toast2("取消 KEY POINT") } }
+      else if(hit>0){ k.also.splice(hit-1,1); toast2("取消這段的第二個 KEY POINT") }
+      else if(inSec){ k.also=[...(k.also||[]),{line:ln>=0?ln+1:0,b:c.b}].slice(0,3); toast2("加成同一段的第二個 KEY POINT") }
+      else { d.kp={...(k||{}),also:[],name:k?.name||d.hook?.name||"",sec:ED.si,line:ln>=0?ln+1:1,b:c.b,len:c.len,lead:c.focus||(w.length===1?w[0]:"all")}; if(!d.kp.name) toast2("在練習室替 KEY POINT 取個名字") }
       edDone() },
+    easy:()=>{ edPush(); edMat(s,nb); const c=s.cues[ED.sel.i]; if(c.easy) delete c.easy; else c.easy=true; toast2(c.easy?"這個片段改成簡化版:難度照簡化後算":"取消簡化版"); edDone() },
     foc:()=>{ edPush(); edMat(s,nb); const c=s.cues[ED.sel.i], w=whoIds(c.who), opts=[null,...w], k=opts.indexOf(c.focus??null); c.focus=opts[(k+1)%opts.length]; edDone() },
     split:()=>{ edMat(s,nb); const c=s.cues[ED.sel.i], at=(ED.ph>c.b&&ED.ph<c.b+c.len)?q(ED.ph):q(c.b+c.len/2); if(at<=c.b||at>=c.b+c.len){ toast2("這個片段太短,不能再拆"); return }
       edPush(); s.cues.push({...c,b:at,len:c.b+c.len-at}); c.len=at-c.b; edDone(x=>{ ED.sel={t:"cue",i:x.cues.indexOf(c)} }) },
@@ -484,6 +493,39 @@ window.songTimeline=T=>{ const A=API(), ev=[], secs=[], SB=T.sync?.bars, bs=beat
       ev.push({si,li,t0:a,t1:a+d,who:l.who||[],zh:l.zh||"",ko:l.ko||"",type:l.t,k:!!l.k}); u=a+d });
     secs.push({si,t0,t1,n:s.n,chorus:!!s.chorus,lines:s.lines.length}); t=t1 });
   return {ev,secs,total:Math.max(1,t)} };
+/* ---------- KEY POINT 卡片(2.0 第 3 包,樣張 2):這首的招牌動作、每拍分解、為什麼好記、最後副歌的變化;練 KEY POINT(30 分) ---------- */
+function kpFace(id){ const f={ys:"yeseul",tr:"taeri",hy:"hiyori",he:"haeun",hr:"haram"}[id]; return f?`<span class="c2face" style="--c:${byId(id).c};background-image:url(${typeof spr==="function"?spr(id,null,"smile"):`assets/chara/${f}_smile.webp`})"></span>`:"" }
+function kpCard(T,rerender,editing){ document.querySelector("#kpCard")?.remove(); const D=getD(T), SI=secInfo(T), e=evalDance(T), k=e.kp; if(!k){ toast2("這首還沒有 KEY POINT:在排舞模式選一個副歌的動作片段,按「✦ KEY POINT」"); return }
+  const L=window.songTimeline(T), bs=beatSec(T), t=L.secs[k.sec].t0+k.b*bs, si=SI[k.sec], nm=i=>byId(i)?.n||i, A=API();
+  const chor=SI.filter(x=>x.chorus), fin=chor.find(x=>/最後/.test(x.n)), kl=SI.find(x=>x.kill);
+  const ck=[[k.len<=4,k.len<=4?`${k.len} 拍做完`:`${k.len} 拍(超過 4 拍)`],[!!MV[k.mv]?.hook,MV[k.mv]?.hook?"記憶點動作":"動作不適合當記憶點"],[k.every,k.every?"每次副歌都有":"有的副歌沒有"],[!!(k.name||"").trim(),(k.name||"").trim()?"有名字":"還沒取名字"]];
+  const steps=(k.steps||[]).map(x=>String(x).replace(/^\s*\d+\s*[::]\s*/,""));
+  const kpm=D.kpm||{}, avgM=Math.round(IDS.reduce((x,i)=>x+(+kpm[i]||0),0)/5);
+  const box=document.createElement("div"); box.className="c2 c2dim"; box.id="kpCard";
+  const body=editing?`<div class="kpedit"><label>名字<input id="kpN" maxlength="16" value="${esc(k.name||"")}"></label><label>韓文名<input id="kpKo" maxlength="24" value="${esc(k.nameKo||"")}"></label><label>英文名<input id="kpEn" maxlength="24" value="${esc(k.nameEn||"")}"></label>
+      <label class="w">每拍分解(一行一拍)<textarea id="kpSt">${esc(steps.join("\n"))}</textarea></label><label class="w">為什麼好記<textarea id="kpWhy">${esc(k.why||"")}</textarea></label><label class="w">最後副歌的變化<textarea id="kpFin">${esc(k.final?.change||"")}</textarea></label></div>`
+   :`<div class="c2kpg"><div><div class="c2kpn">${esc(k.name||"(還沒取名字)")}</div><div class="c2kps">${esc([k.nameEn,k.nameKo].filter(Boolean).join(" ・ "))}</div>
+      <dl class="c2facts"><dt>位置</dt><dd>${esc(si.n)}・第 ${k.line||1} 句<br><small>${A.fmt(t)}・${k.len} 拍${k.also?.length?`;同一段第 ${k.also.map(a=>a.line||"?").join("、")} 句再一次`:""}</small></dd>
+       <dt>領舞</dt><dd class="c2lead">${k.lead&&k.lead!=="all"?`${kpFace(k.lead)}${esc(nm(k.lead))}`:"全員"}</dd>
+       <dt>出現</dt><dd class="c2chips">${chor.map(x=>`<span class="${x===fin&&k.final?.change?"g":""}">${esc(x.n)}${k.pos.length>1?` ×${k.pos.length}`:""}${x===fin&&k.final?.change?"・變化":""}</span>`).join("")}</dd></dl></div>
+    <div><p class="c2h5">每拍分解</p>${steps.length?`<div class="c2beats" style="grid-template-columns:repeat(${Math.min(4,steps.length)},minmax(0,1fr))">${steps.slice(0,8).map((x,z)=>`<div class="c2beat"><em>${z+1}</em>${esc(x)}</div>`).join("")}</div>`:`<p class="c2p">還沒有每拍分解:編舞室對話交回的編舞會帶,也可以按「編輯」自己寫。</p>`}
+      ${k.why?`<p class="c2h5" style="margin-top:7px">為什麼好記</p><p class="c2p">${esc(k.why)}</p>`:""}
+      ${k.final?.change?`<p class="c2h5" style="margin-top:5px">最後副歌的變化</p><p class="c2p">${esc(k.final.change)}</p>`:""}</div></div>
+    <div class="c2mem"><b>${Math.round(e.hook)}</b><span class="lb">記憶點</span><span class="ck">${ck.map(([ok,tx])=>`<span class="${ok?"":"no"}">${tx}</span>`).join("")}</span><span class="kpm">KEY POINT 熟練 ${avgM}%</span></div>`;
+  box.innerHTML=`<div class="c2sheet"><div class="c2sh"><span class="eb">✦ KEY POINT・這首的招牌動作</span><span class="sp"></span><button class="c2x" id="kpX">${editing?"取消":"關閉"}</button></div>${body}
+    <div class="c2foot">${editing?`<span class="c2note">名字也會改掉練習室的「記憶點舞步」。</span><button class="c2b pri" id="kpSave">儲存</button>`
+      :`<span class="use">會用在:<b>打歌特寫</b>・<b>短影音挑戰</b>・粉絲反應・STARLOG・成員台詞</span><button class="c2b" id="kpSee">在舞台預覽看</button><button class="c2b" id="kpEd">編輯</button><button class="c2b pri" id="kpPrac">練 KEY POINT・30 分</button>`}</div></div>`;
+  $("#songFac").appendChild(box); const close=()=>box.remove();
+  $("#kpX").onclick=()=>editing?kpCard(T,rerender,false):close();
+  if(editing) $("#kpSave").onclick=()=>{ const K=D.kp; K.name=$("#kpN").value.trim().slice(0,16); K.nameKo=$("#kpKo").value.trim(); K.nameEn=$("#kpEn").value.trim();
+      K.steps=$("#kpSt").value.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,8); K.why=$("#kpWhy").value.trim().slice(0,160); K.final={...(K.final||{}),change:$("#kpFin").value.trim().slice(0,160)};
+      D.hook={name:K.name}; D.at=Date.now(); API().save(); rerender?.(); kpCard(T,rerender,false); toast2("已儲存 KEY POINT") };
+  else { $("#kpSee").onclick=()=>{ close(); window.openStagePlay?.(T,{at:Math.max(0,t-1.5)}) }; $("#kpEd").onclick=()=>kpCard(T,rerender,true);
+    $("#kpPrac").onclick=()=>{ practiceKP(T); kpCard(T,rerender,false); rerender?.() } } }
+function practiceKP(T){ const D=getD(T); D.kpm=D.kpm||{}; let tot=0;
+  for(const id of IDS){ const cur=+D.kpm[id]||0, g=Math.max(2,Math.round(18*(1-cur/110)*(.7+byId(id).dance/250))); D.kpm[id]=Math.min(100,cur+g); tot+=g; gain(D,id,3);
+    S.m[id].stress=cl(S.m[id].stress+2,0,100) }
+  D.at=Date.now(); API().save(); save(true); if(typeof renderHud==="function") renderHud(); window.spendTime?.(30,"練 KEY POINT"); toast2(`練 KEY POINT:平均 +${Math.round(tot/5)}%・花了 30 分`) }
 /* ---------- 逐句對拍(2.0 第 2 包後半,2026-11-01):放歌,每一句開始唱時點一下;存成 T.sync.lines[段][句] = 這句在段落裡第幾拍(對齊到半拍) ---------- */
 let TAP=null; const TAP_LAT=.06;   // 人點下去通常晚一點點
 function tapOpen(T,rerender){ if(!window.songHasAudio?.(T)){ toast2("這首還沒有音檔"); return } const L=window.songTimeline(T), list=L.ev.filter(e=>e.who.length||e.zh);
@@ -517,7 +559,7 @@ function tapAct(k){ const P=TAP; if(!P) return; const {L,list,au}=P;
   if(k==="back"){ P.i=Math.max(0,P.i-1); const e=list[P.i]; delete P.taps[e.si+":"+e.li]; const pv=list[P.i-1]; tapSeek((pv?P.taps[pv.si+":"+pv.li]??L.secs[e.si].t0:L.secs[e.si].t0)-1.5); tapRender(); return }
   if(k==="sec"){ if(!au) return; const e=list[P.i], f=list.findIndex(x=>x.si===e.si); list.forEach((x,z)=>{ if(x.si===e.si) delete P.taps[x.si+":"+x.li] }); P.i=f; tapSeek(L.secs[e.si].t0-1); if(au.paused) au.play().catch(()=>{}); setTimeout(tapRender,30) } }
 /* Android 返回鍵:試算視窗 → 匯入視窗 → 換動作清單 → 排舞模式 */
-window.choreoBack=()=>{ if(TAP){ tapAct("close"); return true } const t=document.querySelector("#chTrial"); if(t){ t.remove(); return true } const m=document.querySelector("#songFac .sfmodal #chTxt"); if(m){ m.closest(".sfmodal").remove(); return true }
+window.choreoBack=()=>{ if(TAP){ tapAct("close"); return true } const kc=document.querySelector("#kpCard"); if(kc){ kc.remove(); return true } const t=document.querySelector("#chTrial"); if(t){ t.remove(); return true } const m=document.querySelector("#songFac .sfmodal #chTxt"); if(m){ m.closest(".sfmodal").remove(); return true }
   if(ED){ if(ED.pick){ ED.pick=false; edRender() } else edClose(); return true } return false };
 window.choreoRender=(body,rerender)=>render(body,rerender);
 })();
