@@ -755,7 +755,7 @@ async function openDetail(code,slot){
   const slots=Object.keys(lk.members||{}).filter(s=>midOf(s)), o=lk.members[slot]||{}, m=byId(midOf(slot));
   const d=$("#facDetail");
   d.innerHTML=`<div class="dcard"><button class="fac-close dx" id="dClose">關閉</button><button class="fac-close dx2" id="dEdit">編輯</button>
-    <div class="dimg" id="dImg">${o.img?"":`<span class="wnone">${o.outfit?"尚未生圖:到設計工作台按「全部開始生圖」":"沒有服裝描述"}</span>`}</div>
+    <div class="dimg" id="dImg">${o.img?"":`<span class="wnone">${o.outfit?"尚未生圖:按「先生這套」,或到設計工作台生圖":"沒有服裝描述"}</span>`}</div>
     <div class="dtext"><small>${esc(lk.code)}・${lk.type==="group"?"團體服":"個人造型"}</small><h2>${esc(lk.name||"")}</h2>
       <p class="dtags">${esc(lk.occasion||"")}・${wSeasonText(lk.seasons)}・${poseOf(lk.pose)[1]}</p>
       <div class="fchips">${slots.map(s=>{const mm=byId(midOf(s));return `<button class="fchip${s===slot?" on":""}" data-ds="${s}" style="--mc:${mm.c}">${mm.n}${lk.members[s]?.img?"":" ・未生圖"}</button>`}).join("")}</div>
@@ -763,6 +763,7 @@ async function openDetail(code,slot){
       ${reps(lk).filter(c=>ITEMS[c]).length?`<p class="dcon drev">改版自「${reps(lk).filter(c=>ITEMS[c]).map(c=>esc(ITEMS[c].name||c)).join("、")}」:${lk.type==="group"?"全員":""}新圖都收下${wIsDaily(lk.occasion)?"、遊戲立繪處理好":""}之後,舊的那套會自動刪除(雲端一起)。</p>`:""}
       ${(()=>{ const by=wLooks().filter(x=>reps(x).includes(lk.code)); return by.length?`<p class="dcon drev">這套已經有改版「${by.map(x=>esc(x.name||x.code)).join("、")}」(${esc(readyNote(by[0]))}),改版完成後會自動刪除。</p>`:"" })()}
       ${o.redo?`<p class="dcon drev">這套改版了:新的描述還沒生圖,遊戲裡先穿舊版。到「設計工作台」按「全部開始生圖」;收下新圖後舊圖會保留,可以改回。</p>`:""}
+      ${(()=>{ const n=todoList().filter(t=>t.code===lk.code).length; return n?`<div class="dsp"><b>還沒生圖</b> 這套還有 ${n} 張<button class="fbtn pri" id="dGenLook">先生這套(${n} 張)</button></div>`:"" })()}
       ${o.img?`<div class="dsp"><b>生圖模型</b> <span id="dModel">${esc(o.model||"未記錄")}</span>
         <button class="fbtn" id="dRegen">重新生圖…</button><button class="fbtn" id="dFull">全身照</button><button class="fbtn" id="dHalf">半身照</button>${o.prev?.img?`<button class="fbtn ghost" id="dRestore">改回舊圖${o.prev.model?`(${esc(o.prev.model)})`:""}</button>`:""}</div>`:""}
       ${(wCatOf(lk.occasion)==="song"||wCatOf(lk.occasion)==="photo")?`<p class="dalb"><b>專輯</b><select id="dAlbum">${albumOpts(lk.album)}</select></p>`:""}
@@ -772,6 +773,12 @@ async function openDetail(code,slot){
       <details><summary>服裝描述(英文)</summary><p class="dout">${esc(o.outfit||"")}</p></details></div></div>`;
   d.classList.remove("hide");
   $("#dClose").onclick=()=>d.classList.add("hide"); $("#dEdit").onclick=()=>editLook(code);
+  /* 2026-11-01(主體 2.0):只先生這一套。這套的待生圖排到佇列最前面(已經在排隊的也移上來),其他照舊排在後面,不會被一起開始 */
+  const gl=$("#dGenLook"); if(gl) gl.onclick=()=>{ if(!oai().key){ toast2("先到設計工作台填好 OpenAI 金鑰"); return }
+    const ids=todoList().filter(t=>t.code===code).map(t=>({id:jobId(t.code,t.slot),...t,state:"wait"}));
+    const mine=ids.map(x=>{ const k=JOBS.findIndex(j=>j.id===x.id); if(k<0) return x; const j=JOBS[k]; if(j.state!=="wait"&&j.state!=="err") return null; JOBS.splice(k,1); j.state="wait"; return j }).filter(Boolean);
+    const at=JOBS.findIndex(j=>j.state==="wait"); JOBS.splice(at<0?JOBS.length:at,0,...mine);
+    toast2(mine.length?`「${ITEMS[code]?.name||code}」排到最前面:${mine.length} 張`:"這套已經在生圖了"); runQueue(); renderFacility() };
   const da=$("#dAlbum"); if(da) da.onchange=async()=>{ lk.album=da.value; lk.updatedAt=Date.now(); const ok=await saveDoc("items",lk); toast2(ok?"已改專輯並同步":"已改專輯(還沒同步)"); renderFacility() };
   d.querySelectorAll("[data-ds]").forEach(b=>b.onclick=()=>openDetail(code,b.dataset.ds));
   const rg=$("#dRegen"); if(rg) rg.onclick=()=>regenPanel(code,slot,rg);
