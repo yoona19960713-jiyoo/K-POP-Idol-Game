@@ -59,21 +59,31 @@ function mvPackDialog(R){ document.getElementById("mvPackDlg")?.remove(); const 
   const el=document.createElement("div"); el.id="mvPackDlg"; el.className="fac-detail";
   el.innerHTML=`<div class="mvpk"><h3>匯出 MV 素材包</h3>
     <label>歌曲<select id="mpSong">${window.SONGS_API.albums().slice().reverse().map(A=>`<optgroup label="${esc(window.albumName?.("a"+A.n)||A.name||"")}">${A.tracks.filter(t=>!t.inst).map(t=>`<option value="${esc(t.id)}"${A.current&&t.id===A.title?" selected":""}>${esc(t.name||"未命名")}${t.id===A.title?"(主打)":""}</option>`).join("")}</optgroup>`).join("")}</select></label>
-    <label>造型<select id="mpLook">${stageFirst.map(l=>`<option value="${esc(l.code)}">${esc(l.name||l.code)}・${l.type==="group"?"團體服":"個人"}・${esc(l.occasion||"")}</option>`).join("")||`<option value="">衣櫃裡還沒有有圖的造型</option>`}</select></label>
+    <div class="mpl"><span class="mpl-h">造型<small>可以勾 1~3 套(打歌服+概念照一起給)</small></span><div class="mpl-list" id="mpLooks"></div></div>
     <p class="fnote">ZIP 裡有:製作單(JSON)、這套造型每位成員的全身照與半身照、說明。MV 剪好後檔名用歌曲代號。${isNative?"<br><b>手機 App 不能存 ZIP,請在電腦版或網頁版匯出。</b>":""}</p>
     <div class="frow"><button class="pbtn pri" id="mpGo"${isNative?" disabled":""}>匯出</button><button class="pbtn" id="mpX">取消</button></div></div>`;
   document.getElementById("stage").appendChild(el);
+  /* 2026-11-01(主體 2.0):選歌時,這首的專輯(出道=a1)的打歌服、寫真排最前面並預設勾好 */
+  const albKey=id=>{ const A=window.SONGS_API.albums().find(A=>A.tracks.some(t=>t.id===id)); return A?"a"+A.n:"" };
+  const occN=l=>/打歌/.test(l.occasion||"")?0:/寫真/.test(l.occasion||"")?1:/舞台|演唱|頒獎/.test(l.occasion||"")?2:3;
+  const fill=()=>{ const ak=albKey(el.querySelector("#mpSong").value), mine=stageFirst.filter(l=>ak&&l.album===ak).sort((a,b)=>occN(a)-occN(b)||(b.type==="group")-(a.type==="group")), rest=stageFirst.filter(l=>!mine.includes(l));
+    const pre=new Set([mine.find(l=>occN(l)===0),mine.find(l=>occN(l)===1)].filter(Boolean).map(l=>l.code)); if(!pre.size&&stageFirst[0]) pre.add(stageFirst[0].code);
+    const row=l=>`<label class="mpl-r${pre.has(l.code)?" on":""}"><input type="checkbox" value="${esc(l.code)}"${pre.has(l.code)?" checked":""}><b>${esc(l.name||l.code)}</b><small>${l.type==="group"?"團體服":"個人"}・${esc(l.occasion||"")}</small></label>`;
+    el.querySelector("#mpLooks").innerHTML=(mine.length?`<p class="mpl-g">這首的專輯</p>${mine.map(row).join("")}`:"")+(rest.length?`<p class="mpl-g">其他造型</p>${rest.map(row).join("")}`:"")||`<p class="mpl-g">衣櫃裡還沒有有圖的造型</p>`;
+    el.querySelectorAll("#mpLooks input").forEach(c=>c.onchange=()=>{ const on=[...el.querySelectorAll("#mpLooks input:checked")]; if(on.length>3){ c.checked=false; toast2("最多 3 套") } c.closest(".mpl-r").classList.toggle("on",c.checked) }) };
+  fill(); el.querySelector("#mpSong").onchange=fill;
   el.querySelector("#mpX").onclick=()=>el.remove();
   el.querySelector("#mpGo").onclick=async()=>{ const b=el.querySelector("#mpGo"); b.disabled=true; b.textContent="打包中…";
-    try{ const T=window.SONGS_API.track(el.querySelector("#mpSong").value), lk=ITEMS[el.querySelector("#mpLook").value];
+    try{ const T=window.SONGS_API.track(el.querySelector("#mpSong").value), lks=[...el.querySelectorAll("#mpLooks input:checked")].map(c=>ITEMS[c.value]).filter(Boolean), lk=lks[0];
+      if(!lks.length){ toast2("請至少勾一套造型"); b.disabled=false; b.textContent="匯出"; return }
       const files=[], enc=new TextEncoder(), clean=x=>String(x||"").replace(/[\\/:*?"<>|]/g,"");
       const sheet=window.SONGS_API?.sheetOf?.(T); if(sheet) files.push({name:`製作單_${clean(T.name)}.json`,data:enc.encode(JSON.stringify(sheet,null,1))});
-      let n=0;
-      if(lk) for(const [slot,o] of Object.entries(lk.members||{})){ const m=byId(midOf(slot)); if(!m||!o?.img) continue; const src=await getBlob(o.img); const full=await toBytes(src); if(!full) continue;
-        files.push({name:`${m.n}_全身.webp`,data:full}); try{ files.push({name:`${m.n}_半身.webp`,data:await halfOf(src)}) }catch(e){} n++ }
-      files.push({name:"說明.txt",data:enc.encode(`完美女團 MV 素材包\n歌曲:${T.name}(代號 ${T.id})\n造型:${lk?.name||"無"}(${lk?.code||""})\n\n・製作單:段落、秒數、逐句分配、歌詞、killing part、編舞強弱。\n・每位成員的全身照與半身照:分鏡與影片工具的參考圖。\n・剪好的 MV 檔名請用「${T.id}.mp4」(22 MB 以內),放進 www/assets/mv/ 上傳 GitHub,攝影棚就會播。\n`)});
+      let n=0; const multi=lks.length>1;   /* 一套:照舊放最外層;好幾套:每套一個資料夾 */
+      for(const L of lks) for(const [slot,o] of Object.entries(L.members||{})){ const m=byId(midOf(slot)); if(!m||!o?.img) continue; const src=await getBlob(o.img); const full=await toBytes(src); if(!full) continue;
+        const dir=multi?`${clean(L.name||L.code)}/`:""; files.push({name:`${dir}${m.n}_全身.webp`,data:full}); try{ files.push({name:`${dir}${m.n}_半身.webp`,data:await halfOf(src)}) }catch(e){} n++ }
+      files.push({name:"說明.txt",data:enc.encode(`完美女團 MV 素材包\n歌曲:${T.name}(代號 ${T.id})\n造型:${lks.map(L=>`${L.name||"無"}(${L.code}・${L.occasion||""})`).join("、")}${multi?"(每套一個資料夾)":""}\n\n・製作單:段落、秒數、逐句分配、歌詞、killing part、編舞強弱。\n・每位成員的全身照與半身照:分鏡與影片工具的參考圖。\n・剪好的 MV 檔名請用「${T.id}.mp4」(22 MB 以內),放進 www/assets/mv/ 上傳 GitHub,攝影棚就會播。\n`)});
       const blob=makeZip(files), name=`完美女團_MV素材包_${clean(T.name)}.zip`, u=URL.createObjectURL(blob), a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),8000);
-      toast2(`已匯出 MV 素材包(${n} 位成員,${(blob.size/1048576).toFixed(1)} MB)`); el.remove() }
+      toast2(`已匯出 MV 素材包(${lks.length} 套造型、${n} 張全身照,${(blob.size/1048576).toFixed(1)} MB)`); el.remove() }
     catch(e){ window.logErr?.("center",e); toast2("匯出失敗"); b.disabled=false; b.textContent="匯出" } } }
 window.openMVRoom=async()=>{ const B=room("mvRoom",{title:"攝影棚・MV 試映",sub:"PRODUCTION CENTER ・ 1F ・ PHOTO STUDIO",bg:"photo",pause:"mvroom"}); const R=window.SONGS_API?.R;
   if(!R?.tracks?.length){ B.innerHTML=`<p class="rec-empty">企劃室還沒有歌。</p>`; return }
