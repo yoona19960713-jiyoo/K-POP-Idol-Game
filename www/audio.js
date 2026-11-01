@@ -49,12 +49,13 @@ window.bgm=setScene;
 /* 目前畫面 → 場景代號 */
 const ROOM={practice:"practice",studio:"recording",office:"office",styling:"wardrobe",living:"dorm",kitchen:"dorm",bedroom:"dorm",out:"outside",river:"outside",store:"outside"};
 function resolve(){ const on=s=>{ const e=document.querySelector(s); return !!(e&&e.offsetParent!==null) };
-  if(document.querySelector("#exitv")) return "exit";   // 離開遊戲的動畫:音樂淡出(沒有這個場景的曲目)
+  if(document.querySelector("#exitv")) return "exit";
+  if(document.querySelector("#spv,.mvv,.mvp,.c2ed.songplay")) return "song";   // 2026-11-01:舞台預覽、動態 MV、排舞模式在播歌,背景音樂淡出   // 離開遊戲的動畫:音樂淡出(沒有這個場景的曲目)
   if(document.querySelector("#title:not(.out):not(.leaving)")) return "title";
   if(document.querySelector("#cnView")) return "concert";
   if(document.querySelector("#cgView")) return "memory";
   if(document.querySelector(".bigev:not(.out)")) return "event";
-  if(document.querySelector("#songFac:not(.hide)")) return document.querySelector("#songFac.th-studio")?"recording":"office";
+  if(document.querySelector("#songFac:not(.hide)")) return document.querySelector("#songFac.th-studio")?"recording":document.querySelector("#songFac.th-dance")?"practice":"office";
   if(document.querySelector("#facility:not(.hide)")) return "wardrobe";
   if(document.querySelector("#stageFac:not(.hide)")) return "stage";
   const v=typeof V!=="undefined"?V:null;   // game.js 的全域變數(不在 window 上)

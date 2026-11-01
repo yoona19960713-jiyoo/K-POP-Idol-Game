@@ -527,6 +527,12 @@ function albumsAll(){ const A=(R.archive||[]).map(a=>({...a,released:true})), la
   if(!same) A.push({n:(last?.n||0)+1,name:R.name||"",type:R.type,title:R.title,tracks:R.tracks,current:true}); return A }
 window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
   albums:albumsAll,track:id=>albumsAll().flatMap(a=>a.tracks).find(t=>t.id===id)||null};
+/* 2026-11-01(2.0 第 2 包):歌曲的音檔。定案 mp3 交給主體開發,處理後放 assets/song/<歌曲代號>.m4a、寫進 assets/song/list.json;
+   遊戲用歌曲代號(製作單的 code)找;T.audio(雲端 blob)有的話優先 */
+let SONG_LIST=null; const songListP=fetch("assets/song/list.json",{cache:"no-store"}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(j=>SONG_LIST=j&&typeof j==="object"?j:{});
+window.songHasAudio=T=>!!(T&&(T.audio||SONG_LIST?.[T.id]?.file));
+window.songAudioURL=async T=>{ if(!T) return null; if(T.audio&&window.getBlob){ try{ const u=await getBlob(T.audio); if(u) return u }catch(e){ window.logErr?.("歌曲音檔",e) } }
+  const L=SONG_LIST||await songListP; const f=L?.[T.id]?.file; return f?`assets/song/${encodeURIComponent(f)}`:null };
 window.openSongFacility=open;
 window.songSummary=()=>{syncSkill(); return songSummary()};
 

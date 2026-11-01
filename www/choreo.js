@@ -427,7 +427,7 @@ function edRender(){ if(!ED) return; const {T,SI,si,s,nb,D}=edSec(), e=evalDance
 function edBind(){ const el=ED.el, {T,SI,si,s,nb,D}=edSec(), C=cuesOf(s,nb), sn=()=>ED.snap, q=v=>Math.round(v/sn())*sn();
   const act={ close:edClose, prev:()=>{ edStop(); ED.si--; ED.sel=null; ED.ph=0; edRender() }, next:()=>{ edStop(); ED.si++; ED.sel=null; ED.ph=0; edRender() },
     undo:()=>{ const u=ED.undo.pop(); if(!u) return; ED.si=u.si; const d=getD(T); d.secs[u.si]=JSON.parse(u.s); d.kp=JSON.parse(u.kp); ED.sel=null; ED.pick=false; const S2=edSec().s; if(!S2.cues) S2.cues=cuesOf(S2,edSec().nb); if(!S2.forms) S2.forms=[]; edDone() },
-    play:()=>ED.playing?edStop():edPlay(), spv:()=>{ edStop(); window.openStagePlay?.(T) }, snap:()=>{ ED.snap=ED.snap===1?.5:1; edRender() },
+    play:()=>ED.playing?edStop():edPlay(), spv:()=>{ edStop(); window.openStagePlay?.(T,{at:window.songTimeline(T).secs[ED.si].t0}) }, snap:()=>{ ED.snap=ED.snap===1?.5:1; edRender() },
     pick:()=>{ ED.pick=true; edRender() }, pickx:()=>{ ED.pick=false; edRender() },
     addc:()=>{ edPush(); edMat(s,nb); const b=cl(q(ED.ph),0,nb-.5), cur=movesAt(cuesOf(s,nb),b,s.mv).o.ys, nc={b,len:Math.min(4,nb-b),mv:cur||"groove",who:"all",focus:s.focus||null}; s.cues.push(nc); edDone(x=>{ ED.sel={t:"cue",i:x.cues.indexOf(nc)} }) },
     addf:()=>{ const b=cl(q(ED.ph),.5,nb); edMat(s,nb); if(s.forms.some(k=>Math.abs(k.b-b)<.01)){ toast2("這一拍已經有換隊形了"); return } edPush(); const nk={b,walk:Math.min(2,b),f:"free",pos:JSON.parse(JSON.stringify(posAt(s,b)))}; s.forms.push(nk); edDone(x=>{ ED.sel={t:"form",i:x.forms.indexOf(nk)} }) },
@@ -462,12 +462,28 @@ function edBind(){ const el=ED.el, {T,SI,si,s,nb,D}=edSec(), C=cuesOf(s,nb), sn=
     dot.onpointermove=e2=>{ const x=cl(((e2.clientX-r.left)/r.width*100-6)/88,0,1), y=cl(1-((e2.clientY-r.top)/r.height*100-10)/80,0,1); dot.style.left=(6+x*88)+"%"; dot.style.top=(10+(1-y)*80)+"%"; np=[+x.toFixed(3),+y.toFixed(3)] };
     dot.onpointerup=dot.onpointercancel=()=>{ dot.onpointermove=dot.onpointerup=dot.onpointercancel=null; dot.classList.remove("drag"); if(!np) return; edPush(); edMat(s,nb);
       const k=s.forms.filter(k=>k.b<=ED.ph+1e-6).sort((a,b)=>a.b-b.b).pop(); if(k){ k.pos={...k.pos,[id]:np}; k.f="free" } else { s.pos={...s.pos,[id]:np}; s.f="free" } edDone() } }) }
-function edPlay(){ const {T,nb}=edSec(), bs=beatSec(T); ED.playing=true; let last=performance.now(); if(ED.ph>=nb-.5) ED.ph=0; edRender();
-  const step=now=>{ if(!ED?.playing) return; ED.ph+= (now-last)/1000/bs; last=now; if(ED.ph>=nb){ ED.ph=nb-.5; edStop(); return } edTick(); ED.raf=requestAnimationFrame(step) }; ED.raf=requestAnimationFrame(step) }
-function edStop(){ if(!ED) return; cancelAnimationFrame(ED.raf); if(ED.playing){ ED.playing=false; ED.ph=Math.round(ED.ph*2)/2; edRender() } }
+function edPlay(){ const {T,nb}=edSec(), bs=beatSec(T); ED.playing=true; if(ED.ph>=nb-.5) ED.ph=0; ED.el.classList.add("songplay"); edRender();
+  const sec=window.songTimeline(T).secs[ED.si], me=ED; let last=performance.now(), au=null;
+  /* 有定案 mp3 就跟著歌走(從這段的開頭、紅線的位置開始放) */
+  window.songAudioURL?.(T).then(u=>{ if(!u||ED!==me||!ED.playing) return; au=new Audio(); au.preload="auto"; au.src=u; ED.au=au;
+    const go=()=>{ if(ED!==me||!ED.playing){ au.pause(); return } au.currentTime=sec.t0+ED.ph*bs; au.play().catch(()=>{}) };
+    if(au.readyState>=1) go(); else au.addEventListener("loadedmetadata",go,{once:true}) }).catch(e=>window.logErr?.("排舞模式音檔",e));
+  const step=now=>{ if(!ED?.playing) return; if(au&&!au.paused&&au.currentTime>0) ED.ph=(au.currentTime-sec.t0)/bs; else ED.ph+=(now-last)/1000/bs; last=now;
+    if(ED.ph>=nb){ ED.ph=nb-.5; edStop(); return } edTick(); ED.raf=requestAnimationFrame(step) }; ED.raf=requestAnimationFrame(step) }
+function edStop(){ if(!ED) return; cancelAnimationFrame(ED.raf); ED.au?.pause(); ED.au=null; ED.el.classList.remove("songplay"); if(ED.playing){ ED.playing=false; ED.ph=Math.round(ED.ph*2)/2; edRender() } }
 /* 播放中只改位置與紅線(transform 以外只動 left/top,元素很少) */
 function edTick(){ const {s,nb}=edSec(), pos=posAt(s,ED.ph); ED.el.querySelectorAll("[data-ed-dot]").forEach(d=>{ const p=pos[d.dataset.edDot]||[.5,.5]; d.style.left=(6+p[0]*88)+"%"; d.style.top=(10+(1-p[1])*80)+"%" });
   const ph=ED.el.querySelector("#edPh"); if(ph) ph.style.left=cl(ED.ph/nb*100,0,100)+"%" }
+/* 2.0 第 2 包:整首的時間軸。有對拍(T.sync)時段落照 mp3 的小節,每段裡的句子照錄音室的秒數等比例放進去;
+   之後的逐句對拍(T.sync.lines[段][句] = 這句在段落裡第幾拍開始)會蓋過估計 */
+window.songTimeline=T=>{ const A=API(), ev=[], secs=[], SB=T.sync?.bars, bs=beatSec(T), db=+T.sync?.downbeat||0, n=T.secs.length;
+  const st=i=>i===0?0:(SB&&SB[i]!=null?db+(SB[i]-1)*4*bs:null); let t=0;
+  T.secs.forEach((s,si)=>{ const raw=s.lines.reduce((x,l)=>x+Math.max(.5,+l.s||0),0)+A.instOf(s); let t0=st(si); if(t0==null||t0<t-.01) t0=t;
+    const nx=si<n-1?st(si+1):null, t1=si===n-1&&+T.sync?.end>t0?+T.sync.end:(nx!=null&&nx>t0?nx:t0+raw), k=raw>0?(t1-t0)/raw:1; let u=t0;
+    s.lines.forEach((l,li)=>{ const d=Math.max(.5,+l.s||0)*k, lb=T.sync?.lines?.[si]?.[li], a=lb!=null?t0+lb*bs:u;
+      ev.push({si,li,t0:a,t1:a+d,who:l.who||[],zh:l.zh||"",ko:l.ko||"",type:l.t,k:!!l.k}); u=a+d });
+    secs.push({si,t0,t1,n:s.n,chorus:!!s.chorus,lines:s.lines.length}); t=t1 });
+  return {ev,secs,total:Math.max(1,t)} };
 /* Android 返回鍵:試算視窗 → 匯入視窗 → 換動作清單 → 排舞模式 */
 window.choreoBack=()=>{ const t=document.querySelector("#chTrial"); if(t){ t.remove(); return true } const m=document.querySelector("#songFac .sfmodal #chTxt"); if(m){ m.closest(".sfmodal").remove(); return true }
   if(ED){ if(ED.pick){ ED.pick=false; edRender() } else edClose(); return true } return false };

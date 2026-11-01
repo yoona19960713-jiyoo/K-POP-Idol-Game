@@ -38,19 +38,19 @@ function close(){ if(!CUR) return; cancelAnimationFrame(CUR.raf); CUR.au?.pause(
 async function playVideo(T,url){ close(); const el=document.createElement("div"); el.className="mvv"; el.innerHTML=`<video src="${url}" controls playsinline autoplay></video><button class="spv-x" id="mvX">關閉</button>`;
   $("#stage").appendChild(el); setPause("mv",true); CUR={el,raf:0}; $("#mvX").onclick=close }
 window.openMV=async(T,opts={})=>{ if(!T) return; const u=opts.motion?null:await mvFile(T); if(u) return playVideo(T,u); return openMotionMV(T) };
-async function openMotionMV(T){ close(); const A=API(), L=timeline(T), SH=shotsOf(T,L);
+async function openMotionMV(T){ close(); const A=API(), L=(window.songTimeline?.(T)||timeline(T)), SH=shotsOf(T,L);
   const el=document.createElement("div"); el.className="mvp"; el.innerHTML=`<div class="mvp-a" id="mvA"></div><div class="mvp-a" id="mvB"></div><div class="mvp-v"></div><div class="mvp-lb"></div><div class="mvt mvt-ov" id="mvTitle"><small>OFFICIAL MUSIC VIDEO</small><h2>${esc(T.name||"")}</h2></div>
     <div class="spv-top"><div><small>MUSIC VIDEO</small><h3>${esc(T.name||"未命名")}</h3></div><button class="spv-x" id="mvX">關閉</button></div>
     <div class="spv-sub"><span class="spv-who" id="mvWho"></span><p id="mvZh"></p><small id="mvKo"></small></div>
     <div class="spv-bar"><div class="spv-secs">${L.secs.map(s=>`<button data-t="${s.t0}" class="${s.chorus?"ch":""}" style="flex-grow:${Math.max(1,Math.round(s.t1-s.t0))}" aria-label="${esc(s.n)}"></button>`).join("")}</div><i id="mvP"></i></div>
-    <div class="spv-ctl"><button id="mvPlay">準備中…</button><span id="mvTime">0:00 / ${A.fmt(L.total)}</span><small>${T.audio?"":"動態 MV・還沒有音檔,先用無聲的時間軸"}</small></div>`;
+    <div class="spv-ctl"><button id="mvPlay">準備中…</button><span id="mvTime">0:00 / ${A.fmt(L.total)}</span><small>${window.songHasAudio?.(T)?"":"動態 MV・還沒有音檔,先用無聲的時間軸"}</small></div>`;
   $("#stage").appendChild(el); setPause("mv",true); CUR={el,raf:0};
   $("#mvX").onclick=close;
   // 先把要用的圖準備好(造型圖在雲端,第一次要下載)
   const imgs={}; await Promise.all(IDS.map(async id=>{ const ref=lookRef(id,T); let u=ref?await getBlob(ref).catch(()=>""):""; if(!u) u=spr(id,null,"smile"); imgs[id]=u;
     try{ const im=new Image(); im.src=u; await im.decode() }catch(e){} }));
   if(!CUR||CUR.el!==el) return;
-  let au=null; try{ if(T.audio){ const u=await getBlob(T.audio); if(u){ au=new Audio(u); au.play().catch(()=>{}) } } }catch(e){}
+  let au=null; try{ const u=await window.songAudioURL?.(T); if(u){ au=new Audio(u); au.play().catch(()=>{}) } }catch(e){ window.logErr?.("動態 MV 音檔",e) }
   const layers=[$("#mvA"),$("#mvB")]; let front=0, curShot=-1, lastEv=-2, lastS=-1, playing=true, base=performance.now(), off=0;
   const now=()=>au?au.currentTime:off+(playing?(performance.now()-base)/1000:0);
   const kb=["kb1","kb2","kb3","kb4"];
