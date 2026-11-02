@@ -2086,6 +2086,14 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 #meet .mt-opt.act b{white-space:normal;font-size:max(calc(1.08*var(--u)),13px);line-height:1.25;letter-spacing:.04em}
 #meet .mt-opt.act small{font-size:11px}
 #meet .mt-opt.act small{white-space:normal;line-height:1.3}
+/* 1.1 第 2 輪:記得你——她有話想說(聊天按鈕帶一點金色,右上一個小光點) */
+#meet .mt-opt.rc{border-color:rgba(201,162,75,.85);box-shadow:0 0 0 2px rgba(232,196,112,.28),0 2px 6px rgba(120,80,30,.18)}
+#meet .mt-opt.rc small{color:#A87A22;font-weight:600}
+#meet .mt-opt.rc::before{content:"";position:absolute;top:calc(.7*var(--u));right:calc(.8*var(--u));width:7px;height:7px;border-radius:50%;background:#E8B64A;box-shadow:0 0 6px rgba(232,182,74,.9);animation:rcPulse 1.8s ease-in-out infinite}
+.vopt.rc{border-color:var(--acc)}
+.vopt.rc small{color:var(--acc)}
+@keyframes rcPulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){ #meet .mt-opt.rc::before{animation:none} }
 /* ===== 改版 1.1 第 1 輪:成員之間(旁聽)(2026-10-30)=====
    剖面圖上兩人頭上的「…」泡泡(兩人配色的漸層框、三個點輪流跳);拜訪畫面頂部的「旁聽中」;加入她們的選項 */
 .ovbub{--u:max(1cqw,7.6px);position:absolute;z-index:6;transform:translate(-50%,-100%);display:flex;align-items:center;gap:calc(.42*var(--u));

@@ -88,11 +88,12 @@ D.MILESTONES={   /* 2026-10-29 使用者定案;at = 遊戲分鐘;cine = 前面�
   showcase_in:{n:"第一次公司內部展示",date:"2016-04-22",at:840,room:"practice",cine:1,dur:120},
   group_name:{n:"團名與出道概念確定",date:"2016-06-17",at:840,room:"meeting",cine:0,dur:120,ask:"團名"},
   debut_song:{n:"出道曲定案與錄音",date:"2016-08-19",at:840,room:"studio",cine:1,dur:120},
-  chuseok:{n:"中秋夜",date:"2016-09-15",at:1200,room:"roof",cine:1,dur:60,who:["hy"],away:["2016-09-14","2016-09-16"]},
+  chuseok:{n:"中秋夜",hn:"中秋",date:"2016-09-15",at:1200,room:"roof",cine:1,dur:60,who:["hy"],away:["2016-09-14","2016-09-16"]},
   concept_shoot:{n:"概念照與 MV 拍攝",date:"2016-10-21",at:600,room:"photo",cine:1,dur:240},
   debut_announce:{n:"公布出道日",date:"2016-11-21",at:720,room:"office",cine:1,dur:60,card:1},
   final_eval:{n:"出道前最終評估",date:"2016-12-30",at:900,room:"practice",cine:0,dur:120},
   rehearsal:{n:"Showcase 彩排",date:"2017-01-11",at:900,room:"backstage",cine:1,dur:180},
+  seollal:{n:"春節",hn:"春節",date:"2017-01-28",at:1140,room:"living",cine:0,dur:60,who:["ys","tr","hy"],away:["2017-01-27","2017-01-30"],home:{hr:"回濟州",he:"回大邱"}},   // 1.1 第 2 輪:河嵐回濟州、夏恩回大邱;藝瑟留下陪泰梨(視訊洛杉磯家人)和日和
   fan_name:{n:"粉絲名公布",date:"2017-02-14",at:1200,room:"practice",cine:0,dur:60}};   // 2026-10-31 使用者定案:出道後在 Spotlight Live 公布粉絲名,直接就是 D.FAN_NAME
 /* 粉絲名(2026-10-31 使用者定案;2017/02/14 公布之後台詞用 {粉絲名})。團名是代表 6/17 自己輸入的({團名});對手女團是 CARAT NOIR */
 D.FAN_NAME="LUMIÈRE";

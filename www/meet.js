@@ -69,8 +69,10 @@ function greet(id){ const mg=window.missGreet?.(id); if(mg) return mg;   // 冷�
 /* 隨口互動:內容庫優先(同房間的更優先),沒有才用內建備用 */
 function pickCasual(id,ca){ const st=stageOf(id), band=bandNow(id), room=S.where[id]||"", grp=DY.grpOf?.(room), state=stateOf(id);
   const ok=sn=>sn.type==="casual"&&(sn.member===id||sn.who?.[0]===id)&&sn.ca===ca&&(!sn.band||sn.band===band)&&(!sn.stage||sn.stage===st)&&(!sn.sl?.length||sn.sl.includes(S.slot))
-    &&(!sn.room||DY.grpOf?.(sn.room)===grp)&&(!sn.state||sn.state===state)&&dateOk(sn)&&(!sn.period||sn.period===periodNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||3))&&sn.nodes?.start?.L?.length;
-  const cs=snips().filter(ok), exact=cs.filter(sn=>sn.room===room), sn=pickW(exact.length&&Math.random()<.6?exact:cs);
+    &&(!sn.room||DY.grpOf?.(sn.room)===grp)&&(!sn.state||sn.state===state)&&dateOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))&&(!sn.wx||sn.wx===wxNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||3))&&sn.nodes?.start?.L?.length;
+  /* 1.1 第 2 輪:有寫到今天天氣或這個季節的,優先(天氣 65%、季節 45%) */
+  const all=snips().filter(ok), wxs=all.filter(sn=>sn.wx), sea=all.filter(sn=>sn.season&&!sn.wx), cs=wxs.length&&Math.random()<.65?wxs:sea.length&&Math.random()<.45?sea:all;
+  const exact=cs.filter(sn=>sn.room===room), sn=pickW(exact.length&&Math.random()<.6?exact:cs);
   if(sn){ S.seen[sn.code]=S.day; return {L:fillVars(sn).nodes.start.L.filter(l=>l[0]!=="@"),code:sn.code} }
   const fb=DY.CASUAL_FB?.[id]?.[ca]; return fb?{L:fb.L,code:""}:null }
 /* ---------- 畫面 ---------- */
@@ -80,7 +82,7 @@ function optsHTML(id){ const greeted=S.greet?.[id]===S.day;
   return `<div class="mt-opts">
     <button class="mt-opt" data-mt="hello" ${greeted?"disabled":""}>${ic("hello")}<span><b>打招呼</b><small>${greeted?"今天打過了":"5 分"}</small></span></button>
     <button class="mt-opt sub" data-mt="casual">${ic("casual")}<span><b>隨口互動</b><small>每次 5 分</small></span></button>
-    <button class="mt-opt" data-mt="talk">${ic("talk")}<span><b>聊天</b><small>15~30 分</small></span></button>
+    ${(()=>{ const rc=window.recallReady?.(id,MT?.pid||S.where[id]); return `<button class="mt-opt${rc?" rc":""}" data-mt="talk">${ic("talk")}<span><b>聊天</b><small>${rc?"她有話想說":"15~30 分"}</small></span></button>` })()}
     ${(()=>{ const n=window.actsFor?.(id)?.length||0; return `<button class="mt-opt sub" data-mt="act" ${n?"":"disabled"}>${ic("act")}<span><b>邀她做…</b><small>${n?`${n} 個活動`:"現在沒有"}</small></span></button>` })()}</div>` }
 /* 邀她做…:現在能一起做的活動(最多 5 個)+返回 */
 function actHTML(id){ const L=(window.actsFor?.(id)||[]).slice(0,3);   // A55 上放得下的數量:三個活動+返回(她專屬的排前面)

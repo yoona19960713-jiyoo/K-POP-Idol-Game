@@ -54,7 +54,7 @@ window.gainFromChoice=(id,c)=>{ const s=S.m[id]; if(!s) return {xp:0,heart:0};
 window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; window.missSeen?.(id); const before=stageOfXp(id), {xp,heart}=gainFromChoice(id,c);   // 冷落的心情(miss.js)
   s.xp=(s.xp||0)+xp; s.heart=Math.min(100,(s.heart||0)+heart); s.trust=Math.round(xpToTrust(s.xp));
   if(c.mood>0) s.mood=clamp(s.mood+(+c.mood),0,100); if(c.stress<0) s.stress=clamp(s.stress+(+c.stress),0,100);   // 只套用好的方向
-  if(c.set) S.flags[c.set]=(S.flags[c.set]||0)+1;
+  if(c.set){ S.flags[c.set]=(S.flags[c.set]||0)+1; const fa=S.flagAt=S.flagAt||{}; if(fa[c.set]==null) fa[c.set]=S.day }   // 1.1 第 2 輪:記得你要知道是哪一天設的
   const after=stageOfXp(id);
   if(show){ if(xp) show(id,`好感 +${xp}`); if(heart) show(id,`心動 +${heart}`); if(after!==before) show(id,`關係進展:${after}`) }
   if(after!==before){ toast2(`${byId(id).n}和你的關係變成「${after}」了`); window.feedback?.("m") }

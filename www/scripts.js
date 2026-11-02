@@ -453,6 +453,8 @@ function buildPrompt10(p,existing){ if(p.type==="overhear") return promptOvh(p,e
   const per=k==="act"&&p.band!=="C"?`時期:練習生期——${PERIOD_DESC["練習生期"]}\n這個時期的世界:${WORLD_PERIOD["練習生期"]}`
     :p.band==="C"?"時期:出道之後(戀人以上只會在出道後出現);不要寫特定年份的新聞。"
     :"時期:不限定。這種片段出道前後都可能出現,所以不要寫到只有練習生或只有出道後才有的事(月評、出道倒數、打歌、粉絲、簽售、新聞),只寫一直成立的日常;遊戲裡只有這五個人和代表。";
+  const SEASON_TXT={春:"春天(三到五月:櫻花、換季、乍暖還寒、黃沙)",夏:"夏天(六到八月:悶熱、梅雨、冷氣、冰飲、蟬聲)",秋:"秋天(九到十一月:涼風、落葉、秋夜)",冬:"冬天(十二到二月:冷、暖氣、羽絨外套、熱飲、年末)"};
+  const seasonal=p.season||p.wx?`\n這批限定:${p.season?SEASON_TXT[p.season]:""}${p.season&&p.wx?",而且是":""}${p.wx==="rain"?"下雨天(雨聲、傘、濕掉的鞋、窗上的水痕)":p.wx==="snow"?"下雪天(雪、白色的呼氣、凍紅的手、窗外變白)":""}。每個片段都要寫到這個季節或天氣的具體小細節(身體感覺、手上的東西、聲音),但不要整段只在講天氣;season 填 ${p.season||"any"}、wx 填 ${p.wx||"any"}。`:"";
   const rooms=k==="casual"?DY.GRP[p.grp||"co"].rooms:k==="night"?DY.NK[p.nk].rooms:a.rooms;
   const roomTxt=rooms.length?rooms.map(r=>`${r}=${DY.ROOM_N[r]}`).join("、"):"(手機訊息,不用寫 room)";
   const spec=k==="casual"?`種類:隨口互動——${DY.CA[p.ca].n}(${DY.CA[p.ca].desc})。在房間裡遇到她時的一兩句話,遊戲裡只花 5 分鐘。
@@ -469,7 +471,7 @@ memo:一句這次活動的紀錄,代表的視角,40 字以內(例如「晚上陪
   return `你是一款韓國女團養成戀愛遊戲的資深編劇,擅長寫有溫度、有生活感、角色辨識度很高的對話。玩家是財閥出身的娛樂公司代表(成員叫他/她「代表」,性別不指定),旗下五位女團成員都是成年人。請用台灣慣用的繁體中文寫遊戲的日常片段。這款遊戲的目標是像真實的日常:她們有自己的作息、習慣、心事,也會記得代表做過的事。
 
 【這批要寫的】
-${spec}
+${spec}${seasonal}
 ${all?"出場:五位成員全員":`主角:${mb(p.member).n}(id ${p.member})`}
 ${rel}
 ${per}
@@ -532,7 +534,7 @@ function build10(task,s0,ver){ if(task.type==="overhear") return buildOvh(task,s
   return {code:`${k}-${task.act||task.ca||task.nk}-${task.member}-${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`,type:k,k:t.n,member:task.member,pair:all?"all":"",
     band:task.band||"",stage:all?"":anyv(s0?.stage),period:task.period||"",
     ...(k==="casual"?{ca:task.ca,by:s0?.by==="her"?"her":"me"}:{}),...(k==="night"?{nk:task.nk}:{}),...(k==="act"?{act:task.act,ver,memo:String(s0?.memo||"").trim()}:{}),
-    at:msg?"phone":DY.ROOM_AT[room],room,sl,...(hour?{hour}:{}),state:anyv(s0?.state),season:anyv(s0?.season),wx:anyv(s0?.wx),
+    at:msg?"phone":DY.ROOM_AT[room],room,sl,...(hour?{hour}:{}),state:anyv(s0?.state),season:task.season||anyv(s0?.season),wx:task.wx||anyv(s0?.wx),   // 季節、天氣格:照任務定的
     who:all?MB.map(m=>m.id):[task.member],sc:String(s0?.sc||""),w:3,cd:{casual:3,night:5,act:10}[k],nodes,rev:3,createdAt:Date.now(),params:{...task}} }
 const existing10=task=>[...lib(),...reviewQ_()].filter(x=>sameCell(x,task)).slice(-25).map(x=>x.type==="overhear"?(x.hear||[]).map(l=>l[1]).join("").slice(0,30):x.type==="casual"?(x.nodes?.start?.L||[]).map(l=>l[1]).join("").slice(0,30):String(x.sc||"").slice(0,40)).filter(Boolean);
 async function fetch10(task,signal){
@@ -544,7 +546,8 @@ async function fetch10(task,signal){
   return {news,total:arr.length} }
 /* 下一個要補的新種類格子(nextTask 用):順序是隨口互動 → 1.0 的通用活動 → 深夜 → 其他通用活動 → 全員版;C 段排最後。專屬活動與里程碑由長對話寫,不自動生產 */
 function offer10(offer,L2){ const cnt={}, inc=k=>cnt[k]=(cnt[k]||0)+1;
-  for(const x of L2){ if(x.type==="overhear") inc(`o|${opairOf(x)}|${DY.ovhGrp(x.room)}`); else if(x.type==="casual") inc(`c|${x.member}|${x.ca}|${x.band}|${DY.grpOf(x.room)}`); else if(x.type==="night") inc(`n|${x.member}|${x.nk}|${x.band}`); else if(x.type==="act") inc(`a|${x.act}|${x.member}|${x.band||""}`) }
+  for(const x of L2){ if(x.type==="overhear") inc(`o|${opairOf(x)}|${DY.ovhGrp(x.room)}`); else if(x.type==="casual") inc(`c|${x.member}|${x.ca}|${x.band}|${DY.grpOf(x.room)}`); else if(x.type==="night") inc(`n|${x.member}|${x.nk}|${x.band}`); else if(x.type==="act") inc(`a|${x.act}|${x.member}|${x.band||""}`);
+    if((x.type==="casual"||x.type==="night")&&x.season) inc(`s${x.type[0]}|${x.member}|${x.season}`); if((x.type==="casual"||x.type==="night")&&x.wx) inc(`w${x.type[0]}|${x.member}|${x.wx}`) }   // 1.1 第 2 輪:季節、天氣格
   for(const m of MB) for(const b of Object.keys(DY.BANDS)){ const bw=BAND_W[b];
     for(const ca of DY.CA_NOW){ if(bandTop(b)<DY.rank(DY.CA[ca].gate)) continue;
       for(const g of Object.keys(DY.GRP)){ const tgt=TYPES.casual.target, gap=tgt-(cnt[`c|${m.id}|${ca}|${b}|${g}`]||0);
@@ -553,11 +556,24 @@ function offer10(offer,L2){ const cnt={}, inc=k=>cnt[k]=(cnt[k]||0)+1;
       if(gap>0) offer(gap/tgt*1.2*bw,{type:"night",member:m.id,band:b,nk,pair:"",stage:"",period:b==="C"?"出道與上升期":"",count:Math.min(TYPES.night.batch,gap),hint:""}) }
     for(const [ak,a] of Object.entries(DY.ACTS)){ if(a.who||!DY.actBands(ak).includes(b)) continue; const tgt=TYPES.act.target, gap=tgt-(cnt[`a|${ak}|${m.id}|${b}`]||0);
       if(gap>0) offer(gap/tgt*(a.first?1.4:a.later?.3:.6)*bw,{type:"act",act:ak,member:m.id,band:b,pair:"",stage:"",period:b==="C"?"出道與上升期":"練習生期",count:Math.min(TYPES.act.batch,gap),hint:""}) } }
+  /* 1.1 第 2 輪:季節與天氣。每人每季隨口互動 SEAS_T.c、深夜 SEAS_T.n;雨天、雪天各 WX_T。遊戲裡現在的季節(與下一季)優先 */
+  const curS=typeof seasonOf==="function"&&typeof S!=="undefined"&&S?.day!=null?seasonOf(dateOf(S.day)):"", SS=["春","夏","秋","冬"], nxS=curS?SS[(SS.indexOf(curS)+1)%4]:"", NKS=Object.keys(DY.NK).filter(k=>k!=="msg");
+  const BB=Object.keys(DY.BANDS).filter(x=>x!=="C"), casOf=b=>DY.CA_NOW.filter(ca=>bandTop(b)>=DY.rank(DY.CA[ca].gate));   // 季節天氣先做 A、B 段(輪流)
+  for(const m of MB){ const grps=Object.keys(DY.GRP); if(!BB.length||!NKS.length) continue;
+    for(const se of SS){ const pw=se===curS?1.5:se===nxS?1.2:.8;
+      for(const [t,tg] of [["c",SEAS_T.c],["n",SEAS_T.n]]){ const have=cnt[`s${t}|${m.id}|${se}`]||0, gap=tg-have; if(gap<=0) continue; const i=have+SS.indexOf(se), b=BB[have%BB.length], cas=casOf(b); if(!cas.length) continue;
+        if(t==="c") offer(gap/tg*.9*pw,{type:"casual",member:m.id,band:b,ca:cas[i%cas.length],grp:grps[i%grps.length],season:se,pair:"",stage:"",period:"",count:Math.min(3,gap),hint:""});
+        else offer(gap/tg*.7*pw,{type:"night",member:m.id,band:b,nk:NKS[i%NKS.length],season:se,pair:"",stage:"",period:"",count:1,hint:""}) } }
+    for(const w of ["rain","snow"]) for(const [t,tg] of [["c",WX_T.c],["n",WX_T.n]]){ const have=cnt[`w${t}|${m.id}|${w}`]||0, gap=tg-have; if(gap<=0) continue;
+      const se=w==="snow"?{season:"冬"}:{}, b=BB[have%BB.length], cas=casOf(b); if(!cas.length) continue;
+      if(t==="c") offer(gap/tg*.9,{type:"casual",member:m.id,band:b,ca:cas[(have+1)%cas.length],grp:grps[(have+1)%grps.length],wx:w,...se,pair:"",stage:"",period:"",count:Math.min(3,gap),hint:""});
+      else offer(gap/tg*.7,{type:"night",member:m.id,band:b,nk:NKS[have%NKS.length],wx:w,...se,pair:"",stage:"",period:"",count:1,hint:""}) } }
   for(const pr of OPAIRS) for(const [g,tgt] of Object.entries(DY.OVH_T)){ const gap=tgt-(cnt[`o|${pr}|${g}`]||0);   // 成員之間(1.1 第 1 輪)
     if(gap>0) offer(gap/tgt*1.1,{type:"overhear",pair:pr,member:pr.split("-")[0],grp:g,band:"",stage:"",period:"",count:Math.min(TYPES.overhear.batch,gap),hint:""}) }
   for(const [ak,a] of Object.entries(DY.ACTS)){ if(a.who||!a.allv) continue; const gap=a.allv-(cnt[`a|${ak}|all|`]||0);
     if(gap>0) offer(gap/a.allv*(a.first?.9:a.later?.2:.4),{type:"act",act:ak,member:"all",band:"",pair:"all",stage:"",period:"練習生期",count:1,hint:""}) } }
-const taskLabel10=x=>x.type==="overhear"?`${TYPES.overhear.n}・${pairName(x.pair)}・${DY.OVH_GRP[x.grp]?.n||""}`:`${TYPES[x.type].n}・${kindName10(x)}・${x.member==="all"?"全員":mb(x.member)?.n||""}${x.band?"・"+x.band+" 段":""}${x.grp?"・"+DY.GRP[x.grp].n:""}`;
+const SEAS_T={c:3,n:1}, WX_T={c:3,n:1};   // 1.1 第 2 輪:季節、天氣格的目標(每人)
+const taskLabel10=x=>x.type==="overhear"?`${TYPES.overhear.n}・${pairName(x.pair)}・${DY.OVH_GRP[x.grp]?.n||""}`:`${TYPES[x.type].n}・${kindName10(x)}・${x.member==="all"?"全員":mb(x.member)?.n||""}${x.band?"・"+x.band+" 段":""}${x.grp?"・"+DY.GRP[x.grp].n:""}${x.season?"・"+x.season:""}${x.wx?"・"+({rain:"雨天",snow:"雪天"}[x.wx]||x.wx):""}`;
 
 /* ---------- 自動生產:排程、速度與每日額度控管 ---------- */
 const AK="kpopScripts.auto";
@@ -853,6 +869,8 @@ window.scriptsUsage=async()=>{ await itemsReady; await spIdx(); const packs=Obje
   const legacyB=items.reduce((s,x)=>s+u8(JSON.stringify(x))+120,0);
   return {mode:spMode(),items:items.length,packs:packs.length,packBytes:packs.reduce((s,p)=>s+(p.bytes||0)+200,0),loose:Object.keys(SPI.loose).length,looseBytes:looseB,legacyBytes:legacyB} };
 window.scriptsRemove=code=>removeItem(code);
+window.__seasonOffers=()=>{ const out=[]; offer10((s,o)=>{ if(o.season||o.wx) out.push({s:+s.toFixed(3),...o}) },[...lib(),...reviewQ_()]); return out };   // 測試用:季節天氣格
+window.__prompt10=t=>buildPrompt10(t,[]);   // 測試用
 window.scriptsCompactNow=async()=>{ if(spMode()!=="packs") return 0; await spIdx(); let r=await spCompact(true); if(r==="retry"){ await applyChanges([...await spPullPacks(),...await spPullLoose()]); r=await spCompact(true) } await spSave(); return r };
 /* 匯入連結(#import)送來的劇本:直接收進本機(待審馬上看得到),雲端照上面的方式寫 */
 window.scriptsImport=async list=>{ await itemsReady; let n=0, off=0;

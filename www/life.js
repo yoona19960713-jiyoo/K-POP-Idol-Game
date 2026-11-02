@@ -83,6 +83,36 @@ window.lifeRemember=(id,c,sn,xp)=>{ try{ if(!sn||!byId(id)||(xp||0)<15||String(s
 /* ⑦ 生日那天陪她聊天:額外好感(一次) */
 window.lifeAfterTalk=id=>{ try{ if(isBd(id)&&!used(id,"bdgift"+S.day)){ use(id,"bdgift"+S.day); const s=S.m[id]; s.xp=(s.xp||0)+80; s.heart=Math.min(100,(s.heart||0)+(rank(id)>=2?2:0)); s.mood=Math.min(100,s.mood+10); toast2(`陪${nm(id)}過生日:好感 +80${rank(id)>=2?"、心動 +2":""}`) } }catch(e){} };
 
+/* ---------- 1.1 第 2 輪:記得你 recall(2026-11-02) ----------
+   內容庫的 recall(長對話寫,格式見《改版1.0_新內容格式.md》7.2):她記得你做過的事,過幾天在對的房間、對的時間自己提起。
+   need:flag(旗標,記在 S.flagAt 是哪一天設的)、act(第一次和她做某個活動,看 S.actLog)、anniv(紀念日:met100、met200、met300、met500、met1000、
+   half(認識半年 2016/7/13)、debut(出道 2017/1/13)、debut100,或直接寫日期 "2016-09-15");wait [最早, 最晚] 是那天之後第幾天(預設 [2, 10])。
+   聊天時(互動面板「聊天」、房間裡「跟她聊聊」)有準備好的就先演這段,按鈕上寫「她有話想說」。每則只演一次;一天最多 2 則,同一個人一天 1 則。
+   舊存檔已經有的旗標,從這次更新那天開始算。資料存在 S.recall、S.flagAt(跟著存檔同步)。 */
+const DYR=()=>window.DAILY||{};
+const RC=()=>{ const r=S.recall=S.recall||{done:{},day:-1,n:0,ids:[]}; if(r.day!==S.day){ r.day=S.day; r.n=0; r.ids=[] } return r };
+const flagAt=()=>{ const fa=S.flagAt=S.flagAt||{}; if(!S.flagAtInit){ for(const k of Object.keys(S.flags||{})) if(fa[k]==null) fa[k]=S.day; S.flagAtInit=1 } return fa };
+const dayIdx=d=>Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-dateOf(0))/864e5);
+const ANNIV={met100:99,met200:199,met300:299,met500:499,met1000:999,half:"2016-07-13",debut:"2017-01-13",debut100:["2017-01-13",99]};
+function annivDay(k){ const v=ANNIV[k]??k; if(typeof v==="number") return v; const [ds,plus]=Array.isArray(v)?v:[v,0]; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ds)); return m?dayIdx(new Date(+m[1],+m[2]-1,+m[3]))+plus:null }
+function needDay(sn){ const nd=sn.need||{}, id=sn.member||sn.who?.[0];
+  if(nd.flag) return flagAt()[nd.flag]??null;
+  if(nd.act){ const e=(S.actLog||[]).find(x=>x.k===nd.act&&(!x.id||x.id===id)); return e?e.d:null }
+  if(nd.anniv!=null){ const d=annivDay(nd.anniv); return d!=null&&S.day>=d?d:null }
+  return null }
+function recallOk(sn,id,room){ if(sn.type!=="recall"||(sn.member||sn.who?.[0])!==id||RC().done[sn.code]!=null||!sn.nodes?.start) return false;
+  if(sn.room?sn.room!==room:(sn.at&&DYR().ROOM_AT?.[room]&&sn.at!==DYR().ROOM_AT[room])) return false;
+  const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; if(h?!(t>=+h[0]&&t<+h[1]):(sn.sl?.length&&!sn.sl.includes(S.slot))) return false;
+  if(sn.band&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
+  if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
+  const d0=needDay(sn); if(d0==null) return false; const w=Array.isArray(sn.wait)?sn.wait:[2,10], dd=S.day-d0; return dd>=+w[0]&&dd<=+w[1] }
+/* 準備好的那一則(快過期的先);room 是代表現在所在的房間 */
+window.recallReady=(id,room)=>{ try{ const r=RC(); if(!byId(id)||r.n>=2||r.ids.includes(id)) return null; room=room||S.where[id];
+  const L=snips().filter(sn=>recallOk(sn,id,room)); if(!L.length) return null;
+  const end=sn=>needDay(sn)+(Array.isArray(sn.wait)?+sn.wait[1]:10); L.sort((a,b)=>end(a)-end(b)); return L[0] }catch(e){ window.logErr?.("記得你",e); return null } };
+window.recallTake=(id,room)=>{ const sn=window.recallReady(id,room); if(!sn) return null; const r=RC(); r.done[sn.code]=S.day; r.n++; r.ids.push(id); return sn };
+window.recallDebug=()=>({flagAt:{...flagAt()},done:{...RC().done},today:{n:RC().n,ids:[...RC().ids]}});   // 測試用
+
 /* ---------- ⑥ 台詞帶動作 ---------- */
 const lastE={};
 window.lifeLineMotion=(id,e)=>{ try{ if(!byId(id)||RM.matches) return; const prev=lastE[id]; lastE[id]=e; if(!prev||prev===e) return;

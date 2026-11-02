@@ -59,8 +59,9 @@ function fallback(k,id,room){ const F=FB[k]; if(!F||!F.s[id]) return null;
     nodes:{start:{L:[N(F.in),[id,...F.s[id]]],C:F.C.map(([t,s,g])=>({t,s,to:id,g,next:"b"}))},b:{L:[N(F.out),[id,...F.e[id]]],C:[]}}} }
 function fromLib(k,id,room){ const band=DY.bandOf(stageOf(id)), h=S.min/60;
   const L=snips().filter(sn=>sn.type==="night"&&sn.nk===k&&(sn.member===id||sn.who?.[0]===id)&&(!sn.band||sn.band===band)&&(!sn.room||!room||sn.room===room)
-    &&(!sn.hour||(h>=sn.hour[0]&&h<sn.hour[1]))&&dateOk(sn)&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||5))&&sn.nodes?.start);
-  return L.length?fillVars(pickW(L)):null }
+    &&(!sn.hour||(h>=sn.hour[0]&&h<sn.hour[1]))&&dateOk(sn)&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))&&(!sn.wx||sn.wx===wxNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||5))&&sn.nodes?.start);
+  const wxs=L.filter(sn=>sn.wx), sea=L.filter(sn=>sn.season&&!sn.wx), P=wxs.length&&Math.random()<.65?wxs:sea.length&&Math.random()<.45?sea:L;   // 1.1 第 2 輪:今天的天氣、這個季節優先
+  return P.length?fillVars(pickW(P)):null }
 /* 走進那個房間(或從互動面板按聊天)時:有她的深夜事件就演 */
 window.nightScene=(pid,only)=>{ const e=plan().ev.find(x=>live(x)&&x.room===pid&&S.where[x.id]===pid&&(!only||x.id===only)); if(!e) return null;
   const sn=fromLib(e.k,e.id,pid)||fallback(e.k,e.id,pid); if(!sn) return null;

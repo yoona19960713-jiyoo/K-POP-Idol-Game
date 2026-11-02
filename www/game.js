@@ -367,7 +367,7 @@ function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage|
   return sn.stage===cur}
 function pool({sp,room,slot,present,types,member}){
   return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&sn.who?.length
-    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&arcOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())
+    &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&arcOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))
     &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start)}
 /* 近況片段(有出場條件)只在情境成立時出現,出現時權重 ×3;連續劇情的下一段 ×4,讓故事接得上 */
 function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)*(sn.req?3:1)*(+sn.part>1&&S.seen[sn.code]==null?4:1)); let x=r()*w.reduce((a,b)=>a+b,0);
@@ -766,7 +766,7 @@ function narr(t){showText("",t,true)}
 function menu(){
   D=null; $("#vbox").classList.add("locked"); $("#vbox").classList.remove("wait");
   const opts=[];
-  for(const id of V.present) if(!V.talked.has(id)) opts.push(`<button class="vopt" data-talk="${id}">跟${byId(id).n}聊聊<small>約 15~30 分鐘</small></button>`);
+  for(const id of V.present) if(!V.talked.has(id)) opts.push(`<button class="vopt${window.recallReady?.(id,V.pid)?" rc":""}" data-talk="${id}">跟${byId(id).n}聊聊<small>${window.recallReady?.(id,V.pid)?"她好像有話想說・":""}約 15~30 分鐘</small></button>`);
   if(V.pid==="office"&&!V.summoned){const inCo=M.filter(m=>["practice","studio"].includes(S.where[m.id]));
     for(const m of inCo) opts.push(`<button class="vopt" data-sum="${m.id}">請${m.n}到辦公室<small>她在${PL[S.where[m.id]].n}</small></button>`)}
   opts.push(`<button class="vopt" id="leave">離開<small>${V.spent?`這次花了 ${fmtMin(V.spent)}`:"回到主畫面"}</small></button>`);
@@ -778,9 +778,10 @@ function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*p
   return {code:"demo-line-"+id,type:"topic",who:[id],member:id,nodes:{start:{L:[[id,t,e]],C:[]}},demoLine:true}}
 function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid]; S.lastTalk={id,day:S.day};
   const inv=window.lifeInviteScene?.(id,V.pid);   // 真人化:她約你來的,就演約會的片段
-  const sn=inv||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
+  const rc=inv?null:window.recallTake?.(id,V.pid);   // 1.1 第 2 輪:記得你(她有話想說,就先演這段)
+  const sn=inv||rc||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
-  if(!inv) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
+  if(!inv&&!rc) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
   window.missSeen?.(id);   // 冷落的心情:有來找她了
   play(sn,()=>{ window.lifeAfterTalk?.(id); menu() },"talk")}
 function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.lastTalk={id,day:S.day};

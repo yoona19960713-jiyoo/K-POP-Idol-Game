@@ -5,6 +5,7 @@
      ① 有過場的先播過場(cine.js)② 要你決定的先決定(6/17 團名)③ 到那個地點演小劇情(內容庫的 event,
      沒有就用下面的內建版本)或事件卡 ④ 扣那件事的時間、記下來(S.mile)。
    中秋 9/14~16:其他四人回家(外出),作息照週日(放假);只有日和留下。
+   春節 2017/1/27~30(1.1 第 2 輪):河嵐回濟州、夏恩回大邱,作息照週日;藝瑟、泰梨、日和留在宿舍(1/28 晚上客廳的年糕湯)。
    {團名}(6/17 之後)、{出道曲}(8/19 之後)、{粉絲名}(2017/02/14 之後,直接是 DAILY.FAN_NAME)給台詞用。
    ===================================================================== */
 (()=>{
@@ -17,17 +18,20 @@ let RUNNING=false, NOTIFIED=null;
 /* 團名、出道曲 */
 window.groupName=()=>S.groupName||"完美女團";
 window.mileVar={粉絲名:()=>S.day>=DAYS.fan_name?DY.FAN_NAME:null,團名:()=>S.groupName||null,出道曲:()=>S.day>=DAYS.debut_song?(window.albumList?.().find(a=>a.n===1)?.title||window.songSummary?.()?.title?.name||null):null};
-/* 中秋:9/14~16 其他人回家、照假日作息 */
-const away=()=>{ const a=MS.chuseok.away; return a?[dayOfDate(a[0]),dayOfDate(a[1])]:null };
-window.mileHoliday=day=>{ const a=away(); return !!a&&day>=a[0]&&day<=a[1] };
-window.mileWhere=()=>{ if(!window.mileHoliday(S.day)) return; for(const m of M) if(!MS.chuseok.who.includes(m.id)){ S.where[m.id]="外出:回家"; if(S.doing) S.doing[m.id]="中秋回家" } };
+/* 連假(中秋、春節):有 away 的里程碑,那幾天照假日作息;不在 who 裡的人回家(home 可以寫每個人去哪) */
+const HOLS=Object.entries(MS).filter(([k,v])=>v.away).map(([k,v])=>({k,v,a:dayOfDate(v.away[0]),b:dayOfDate(v.away[1])}));
+const holOf=day=>HOLS.find(h=>day>=h.a&&day<=h.b)||null;
+window.mileHoliday=day=>!!holOf(day);
+window.mileHolidayOf=day=>{ const h=holOf(day); return h?{k:h.k,n:h.v.n,stay:[...(h.v.who||[])]}:null };
+window.mileWhere=()=>{ const h=holOf(S.day); if(!h) return; for(const m of M) if(!(h.v.who||[]).includes(m.id)){ S.where[m.id]="外出:回家"; if(S.doing) S.doing[m.id]=h.v.home?.[m.id]||((h.v.hn||h.v.n)+"回家") } };
 /* 清晨的通知(群組,藝瑟傳) */
 const NOTE={first_eval:"大家!今天下午三點是月評!代表也會來看喔,加油!",showcase_in:"今天下午兩點,公司內部展示。大家吃飽一點,不要緊張~",group_name:"今天下午兩點在會議室開會……聽說要決定團名了!",
   debut_song:"今天下午兩點,錄音室!出道曲要開始錄了!",chuseok:"中秋快樂~我們回家囉!日和,宿舍就交給你了,記得吃飯!",concept_shoot:"今天早上十點攝影棚,概念照!大家昨晚有好好睡覺吧?",
   debut_announce:"中午十二點,公司要公布出道日了……我好緊張。",final_eval:"今年最後一次評估,下午三點。大家,最後一次了!",rehearsal:"下午三點,Showcase 場地彩排。兩天後就是出道了。",
-  fan_name:"今天晚上八點 Spotlight Live!要公布粉絲名了,大家記得準時上線~"};
+  fan_name:"今天晚上八點 Spotlight Live!要公布粉絲名了,大家記得準時上線~",
+  seollal:[["hr","新年快樂!!我到濟州了~外婆一看到我就塞了三顆橘子!","laugh"],["he","大邱這邊在包餃子~代表新年快樂!要記得吃年糕湯喔!","smile"],["ys","新年快樂~宿舍有我在,妳們好好陪家人。晚上我煮年糕湯!","smile"]]};
 function notify(){ const k=Object.keys(MS).find(x=>DAYS[x]===S.day&&!done(x)); if(!k||NOTIFIED===S.day+k||k==="first_day") return; NOTIFIED=S.day+k;
-  if(NOTE[k]) window.phoneSay?.("group",[["ys",NOTE[k]]]); toast2(`今天 ${hm(MS[k].at)}:${MS[k].n}`) }
+  if(NOTE[k]) window.phoneSay?.("group",Array.isArray(NOTE[k])?NOTE[k]:[["ys",NOTE[k]]]); toast2(`今天 ${hm(MS[k].at)}:${MS[k].n}`) }
 /* ---------- 內建版本(內容庫還沒有里程碑劇情時;品質照正式內容) ---------- */
 const N=t=>["",t], C=(t,s,to,g,r)=>({t,s,to,g,next:"b",...(r?{r}:{})});
 const FB={
@@ -49,6 +53,9 @@ const FB={
   chuseok:{start:{L:[N("(宿舍頂樓,月亮大得像要掉下來。)"),["hy","代表……今天是中秋節呢。韓國的中秋,大家都回家了。","smile"],["hy","日本的中秋叫「お月見」。小時候,媽媽會做月見糰子。","smile"],["hy","……今年,只有我一個人沒回家。","shy"]],
     C:[C("「今年有我陪你賞月。」","陪著","hy",4,[["hy","……嗯。這樣就夠了。","shy"]]),C("「打個視訊給媽媽吧,我幫你拍月亮。」","出手幫忙","hy",3,[["hy","……代表好溫柔。","smile"]]),C("「明年,我們一起回大阪過。」","鼓勵","hy",3,[["hy","說好了喔?……我記住了。","laugh"]])]},
     b:{L:[N("(她把盒子裡的松片分成兩半,大的那一半遞給你。)"),["hy","韓國的中秋要吃這個,對吧?","smile"],["hy","……代表,月亮好漂亮。今天,我一點都不寂寞。","shy"]],C:[]}},
+  seollal:{start:{L:[N("(宿舍安靜得不像宿舍。客廳桌上擺著四碗年糕湯,其中一碗是你的。)"),["ys","代表,新年快樂!河嵐跟夏恩回家了,今年就我們幾個過年。","smile"],["ys","年糕湯是我煮的。吃了這碗,大家就又長一歲囉。","laugh"],["hy","代表,我剛剛跟藝瑟歐尼學了歲拜……是這樣跪下去嗎?","shy"],N("(泰梨拿著手機從房間走出來,螢幕裡是洛杉磯的早晨,有人在另一頭揮手。)"),["tr","……我媽。她說要看一下「那個代表」。","shy"]],
+    C:[C("(對著鏡頭鞠躬。)「伯母新年快樂,泰梨在這裡很好。」","陪著","tr",4,[["tr","……她說你很有禮貌。還說我笑了。我沒有。","shy"]]),C("「日和,膝蓋慢慢放,我陪你練一次。」","出手幫忙","hy",3,[["hy","歲拜做完……代表要給我紅包嗎?開玩笑的!","laugh"]]),C("「藝瑟煮的?那我要第二碗。」","鼓勵","ys",3,[["ys","嘿嘿,我就知道!鍋子裡還有很多喔~","laugh"]])]},
+    b:{L:[N("(群組跳出兩張照片:河嵐在濟州外婆家的橘子樹下,夏恩在大邱的廚房包餃子。)"),["ys","……明年,大家都在的時候,再一起吃一次年糕湯吧。","smile"]],C:[]}},
   concept_shoot:{start:{L:[N("(攝影棚的閃光燈一下一下亮起。五個人穿著出道概念的造型,站在白色背景前。)"),["he","這套……穿起來好像換了一個人。","shy"],["tr","攝影師叫我不要笑。……我本來就沒在笑。","neutral"],["hy","代表,這個角度可以嗎?","smile"],["hr","我第一次化這麼濃的妝……是我嗎?","surprise"],["ys","大家,看鏡頭——這是我們的第一張照片。","serious"]],
     C:[C("「很好看。這就是出道的你們。」","鼓勵","he",3),C("「河嵐,是你沒錯。很漂亮。」","安慰","hr",3,[["hr","……代表這樣說,我會當真喔。","shy"]]),C("(在攝影師後面,幫她們舉著反光板。)","出手幫忙","ys",2,[["ys","代表也太認真了吧!","laugh"]])]},
     b:{L:[N("(最後一張是五個人的合照。快門響起的時候,不知道誰先笑了出來。)"),["ys","……就用這張吧。大家都在笑的這張。","smile"]],C:[]}},
