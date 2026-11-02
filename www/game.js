@@ -1135,6 +1135,8 @@ function titleReady(){
   const steps=[
     ()=>window.closePhoto?.(),
     ()=>{const d=[...document.querySelectorAll("dialog[open]")].pop(); if(d){d.close(); return true}},
+    ()=>window.stagePlayBack?.(),   // 舞台預覽(2026-11-01 第 4 包:以前返回鍵關不掉,反而會關掉底下的排舞模式)
+    ()=>{ if(document.querySelector(".mvp,.mvv")&&window.closeMV){ closeMV(); return true } },   // 動態 MV
     ()=>window.meetBack?.(),   // 互動面板
     ()=>window.choreoBack?.(),   // 練習室:排舞模式、匯入編舞(2026-11-01)
     ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
