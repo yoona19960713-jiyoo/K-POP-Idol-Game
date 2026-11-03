@@ -399,7 +399,7 @@ function renderRec(){
   for(const l of C.all){ if(l.si!==lastSi){lastSi=l.si; const ins=instOf(T.secs[l.si]); if(ins>0) blocks.push(`<span class="blk inst" style="flex-grow:${ins}"></span>`)} blocks.push(l) }
   const rel=R.shareMode==="rel", sh=rel?RL.sharesAll:C.shares, sc=rel?RL.secAll:C.secOf;
   $("#sfBody").innerHTML=`<div class="rtop"><div class="rtapes">${R.tracks.map((x,i)=>`<button class="rtape${x.id===R.cur?" on":""}" data-tk="${x.id}" ${x.inst?"disabled":""}>${String(i+1).padStart(2,"0")} ${esc(x.name||"未命名")}${x.id===R.title?" ・主打":""}${x.inst?" ・純音樂":""}</button>`).join("")}</div>
-    <span class="rlinks"><button class="cbtn" data-room="planning">← 企劃室</button><button class="cbtn" data-room="choreo">練習室 →</button></span><span class="rlen">全長 <b>${fmt(C.LN.t)}</b>・人聲 ${fmt(C.LN.v)}・伴奏 ${fmt(C.LN.i)}・${R.year} 年常見約 ${fmt(C.ideal)}</span></div>
+    <span class="rlinks"><button class="cbtn" data-room="planning">← 企劃室</button><button class="cbtn" data-room="choreo">練習室 →</button></span><span class="rlen">${(()=>{ const rd=+SONG_LIST?.[cur()?.id]?.dur||0; return rd>30&&Math.abs(rd-C.LN.t)>1?`全長 <b>${fmt(rd)}</b>・定案音檔(企劃 ${fmt(C.LN.t)})`:`全長 <b>${fmt(C.LN.t)}</b>・人聲 ${fmt(C.LN.v)}・伴奏 ${fmt(C.LN.i)}` })()}・${R.year} 年常見約 ${fmt(C.ideal)}</span></div>
   <div class="ribbon"><div class="strip">${blocks.map(l=>{if(typeof l==="string") return l; const f=fillOf(l);
       return `<button class="blk${f?"":" empty"}" style="flex-grow:${l.s};${f?`background:${f}`:""}" data-go="${l.si}-${l.li}" title="${esc(l.sec.n)}・${TYPES[l.t]}・${l.s} 秒">${l.k?"<i>★</i>":""}</button>`}).join("")}</div>
     <div class="secs">${T.secs.map(sec=>`<span style="flex-grow:${sec.lines.reduce((x,l)=>x+(+l.s),0)+instOf(sec)}">${esc(sec.n)}</span>`).join("")}</div></div>
@@ -541,6 +541,7 @@ window.SONGS_API={get R(){return R},cur,save,applyLyrics,computeTrack,lengthOf,s
 /* 2026-11-01(2.0 第 2 包):歌曲的音檔。定案 mp3 交給主體開發,處理後放 assets/song/<歌曲代號>.m4a、寫進 assets/song/list.json;
    遊戲用歌曲代號(製作單的 code)找;T.audio(雲端 blob)有的話優先 */
 let SONG_LIST=null; const songListP=fetch("assets/song/list.json",{cache:"no-store"}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(j=>SONG_LIST=j&&typeof j==="object"?j:{});
+/* 2026-11-03:錄音室的全長原本是企劃的秒數(人聲+伴奏);有定案音檔時改顯示音檔的實際長度,企劃的放在括號裡(〈Chase〉企劃 3:39、音檔 3:48) */
 window.songHasAudio=T=>!!(T&&(T.audio||SONG_LIST?.[T.id]?.file));
 window.songAudioURL=async T=>{ if(!T) return null; if(T.audio&&window.getBlob){ try{ const u=await getBlob(T.audio); if(u) return u }catch(e){ window.logErr?.("歌曲音檔",e) } }
   const L=SONG_LIST||await songListP; const f=L?.[T.id]?.file; return f?`assets/song/${encodeURIComponent(f)}`:null };
