@@ -11,6 +11,18 @@ const DEFAULT_MODEL="gemini-flash-latest"; // 永遠指向 Google 最新的 Flas
 const RETIRED=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-lite"];
 let modelOverride=""; // 自動生產時,主模型的每日額度用完會暫時改用備用模型
 const model=()=>{if(modelOverride) return modelOverride; const m=localStorage.getItem(KEY_M)||DEFAULT_MODEL; return RETIRED.includes(m)?DEFAULT_MODEL:m};
+/* 2026-11-03(第五個大腦):Google 回 5xx「This model is currently experiencing high demand」時,
+   不是金鑰或設定的問題,是那個模型在 Google 那邊太忙。先原地重試兩次(3 秒、8 秒),還是太忙就讓這個模型冷卻 15 分鐘,
+   改用清單裡的下一個(主模型 → 備用模型 → Flash-Lite;設定裡「自動換模型」關掉時只重試不換)。冷卻只記在這次開著的遊戲裡。 */
+const BUSY={}, BUSY_COOL=15*60000;
+const busyNow=m=>(BUSY[m]||0)>Date.now();
+let lastModel="";
+function callModel(){ const m=model(); if(!busyNow(m)) return m;
+  let out={}; try{ out=usage().outM||{} }catch(e){}
+  return (A.fallback?modelList():[m]).find(x=>!busyNow(x)&&!out[x])||m }
+window.geminiBusy=()=>Object.entries(BUSY).filter(([,t])=>t>Date.now()).map(([m,t])=>({m,min:Math.ceil((t-Date.now())/60000)}));
+const sigSleep=(ms,signal)=>new Promise((ok,no)=>{ if(signal?.aborted) return no({code:"cancelled"}); const t=setTimeout(ok,ms); signal?.addEventListener?.("abort",()=>{ clearTimeout(t); no({code:"cancelled"}) },{once:true}) });
+const isBusy=(st,msg,j)=>st===500||st===502||st===503||st===504||/high demand|overloaded|try again later|UNAVAILABLE/i.test(msg+" "+(j?.error?.status||""));
 
 
 async function toJpegB64(file){
@@ -18,13 +30,14 @@ async function toJpegB64(file){
   const c=document.createElement("canvas"); c.width=Math.round(bmp.width*s); c.height=Math.round(bmp.height*s);
   c.getContext("2d").drawImage(bmp,0,0,c.width,c.height); return c.toDataURL("image/jpeg",0.85).split(",")[1];
 }
-async function aiJSON(prompt,files,signal,schema){
+async function aiJSON(prompt,files,signal,schema,_try=0){
   const key=apiKey(); if(!key) throw {code:"no_key"};
+  const useM=callModel(); lastModel=useM;
   const parts=[{text:prompt}];
   for(const f of files||[]) parts.push({inline_data:{mime_type:"image/jpeg",data:await toJpegB64(f)}});
   let res;
   try{
-    res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model())}:generateContent`,{method:"POST",signal,
+    res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(useM)}:generateContent`,{method:"POST",signal,
       headers:{"Content-Type":"application/json","x-goog-api-key":key},
       body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json",...(schema?{responseSchema:schema}:{}),temperature:1}})});
   }catch(e){ if(e?.name==="AbortError") throw {code:"cancelled"}; throw {code:"network"} }
@@ -40,8 +53,14 @@ async function aiJSON(prompt,files,signal,schema){
       throw {code:day?"rate_day":"rate_minute",message:msg,wait};
     }
     if(res.status===401||res.status===403||/API key/i.test(msg)) throw {code:"bad_key",message:msg};
+    if(isBusy(res.status,msg,j)){
+      if(_try<2){ await sigSleep(_try?8000:3000,signal); return aiJSON(prompt,files,signal,schema,_try+1) }
+      BUSY[useM]=Date.now()+BUSY_COOL;
+      if(callModel()!==useM) return aiJSON(prompt,files,signal,schema,0);   // 換下一個沒有在忙的模型
+      throw {code:"busy",message:msg,model:useM};
+    }
     if(res.status===404){
-      if(modelOverride) throw {code:"bad_model",message:msg};   // 備用清單裡的模型名稱打錯或已停用:跳過它
+      if(modelOverride||useM!==model()) throw {code:"bad_model",message:msg};   // 備用清單裡的模型名稱打錯或已停用:跳過它
       if(model()!==DEFAULT_MODEL){ localStorage.setItem(KEY_M,DEFAULT_MODEL); return aiJSON(prompt,files,signal,schema); } // 模型被停用時自動改回預設
       throw {code:"bad_model",message:msg};
     }
@@ -56,7 +75,7 @@ async function aiJSON(prompt,files,signal,schema){
   try{return JSON.parse(text)}catch(e){const m=text.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){window.logErr?.("scripts",_)}} throw {code:"invalid_json"}}
 }
 
-const ERR={no_key:"還沒設定 Gemini API 金鑰,請到右上角「設定」貼上。",bad_key:"金鑰無效或沒有權限,請到設定重新貼上並測試連線。",bad_model:"找不到這個模型名稱,請到設定改回推薦的模型。",rate_minute:"每分鐘次數到上限了,等一分鐘再試。",rate_day:"今天的免費額度用完了,台灣時間下午三、四點後會重置。",blocked:"這次的內容被 Gemini 的安全機制擋下,換張圖或改一下說明再試。",network:"連不上 Gemini,請確認網路。",region:"目前所在地區無法使用 Gemini API。",server:"Gemini 暫時出錯,稍後再試。",not_granted:"沒有允許這個頁面使用 Claude,分析功能無法使用。",sampling_disabled:"這個帳號目前無法使用 Claude。",rate_limited:"使用次數暫時太多,請稍後再試。",image_rejected:"有圖片無法讀取,請換一張(JPG、PNG、WebP)。",images_unavailable:"這個檢視無法傳送圖片。",refused:"這次的內容無法分析,換張圖或改一下說明再試。",invalid_json:"分析結果格式不完整,請再按一次。",prompt_too_large:"說明太長了,請縮短。",session_expired:"請重新登入後再試。"};
+const ERR={no_key:"還沒設定 Gemini API 金鑰,請到右上角「設定」貼上。",bad_key:"金鑰無效或沒有權限,請到設定重新貼上並測試連線。",bad_model:"找不到這個模型名稱,請到設定改回推薦的模型。",rate_minute:"每分鐘次數到上限了,等一分鐘再試。",rate_day:"今天的免費額度用完了,台灣時間下午三、四點後會重置。",blocked:"這次的內容被 Gemini 的安全機制擋下,換張圖或改一下說明再試。",network:"連不上 Gemini,請確認網路。",region:"目前所在地區無法使用 Gemini API。",server:"Gemini 暫時出錯,稍後再試。",busy:"Google 那邊的 Gemini 現在太忙(不是金鑰或設定的問題),已經自動重試、也換過模型了,過幾分鐘再試。",not_granted:"沒有允許這個頁面使用 Claude,分析功能無法使用。",sampling_disabled:"這個帳號目前無法使用 Claude。",rate_limited:"使用次數暫時太多,請稍後再試。",image_rejected:"有圖片無法讀取,請換一張(JPG、PNG、WebP)。",images_unavailable:"這個檢視無法傳送圖片。",refused:"這次的內容無法分析,換張圖或改一下說明再試。",invalid_json:"分析結果格式不完整,請再按一次。",prompt_too_large:"說明太長了,請縮短。",session_expired:"請重新登入後再試。"};
 /* ---------- 劇本工坊:成員與規格 ---------- */
 const MB=[
  {id:"ys",n:"藝瑟",en:"Yeseul",c:"#7B4FBF"},{id:"tr",n:"泰梨",en:"Taeri",c:"#C8102E"},{id:"hy",n:"日和",en:"Hiyori",c:"#C9A35E"},
@@ -667,8 +686,9 @@ ${CRAFT}
 ${JSON.stringify(list.map((sn,i)=>({i,主角:mb(sn.member)?.n||pairName(sn.pair||"all"),種類:TYPES[sn.type]?.n,sc:sn.sc,lines:Object.values(sn.nodes).flatMap(n=>(n.L||[]).filter(l=>l[0]!=="@").map(l=>(mb(l[0])?.n||"旁白")+":"+l[1])),選項:Object.values(sn.nodes).flatMap(n=>(n.C||[]).map(c=>c.t))})))}
 只回覆 JSON:{"scores":[{"i":0,"score":7,"why":"一句理由"}]}`,[],undefined,{type:"OBJECT",properties:{scores:{type:"ARRAY",items:{type:"OBJECT",properties:{i:{type:"INTEGER"},score:{type:"INTEGER"},why:{type:"STRING"}},required:["i","score"]}}},required:["scores"]});
     for(const s of r?.scores||[]){ const sn=list[+s.i]; if(sn){ sn.score=Math.max(1,Math.min(10,Math.round(+s.score||0))); sn.why=String(s.why||"").slice(0,60) } } }
-  catch(e){ if(e?.code==="rate_day"){ const u=usage(); (u.outM=u.outM||{})[model()]=true; setUsage(u) } }   // 評分失敗就只看格式,不浪費已經寫好的片段
+  catch(e){ const u=usage(); if(e?.code==="rate_day"){ (u.outM=u.outM||{})[model()]=true } if(["rate_minute","rate_day","busy","network"].includes(e?.code)) u.n=Math.max(0,u.n-1); setUsage(u) }   // 評分失敗就只看格式,不浪費已經寫好的片段;沒被處理的請求不算進今天已用
 }
+let busyN=0;   // 連續幾次 Google 太忙(拉長等待用)
 async function autoLoop(){
   try{wakeLock=await navigator.wakeLock?.request?.("screen")}catch(e){window.logErr?.("scripts",e)}
   while(running){
@@ -686,16 +706,18 @@ async function autoLoop(){
       let res=fix(await produce(task)), tries=0, dropped=res.drop;
       while(res.drop&&tries<2&&running){ tries++; aState=`淘汰 ${res.drop} 個,重寫中(第 ${tries} 次)…`; lastCalls.push(Date.now()); const u2=usage(); u2.n++; setUsage(u2); await sleep(gap);
         const r2=fix(await produce({...task,count:res.arc?task.count:res.drop})); dropped+=r2.drop; res={acc:[...res.acc,...r2.acc],rev:[...res.rev,...r2.rev],drop:r2.drop,arc:res.arc} }
+      busyN=0;
       for(const sn of res.acc){ sn.status="auto"; await saveItem(sn) }
       for(const sn of res.rev){ sn.status="review"; await saveItem(sn) }
       const u3=usage(); u3.made+=res.acc.length; u3.review=(u3.review||0)+res.rev.length; u3.drop=(u3.drop||0)+dropped; setUsage(u3);
     }catch(e){
       const u4=usage(); const why=WHY[e?.code]?e.code:"other"; if(why==="other"&&!e?.message&&e) e={message:String(e)}; u4.fail++; u4.why[why]=(u4.why[why]||0)+1;
-      if(e?.code==="rate_minute"||e?.code==="rate_day") u4.n=Math.max(0,u4.n-1); // 被 Google 以超量拒絕的請求不消耗額度,不算進今天已用
+      if(["rate_minute","rate_day","busy","network"].includes(e?.code)) u4.n=Math.max(0,u4.n-1); // 被 Google 拒絕或沒處理(超量、太忙、網路斷)的請求,不算進今天已用
       if(e?.code==="rate_day"){ if(!u4.outM) u4.outM={}; u4.outM[model()]=true }
       setUsage(u4);
-      u4.last=`${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit"})} ${WHY[why]||why}${e?.message?":"+String(e.message).slice(0,120):""}`; setUsage(u4);
-      if(e?.code==="rate_minute"){ aState="每分鐘次數到上限,稍等一下…"; await sleep(Math.max(15,(e.wait||60)+5)*1000) }
+      u4.last=`${new Date().toLocaleTimeString("zh-TW",{timeZone:"Asia/Taipei",hour:"2-digit",minute:"2-digit"})} ${WHY[why]||why}${e?.model?`(${e.model})`:""}${e?.message?":"+String(e.message).slice(0,120):""}`; setUsage(u4);
+      if(e?.code==="busy"){ busyN++; const w=Math.min(600,30*2**Math.min(5,busyN-1)); aState=`Google 那邊太忙(不是設定的問題),${w>=60?Math.round(w/60)+" 分鐘":w+" 秒"}後再試…`; await sleep(w*1000) }
+      else if(e?.code==="rate_minute"){ aState="每分鐘次數到上限,稍等一下…"; await sleep(Math.max(15,(e.wait||60)+5)*1000) }
       else if(e?.code==="rate_day"){ }
       else if(e?.code==="bad_model"&&modelOverride){ const u5=usage(); (u5.outM=u5.outM||{})[model()]=true; setUsage(u5) }   // 備用模型名稱不對:跳過換下一個
       else if(["no_key","bad_key","bad_model","region"].includes(e?.code)){ aState=ERR[e.code]; running=false }
@@ -704,7 +726,7 @@ async function autoLoop(){
   }
   modelOverride=""; try{await wakeLock?.release?.()}catch(e){window.logErr?.("scripts",e)} wakeLock=null; renderAuto();
 }
-const WHY={rate_minute:"每分鐘超量",rate_day:"每日額度用完",blocked:"被安全機制擋下",invalid_json:"回傳格式不完整",server:"Gemini 暫時出錯",network:"網路中斷",other:"其他"};
+const WHY={rate_minute:"每分鐘超量",rate_day:"每日額度用完",blocked:"被安全機制擋下",invalid_json:"回傳格式不完整",busy:"Google 太忙",server:"Gemini 暫時出錯",network:"網路中斷",other:"其他"};
 function fmtMs(ms){ms=Math.max(0,ms);const h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);return h?`${h} 小時 ${m} 分`:m?`${m} 分 ${s} 秒`:`${s} 秒`}
 
 /* ---------- 在遊戲裡的資料:所有片段(含待審),與雲端 users/{uid}/scripts 同步 ---------- */
@@ -915,14 +937,14 @@ function autoHTML(){
     <h3>自動生產</h3>
     <p class="mnote">依覆蓋率由最常用的開始補:改版 1.0 的新種類優先(隨口互動 → 1.0 的通用活動 → 深夜),再來是原本的片段;關係由淺到深、五位成員輪流。專屬活動與里程碑事件由長對話劇本對話寫,這裡不自動產生。會自己控管每分鐘次數與每日上限,碰到上限就等待,額度重置後自動繼續。製作者模式關掉後仍會在背景繼續,但遊戲要保持開著。長對話改由 Claude 創作室負責。</p>
     <div class="mrow"><label>每分鐘最多<input type="number" id="aRpm" min="1" max="60" value="${A.rpm}">次</label><label>每天最多<input type="number" id="aDay" min="1" max="10000" value="${A.day}">次</label></div>
-    <label class="mck"><input type="checkbox" id="aFb" ${A.fallback?"checked":""}> 今天額度用完時自動換模型繼續(主模型 → 備用模型 → Flash-Lite;每個模型的免費額度分開算)</label>
+    <label class="mck"><input type="checkbox" id="aFb" ${A.fallback?"checked":""}> 今天額度用完或 Google 太忙時自動換模型繼續(主模型 → 備用模型 → Flash-Lite;每個模型的免費額度分開算)</label>
     <div class="mrow"><span class="mnote">備用模型</span><input id="aExtra" class="grow" value="${esc(A.extra||"")}" placeholder="例如 gemini-2.5-flash, gemini-2.5-flash-lite(用逗號分隔)"></div>
     <label class="mck"><input type="checkbox" id="aAuto" ${A.autoAccept?"checked":""}> 通過的直接收進內容庫(標為「未審」);和內容庫太像、格式或品質檢查沒過的一律淘汰重寫(每格最多重寫兩次,不會進待審)</label>
     <label class="mck"><input type="checkbox" id="aScore" ${A.score?"checked":""}> 寫完再請 Gemini 照守則評分(每批多用一次額度):7 分以上自動收下、6 分進待審、5 分以下淘汰重寫</label>
     <button class="mbtn ${running?"danger":"pri"} big" id="mkAuto">${running?"停止自動生產":"開始自動生產"}</button></div>
     <div class="msheet log"><h3>生產紀錄</h3>
     <p>狀態:<b>${running?(aState||"準備中…"):"未啟動"}</b>${running&&aWait>Date.now()?`(${fmtMs(aWait-Date.now())})`:""}</p>
-    <p>使用模型:${model()}${u.outM&&Object.keys(u.outM).length?`(今天額度已用完:${Object.keys(u.outM).join("、")})`:""}</p>
+    <p>使用模型:${callModel()}${u.outM&&Object.keys(u.outM).length?`(今天額度已用完:${Object.keys(u.outM).join("、")})`:""}${window.geminiBusy().length?`<br><span class="mnote">Google 太忙、暫停使用:${window.geminiBusy().map(b=>`${b.m}(約 ${b.min} 分鐘後再試)`).join("、")}</span>`:""}</p>
     <p>今天已用 <b>${u.n}</b> / ${A.day} 次・自動收入 <b>${u.made}</b> 個・送審 ${u.review||0} 個・淘汰重寫 ${u.drop||0} 個</p><p>額度約在台灣時間 ${resetAt} 重置</p>
     ${u.last?`<p class="mnote">最近一次失敗:${esc(u.last)}</p>`:""}
     <p>失敗 ${u.fail} 次${u.fail?":"+Object.entries(u.why).map(([k,v])=>`${WHY[k]||k} ${v}`).join("、"):""}</p>
@@ -1067,12 +1089,13 @@ async function reviseLoop(){
     if(lastCalls.length>=A.rpm){ revState="控制速度中…"; await sleep(60000-(Date.now()-lastCalls[0])+500); continue }
     revState=`修訂中(${model()}${modelOverride?",備用":""}):${mb(batch[0].member)?.n||""}・一次 ${batch.length} 個(還剩 ${todo.length} 個,今天修好 ${u.rev||0} 個)`; renderAll();
     lastCalls.push(Date.now()); u.n++; setUsage(u);
-    try{ const ok=await reviseBatch(batch); const u2=usage(); u2.rev=(u2.rev||0)+ok; setUsage(u2) }
+    try{ const ok=await reviseBatch(batch); busyN=0; const u2=usage(); u2.rev=(u2.rev||0)+ok; setUsage(u2) }
     catch(e){ const u3=usage();
       if(e?.code==="rate_minute"){ u3.n=Math.max(0,u3.n-1); setUsage(u3); revState="每分鐘次數到上限,稍等一下…"; renderAll(); await sleep(Math.max(15,(e.wait||60)+5)*1000); continue }
       if(e?.code==="rate_day"||(e?.code==="bad_model"&&modelOverride)){ u3.n=Math.max(0,u3.n-1); (u3.outM=u3.outM||{})[model()]=true; setUsage(u3); continue }   // 這個模型今天用完(或名稱不對),換下一個
       if(["no_key","bad_key","bad_model","region"].includes(e?.code)){ revState=ERR[e.code]; revRunning=false; break }
-      if(e?.code==="network"||e?.code==="server"){ revState=(ERR[e.code]||"")+" 30 秒後重試。"; renderAll(); await sleep(30000); continue }
+      if(e?.code==="busy"||e?.code==="network"){ u3.n=Math.max(0,u3.n-1); setUsage(u3); busyN++; const w=Math.min(600,30*2**Math.min(5,busyN-1)); revState=(e.code==="busy"?"Google 那邊太忙(不是設定的問題)":ERR.network)+`,${w>=60?Math.round(w/60)+" 分鐘":w+" 秒"}後重試。`; renderAll(); await sleep(w*1000); continue }
+      if(e?.code==="server"){ revState=(ERR[e.code]||"")+" 30 秒後重試。"; renderAll(); await sleep(30000); continue }
       for(const sn of batch) await failRev(sn,String(e?.message||e?.code||"")) }   // 整批壞掉(格式不完整、被擋):各記一次,下次單獨送
     await sleep(gap) }
   if(my===revGen){ modelOverride=""; try{await wakeLock?.release?.()}catch(e){window.logErr?.("scripts",e)} wakeLock=null }
@@ -1251,7 +1274,7 @@ function bind(B){
     q("#keyShow").onclick=()=>{const k=q("#keyIn");k.type=k.type==="password"?"text":"password"};
     q("#keySave").onclick=()=>{saveK();q("#keyStatus").textContent="已儲存。"};
     q("#keyDel").onclick=()=>{localStorage.removeItem(KEY_K);renderAll();toast2("金鑰已清除")};
-    q("#keyTest").onclick=async()=>{saveK(); const st=q("#keyStatus"); st.textContent="測試中…"; try{const r=await aiJSON('只回覆 JSON:{"ok":true}',[]); st.textContent=r?.ok?`連線成功,使用 ${model()}。`:"有回應,但格式不如預期,仍可試用。"}catch(e){st.textContent=ERR[e?.code]||"測試失敗。"}} }
+    q("#keyTest").onclick=async()=>{saveK(); const st=q("#keyStatus"); st.textContent="測試中…"; try{const r=await aiJSON('只回覆 JSON:{"ok":true}',[]); st.textContent=r?.ok?`連線成功,使用 ${lastModel||model()}${lastModel&&lastModel!==model()?"(主模型太忙,這次用了備用)":""}。`:"有回應,但格式不如預期,仍可試用。"}catch(e){st.textContent=ERR[e?.code]||"測試失敗。"}} }
 }
 function edit(sn){ const {nodes,sc,at,sl,who,w,cd}=sn; const d=$("#mkDlg");
   d.innerHTML=`<div class="mdlg"><h3>編輯片段</h3><p class="mnote">直接修改台詞、選項或節點,存檔前會檢查格式。台詞格式是 [說話者, 台詞, 表情]。</p>

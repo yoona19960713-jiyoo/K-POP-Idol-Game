@@ -546,17 +546,22 @@ const gKey=()=>localStorage.getItem("kpopScripts.geminiKey")||localStorage.getIt
 const gModel=()=>{const m=localStorage.getItem("kpopScripts.model")||"gemini-flash-latest"; return ["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-2.0-flash","gemini-2.0-flash-lite"].includes(m)?"gemini-flash-latest":m};
 async function fileToJpegB64(f){const bmp=await createImageBitmap(f); const s=Math.min(1,1280/Math.max(bmp.width,bmp.height)); const c=document.createElement("canvas");
   c.width=Math.round(bmp.width*s); c.height=Math.round(bmp.height*s); c.getContext("2d").drawImage(bmp,0,0,c.width,c.height); return c.toDataURL("image/jpeg",.85).split(",")[1]}
-async function gemJSON(prompt,files,signal){
+async function gemJSON(prompt,files,signal,_t=0){
   const key=gKey(); if(!key) throw {code:"no_key"};
   const parts=[{text:prompt}]; for(const f of files||[]) parts.push({inline_data:{mime_type:"image/jpeg",data:await fileToJpegB64(f)}});
   let r; try{ r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(gModel())}:generateContent`,{method:"POST",signal,headers:{"Content-Type":"application/json","x-goog-api-key":key},
     body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{responseMimeType:"application/json"}})}) }catch(e){ if(e?.name==="AbortError") throw {code:"cancelled"}; throw {code:"network"} }
   const j=await r.json().catch(()=>({}));
-  if(!r.ok){ if(r.status===429) throw {code:"rate"}; if(r.status===401||r.status===403) throw {code:"bad_key"}; throw {code:"server",msg:j?.error?.message} }
+  if(!r.ok){ if(r.status===429) throw {code:"rate"}; if(r.status===401||r.status===403) throw {code:"bad_key"};
+    /* 2026-11-03:Google 太忙(5xx、high demand)先原地重試兩次(3 秒、8 秒);設計品質要穩,這裡不換模型 */
+    const msg=j?.error?.message||""; if(r.status>=500||/high demand|overloaded|UNAVAILABLE/i.test(msg+" "+(j?.error?.status||""))){
+      if(_t<2){ await new Promise(ok=>setTimeout(ok,_t?8000:3000)); if(signal?.aborted) throw {code:"cancelled"}; return gemJSON(prompt,files,signal,_t+1) }
+      throw {code:"busy",msg} }
+    throw {code:"server",msg} }
   const c=j.candidates?.[0]; if(j.promptFeedback?.blockReason||!c||["SAFETY","PROHIBITED_CONTENT","BLOCKLIST"].includes(c.finishReason)) throw {code:"blocked"};
   const t=(c.content?.parts||[]).map(p=>p.text||"").join(""); try{return JSON.parse(t)}catch(e){const m=t.match(/[\[{][\s\S]*[\]}]/); if(m){try{return JSON.parse(m[0])}catch(_){window.logErr?.("wardrobe",_)}} throw {code:"invalid_json"}}
 }
-const G_ERR={no_key:"還沒設定 Gemini 金鑰:選單 → 製作者模式 → 金鑰",bad_key:"Gemini 金鑰無效",rate:"Gemini 次數到上限,稍等再試",blocked:"被 Gemini 的安全機制擋下,改一下說明再試",invalid_json:"設計結果格式不完整,再按一次",network:"連不上 Gemini",server:"Gemini 暫時出錯",cancelled:"已停止"};
+const G_ERR={no_key:"還沒設定 Gemini 金鑰:選單 → 製作者模式 → 金鑰",bad_key:"Gemini 金鑰無效",rate:"Gemini 次數到上限,稍等再試",blocked:"被 Gemini 的安全機制擋下,改一下說明再試",invalid_json:"設計結果格式不完整,再按一次",network:"連不上 Gemini",server:"Gemini 暫時出錯",busy:"Google 那邊的 Gemini 現在太忙(不是金鑰或設定的問題),已經重試過了,過幾分鐘再按一次",cancelled:"已停止"};
 function wDesignPrompt(hasPhotos,hint,type,targets,occ,seasons){
   const prof=targets.map(m=>`- id "${m.id}":${m.name}${m.en?`(${m.en})`:""}:${m.profile||"(沒有資料)"}`).join("\n");
   return `你是 K-POP 女團的造型總監。${hasPhotos?"附上的圖片是穿搭參考,只看衣物與配件,不要描述照片中人物是誰或五官。":""}
