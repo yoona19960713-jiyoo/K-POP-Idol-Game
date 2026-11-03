@@ -374,8 +374,12 @@ function stageOk(sn){if(PAIR_TYPES.includes(sn.type)) return true; if(!sn.stage|
   if(sn.stage==="多人親密") return cur==="多人親密"&&(sn.who||[]).filter(x=>x!==id).every(x=>(window.multiPartners?.(id)||[]).includes(x));
   if(R.indexOf(sn.stage)>=deep&&R.indexOf(cur)>=R.indexOf(sn.stage)) return true;
   return sn.stage===cur}
+/* 2026-11-03(第四個大腦):寫了 hour 的片段(長對話照作息表寫的「幾點到幾點」)只在那段時間出現。以前只看 sl(整個時段),
+   例如寫「下午五點,團體練習最後一小時」的長對話會在下午一點就演 */
+const hourOk=sn=>{ const h=sn.hour; if(!Array.isArray(h)) return true; const t=S.min/60; return t>=+h[0]&&t<+h[1] };
+const TIMED=["long","pairlong","arc"];   // 寫了 hour 的長對話:那段時間走進去就演(不限這個時段第一次進來)
 function pool({sp,room,slot,present,types,member}){
-  return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&sn.who?.length
+  return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&hourOk(sn)&&sn.who?.length
     &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&arcOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))
     &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start)}
 /* 近況片段(有出場條件)只在情境成立時出現,出現時權重 ×3;連續劇情的下一段 ×4,讓故事接得上 */
@@ -734,7 +738,7 @@ function visit(pid,o={}){
   const wl=wxLine(pid), fsn=firstSnowSnip(ppl);
   if(fsn){ play(fsn,menu,"entry"); return }
   if(!ppl.length){narr(wl+(PL[pid].owner?`${byId(PL[pid].owner).n}不在房間裡。${EMPTY.bedroom.replace("寢室裡沒有人,","")}`:byTime(EMPTY[pid]))); menu(); return}
-  const all=first?pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}):[], wxs=all.filter(x=>x.wx);   // 進場的小片段:這個時段第一次進來才演
+  const all=first?pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:ENTRY}):pool({sp:p.sp,room:pid,slot:S.slot,present:ppl,types:TIMED}).filter(x=>Array.isArray(x.hour)), wxs=all.filter(x=>x.wx);   // 進場的小片段:這個時段第一次進來才演;寫了 hour 的長對話,那段時間再走進來也會演
   const sn=pickW(wxs.length&&Math.random()<.75?wxs:all);   // 對應天氣的片段優先
   if(sn) play(wl&&!sn.sc&&!sn.wx?{...sn,sc:wl}:sn,menu,"entry"); else {narr(wl+(PL[pid].owner?`你敲了敲${byId(PL[pid].owner).n}房間的門。`:byTime(SCN[baseOf(pid)]))+(ppl.length===1?`${byId(ppl[0]).n}在這裡。`:`${ppl.map(id=>byId(id).n).join("、")}都在這裡。`)); menu()}
 }
