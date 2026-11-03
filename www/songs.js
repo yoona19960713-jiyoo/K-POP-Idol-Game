@@ -301,7 +301,7 @@ function close(){ $("#songFac").classList.add("hide"); const ws=[...WORKED].map(
   setPause("song",false); OPEN=null; if(dirty) push();
   }
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
-function render(){ if(!OPEN) return; syncSkill(); OPEN==="planning"?renderPlan():OPEN==="concert"?window.concertPlanRender?.($("#sfBody"),render):OPEN==="choreo"?window.choreoRender?.($("#sfBody"),render):renderRec() }
+function render(){ if(!OPEN) return; syncSkill(); window.songsAudioSync?.(); OPEN==="planning"?renderPlan():OPEN==="concert"?window.concertPlanRender?.($("#sfBody"),render):OPEN==="choreo"?window.choreoRender?.($("#sfBody"),render):renderRec() }
 const note=([k,t])=>`<li class="sn ${k}">${t}</li>`;
 
 /* ---------- 企劃室 ---------- */
@@ -536,11 +536,22 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
 window.songsArchive=n=>{ R.archive=R.archive||[]; if(R.archive.some(a=>a.n===n)) return; R.archive.push({n,name:R.name||"",type:R.type,title:R.title,tracks:JSON.parse(JSON.stringify(R.tracks))}); save() };
 function albumsAll(){ const A=(R.archive||[]).map(a=>({...a,released:true})), last=A.at(-1), same=last&&last.tracks.map(x=>x.id).join()===R.tracks.map(x=>x.id).join();
   if(!same) A.push({n:(last?.n||0)+1,name:R.name||"",type:R.type,title:R.title,tracks:R.tracks,current:true}); return A }
-window.SONGS_API={get R(){return R},cur,save,applyLyrics,computeTrack,lengthOf,suggest,template,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
+window.SONGS_API={get R(){return R},cur,save,audioSync:()=>audioSync(),applyLyrics,computeTrack,lengthOf,suggest,template,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
   albums:albumsAll,track:id=>albumsAll().flatMap(a=>a.tracks).find(t=>t.id===id)||null};
 /* 2026-11-01(2.0 第 2 包):歌曲的音檔。定案 mp3 交給主體開發,處理後放 assets/song/<歌曲代號>.m4a、寫進 assets/song/list.json;
    遊戲用歌曲代號(製作單的 code)找;T.audio(雲端 blob)有的話優先 */
 let SONG_LIST=null; const songListP=fetch("assets/song/list.json",{cache:"no-store"}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(j=>SONG_LIST=j&&typeof j==="object"?j:{});
+/* 2026-11-03(〈LETTER〉):定案音檔的對拍。大腦分析 mp3 的 BPM 與每段起點,寫在 list.json 的 sync(sections 的 name 與小節)。
+   這首還沒有對拍的小節(沒匯入編舞;收錄曲不編舞)而且段落名稱、順序對得上時,自動套到這首(T.sync、T.bpm 改成音檔的實際速度),
+   舞台預覽、動態 MV、字幕就照 mp3 走;逐句對拍(lines)保留。段落結構換過(重建)會再套一次 */
+function audioSync(){ const LS=SONG_LIST; if(!LS||!R?.tracks) return 0; let n=0;
+  for(const T of R.tracks){ const a=LS[T.id]?.sync; if(!a||T.sync?.bars||!Array.isArray(a.sections)) continue;
+    if(a.sections.length!==T.secs.length||a.sections.some((x,i)=>x.name!==T.secs[i].n)) continue;
+    const bars={}; a.sections.forEach((x,i)=>{ if(+x.bar>=1) bars[i]=+x.bar });
+    T.sync={downbeat:+a.downbeat||0,bars,...(+a.end>0?{end:+a.end}:{}),src:"audio",...(T.sync?.lines?{lines:T.sync.lines}:{})}; if(+a.bpm>=50&&+a.bpm<=240) T.bpm=+a.bpm; n++ }
+  return n }
+songListP.then(()=>{ try{ if(audioSync()) save() }catch(e){ window.logErr?.("歌曲對拍",e) } });
+window.songsAudioSync=()=>{ try{ if(audioSync()) save() }catch(e){} };   // 舞台預覽、動態 MV 算時間軸前先套(choreo.js songTimeline)
 /* 2026-11-03:錄音室的全長原本是企劃的秒數(人聲+伴奏);有定案音檔時改顯示音檔的實際長度,企劃的放在括號裡(〈Chase〉企劃 3:39、音檔 3:48) */
 window.songHasAudio=T=>!!(T&&(T.audio||SONG_LIST?.[T.id]?.file));
 window.songAudioURL=async T=>{ if(!T) return null; if(T.audio&&window.getBlob){ try{ const u=await getBlob(T.audio); if(u) return u }catch(e){ window.logErr?.("歌曲音檔",e) } }

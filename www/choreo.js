@@ -525,7 +525,7 @@ function edTick(){ const {s,nb}=edSec(), pos=posAt(s,ED.ph), {fc}=movesAt(cuesOf
   const ph=ED.el.querySelector("#edPh"); if(ph) ph.style.left=cl(ED.ph/nb*100,0,100)+"%" }
 /* 2.0 第 2 包:整首的時間軸。有對拍(T.sync)時段落照 mp3 的小節,每段裡的句子照錄音室的秒數等比例放進去;
    之後的逐句對拍(T.sync.lines[段][句] = 這句在段落裡第幾拍開始)會蓋過估計 */
-window.songTimeline=T=>{ const A=API(), ev=[], secs=[], SB=T.sync?.bars, bs=beatSec(T), db=+T.sync?.downbeat||0, n=T.secs.length;
+window.songTimeline=T=>{ if(!T?.sync?.bars) window.songsAudioSync?.(); const A=API(), ev=[], secs=[], SB=T.sync?.bars, bs=beatSec(T), db=+T.sync?.downbeat||0, n=T.secs.length;
   const st=i=>i===0?0:(SB&&SB[i]!=null?db+(SB[i]-1)*4*bs:null); let t=0;
   T.secs.forEach((s,si)=>{ const raw=s.lines.reduce((x,l)=>x+Math.max(.5,+l.s||0),0)+A.instOf(s); let t0=st(si); if(t0==null||t0<t-.01) t0=t;
     const nx=si<n-1?st(si+1):null, t1=si===n-1&&+T.sync?.end>t0?+T.sync.end:(nx!=null&&nx>t0?nx:t0+raw), k=raw>0?(t1-t0)/raw:1; let u=t0;
