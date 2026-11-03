@@ -25,15 +25,29 @@ let LOOKS=[
   {id:"L7",n:"芭蕾紗裙",own:"hy",occ:"打歌舞台",r:"SR",a:{sweet:0,pure:-2,lively:3,fancy:-2,retro:-2}},
   {id:"L8",n:"運動短版",own:"hr",occ:"演唱會",r:"R",a:{sweet:0,pure:1,lively:-3,fancy:1,retro:1}},
 ];
-const SHOWS=[
-  {d:"週二",n:"SHOW PULSE",w:{digital:.35,sales:.1,views:.2,social:.15,stage:.2}},
-  {d:"週三",n:"CHAMPION LIVE",w:{digital:.35,sales:.15,views:.15,social:.1,stage:.25}},
-  {d:"週四",n:"COUNTDOWN M",w:{digital:.45,sales:.15,views:.15,social:.15,stage:.1}},
-  {d:"週五",n:"MUSIC VAULT",w:{digital:.6,sales:.1,views:.1,social:.1,stage:.1}},
-  {d:"週六",n:"CORE STAGE",w:{digital:.5,sales:.1,views:.1,social:.1,stage:.2}},
-  {d:"週日",n:"STAR GAYO",w:{digital:.55,sales:.1,views:.15,social:.1,stage:.1}},
+const SHOWS=[   // c1、c2、en:1.2 第 1 包打歌轉播的節目標誌
+  {d:"週二",n:"SHOW PULSE",en:"TUE",c1:"#FF4FA3",c2:"#7B4FBF",w:{digital:.35,sales:.1,views:.2,social:.15,stage:.2}},
+  {d:"週三",n:"CHAMPION LIVE",en:"WED",c1:"#F2B33D",c2:"#D9572B",w:{digital:.35,sales:.15,views:.15,social:.1,stage:.25}},
+  {d:"週四",n:"COUNTDOWN M",en:"THU",c1:"#3FC9F0",c2:"#3552D9",w:{digital:.45,sales:.15,views:.15,social:.15,stage:.1}},
+  {d:"週五",n:"MUSIC VAULT",en:"FRI",c1:"#2FD4A6",c2:"#127A70",w:{digital:.6,sales:.1,views:.1,social:.1,stage:.1}},
+  {d:"週六",n:"CORE STAGE",en:"SAT",c1:"#FF5A5A",c2:"#9C1238",w:{digital:.5,sales:.1,views:.1,social:.1,stage:.2}},
+  {d:"週日",n:"STAR GAYO",en:"SUN",c1:"#E8C470",c2:"#24306E",w:{digital:.55,sales:.1,views:.15,social:.1,stage:.1}},
 ];
-const RIVAL={n:"CARAT NOIR",note:"三代頂流女團,同週回歸"};
+/* 1.2 第 1 包(2026-11-03):同週對手照世界設定(daily.js WORLD_2016)每週輪換。以前寫死「CARAT NOIR 三代頂流女團」,但它 2016/08 才出道。
+   pw 乘在對手的分數上(平均約 1,整體一位數不變);from/to 是活動期間;song 是那年的歌(虛構) */
+const RIVALS=[
+  {n:"TWINKLE",note:"現在最紅的女團",pw:1.08,song:["Starlight Candy","Twinkle Twinkle Heart","Sugar Rush Day"]},
+  {n:"RADIANT 9",note:"九人大團,音源很強",pw:1.03,song:["Prism Code","Nine Lights","Radiant Road"]},
+  {n:"PRISM 9",note:"選秀出身的期間限定團",pw:1.02,from:"2016-05-01",to:"2017-01-31",song:["Pick Me Up","Nine Wishes"]},
+  {n:"HARMONY",note:"出道多年的實力派",pw:1.0,song:["Snow Waltz","Harmony Lane","Paper Garden"]},
+  {n:"VELVET ROSE",note:"成熟系概念女團",pw:.98,song:["Thorn","Rose Noir","Velvet Night"]},
+  {n:"CARAT NOIR",note:"2016 年出道的新人,藝瑟以前的同伴在裡面",pw:.96,from:"2016-08-01",song:["Obsidian","Black Carat","Shine Noir"]},
+  {n:"GLOW",note:"清新系的人氣團",pw:.95,song:["Neon Jelly","Glow Up","Lemon Light"]},
+  {n:"PEACH",note:"可愛系的人氣團",pw:.94,song:["Peach Soda","Pink Parade","Hello Peach"]}];
+const rivalOf=(i,base)=>{ const day=(base??S.promoStart??S.day??0)+Math.floor(i/6)*7, d=window.dateOf?dateOf(day):new Date(2017,0,13), iso=d.toISOString?.().slice(0,10)||"",
+    L=RIVALS.filter(r=>(!r.from||iso>=r.from)&&(!r.to||iso<=r.to)), w=Math.floor(i/6), h=Math.abs(((base??0)*31+w*17+(+S.year||0))%L.length), R=L[h]||RIVALS[0];
+  return {...R,songName:R.song[(w+(+S.year||0))%R.song.length]} };
+let RIVAL=RIVALS[0];
 const VERS={orig:{n:"原版",s:"最穩定",st:0,fresh:0},special:{n:"特別編舞版",s:"新鮮感高,體力消耗大",st:6,fresh:8},long:{n:"加長舞蹈段",s:"日和發揮空間,體力消耗大",st:5,fresh:5},goodbye:{n:"告別舞台",s:"只限最後一週,情緒拉滿",st:3,fresh:12}};
 const MICS={live:{n:"全開麥",s:"評價最高,最怕失誤"},half:{n:"部分墊音",s:"穩定與評價折衷"},lip:{n:"整首對嘴",s:"最穩,但被抓到就是輿論"}};
 const OCC={"打歌舞台":1,"演唱會":.85,"頒獎典禮":.85,"寫真":.7,"綜藝":.65,"機場":.55,"日常":.55,"日常・外出":.55,"日常・居家":.5,"日常・睡衣":.45,"練習":.5};
@@ -57,9 +71,52 @@ const albN=k=>+(String(k||"").match(/^a(\d+)$/)?.[1]||0);
 function autoLook(mid,avoid){ const A=curAlb(), ok=LOOKS.filter(l=>l.g||l.own===mid), st=ok.filter(l=>l.occ==="打歌舞台");
   const tiers=[st.filter(l=>l.alb===A&&l.g),st.filter(l=>l.alb===A),st.slice().sort((a,b)=>albN(b.alb)-albN(a.alb)||b.t-a.t),ok];
   for(const c of tiers){ if(!c.length) continue; const f=c.filter(l=>l.id!==avoid); return (f[0]||c[0]).id } return "" }
-function ensurePlan(){ if(!S.plan) S.plan=S.prev?JSON.parse(JSON.stringify(S.prev)):defaultPlan();
-  const A=curAlb(); S.plan.lookAlb=S.plan.lookAlb||{};
-  for(const m of M){const ok=LOOKS.filter(l=>l.g||l.own===m.id); if(!ok.some(l=>l.id===S.plan.looks[m.id])||S.plan.lookAlb[m.id]!==A) S.plan.looks[m.id]=autoLook(m.id,S.prev?.looks?.[m.id])||ok[0]?.id||""}
+/* ---------- 1.2 第 1 包(2026-11-03):每首歌自己的打歌服,打歌時照順序輪流 ----------
+   存在企劃室的 R.stageLooks[歌曲代號]={list:[造型代號…],mode:"show"(每場換)|"week"(每週換),out:[移出過的]},跟著企劃室一起上雲端;演唱會唱這首時也照這份(第 3 包)。
+   第一次打開時自動排:〈LETTER〉→ 寄往明天;主打 → 這張專輯其他的團體打歌服(赤夜追光、百葉窗光影在前;緋紅搖籃曲・改 照使用者的決定不放進去,可以自己加)。
+   之後新收下的團體打歌服:專輯一樣、還沒有任何一首在用、也沒被移出過 → 自動排到主打的最後。
+   第幾場穿哪套:每場換 = 這次宣傳期已打歌的場數;每週換 = 第幾週。第一場一定是第 1 套。輪到的那套她還沒做好立繪 → 先穿上一套(順序往前找)。
+   準備單裡單場換穿(manual)只影響那一場。 */
+const SEED_SONG={letter:["寄往明天"]}, SEED_OUT=/緋紅搖籃曲/, SEED_FIRST=["赤夜追光","百葉窗光影"];
+const slotOf=mid=>Object.keys(typeof WMEM!=="undefined"?WMEM:{}).find(k=>WMEM[k]===mid);
+const hasSpr=(code,mid)=>{ const it=typeof ITEMS!=="undefined"?ITEMS[String(code||"").split("@")[0]]:null, sl=slotOf(mid); return !!(it&&sl&&it.members?.[sl]?.sprites) };
+const isStageGrp=it=>!!it&&!it.deleted&&(!it.kind||it.kind==="look")&&(it.occasion||"打歌舞台")==="打歌舞台"&&it.type==="group";
+const RKS=()=>{ const R=window.SONGS_API?.R; if(!R) return null; return R.stageLooks=R.stageLooks||{} };
+function albOfT(T){ const A=window.SONGS_API?.albums?.()||[]; return A.find(a=>(a.tracks||[]).some(t=>t.id===T?.id))||null }
+/* 這次打歌的主打(宣傳期中是那張專輯的,不然是企劃室現在的) */
+function songT(){ const A=window.SONGS_API?.albums?.()||[]; if(!A.length) return null; const P=window.promoInfo?.();
+  let a=P?.active?A.find(x=>x.n===P.n):null; a=a||A.find(x=>x.current)||A.at(-1);
+  let T=a?.tracks?.find(t=>t.id===a.title&&!t.inst)||null;
+  if(!T||T.name!==SONG.name) T=A.flatMap(x=>x.tracks||[]).find(t=>!t.inst&&t.name===SONG.name)||T; return T }
+function rotInit(T,alb,K,pool){ const e={list:[],mode:"show",out:[]}, nm=String(T.name||"").trim().toLowerCase(), want=SEED_SONG[nm];
+  if(want) e.list=pool.filter(it=>want.includes(it.name)).map(it=>it.code);
+  else if(alb?.title===T.id){ const claimed=new Set(Object.values(K).flatMap(v=>v.list||[]));
+    const others=(alb.tracks||[]).filter(t=>t.id!==T.id).flatMap(t=>SEED_SONG[String(t.name||"").trim().toLowerCase()]||[]);
+    const c=pool.filter(it=>!claimed.has(it.code)&&!others.includes(it.name)), rk=n=>{ const i=SEED_FIRST.indexOf(n); return i<0?99:i };
+    e.out=c.filter(it=>SEED_OUT.test(it.name||"")).map(it=>it.code);
+    e.list=c.filter(it=>!SEED_OUT.test(it.name||"")).sort((a,b)=>rk(a.name)-rk(b.name)).map(it=>it.code) }
+  return e }
+function rotOf(T){ const K=RKS(); if(!K||!T) return {list:[],mode:"show",out:[]};
+  const alb=albOfT(T), ak=alb?"a"+alb.n:"", items=typeof ITEMS!=="undefined"?Object.values(ITEMS||{}):[];
+  const pool=items.filter(it=>isStageGrp(it)&&(!ak||it.album===ak)).sort((a,b)=>(a.createdAt||a.updatedAt||0)-(b.createdAt||b.updatedAt||0)||String(a.code).localeCompare(String(b.code)));
+  let ch=false;
+  for(const t of [...(alb?.tracks||[]).filter(x=>!x.inst&&x.id!==alb.title),...(alb?.tracks||[]).filter(x=>x.id===alb.title),T]) if(t&&!K[t.id]){ K[t.id]=rotInit(t,alb,K,pool); ch=true }
+  const e=K[T.id];
+  if(alb?.title===T.id){ const used=new Set(Object.values(K).flatMap(v=>[...(v.list||[]),...(v.out||[])])); for(const it of pool) if(!used.has(it.code)){ e.list.push(it.code); ch=true } }
+  const n0=e.list.length; e.list=e.list.filter(c=>{ const it=typeof ITEMS!=="undefined"?ITEMS[c]:null; return it&&!it.deleted }); if(e.list.length!==n0) ch=true;
+  if(ch) window.SONGS_API?.save?.(); return e }
+const rotN=e=>e.mode==="week"?Math.max(0,weekOf(S.idx)-1):(S.log||[]).length;
+function rotPick(T){ const e=T?rotOf(T):null; if(!e?.list.length) return null; const N=e.list.length, i=rotN(e)%N; return {code:e.list[i],i,N,e} }
+function rotLook(mid,T){ const p=rotPick(T); if(!p) return ""; const ok=c=>LOOKS.some(l=>l.id===c&&(l.g||l.own===mid));
+  if(!ok(p.code)) return ""; if(hasSpr(p.code,mid)) return p.code;
+  for(let k=1;k<p.N;k++){ const c=p.e.list[(p.i-k+p.N)%p.N]; if(ok(c)&&hasSpr(c,mid)) return c }   // 她還沒做好立繪:先穿上一套
+  return p.code }
+window.stageSongLooks=T=>{ try{ return rotOf(T).list.slice() }catch(e){ return [] } };
+function ensurePlan(){ if(!S.plan){ S.plan=S.prev?JSON.parse(JSON.stringify(S.prev)):defaultPlan(); S.plan.manual={} }
+  const A=curAlb(), T=songT(); S.plan.lookAlb=S.plan.lookAlb||{}; S.plan.manual=S.plan.manual||{};
+  for(const m of M){const ok=LOOKS.filter(l=>l.g||l.own===m.id); if(S.plan.manual[m.id]&&ok.some(l=>l.id===S.plan.looks[m.id])) continue;
+    const r=T?rotLook(m.id,T):""; if(r){ S.plan.looks[m.id]=r; continue }
+    if(!ok.some(l=>l.id===S.plan.looks[m.id])||S.plan.lookAlb[m.id]!==A) S.plan.looks[m.id]=autoLook(m.id,S.prev?.looks?.[m.id])||ok[0]?.id||""}
   if(S.plan.ver==="goodbye"&&weekOf(S.idx)<4) S.plan.ver="orig"; if(+S.year<2017) S.plan.end="";
   if(!byId(S.plan.cam)) S.plan.cam=(byId(SONG.killer)?SONG.killer:M[0].id); if(S.plan.end&&!byId(S.plan.end)) S.plan.end=""; }
 
@@ -116,7 +173,8 @@ function perform(){ syncSkill();
   // 一位計分
   const decay=[0,.92,1,.9,.78][wk];
   const us={digital:SONG.score*decay,sales:70,views:Math.min(100,views/3.4),social:Math.min(100,social*.95),stage};
-  const rv={digital:(79+rnd()*12)*([0,1,.96,.88,.78][wk]),sales:82,views:58+rnd()*24,social:52+rnd()*28,stage:70+rnd()*14};
+  const RV=rivalOf(i,S.promoStart), pw=RV.pw||1;
+  const rv={digital:Math.min(100,(79+rnd()*12)*([0,1,.96,.88,.78][wk])*pw),sales:Math.min(100,82*pw),views:Math.min(100,(58+rnd()*24)*pw),social:Math.min(100,(52+rnd()*28)*pw),stage:Math.min(100,(70+rnd()*14)*pw)};
   const pts=o=>Math.round(Object.entries(sh.w).reduce((x,[k,w])=>x+o[k]*w,0)*100);
   const up=pts(us), rp=pts(rv), win=up>rp;
   // 劇情片段(內容庫的樣子)
@@ -137,7 +195,8 @@ function perform(){ syncSkill();
   if(endViral) log.push(["good",`Ending 鏡頭停在${byId(p.end).n}身上的那一秒被瘋傳。`]);
   if(views>260) log.push(["good",`${camM.n}的直拍衝上影音熱門。`]);
   if(win) say("ys","我們……拿到一位了?大家,謝謝你們。");
-  return {i,wk,sh,O,stage,grade,views,social,us,rv,up,rp,win,mistakes,dmiss,viral,caught,endViral,log,kpRes,kp:DN?.kp||null};
+  return {i,wk,sh,O,stage,grade,views,social,us,rv,up,rp,win,mistakes,dmiss,viral,caught,endViral,log,kpRes,kp:DN?.kp||null,
+    rival:{n:RV.n,song:RV.songName},looks:{...p.looks},end:p.end||(byId(SONG.center)?SONG.center:"he"),cam:p.cam,ver:p.ver,rest:{...p.rest}};
 }
 function applyResult(r){
   const p=S.plan, V=VERS[p.ver];
@@ -247,6 +306,8 @@ function render(){ if(!OPEN) return; syncSkill();
   if(!done){ ensurePlan(); const p=S.plan;
     prep=`<div class="cue"><div class="cuehead"><h3>打歌準備單</h3><button class="tbtn" id="tvReuse" ${S.prev?"":"disabled"}>沿用上一場</button></div>
       <h4>造型 <select id="tvGroup"><option value="">一鍵全員套用團體服…</option>${LOOKS.filter(l=>l.g).map(l=>`<option value="${l.id}">${esc(l.n)}</option>`).join("")}</select></h4>
+      ${(()=>{ const T=songT(), rp=T?rotPick(T):null, nm=esc(T?.name||SONG.name);
+        return `<div class="tvx-rot">${rp?`<span>今天輪到</span><b>${esc(ITEMS?.[rp.code]?.name||"")}</b><small>〈${nm}〉第 ${rp.i+1} 套・共 ${rp.N} 套${rp.e.mode==="week"?"・每週換":"・每場換"}</small>`:`<span>〈${nm}〉還沒有排打歌服</span><small>造型室的團體打歌服可以排進來輪流穿</small>`}${T?`<button class="tbtn sm" id="tvRot">〈${nm}〉的打歌服…</button>`:""}</div>` })()}
       ${M.map(m=>{const st=S.m[m.id], L=LOOKS.find(l=>l.id===p.looks[m.id]), ls=L?lookScore(L,m.id):{s:0,used:0}, tags=[];
         if(st.cond==="sick") tags.push(`<i class="tg w">感冒</i>`); if(st.cond==="hurt") tags.push(`<i class="tg n">腳踝舊傷</i>`); if(st.stamina<40) tags.push(`<i class="tg w">體力低</i>`); if(ls.used>=2) tags.push(`<i class="tg w">這套已穿 ${ls.used} 場</i>`);
         return `<div class="trow${p.rest[m.id]?" rest":""}">${face(m.id)}<div class="tn"><b style="color:${m.c}">${m.n}</b>${tags.join("")}<small>概念契合 <em>${Math.round(ls.s)}</em></small></div>
@@ -263,7 +324,7 @@ function render(){ if(!OPEN) return; syncSkill();
     :`<div class="tvban live">宣傳期第 ${TODAY.T.week} 週・第 ${TODAY.T.dayN} 天${TODAY.T.show?`・今天是《${TODAY.T.show}》`:""}</div>`;
   $("#tvBody").innerHTML=ban+`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
     <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${TOTAL} 場,拿下 ${S.wins} 個一位。${TODAY.state==="test"?"可以在右邊重新開始一輪模擬。":"下一次回歸日可以到 2F 企劃室決定。"}</p></div>`:prep}</div>
-    <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${S.log.length}/${TOTAL}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${RIVAL.n}</b></div>
+    <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${S.log.length}/${TOTAL}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${rivalOf(Math.min(S.idx,TOTAL-1),S.promoStart).n}</b></div>
       ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear">${[2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
       <div class="tvcard"><h4>成員狀態</h4>${M.map(m=>{const st=S.m[m.id],b=(n,v,c)=>`<span>${n}</span><span class="tbar"><i style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></i></span>`;
         return `<div class="tstat">${face(m.id)}<div><b style="color:${m.c}">${m.n}</b>${st.cond==="sick"?`<i class="tg w">感冒</i>`:st.cond==="hurt"?`<i class="tg n">舊傷</i>`:""}<div class="tbars">${b("體力",st.stamina,"#4FE0A0")}${b("喉嚨",st.throat,"#5CC8FF")}${b("心情",st.mood,"#FFC857")}${b("人氣",Math.min(100,st.pop),m.c)}</div></div></div>`}).join("")}</div>
@@ -271,22 +332,87 @@ function render(){ if(!OPEN) return; syncSkill();
   bind();
 }
 function bind(){ const B=$("#tvBody"), p=S.plan;
-  B.querySelectorAll("[data-look]").forEach(e=>e.onchange=()=>{p.looks[e.dataset.look]=e.value;(p.lookAlb=p.lookAlb||{})[e.dataset.look]=curAlb();save();render()});   // 你排過就記住是哪張專輯排的
+  B.querySelectorAll("[data-look]").forEach(e=>e.onchange=()=>{p.looks[e.dataset.look]=e.value;(p.manual=p.manual||{})[e.dataset.look]=true;save();render()});   // 1.2:單場換穿只影響這一場,輪流順序不變
   B.querySelectorAll("[data-rest]").forEach(e=>e.onchange=()=>{p.rest[e.dataset.rest]=e.checked;save();render()});
   B.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{p[b.dataset.g]=b.dataset.k;save();render()});
-  const g=$("#tvGroup"); if(g) g.onchange=e=>{if(e.target.value){M.forEach(m=>p.looks[m.id]=e.target.value);save();render()}};
-  const r=$("#tvReuse"); if(r) r.onclick=()=>{S.plan=JSON.parse(JSON.stringify(S.prev));ensurePlan();save();render()};
-  const go=$("#tvGo"); if(go) go.onclick=()=>{const res=perform(); applyResult(res); render(); showResult(res)};
+  const g=$("#tvGroup"); if(g) g.onchange=e=>{if(e.target.value){M.forEach(m=>{p.looks[m.id]=e.target.value;(p.manual=p.manual||{})[m.id]=true});save();render()}};
+  const r=$("#tvReuse"); if(r) r.onclick=()=>{S.plan=JSON.parse(JSON.stringify(S.prev));S.plan.manual=Object.fromEntries(M.map(m=>[m.id,true]));ensurePlan();save();render()};
+  const ro=$("#tvRot"); if(ro) ro.onclick=()=>rotSheet();
+  const go=$("#tvGo"); if(go) go.onclick=()=>confirmSheet();
   // 年份與重新開始只在練習模式出現(正式宣傳期的年份跟著時間軸,重新開始會讓一位與粉絲重複計算)
   const yr=$("#tvYear"); if(yr) yr.onchange=e=>{S.year=+e.target.value;save();render()};
   const rs=$("#tvRestart"); if(rs) rs.onclick=()=>{if(!confirm("確定重新開始模擬?練習模式的場次紀錄會清掉。"))return; const y=S.year;S=fresh();S.year=y;save();render()};
 }
+/* ---------- 1.2 第 1 包:上台前確認(看舞台的方式)、這首歌的打歌服、打歌轉播、一位發表 ---------- */
+const VKEY="kpopGame.tvView", VIEWS={hl:["精華版","開場曲名、第一次副歌、最後副歌、Ending 鏡頭"],full:["整首","從前奏到尾奏,跟著定案音檔"],result:["直接看結果","不看舞台,直接到一位發表"]};
+const getView=()=>{ const v=localStorage.getItem(VKEY); return VIEWS[v]?v:"hl" };
+const lookName=c=>{ const it=ITEMS?.[String(c||"").split("@")[0]]; return it?.name||LOOKS.find(l=>l.id===c)?.n||"" };
+function sheetEl(cls,html){ $("#tvSheet")?.remove(); const el=document.createElement("div"); el.id="tvSheet"; el.className="tvx-sheet "+cls; el.innerHTML=`<div class="tvx-card">${html}</div>`; $("#stageFac").appendChild(el); return el }
+function confirmSheet(){ ensurePlan(); const p=S.plan, T=songT(), rp=T?rotPick(T):null, wk=weekOf(S.idx), sh=showOf(S.idx), v0=getView();
+  const hl=T?window.stageHighlight?.(T):null, full=hl?.total||0, on=M.filter(m=>!p.rest[m.id]);
+  const names=[...new Set(on.map(m=>lookName(p.looks[m.id])).filter(Boolean))], main=rp?lookName(rp.code):names[0]||"";
+  const rot=rp?rp.e.list.map((c,k)=>`<span class="${k===rp.i?"on":k<rp.i&&rp.e.mode!=="week"&&(S.log||[]).length<rp.N?"done":""}"><i>${k===rp.i?"●":k<rp.i&&(S.log||[]).length<rp.N?"✓":"○"}</i>${esc(lookName(c))}</span>`).join(""):"";
+  const mem=M.map(m=>`<div class="${p.rest[m.id]?"rest":""}"><i style="--c:${m.c};background-image:url(${spr(m.id,null,"smile")})"></i><small>${m.n}</small><em>${p.rest[m.id]?"休息":esc(lookName(p.looks[m.id])!==main?lookName(p.looks[m.id]):"")}</em></div>`).join("");
+  const sub={hl:hl?`約 ${Math.round(hl.dur/60)>=1?Math.floor(hl.dur/60)+" 分 "+Math.round(hl.dur%60)+" 秒":Math.round(hl.dur)+" 秒"}`:"",full:full?fmtT(full):"",result:""};
+  const el=sheetEl("cf",`<div class="tvx-top"><div class="tt"><small>BROADCAST ・ BACKSTAGE</small><b>上台前確認</b></div><span class="sp"></span><span class="lmp"><i></i>${esc(sh.n)}・${sh.d}・第 ${S.idx+1}/${TOTAL} 場</span><button class="tvx-bk" id="cfBack">‹ 回準備單</button></div>
+    <div class="tvx-body"><div><h4>今天的打歌服${rp?`<small>〈${esc(T.name)}〉輪流穿</small>`:""}</h4>
+      <div class="tvx-look"><div class="nm"><b>${esc(main||"(還沒選)")}</b>${rp?`<em>第 ${rp.i+1} 套・共 ${rp.N} 套</em>`:""}</div>
+        ${rp&&rp.N>1?`<p>${S.prev?.looks?`上一場穿${esc(lookName(Object.values(S.prev.looks)[0])||"")}。`:""}下一場輪到${esc(lookName(rp.e.list[(rp.i+1)%rp.N]))}。</p>`:""}
+        ${rot?`<div class="rot">${rot}</div>`:""}<div class="mem">${mem}</div></div>
+      <dl class="chips"><dt>主推直拍</dt><dd><b>${byId(p.cam)?.n||""}</b>${p.cam===SONG.killer?"・killing part":p.cam===SONG.center?"・副歌 C 位":""}</dd>${p.end?`<dt>Ending 鏡頭</dt><dd><b>${byId(p.end)?.n||""}</b></dd>`:""}<dt>收音</dt><dd>${MICS[p.mic]?.n||""}・${VERS[p.ver]?.n||""}</dd></dl></div>
+     <div><h4>看舞台<small>選了會記住</small></h4><div class="opts">${Object.entries(VIEWS).map(([k,[n,d]])=>`<button class="opt${k===v0?" on":""}" data-vw="${k}" ${k!=="result"&&!T?"disabled":""}><span class="rd"></span><span><b>${n}${sub[k]?`・${sub[k]}`:""}</b><small>${d}</small></span></button>`).join("")}</div></div></div>
+    <div class="tvx-foot"><p>${TODAY.state==="test"?"練習模式:結果不會影響正式宣傳期。":"看舞台時時間暫停。跟去電視台照舊扣 3 小時。"}</p><button class="tvx-go" id="cfGo">上台</button></div>`);
+  let v=v0; el.querySelectorAll("[data-vw]").forEach(b=>b.onclick=()=>{ v=b.dataset.vw; el.querySelectorAll("[data-vw]").forEach(x=>x.classList.toggle("on",x===b)) });
+  el.querySelector("#cfBack").onclick=()=>el.remove();
+  el.querySelector("#cfGo").onclick=()=>{ try{ localStorage.setItem(VKEY,v) }catch(e){} el.remove(); goLive(v) } }
+const fmtT=s=>`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`;
+function rotSheet(){ const T=songT(); if(!T) return; const e=rotOf(T), alb=albOfT(T), ak=alb?"a"+alb.n:"";
+  const pool=Object.values(ITEMS||{}).filter(it=>isStageGrp(it)&&(!ak||it.album===ak)&&!e.list.includes(it.code)), K=RKS()||{};
+  const owner=c=>{ const t=(alb?.tracks||[]).find(x=>x.id!==T.id&&(K[x.id]?.list||[]).includes(c)); return t?`・〈${esc(t.name)}〉`:"" };
+  const thumb=c=>{ const it=ITEMS?.[c], m=Object.values(it?.members||{}).find(x=>x?.img||x?.thumb), u=it?.thumb||m?.thumb||""; return u?`style="background-image:url(${esc(u)})"`:"" };
+  const el=sheetEl("rs",`<div class="tvx-top"><div class="tt"><small>STAGE OUTFITS</small><b>〈${esc(T.name)}〉的打歌服</b></div><span class="sp"></span><button class="tvx-bk" id="rsOk">完成</button></div>
+    <div class="tvx-b5"><div class="lst"><h4>輪流的順序<small>打歌和演唱會唱這首時都照這份</small></h4>
+      ${e.list.length?e.list.map((c,k)=>`<div class="it"><span class="no">${k+1}</span><span class="th" ${thumb(c)}></span><span class="tx"><b>${esc(lookName(c))}</b><small>${k===0?`<span class="first">第一場</span>宣傳期的第一場穿這套`:esc(ITEMS?.[c]?.concept||"").slice(0,26)}</small></span><span class="ops"><button data-up="${k}" ${k?"":"disabled"} aria-label="上移">▲</button><button data-dn="${k}" ${k<e.list.length-1?"":"disabled"} aria-label="下移">▼</button><button data-rm="${k}">移出</button></span></div>`).join(""):`<p class="note">還沒有排打歌服。從右邊這張專輯的團體打歌服加進來。</p>`}</div>
+     <div class="side"><div><h4>怎麼輪</h4><div class="seg"><button data-md="show" class="${e.mode!=="week"?"on":""}">每場換一套</button><button data-md="week" class="${e.mode==="week"?"on":""}">每週換一套</button></div></div>
+      <div><h4>這張專輯的其他打歌服</h4><div class="pool">${pool.length?pool.map(it=>`<button class="add" data-add="${esc(it.code)}">＋ ${esc(it.name||"未命名")}<em>${owner(it.code)}</em></button>`).join(""):`<span class="note">沒有其他團體打歌服了</span>`}</div></div>
+      <p class="note">準備單裡單場換穿的不會改這份順序。輪到的那套有人還沒做好立繪時,她先穿上一套。</p></div></div>
+    <div class="tvx-foot"><p>新收下的團體打歌服:專輯一樣、還沒有歌在用的,會自動排到主打的最後。</p></div>`);
+  const redo=()=>{ window.SONGS_API?.save?.(); render(); rotSheet() };
+  el.querySelector("#rsOk").onclick=()=>{ el.remove(); render() };
+  el.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{ const k=+b.dataset.up; [e.list[k-1],e.list[k]]=[e.list[k],e.list[k-1]]; redo() });
+  el.querySelectorAll("[data-dn]").forEach(b=>b.onclick=()=>{ const k=+b.dataset.dn; [e.list[k+1],e.list[k]]=[e.list[k],e.list[k+1]]; redo() });
+  el.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{ const c=e.list.splice(+b.dataset.rm,1)[0]; if(c&&!e.out.includes(c)) e.out.push(c); redo() });
+  el.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ const c=b.dataset.add; e.list.push(c); e.out=e.out.filter(x=>x!==c); redo() });
+  el.querySelectorAll("[data-md]").forEach(b=>b.onclick=()=>{ e.mode=b.dataset.md; redo() }) }
+/* 上台:先算結果(跟以前一樣),再看舞台(電視台轉播),最後一位發表 → 詳細結果 */
+let LIVE=false;
+async function goLive(v){ if(LIVE) return; LIVE=true; try{
+  const T=songT(), res=perform(); applyResult(res); render();
+  if(v!=="result"&&T&&window.openStagePlay){ const hl=v==="hl"?window.stageHighlight?.(T):null, P=window.promoInfo?.();
+    const tag=res.ver==="goodbye"?"GOODBYE STAGE":TODAY.state!=="test"&&P?.active&&res.i===promoFirstIdx(P)?(P.kind==="debut"?"DEBUT STAGE":"COMEBACK STAGE"):res.ver==="special"?"SPECIAL STAGE":"";
+    const looks=Object.fromEntries(M.map(m=>[m.id,res.rest[m.id]?"":res.looks[m.id]]));
+    await new Promise(ok=>{ window.openStagePlay(T,{looks,fan:res.cam,bc:{show:res.sh,group:window.groupName?.()||"",title:T.name||SONG.name,album:window.songSummary?.()?.release||"",tag,end:res.rest[res.end]?(M.find(m=>!res.rest[m.id])?.id):res.end,mode:v,segs:hl?.segs||null,onDone:ok}})?.catch?.(e=>{ window.logErr?.("打歌轉播",e); ok() }) }) }
+  showRank(res) }finally{ LIVE=false } }
+const RK_LINES={win:[["ys","大家……我們拿到一位了。謝謝,真的謝謝。","moved"],["he","一位!代表,今天晚上吃烤肉!","laugh"],["hr","代表!!我們是一位!!","laugh"],["tr","……嗯。今天的舞台,我很滿意。","smile"],["hy","やった!啊,是太好了!一位!","laugh"]],
+  lose:[["ys","沒關係,下一場我們再拿回來。","smile"],["tr","……分數差一點。下一場不會輸。","serious"],["he","第二名也很棒啦!先吃飯再說~","smile"],["hr","哎咕,好可惜!下一場我要唱得更大聲!","pout"],["hy","大丈夫です!下一場、がんばる!","smile"]]};
+function showRank(r){ $("#tvRank")?.remove(); const el=document.createElement("div"); el.id="tvRank"; el.className="tvx-rank";
+  const rows=[["digital","音源"],["sales","實體銷量"],["views","播放"],["social","社群熱度"],["stage","舞台評價"]], sh=r.sh;
+  const line=r.first?.[0]||RK_LINES[r.win?"win":"lose"][(r.i+(+S.year||0))%5], lm=byId(line[0]), gn=window.groupName?.()||"";
+  el.innerHTML=`<div class="bg"></div><div class="veil"></div><div class="in" style="--b1:${sh.c1||"#FF4FA3"};--b2:${sh.c2||"#7B4FBF"}">
+    <div class="hd"><span class="bcx-logo"><b>${esc(sh.n.split(" ")[0])}<em>${esc(sh.n.split(" ").slice(1).join(" "))}</em></b><small>MUSIC SHOW ・ ${sh.en||""}</small></span><span>${(d=>`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`)(dateOf(window.gameState?.().day??0))} ・ 本週一位候補</span></div>
+    <div class="cands"><div class="cand us${r.win?" won":""}">${r.win?`<span class="crown">♛ 1位</span>`:""}${gn?`<small>${esc(gn)}</small>`:"<small>&nbsp;</small>"}<b>〈${esc(SONG.name)}〉</b><em>${esc(window.songSummary?.()?.release?`《${window.songSummary().release}》`:"")}</em><div class="faces">${M.map(m=>`<i style="--c:${m.c};background-image:url(${spr(m.id,null,"smile")})"></i>`).join("")}</div></div>
+      <span class="vs">VS</span><div class="cand them${r.win?"":" won"}">${r.win?"":`<span class="crown">♛ 1位</span>`}<small>${esc(r.rival?.n||"")}</small><b>〈${esc(r.rival?.song||"")}〉</b><em>同週對手</em></div></div>
+    <div class="rows">${rows.map(([k,n],j)=>{ const a=Math.round(r.us[k]), b=Math.round(r.rv[k]); return `<div class="row${a>b?" win":""}" style="--d:${(.25+j*.32).toFixed(2)}s"><span class="n l">${a}</span><div class="bar l"><i style="--w:${Math.max(0,Math.min(100,a))/100}"></i></div><div class="lab">${n}<small>比重 ${Math.round(sh.w[k]*100)}%</small></div><div class="bar r"><i style="--w:${Math.max(0,Math.min(100,b))/100}"></i></div><span class="n r">${b}</span></div>` }).join("")}</div>
+    <div class="ft"><div class="tot l"><small>總分</small>${r.up.toLocaleString()}</div><div class="mid"><span class="one${r.win?"":" lose"}">${r.win?"1 位":"2 位"}</span><button id="rkOk">繼續</button></div><div class="tot r"><small>總分</small>${r.rp.toLocaleString()}</div></div></div>
+    <div class="say" style="--c:${lm?.c||"#fff"}"><i style="--c:${lm?.c||"#fff"};background-image:url(${spr(line[0],null,line[2]||"smile")})"></i><p><b>${lm?.n||""}</b>${esc(line[1])}</p></div>`;
+  $("#stageFac").appendChild(el); requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add("go"))); setTimeout(()=>{ el.classList.add("done"); if(r.win) window.feedback?.("l") },2300);
+  el.querySelector("#rkOk").onclick=()=>{ el.classList.add("out"); setTimeout(()=>el.remove(),260); showResult(r) } }
 function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales","實體銷量"],["views","播放"],["social","社群熱度"],["stage","舞台評價"]];
   el.innerHTML=`<div class="tvbox${r.win?" won":""}"><div class="verd"><div class="grade">${r.grade}</div><div><div class="crown">${r.win?"一位!":"這場第二名"}</div>
       <small>${r.sh.d}《${r.sh.n}》・直拍觀看 ${r.views.toLocaleString()} 萬・造型契合 ${Math.round(r.O.s)}</small></div></div>
     ${r.first?`<div class="firstwin"><b>出道後的第一個一位</b>${r.first.map(([id,t,e])=>{const mm=byId(id);return `<p><span class="sface" style="--c:${mm.c};background-image:url(${spr(id,null,e)})"></span><b style="color:${mm.c}">${mm.n}</b>${esc(t)}</p>`}).join("")}</div>`:""}
     <ul class="tlog">${r.log.map(([k,t])=>`<li class="${k}">${t}</li>`).join("")||`<li>平穩完成的一場舞台。</li>`}</ul>
-    <table><thead><tr><th>計分項目</th><th>比重</th><th>我們</th><th>${RIVAL.n}</th></tr></thead><tbody>
+    <table><thead><tr><th>計分項目</th><th>比重</th><th>我們</th><th>${esc(r.rival?.n||RIVAL.n)}</th></tr></thead><tbody>
       ${rows.map(([k,n])=>`<tr><td>${n}</td><td>${Math.round(r.sh.w[k]*100)}%</td><td class="us">${Math.round(r.us[k])}</td><td>${Math.round(r.rv[k])}</td></tr>`).join("")}
       <tr class="tot"><td>總分</td><td></td><td class="us">${r.up.toLocaleString()}</td><td>${r.rp.toLocaleString()}</td></tr></tbody></table>
     <div class="golive"><button class="tbtn go" id="tvNext">${S.idx<TOTAL?"準備下一場":"看宣傳期總結"}</button></div></div>`;
@@ -294,6 +420,9 @@ function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales
 
 /* 造型被改版取代、舊的刪掉時(wardrobe.js deleteLook),打歌準備單裡選的舊造型改成新版 */
 window.stageRemapLook=(o,n)=>{ let ch=0; for(const p of [S.plan,S.prev]) if(p?.looks) for(const k in p.looks) if(p.looks[k]===o){ p.looks[k]=n; ch++ }
-  if(ch) save(); return ch };
+  if(ch) save();
+  const K=RKS(); let c2=0; if(K) for(const e of Object.values(K)) for(const f of ["list","out"]) (e[f]||[]).forEach((c,i)=>{ if(c===o){ e[f][i]=n; c2++ } });   // 1.2:每首歌的打歌服順序也換成新版
+  if(c2){ for(const e of Object.values(K)){ e.list=[...new Set(e.list)]; e.out=[...new Set(e.out)] } window.SONGS_API?.save?.() }
+  return ch+c2 };
 window.stagePlanLooks=()=>({...(S.plan?.looks||{})});   // 動態 MV:主打用打歌準備單選的造型
 })();

@@ -65,7 +65,17 @@ async function paint(img,ch,col){ const ar=img.naturalWidth/img.naturalHeight, h
   return {f,b,g,ar} }
 
 let CUR=null;
-function closeSP(){ if(!CUR) return; const c=CUR; CUR=null; cancelAnimationFrame(c.raf); c.au?.pause(); c.off?.(); c.el.querySelectorAll("canvas").forEach(x=>{ x.width=x.height=0 }); c.el.remove(); setPause("spv",false) }
+/* 1.2 第 1 包(2026-11-03):打歌轉播的「精華版」=第一次副歌(前面留 1.2 秒)+最後一次副歌到歌曲結束(前面留 1 秒);
+   沒有副歌就前 40 秒+最後 35 秒。整首是 [0,全長]。回傳 {segs:[[t0,t1],…],dur} */
+function hlSegs(L){ const tot=L.total, ch=L.secs.filter(x=>x.chorus);
+  if(!ch.length) return tot<=80?[[0,tot]]:[[0,40],[tot-35,tot]];
+  const a=ch[0], z=ch.find(x=>/最後/.test(x.n))||ch.at(-1); if(a===z) return [[Math.max(0,a.t0-1.2),tot]];
+  const s1=[Math.max(0,a.t0-1.2),a.t1], s2=[Math.max(s1[1],z.t0-1),tot]; return s2[0]-s1[1]<3?[[s1[0],tot]]:[s1,s2] }
+window.stageHighlight=T=>{ try{ const L=(window.choreoStage?.(T)||{}).L||window.songTimeline(T), segs=hlSegs(L); return {segs,dur:segs.reduce((a,s)=>a+s[1]-s[0],0),total:L.total} }catch(e){ return null } };
+/* Ending 鏡頭的表情(每個人自己的招牌表情) */
+const END_EX={ys:"smile",tr:"shy",hy:"laugh",he:"wink",hr:"laugh"};
+function closeSP(){ if(!CUR) return; const c=CUR; CUR=null; cancelAnimationFrame(c.raf); c.au?.pause(); c.off?.(); clearTimeout(c.bcT); c.el.querySelectorAll("canvas").forEach(x=>{ x.width=x.height=0 }); c.el.remove(); setPause("spv",false);
+  if(c.bcCb){ const f=c.bcCb; c.bcCb=null; try{ f() }catch(e){ window.logErr?.("打歌轉播",e) } } }   // 1.2 第 1 包:打歌轉播看完(或按看結果、返回鍵)→ 一位發表
 window.closeStagePlay=closeSP;
 window.stagePlayCtl=()=>CUR?.ctl||null;
 /* 返回鍵:先關直拍的成員選單,再關舞台預覽 */
@@ -73,7 +83,9 @@ window.stagePlayBack=()=>{ if(!CUR) return false; const p=CUR.el.querySelector("
 
 window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API();
   const CS=window.choreoStage?.(T)||{has:false,bs:.5,L:window.songTimeline?.(T)}, L=CS.L||window.songTimeline(T), bs=CS.bs||.5, total=L.total;
-  const LK=stageLooks(T), ex=EXPR_OF[T.mood]||"smile", hasAu=!!window.songHasAudio?.(T);
+  const BC=opts.bc||null;
+  const LK=opts.looks?{out:Object.fromEntries(Object.entries(opts.looks).map(([id,c])=>[id,String(c||"").split("@")[0]]).filter(([,c])=>c&&typeof ITEMS!=="undefined"&&ITEMS[c]).map(([id,c])=>[id,{code:c,name:ITEMS[c].name||""}])),missing:[]}:stageLooks(T),
+    ex=EXPR_OF[T.mood]||"smile", hasAu=!!window.songHasAudio?.(T);
   const lookNames=[...new Set(Object.values(LK.out).map(o=>o.name))].filter(Boolean);
   let fan=IDS.includes(opts.fan)?opts.fan:(CS.kp&&IDS.includes(CS.kp.lead)?CS.kp.lead:null)||L.ev.find(e=>e.k)?.who?.[0]||"ys";
   const el=document.createElement("div"); el.className="sp2 loading"; el.id="spv"; el.dataset.view="stage";
@@ -89,17 +101,28 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
     <div class="sp2-ctl"><button id="spPlay">❚❚ 暫停</button><span class="tm" id="spTime">0:00 / ${fmt(total)}</span><small>${esc(opts.note||(hasAu?"跟著定案 mp3":"還沒有音檔:無聲的時間軸"))}</small><span class="sp"></span>
       <div class="sp2-vw" role="group" aria-label="視角"><button data-v="stage" class="on">舞台</button><button data-v="top">俯視</button><button data-v="fan" id="spFanB">直拍・${memOf(fan).n} ▾</button></div>
       <div class="sp2-pick" id="spPick">${IDS.map(id=>`<button data-fan="${id}">${faceHTML(id)}<b>${memOf(id).n}</b></button>`).join("")}</div></div>
-    <div class="sp2-load" id="spLoad"><span>舞台準備中…</span></div>`;
+    <div class="sp2-load" id="spLoad"><span>${BC?"準備上台…":"舞台準備中…"}</span></div>`;
+  if(BC){ const sh=BC.show||{}, w=String(sh.n||"MUSIC SHOW").split(" "), nm=memOf(BC.end)?.n||"";
+    el.classList.add("bc"); el.style.setProperty("--b1",sh.c1||"#FF4FA3"); el.style.setProperty("--b2",sh.c2||"#7B4FBF");
+    el.insertAdjacentHTML("beforeend",`<div class="bcx-v"></div>
+    <div class="bcx-bug"><span class="bcx-logo"><b>${esc(w[0])}${w.length>1?`<em>${esc(w.slice(1).join(" "))}</em>`:""}</b><small>MUSIC SHOW ・ ${esc(sh.en||"")}</small></span><span class="bcx-live"><i></i>LIVE</span></div>
+    <div class="bcx-song">${BC.group?`<small>${esc(BC.group)}</small>`:""}<b>${esc(BC.title||T.name||"")}</b>${BC.tag?`<i>${esc(BC.tag)}</i>`:""}</div>
+    <div class="bcx-title" id="bcT"><small>${esc(sh.n||"")}${sh.d?` ・ ${esc(sh.d)}`:""}</small><b>${BC.group?`${esc(BC.group)} `:""}〈${esc(BC.title||T.name||"")}〉</b>${BC.album?`<span>《${esc(BC.album)}》</span>`:""}</div>
+    <div class="bcx-kp" id="bcKP"></div><div class="bcx-ctl"><span id="bcTm"></span><button id="bcSkip">看結果 ›</button></div>
+    <div class="bcx-dip" id="bcDip"></div><div class="bcx-end" id="bcEnd" data-nm="${esc(nm)}"></div>`) }
   $("#stage").appendChild(el); setPause("spv",true);
   const q=s=>el.querySelector(s), W0=()=>el.clientWidth||784, H0=()=>el.clientHeight||354;
   const me={el,raf:0,au:null,lastS:-1}; CUR=me;
   q("#spX").onclick=closeSP;
+  if(BC){ me.bcCb=BC.onDone||null; q("#bcSkip").onclick=closeSP }
 
   /* ---------- 立繪:縮好、畫好正面與背面 ---------- */
   const dpr=Math.min(3,window.devicePixelRatio||1), FIG={}, chMax=Math.min(1500,Math.round(G.h0*H0()*1.75*dpr));
   await Promise.all(IDS.map(async id=>{ const m=memOf(id); try{ FIG[id]=await paint(await loadImg(await spriteURL(id,LK.out[id]?.code,ex)),chMax,m.c) }
     catch(e){ window.logErr?.("舞台預覽立繪",e); try{ FIG[id]=await paint(await loadImg(spr(id,null,"smile")),chMax,m.c) }catch(_){} } }));
   if(CUR!==me) return;
+  let endURL=""; if(BC&&IDS.includes(BC.end)){ const ee=END_EX[BC.end]||"smile"; endURL=spr(BC.end,null,ee);   // 先用平常的立繪,打歌服的做好就換上
+    (async()=>{ try{ const u=await spriteURL(BC.end,LK.out[BC.end]?.code,ee); if(u){ const im=new Image(); im.decoding="async"; im.src=u; await im.decode?.().catch(()=>{}); endURL=u } }catch(e){ window.logErr?.("Ending 鏡頭立繪",e) } })() }
   const floor=q("#spFloor");
   for(const id of IDS){ const m=memOf(id), F=FIG[id]; if(!F) continue; const d=document.createElement("div"); d.className="sp2-fig"; d.dataset.m=id; d.style.setProperty("--c",m.c);
     d.innerHTML=`<i class="sp2-sh"></i><i class="sp2-glow"></i><div class="sp2-card"></div>`; F.f.className="f"; F.b.className="b"; F.g.className="g"; d.lastChild.append(F.g,F.f,F.b); floor.appendChild(d); F.el=d; F.card=d.lastChild; F.cm=(m.cm||165)/168 }
@@ -134,6 +157,18 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
   const sub={who:q("#spWho"),zh:q("#spZh"),ko:q("#spKo")}, PR=q("#spPr"), PH=q("#spPh"), TM=q("#spTime"), SEC=q("#spSec"), RIB=q("#spRib"), HL=q("#spHl"), VEIL=q("#spVeil"), SPOT=q("#spSpot"), WORLD=q("#spW");
   const PD=Object.fromEntries(IDS.map(id=>[id,el.querySelector(`[data-p="${id}"]`)]));
   const avgProf=Math.round(IDS.reduce((a,i)=>a+(+prof[i]||0),0)/5);
+  const segs=BC?(BC.segs?.length?BC.segs:[[0,total]]):null, segDur=segs?segs.reduce((a,s)=>a+s[1]-s[0],0):0; me.si=0;
+  const bcTime=t=>{ let a=0; for(let k=0;k<me.si;k++) a+=segs[k][1]-segs[k][0]; return cl(a+t-segs[me.si][0],0,segDur) };
+  const KPT=BC?q("#bcKP"):null, BTM=BC?q("#bcTm"):null, DIP=BC?q("#bcDip"):null;
+  const bcKP=w=>{ if(!KPT) return; const k=CS.kp; if(!w||!k){ KPT.classList.remove("on"); return } const ld=w.lead&&w.lead!=="all"&&IDS.includes(w.lead)?w.lead:null;
+    KPT.innerHTML=`${ld?`<span class="f" style="--c:${memOf(ld).c};background-image:url(${faceURL(ld)})"></span>`:""}<span><small>✦ KEY POINT${w.final?" ・ 最後副歌":""}</small><b>${esc(k.name||"KEY POINT")}<em>${ld?memOf(ld).n+"領舞":"全員"}</em></b></span>`; KPT.classList.add("on") };
+  const endShot=()=>{ const E=q("#bcEnd"); if(!E||me.bcEnd) return; me.bcEnd=1; setPlay(false); const id=BC.end, nm=E.dataset.nm||"";
+    if(!IDS.includes(id)||!endURL){ me.bcT=setTimeout(closeSP,900); return }
+    const sp=[[18,22,10,.9],[26,64,6,.7],[71,18,12,.95],[80,52,7,.8],[63,74,5,.6],[34,40,4,.6],[88,30,5,.7],[12,80,6,.5]].map(([x,y,z,o],i)=>`<i class="sp" style="left:${x}%;top:${y}%;width:${z}px;height:${z}px;--o:${o};animation-delay:${(i*.17).toFixed(2)}s"></i>`).join("");
+    E.innerHTML=`<div class="bg"></div><div class="halo" style="--c:${memOf(id).c}"></div><img src="${endURL}" alt=""><div class="flare"></div>${sp}<i class="lb t"></i><i class="lb b"></i>
+      <div class="tag"><small>ENDING</small><i></i><b>${esc(nm)}</b></div>`;
+    el.classList.add("ending"); requestAnimationFrame(()=>E.classList.add("on")); window.feedback?.("m");
+    me.bcT=setTimeout(closeSP,3800) };
   q("#spInfo").innerHTML=[lookNames.length?`穿〈${esc(lookNames.join("、"))}〉`:"",CS.has?`熟練度 ${avgProf}`:"還沒編舞:先用預設站位"].filter(Boolean).join("<i>・</i>")+
     (LK.missing.length?`<button class="sp2-mk" id="spMk">打歌服還沒做立繪(${LK.missing.length} 位)▸</button>`:"");
 
@@ -161,6 +196,8 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
   /* ---------- 每一幀 ---------- */
   function frame(nowMs){ if(CUR!==me) return; const dt=Math.min(.1,Math.max(0,(nowMs-lastNow)/1000)); lastNow=nowMs;
     let t=now(); if(t>=total){ t=total; if(playing) setPlay(false) }
+    if(segs&&!me.bcEnd){ const sg=segs[me.si];
+      if(t>=sg[1]-.03||(t>=total-.05)){ if(me.si<segs.length-1){ const nx=segs[++me.si][0]; DIP.classList.add("on"); me.bcT=setTimeout(()=>{ if(CUR!==me) return; seek(nx); DIP.classList.remove("on") },320) } else endShot() } }
     let si=lastSi>=0&&L.secs[lastSi]&&t>=L.secs[lastSi].t0&&t<L.secs[lastSi].t1?lastSi:L.secs.findIndex(s=>t>=s.t0&&t<s.t1); if(si<0) si=L.secs.length-1; lastSi=si;
     const sec=L.secs[si], b=Math.max(0,(t-sec.t0)/bs), st=CS.has?CS.at(si,b):(fbCache[si]||(fbCache[si]=fallback(si)));
     const fnow=st.foc, mvName=CS.MV?.[st.mv[fnow||"ys"]]?.n||"", stxt=sec.n+(mvName?`・${mvName}`:"");
@@ -168,7 +205,7 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
     let ei=lastEv>=0&&L.ev[lastEv]&&t>=L.ev[lastEv].t0&&t<L.ev[lastEv].t1?lastEv:L.ev.findIndex(e=>t>=e.t0&&t<e.t1); if(ei!==lastEv){ lastEv=ei; singer(ei) }
     /* KEY POINT 與小亮點 */
     const kw=kpw.find(w=>t>=w.t0-.12&&t<w.t1+.45)||null, bi=kw?cl(Math.floor((t-kw.t0)/bs),-1,Math.round(kw.len)-1):-9;
-    if(kw!==lastKP||bi!==lastBeat){ ribbon(kw,bi); lastKP=kw; lastBeat=bi }
+    if(kw!==lastKP||bi!==lastBeat){ if(BC&&kw!==lastKP) bcKP(kw); ribbon(kw,bi); lastKP=kw; lastBeat=bi }
     const hw=hls.find(h=>t>=h.t0&&t<h.t1)||null;
     if(hw!==lastHl){ lastHl=hw; if(hw){ HL.innerHTML=`<b>✧ 小亮點</b>${hw.who.length===1?faceHTML(hw.who[0]):""}<span>${esc(hw.desc)}</span>`; HL.classList.add("on") } else HL.classList.remove("on") }
     /* 成員 */
@@ -215,7 +252,7 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
     else if(SPOT.style.opacity!=="0") SPOT.style.opacity="0";
     /* 進度 */
     PR.style.transform=`scaleX(${(t/total).toFixed(4)})`; PH.style.transform=`translate3d(${(t/total*barW).toFixed(1)}px,0,0)`;
-    const sNow=Math.floor(t); if(sNow!==me.lastS){ me.lastS=sNow; TM.textContent=`${fmt(t)} / ${fmt(total)}` }
+    const sNow=Math.floor(t); if(sNow!==me.lastS){ me.lastS=sNow; TM.textContent=`${fmt(t)} / ${fmt(total)}`; if(BTM) BTM.textContent=`${BC.mode==="hl"?"精華版":"整首"}・${fmt(bcTime(t))} / ${fmt(segDur)}` }
     if(playing) me.raf=requestAnimationFrame(frame) }
   const redraw=()=>{ if(!playing){ lastNow=performance.now(); frame(lastNow) } };
   me.ctl={ seek:t=>{ seek(t); redraw() }, play:on=>setPlay(on!==false), time:()=>now(), view:()=>view };   // 測試與之後的功能用(window.stagePlayCtl)
@@ -239,6 +276,7 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
   me.off=()=>{ window.removeEventListener("resize",onRs); document.removeEventListener("visibilitychange",onVis) };
 
   /* ---------- 開始 ---------- */
+  if(segs) opts.at=segs[0][0];
   if(opts.at>0) seek(opts.at);
   if(opts.view==="top"||opts.view==="fan") setView(opts.view);
   base=performance.now(); lastNow=base; frame(base); q("#spLoad").classList.add("out"); el.classList.remove("loading"); setTimeout(()=>q("#spLoad")?.remove(),500) };
