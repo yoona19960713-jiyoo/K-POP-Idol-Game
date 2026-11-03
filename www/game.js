@@ -979,17 +979,34 @@ function blobGroups(){ const R=o=>window.refsOf?refsOf(o):new Set(), g={img:new 
       for(const h of R(m.img)) g.img.add(h); for(const h of R([m.sprites,m.faces])) g.spr.add(h); for(const h of R(m.prev)) g.prev.add(h) }
     const rest={...lk,members:undefined}; for(const h of R(rest)) g.other.add(h) }
   return g }
+/* 1.1 第 3 輪(2026-11-03,使用者在新電腦上看到 106%):這台沒有的圖,以前一律當 350 KB,新裝置會估得很誇張(臉部小圖其實只有全身的一成)。
+   現在:① 圖片大多在這台的裝置,把量好的大小放上雲端 meta/blobsizes(雜湊前 16 字 → data URL 長度;一天最多寫一次);
+   ② 這台沒有的,先用雲端那份;③ 再沒有才用那一類的一般大小(原圖 30 萬、全身立繪 26 萬、臉部小圖 3 萬)。 */
+let BS_REMOTE=null;
+async function blobSizesPull(){ if(BS_REMOTE) return BS_REMOTE; BS_REMOTE={}; if(!syAuth()||!syCfg()) return BS_REMOTE;
+  try{ const d=await syGet("meta/blobsizes"), t=d?.fields?.m?.stringValue; if(t) BS_REMOTE=JSON.parse(t)||{} }catch(e){ logErr("雲端用量",e) } return BS_REMOTE }
+async function blobSizesPush(cache,refs){ try{ if(!syAuth()||!syCfg()||typeof syPatchPath!=="function") return; const day=new Date().toDateString(); if(localStorage.getItem("kpopGame.bsPush")===day) return;
+  const m={}; for(const h of refs) if(cache[h]!=null) m[h.slice(0,16)]=cache[h];
+  await syPatchPath("meta/blobsizes",{m:{stringValue:JSON.stringify(m)},at:{integerValue:String(Date.now())}}); localStorage.setItem("kpopGame.bsPush",day); BS_REMOTE=m }catch(e){ logErr("雲端用量",e) } }
+window.__blobSizesReset=()=>{ BS_REMOTE=null; localStorage.removeItem("kpopGame.bsPush") };   // 測試用
 async function blobUsage(prog){ const refs=new Set((JSON.stringify([Object.values(ITEMS),WMETA]).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));
   const cache=await IDB.get("blobSizes")||{}; let known=0, sum=0, miss=0, i=0, dirty=false;
   /* 2026-11-01:雲端有兩種存法。文字(base64)的長度就是位元組數;二進位的只有文字長度的四分之三 */
-  const v2=await (window.blobV2Set?.()||new Set()), all2=await (window.blobV2All?.()||false), cb=h=>cache[h]==null?null:(all2||v2.has(h)?cache[h]*.75:cache[h]);
+  const v2=await (window.blobV2Set?.()||new Set()), all2=await (window.blobV2All?.()||false), bin=h=>all2||v2.has(h), cb=h=>cache[h]==null?null:(bin(h)?cache[h]*.75:cache[h]);
   for(const h of refs){ i++; let n=cache[h];
     if(n==null){ const s=await IDB.get("blob:"+h); if(typeof s==="string"){ n=s.length; cache[h]=n; dirty=true } }   // 快取記的是 data URL 文字的長度
     if(n!=null){ sum+=cb(h); known++ } else miss++;
     if(i%20===0){ prog?.(i,refs.size); await new Promise(r=>setTimeout(r,0)) } }
   if(dirty) await IDB.set("blobSizes",cache);
-  const avg=known?sum/known:350000, G=blobGroups(), sz=s=>{ let b=0; for(const h of s) b+=(cb(h)??avg)+300; return Math.round(b) };
-  return {n:refs.size,miss,bytes:Math.round(sum+miss*avg+refs.size*300),avg,cache,cb,v2,all2,groups:{img:[G.img.size,sz(G.img)],spr:[G.spr.size,sz(G.spr)],prev:[G.prev.size,sz(G.prev)],meta:[G.meta.size+G.other.size,sz(new Set([...G.meta,...G.other]))]}} }
+  if(refs.size&&known>=refs.size*.9) blobSizesPush(cache,refs);   // 這台量得到九成以上:放上雲端給別台用
+  const G=blobGroups(), faces=new Set(); for(const lk of Object.values(ITEMS)){ for(const m of Object.values(lk?.members||{})) for(const h of (window.refsOf?refsOf(m?.faces):[])) faces.add(h) }
+  const remote=miss?await blobSizesPull():{}, DEF={img:300000,spr:260000,face:30000,prev:300000,meta:350000};
+  const kindOf=h=>G.img.has(h)?"img":faces.has(h)?"face":G.spr.has(h)?"spr":G.prev.has(h)?"prev":"meta";
+  let fromRemote=0, guess=0; const one=h=>{ const c=cb(h); if(c!=null) return c; const r=remote[h.slice(0,16)]; if(r!=null) return bin(h)?r*.75:r; return DEF[kindOf(h)]*(all2?.75:1) };
+  for(const h of refs) if(cache[h]==null){ if(remote[h.slice(0,16)]!=null) fromRemote++; else guess++ }
+  const avg=known?sum/known:300000, sz=s=>{ let b=0; for(const h of s) b+=one(h)+300; return Math.round(b) };
+  let total=0; for(const h of refs) total+=one(h)+300;
+  return {n:refs.size,miss,fromRemote,guess,bytes:Math.round(total),avg,cache,cb,v2,all2,groups:{img:[G.img.size,sz(G.img)],spr:[G.spr.size,sz(G.spr)],prev:[G.prev.size,sz(G.prev)],meta:[G.meta.size+G.other.size,sz(new Set([...G.meta,...G.other]))]}} }
 async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; USE_BUSY=true; el.classList.remove("hidden"); el.innerHTML=`<p class="hint">計算中…</p>`;
   try{ const sc=window.scriptsUsage?await scriptsUsage():null;
     const img=await blobUsage((i,n)=>{ el.innerHTML=`<p class="hint">計算中…圖片 ${i}/${n}</p>` }); img.sq=await window.squeezeScan?.().catch(e=>{ logErr("雲端用量",e); return null })||null;
@@ -999,13 +1016,14 @@ async function renderUse(){ const el=$("#usePanel"); if(!el||USE_BUSY) return; U
     const total=img.bytes+story+legacy+save+other, pct=total/GiB*100, o=window.syOps?.()||{r:0,w:0,x:0}, N=x=>Number(x||0).toLocaleString("zh-TW");
     el.innerHTML=`<div class="usebar${pct>=85?" hi":""}"><i style="--v:${Math.min(100,pct).toFixed(2)}%"></i></div>
       <p class="usetot"><b>${fmtB(total)}</b> / 1 GiB(${pct<10?pct.toFixed(1):Math.round(pct)}%,估算)</p>
-      <ul class="usel"><li><span>圖片(造型、日常立繪、底模)</span><b>${fmtB(img.bytes)}</b><small>${img.n} 張${img.miss?`;其中 ${img.miss} 張不在這台裝置,用平均大小估`:""}</small></li>
+      <ul class="usel"><li><span>圖片(造型、日常立繪、底模)</span><b>${fmtB(img.bytes)}</b><small>${img.n} 張${img.miss?`;其中 ${img.miss} 張不在這台裝置,${img.guess?(img.fromRemote?`${img.fromRemote} 張用別台量好的大小、${img.guess} 張用一般大小估`:"用一般大小估"):"用別台裝置量好的大小"}`:""}</small></li>
       ${[["spr","・日常立繪(表情)"],["img","・生圖原圖"],["prev","・上一版備份"],["meta","・底模與其他"]].map(([k,n])=>`<li class="sub"><span>${n}</span><b>${fmtB(img.groups[k][1])}</b><small>${img.groups[k][0]} 張</small></li>`).join("")}
       <li><span>劇情</span><b>${fmtB(story)}</b><small>${sc?(sc.mode==="packs"?`${N(sc.items)} 段:打包 ${sc.packs} 包、散件 ${sc.loose} 個`:`${N(sc.items)} 段,還沒打包(用電腦版登入、同步一次就會打包)`):"—"}</small></li>
       ${legacy?`<li><span>舊的逐段劇情</span><b>${fmtB(legacy)}</b><small>舊版封存還會用到,先保留</small></li>`:""}
       <li><span>存檔與其他</span><b>${fmtB(save+other)}</b><small>遊戲存檔、歌曲、打歌、成員設定</small></li></ul>
       <p class="hint">這台裝置今天:讀取 ${N(o.r)} 次、寫入 ${N(o.w)} 次、刪除 ${N(o.x)} 次。免費額度每天讀取 5 萬、寫入與刪除各 2 萬(兩台裝置合計,台灣時間下午三、四點重置)。</p>
-      <p class="hint">${pct>=85?"快到 1 GiB 了:先用下面的「原圖壓縮與轉存」「立繪瘦身」「刪除上一版備份」把空間省下來。":"離 1 GiB 還遠。"}</p>
+      ${img.guess>img.n*.3?`<p class="hint warn">這台裝置還沒有大部分的圖片,上面是粗估。用平常玩的那台(圖片都在的電腦或手機)打開一次「雲端用量」,它會把實際大小放上雲端,這台再打開就會準。</p>`:""}
+      <p class="hint">${pct>=85?(img.guess>img.n*.3?"粗估已經接近 1 GiB;先到平常玩的那台看實際用量再決定要不要省空間。":"快到 1 GiB 了:先用下面的「原圖壓縮與轉存」「立繪瘦身」「刪除上一版備份」把空間省下來。"):"離 1 GiB 還遠。"}</p>
       ${slimHTML(img)}` ; bindSlim(img) }
   catch(e){ el.innerHTML=`<p class="hint">算不出來:${esc(String(e?.message||e))}</p>`; logErr("雲端用量",e) }
   finally{ USE_BUSY=false } }
@@ -1017,7 +1035,8 @@ function sqzEst(img){ const q=img.sq; if(!q) return null; const ac=(()=>{ let s=
 function slimHTML(img){ const sl=window.slimList?.()||[], pv=window.prevList?.()||[], sq=sqzEst(img), busy=!!window.squeezeBusy?.();
   const per=img.groups.spr[0]?img.groups.spr[1]/img.groups.spr[0]:250000, slimSave=Math.round(sl.length*11*per*.9);   /* 實測:臉部小圖約是全身的一成 */
   let pvB=0; for(const [c,s] of pv) for(const h of refsOf(ITEMS[c].members[s].prev)) pvB+=(img.cb(h)??img.avg)+300;
-  return `<div class="useact">${sq&&(sq.orig||sq.conv)||busy?`<p class="hint">原圖壓縮與轉存:${[sq?.orig?`${sq.orig} 張生圖原圖還是最高品質的大檔,會重新壓成品質 90(看起來一樣,先給你比對一張)`:"",sq?.conv?`${sq.conv} 張圖片(立繪、底模等)改用二進位存在雲端,畫質完全不變`:""].filter(Boolean).join(";")||"進行中"}${sq?.save?`。大約可以省 ${fmtB(sq.save)}`:""}。不花錢、不用重新生圖;建議用電腦版做(圖片大多已經在電腦上,不用重新下載)。中途可以停,下次再按會接著做。</p>
+  const sqDone=!busy&&sq&&!sq.orig&&!sq.conv?`<p class="hint">原圖壓縮與轉存:已經全部做完了(生圖原圖都壓過、雲端都是二進位存法),所以沒有按鈕。之後新生的圖一生出來就是壓好的。</p>`:"";
+  return `<div class="useact">${sqDone}${sq&&(sq.orig||sq.conv)||busy?`<p class="hint">原圖壓縮與轉存:${[sq?.orig?`${sq.orig} 張生圖原圖還是最高品質的大檔,會重新壓成品質 90(看起來一樣,先給你比對一張)`:"",sq?.conv?`${sq.conv} 張圖片(立繪、底模等)改用二進位存在雲端,畫質完全不變`:""].filter(Boolean).join(";")||"進行中"}${sq?.save?`。大約可以省 ${fmtB(sq.save)}`:""}。不花錢、不用重新生圖;建議用電腦版做(圖片大多已經在電腦上,不用重新下載)。中途可以停,下次再按會接著做。</p>
       <div class="row"><button class="b pri" id="sqzGo"${busy?" disabled":""}>${busy?"處理中…":sq.orig?`先比對一張,再開始(${sq.orig+sq.conv} 張)`:`開始轉存(${sq.conv} 張)`}</button><button class="b${busy?"":" hidden"}" id="sqzStop">停下來</button></div>`:""}${sl.length?`<p class="hint">立繪瘦身:${sl.length} 組立繪還是 12 張全身的舊格式。改成 1 張全身+11 張臉部小圖之後,看起來一樣,大約可以省 ${fmtB(slimSave)}。直接用現有的立繪裁,不用重新生圖、不花錢;每組約幾秒,處理時可以繼續玩。</p><div class="row"><button class="b pri" id="slimGo">立繪瘦身(${sl.length} 組)</button></div>`:""}
     ${pv.length?`<p class="hint">上一版備份:${pv.length} 位成員的造型留著重新生圖前的舊圖(可以「回到上一版」),約 ${fmtB(pvB)}。確定不會回去的話可以刪掉。</p><div class="row"><button class="b" id="prevGo">刪除上一版備份(${pv.length} 個)</button></div>`:""}
     <p class="hint" id="slimMsg"></p></div>` }
