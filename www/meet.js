@@ -91,10 +91,12 @@ let MT=null, lastOpen=0;
 const bandNow=id=>DY.bandOf(stageOf(id));
 function stateOf(id){ const s=S.m[id]; if(S.slot===4) return "sleepy"; if(s.stress>=70) return "tired"; if(["practice","vocal"].includes(S.where[id])&&(S.slot===2||S.slot===3)) return "after_practice"; if(s.mood>=80) return "bright"; return "" }
 function nowLine(id){ const w=S.where[id]||"", base=w.startsWith("bed_")?"bed":w; return `${PL[w]?.n||""}・${S.doing?.[id]||ACT_N[base]||""}` }
-function greet(id){ const mg=window.missGreet?.(id); if(mg) return mg;   // 冷落的心情(miss.js)
+function greet(id){ const sg=window.sickGreet?.(id); if(sg) return sg;   // 1.1 第 3 輪第 2 包:她生病那天(sick.js)
+  const mg=window.missGreet?.(id); if(mg) return mg;   // 冷落的心情(miss.js)
   const L=DY.GREET?.[id]?.[bandNow(id)==="A"?"A":"B"]||[["……","neutral"]], r=rng(seedOf(S.day,S.slot,"greet"+id)); return L[Math.floor(r()*L.length)] }
 /* 隨口互動:內容庫優先(同房間的更優先),沒有才用內建備用 */
-function pickCasual(id,ca){ const st=stageOf(id), band=bandNow(id), room=S.where[id]||"", grp=DY.grpOf?.(room), state=stateOf(id);
+function pickCasual(id,ca){ const sk=window.sickCasual?.(id,ca); if(sk) return sk;   // 她生病那天:在床上的版本(sick.js)
+  const st=stageOf(id), band=bandNow(id), room=S.where[id]||"", grp=DY.grpOf?.(room), state=stateOf(id);
   const ok=sn=>sn.type==="casual"&&(sn.member===id||sn.who?.[0]===id)&&sn.ca===ca&&(!sn.band||sn.band===band)&&(!sn.stage||sn.stage===st)&&(!sn.sl?.length||sn.sl.includes(S.slot))
     &&(!sn.room||DY.grpOf?.(sn.room)===grp)&&(!sn.state||sn.state===state)&&dateOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))&&(!sn.wx||sn.wx===wxNow())&&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||3))&&sn.nodes?.start?.L?.length;
   /* 1.1 第 2 輪:有寫到今天天氣或這個季節的,優先(天氣 65%、季節 45%) */
@@ -110,13 +112,13 @@ function optsHTML(id){ const greeted=S.greet?.[id]===S.day;
     <button class="mt-opt" data-mt="hello" ${greeted?"disabled":""}>${ic("hello")}<span><b>打招呼</b><small>${greeted?"今天打過了":"5 分"}</small></span></button>
     <button class="mt-opt sub" data-mt="casual">${ic("casual")}<span><b>隨口互動</b><small>每次 5 分</small></span></button>
     ${(()=>{ const rc=window.recallReady?.(id,MT?.pid||S.where[id]); return `<button class="mt-opt${rc?" rc":""}" data-mt="talk">${ic("talk")}<span><b>聊天</b><small>${rc?"她有話想說":"15~30 分"}</small></span></button>` })()}
-    ${(()=>{ const n=window.actsFor?.(id)?.length||0; return `<button class="mt-opt sub" data-mt="act" ${n?"":"disabled"}>${ic("act")}<span><b>邀她做…</b><small>${n?`${n} 個活動`:"現在沒有"}</small></span></button>` })()}</div>` }
+    ${(()=>{ const n=actList(id).length; return `<button class="mt-opt sub" data-mt="act" ${n?"":"disabled"}>${ic("act")}<span><b>邀她做…</b><small>${n?`${n} 個活動`:"現在沒有"}</small></span></button>` })()}</div>` }
 /* 邀她做…(1.1 第 3 輪):一頁 4 個,她最想做的排前面(她專屬的、在她現在這裡的、她今天狀態適合的、好久沒做的);
    返回和換頁在左邊(面板左下原本是「在哪裡・心情」那一列),也可以在右邊左右滑。她專屬的圖示是她的顏色,通用的是金色 */
 const PER=4;
 const fmtA=m=>{ const h=Math.floor(m/60), r=m%60; return h?`${h} 小時${r===30?"半":r?` ${r} 分`:""}`:`${r} 分` };
 const DOTS=()=>`<span class="mt-five">${M.map(m=>`<i style="--c:${m.c}"></i>`).join("")}</span>`;
-function actList(id){ if(MT?.acts&&MT.actsAt===S.min) return MT.acts; const L=window.actsFor?.(id)||[]; if(MT){ MT.acts=L; MT.actsAt=S.min } return L }   // 同一次畫面只算一次
+function actList(id){ if(MT?.acts&&MT.actsAt===S.min&&MT.actsId===id) return MT.acts; const L=window.actsFor?.(id)||[]; if(MT){ MT.acts=L; MT.actsAt=S.min; MT.actsId=id } return L }   // 按鈕上的數量和「邀她做…」共用同一次計算   // 同一次畫面只算一次
 function actHTML(id){ const L=actList(id), pages=Math.max(1,Math.ceil(L.length/PER)); MT.pg=Math.max(0,Math.min(MT.pg||0,pages-1));
   const P=L.slice(MT.pg*PER,MT.pg*PER+PER);
   return `<div class="mt-opts acts">${P.map(it=>{ const {k,a,room}=it, pn=PL[room]?.n||"", go=it.all||room===S.where[id]||a.menu.includes(pn.replace(/邊$/,""))?"":`・<span class="nw">去${esc(pn)}</span>`;
@@ -147,7 +149,7 @@ function chip(t,cls=""){ const w=MT?.el.querySelector(".mt-chips"); if(!w) retur
 function act(k){ if(!MT) return; const id=MT.id;
   if(k==="home"){ const was=MT.mode; MT.mode="home"; if(was==="act"){ const [g,ge]=greet(id); say(g,ge) } render(); return }
   if(k==="casual"){ MT.mode="casual"; render(); return }
-  if(k==="act"){ MT.mode="act"; MT.pg=0; const q=DY.ACT_ASK?.[id]?.[bandNow(id)==="A"?"A":"B"]; if(q) say(q[0],q[1]); render(); return }
+  if(k==="act"){ MT.mode="act"; MT.pg=0; const q=window.sickAsk?.(id)||DY.ACT_ASK?.[id]?.[bandNow(id)==="A"?"A":"B"]; if(q) say(q[0],q[1]); render(); return }
   if(k==="hello"){ play("hello"); return }
   if(k==="talk"){ const pid=MT.pid; close(()=>window.visitTalk?.(pid,id)); return } }
 function play(ca){ if(!MT) return; const id=MT.id, c=pickCasual(id,ca); if(!c){ toast2("這個還沒有內容"); return }

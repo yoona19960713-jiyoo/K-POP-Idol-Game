@@ -15,7 +15,7 @@ const WIN={insomnia:[1470,1590],snack:[1390,1480],roof:[1380,1500]};
 const P={insomnia:{hy:3,ys:2,hr:1.5,he:1,tr:.3},snack:{tr:3,he:2,hr:2,ys:1,hy:1},roof:{tr:2,hy:2,ys:2,he:1,hr:1},msg:{ys:1,tr:1,hy:1,he:1,hr:1}};
 const CH={insomnia:.35,snack:.3,roof:.25,msg:.45};
 const DOING={insomnia:"睡不著",snack:"偷吃宵夜",roof:"在頂樓吹風"};
-function plan(){ if(S.night?.day===S.day) return S.night; const r=rng(seedOf(S.day,"night")), used=new Set(), ev=[];
+function plan(){ if(S.night?.day===S.day) return S.night; const r=rng(seedOf(S.day,"night")), used=new Set(M.filter(m=>window.sickIs?.(m.id)).map(m=>m.id)), ev=[];   // 1.1 第 3 輪第 2 包:生病的人早早睡了(sick.js)
   const pick=w=>{ const ok=Object.fromEntries(Object.entries(w).filter(([id])=>!used.has(id))); const id=pickKey(ok,r); used.add(id); return id };
   /* 1.1 第 3 輪:有一段「記得你」要在頂樓、廚房、客廳、便利商店說的人,今晚比較會是她,地點也照那段 */
   const RC_ROOMS={roof:["roof"],snack:["kitchen","store"],insomnia:["living","kitchen"]}, rcRoom={};

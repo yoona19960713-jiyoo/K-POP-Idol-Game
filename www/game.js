@@ -400,7 +400,7 @@ function ensureWear(force){
   if(S.wear&&S.wear.day!==S.day) S.lastWear=S.wear.m;
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
-  if(g==="公司大樓"||g==="製作中心"||room==="court") return wm.練習||null; /* 室內體育館打球也穿練習服 */ if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
+  if(g==="公司大樓"||g==="製作中心"||room==="court") return wm.練習||null; /* 室內體育館打球也穿練習服 */ if(g==="宿舍") return ((slot===4||window.sickIs?.(mid))&&wm.睡衣)||wm.居家||null;   /* 生病那天整天穿睡衣 */ return wm.外出||null}
 const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 /* 以前處理的換衣立繪沒有「累」「驚訝」:用最接近的表情代替(不用重新處理) */
 const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"],pout:["shy","smile","neutral"],moved:["sad","smile","neutral"],serious:["neutral"],wink:["laugh","smile","neutral"]};
@@ -441,7 +441,7 @@ function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxN
     if(wk!=="clear") delete w.river;
     const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k]?.open.includes(S.slot)));
     let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2; S.doing[m.id]=doingOf(b,m.id,w2,wd) }
-  window.lifeWhere?.(); window.nightWhere?.(); window.recallWhere?.(); window.mileWhere?.(); window.ovhWhere?.(); S.whereKey=whereKey() }   // 1.1 第 3 輪:紀念日的記得你(她在約好的地方等你)   // 成員之間(ovh.js)
+  window.lifeWhere?.(); window.nightWhere?.(); window.recallWhere?.(); window.mileWhere?.(); window.sickWhere?.(); window.ovhWhere?.(); S.whereKey=whereKey() }   // 1.1 第 3 輪:紀念日的記得你(她在約好的地方等你)   // 第 2 包:生病那天整天在自己房間(sick.js)   // 成員之間(ovh.js)
 const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0)+"|"+(window.nightKey?.()||"")+"|"+(window.recallKey?.()||"");   // 深夜事件(night.js)開始、結束也換位置
 let FIG_FADE=false;
 
@@ -563,14 +563,14 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
     const p=PL[rm.pid], open=p.open.includes(S.slot), vis=false;
     const ppl=open?who(rm.pid):[];
     const dis=!open, [x,y,w,h]=rm.r;
-    const own=p.owner, st0=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
+    const own=p.owner, st0=p.facOnly?FACN[rm.fac]?.[1]||"":!open?openText(p):own?(ppl.some(m=>m.id===own)?(ppl.length>1?ppl.map(m=>m.n).join("、"):window.sickIs?.(own)?"在休息":"在房間"):ppl.length?ppl.map(m=>m.n).join("、")+"在這裡":"不在"):ppl.length?ppl.map(m=>m.n).join("、"):"沒有人";
     const oc0=open&&!p.facOnly?window.ovhAt?.(rm.pid):null, st=oc0?`${byId(oc0.a).n}、${byId(oc0.b).n}・在聊天`:st0;
     const xr=rm.xr||[18,82], n=ppl.length, r=rng(seedOf(S.day,S.slot,view,ri)); let hits="";
     const oc=open&&!p.facOnly?window.ovhAt?.(rm.pid):null, fpos={};   // 成員之間:兩人在聊天(ovh.js)
     const figs=rm.noFig?"":ppl.map((m,i)=>{const fx=n===1?(xr[0]+xr[1])/2+(r()-.5)*(xr[1]-xr[0])*.5:xr[0]+(xr[1]-xr[0])*i/(n-1);
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot); fpos[m.id]=[X,rm.feet-H];
       if(open&&!p.facOnly) hits+=`<button class="fighit" data-meet="${m.id}" data-pid="${rm.pid}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%;width:${(H*.2).toFixed(2)}%" aria-label="${m.n}"></button>`;   // 點成員 → 互動面板(meet.js)
-      return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig${FIG_FADE?" fadein":""}" alt="${m.n}" src="${spr(m.id,of,"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
+      return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig${FIG_FADE?" fadein":""}" alt="${m.n}" src="${spr(m.id,of,window.sickIs?.(m.id)?"tired":"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
     const ob=oc?((A,B)=>A&&B?`<span class="ovbub" style="left:${((A[0]+B[0])/2).toFixed(2)}%;top:${(Math.min(A[1],B[1])-1.2).toFixed(2)}%;--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:"")(fpos[oc.a],fpos[oc.b]):"";
     return `${figs}${ob}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span>${rm.noFig&&ppl.length?facesHTML(ppl):""}${rm.noFig&&oc?`<span class="ovbub inplate" style="--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:""}</span>
@@ -641,7 +641,7 @@ let last=performance.now();
 function tick(){const now=performance.now(), dt=Math.min(1,(now-last)/1000); last=now;
   if(paused()) return; const sl=SLOTS[S.slot];
   S.min+=dt*(sl.to-sl.from)/sl.sec;
-  window.nightTick?.(); window.mileTick?.();   // 深夜訊息、里程碑(mile.js)
+  window.nightTick?.(); window.mileTick?.(); window.sickTick?.();   // 深夜訊息、里程碑(mile.js)、生病那天深夜的訊息(sick.js)
   if(S.min>=sl.to) passSlots(); else { if(S.whereKey!==whereKey()){ assign(); FIG_FADE=true; renderAll() } renderHud(); if(TFX&&!TFX_RUN) playTimeFx() } }
 /* 互動完成時扣遊戲時間(改版 1.0):時鐘往前跳。對話、設施開著時先記著,畫面都關了、時鐘再走的時候才處理跨過的時段,
    頂部的時間「往前轉」到新的時間,旁邊冒出「+20 分」 */
@@ -686,14 +686,15 @@ function absentReports(r){const out=[];
 function newMessage(r){ window.phoneIncoming?.(r) }   // 訊息、群組、STARLOG 由 phone.js 處理
 function slotEnd(){
   const r=rng(seedOf(S.day,S.slot,"end"));
-  S.absent=absentReports(r);
+  S.absent=absentReports(r); window.sickAbsent?.(S.absent);
   /* 壓力(改版 1.0 第 5 輪):平日上午個人課 +3、下午團體練習 +4(評估日再 +4)、清晨與晚上 +1、睡覺 −6;週日與中秋連假整天往下 */
   const hol=dateOf(S.day).getDay()===0||window.mileHoliday?.(S.day), evalD=window.isEvalDay?.(dateOf(S.day));
   const dS=hol?[-2,-4,-4,-3,-5][S.slot]:[1,3,4+(evalD?4:0),1,-6][S.slot];   /* 一週約打平(平日 +3、週日 −18),評估日多 +4 */
-  for(const m of M){const s=S.m[m.id];s.stress=clamp(s.stress+dS,0,100);s.mood=clamp(s.mood+Math.sign((window.moodBase?.(m.id)??60)-s.mood)-(s.stress>=75&&S.slot===2?1:0),0,100)}   // 被冷落時基準點變低(miss.js)
+  for(const m of M){const s=S.m[m.id], ill=window.sickIs?.(m.id);s.stress=clamp(s.stress+(ill?[-3,-5,-5,-4,-6][S.slot]:dS),0,100);s.mood=clamp(s.mood+Math.sign((window.moodBase?.(m.id)??60)-s.mood)-(s.stress>=75&&S.slot===2?1:0),0,100)}   // 被冷落時基準點變低(miss.js)
+  window.sickOnSlotEnd?.();   // 1.1 第 3 輪第 2 包:白天壓力到 85 以上就記下來(隔天早上微燒)
   if(window.growthOnSlotEnd) growthOnSlotEnd();
   window.choreoOnSlotEnd?.(who("practice").map(m=>m.id));   // 待在練習室的成員自己練主打的編舞
-  S.slot++; if(S.slot>4){S.slot=0;S.day++;S.min-=1440; wxDaily(); window.missOnDay?.(S.day-1)}
+  S.slot++; if(S.slot>4){S.slot=0;S.day++;S.min-=1440; wxDaily(); window.missOnDay?.(S.day-1); window.sickOnDay?.()}   // 新的一天:昨天生病的恢復、今天會不會生病(sick.js)
   S.entered=[]; assign(); window.lifeOnSlot?.(); ensureWear(); newMessage(r) }
 
 /* =====================================================================
@@ -725,6 +726,7 @@ function visit(pid,o={}){
     const rc=window.recallTake?.(ns.id,pid);   // 1.1 第 3 輪:她剛好有一段要在這裡、這個時間說的「記得你」,就演那段(今晚的深夜事件也算過了)
     if(rc){ S.lastTalk={id:ns.id,day:S.day}; window.missSeen?.(ns.id); play(rc,()=>{ ns.done(); menu() },"talk"); return }
     play(ns.sn,()=>{ ns.done(); menu() }); return }
+  if(!o.talk){ const se=window.sickEntry?.(pid); if(se){ play(se,menu,"entry"); return } }   // 1.1 第 3 輪第 2 包:她生病那天,房間裡大家照顧她的痕跡(sick.js)
   if(!o.talk){ const oh=window.ovhScene?.(pid); if(oh){ oh.play(); return } }   // 成員之間:她們在聊天,先旁聽(ovh.js)
   if(o.talk&&ppl.includes(o.talk)){ narr(`你走到${byId(o.talk).n}身邊。`); talk(o.talk); return }
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
@@ -744,8 +746,8 @@ function drawPeople(){
   const w=Math.min(BASE*.305,(R-L)/Math.max(1,n)*1.25), ch=n<=1?120:Math.round(w/.305);
   const xs=n<=1?[$("#stage").clientWidth<900?36:30]:n===2?[18,46]:ids.map((_,i)=>+(L+(R-L)*(i+.5)/n).toFixed(2));
   $("#visit").classList.toggle("crowd",crowd);
-  $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot); preload(id,of);
-    return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" src="${spr(id,of,"neutral")}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
+  $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot), e0=window.sickIs?.(id)?"tired":"neutral"; preload(id,of);   // 生病那天一進來就是累的表情(sick.js)
+    return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" data-ex="${e0}" src="${spr(id,of,e0)}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 let lastSpk=null;
 function setExpr(id,e){ if(id&&id!==lastSpk&&!RM.matches){ const im=imgOf(id); if(im) animPortrait(im,[{translate:"0 .8%"},{translate:"0 0"}],{duration:300,easing:"cubic-bezier(.2,.7,.3,1)"}) } lastSpk=id||lastSpk;
   $("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
@@ -793,10 +795,11 @@ function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*p
   return {code:"demo-line-"+id,type:"topic",who:[id],member:id,nodes:{start:{L:[[id,t,e]],C:[]}},demoLine:true}}
 function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid]; S.lastTalk={id,day:S.day};
   const inv=window.lifeInviteScene?.(id,V.pid);   // 真人化:她約你來的,就演約會的片段
-  const rc=inv?null:window.recallTake?.(id,V.pid);   // 1.1 第 2 輪:記得你(她有話想說,就先演這段)
-  const sn=inv||rc||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
+  const sk=inv?null:window.sickTalk?.(id,V.pid);   // 1.1 第 3 輪第 2 包:她生病那天的聊天(sick.js)
+  const rc=inv||sk?null:window.recallTake?.(id,V.pid);   // 1.1 第 2 輪:記得你(她有話想說,就先演這段)
+  const sn=inv||sk||rc||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
-  if(!inv&&!rc) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
+  if(!inv&&!rc&&!sk) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
   window.missSeen?.(id);   // 冷落的心情:有來找她了
   play(sn,()=>{ window.lifeAfterTalk?.(id); menu() },"talk")}
 function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.lastTalk={id,day:S.day};

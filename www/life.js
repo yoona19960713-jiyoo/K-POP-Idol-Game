@@ -60,6 +60,8 @@ window.lifeOpener=(id,sn)=>{ try{
   const N=meetYears(); if(N&&rank(id)>=1&&!used(id,"meet"+N)){ use(id,"meet"+N); return pick(line("meet",id,{N})) }
   const ND=debutYears(); if(ND&&!used(id,"deb"+ND)){ use(id,"deb"+ND); return pick(line("debutAnn",id,{N:ND})) }
   const other=M.find(m=>m.id!==id&&isBd(m.id)); if(other&&!used(id,"bdo"+S.day)&&r01(id+"bdo")<.5){ use(id,"bdo"+S.day); return pick(line("bdOther",id,{X:other.n})) }
+  // 1.1 第 3 輪第 2 包:她生病那天其他人會提到她;隔天她自己說昨天的事(sick.js)
+  const sk=window.sickOpener?.(id); if(sk) return pick(sk);
   // ④ 身體狀態
   const st=S.m[id];
   if(st.stress>=70&&r01(id+"t")<.6) return pick(line("tired",id));
@@ -107,7 +109,7 @@ function recallOk(sn,id,room,any){ if(sn.type!=="recall"||(sn.member||sn.who?.[0
   if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
   const d0=needDay(sn); if(d0==null) return false; const w=Array.isArray(sn.wait)?sn.wait:[2,10], dd=S.day-d0; return dd>=+w[0]&&dd<=+w[1] }
 /* 準備好的那一則(快過期的先);room 是代表現在所在的房間 */
-window.recallReady=(id,room)=>{ try{ const r=RC(); if(!byId(id)||r.n>=2||r.ids.includes(id)) return null; room=room||S.where[id];
+window.recallReady=(id,room)=>{ try{ const r=RC(); if(!byId(id)||r.n>=2||r.ids.includes(id)||window.sickIs?.(id)) return null; /* 生病那天先不提 */ room=room||S.where[id];
   const L=snips().filter(sn=>recallOk(sn,id,room)); if(!L.length) return null;
   const end=sn=>needDay(sn)+(Array.isArray(sn.wait)?+sn.wait[1]:10); L.sort((a,b)=>end(a)-end(b)); return L[0] }catch(e){ window.logErr?.("記得你",e); return null } };
 window.recallTake=(id,room)=>{ const sn=window.recallReady(id,room); if(!sn) return null; const r=RC(); r.done[sn.code]=S.day; r.n++; r.ids.push(id); return sn };
@@ -172,7 +174,7 @@ window.lifeOnSlot=()=>{ try{ const lf=L();
     if(lf.inv&&!lf.inv.done&&lf.inv.day<S.day){ const id=lf.inv.id; window.phoneSay?.(id,[[id,{ys:"昨天沒等到你也沒關係,你一定很忙吧。下次再約喔。",tr:"昨天……算了。下次再約。",hy:"昨天的事不用在意……下次再一起去吧。",he:"昨天放我鴿子~下次要補償我喔!",hr:"代表昨天沒來!下次要請我吃兩碗泡麵!"}[id],"smile"]]) ; lf.inv=null }
     if(lf.inv?.done&&lf.inv.day<S.day) lf.inv=null;
     // ⑤ 新的邀約:大約 4~5 天一次,只約到「夥伴」以上、6 天內沒約過的成員
-    if(!lf.inv&&r01("inv")<.22){ const cand=M.filter(m=>rank(m.id)>=2&&S.day-(lf.invLast[m.id]??-99)>=6); if(cand.length){
+    if(!lf.inv&&r01("inv")<.22){ const cand=M.filter(m=>rank(m.id)>=2&&S.day-(lf.invLast[m.id]??-99)>=6&&!window.sickIs?.(m.id)); if(cand.length){
       const m=cand[Math.floor(r01("invm")*cand.length)], keys=Object.keys(INV), pid=keys[Math.floor(r01("invp")*keys.length)], P=INV[pid], slot=P.slots[Math.floor(r01("invs")*P.slots.length)];
       const sl=SLOTS[slot], k=Math.max(0,Math.floor((sl.to-sl.from-150)/30)), at=sl.from+60+30*Math.floor(r01("inva")*(k+1));   // 那個時段裡的一個時間點(整點或半點)
       if(PL[pid]?.open.includes(slot)&&at>=S.min+30){ lf.inv={id:m.id,pid,day:S.day,slot,at}; lf.invLast[m.id]=S.day; window.phoneSay?.(m.id,[[m.id,P.msg[m.id],"smile"],[m.id,INV_T[m.id].replace("{t}",hm(at)),"smile"]]) } } } }

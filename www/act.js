@@ -15,34 +15,60 @@ function windows(k){ if(WIN[k]) return WIN[k]; const a=DY.ACTS[k]; const out=[];
   for(let seg of String(a.t||"").split(";")){ seg=seg.trim(); if(!seg) continue; let days=null; const m=seg.match(/^週([日一二三四五六])\s*/); if(m){ days=[WD.indexOf(m[1])]; seg=seg.slice(m[0].length) }
     for(const r of seg.split("、")){ const p=r.split("~").map(x=>{ const [h,mm]=x.trim().split(":").map(Number); return h*60+(mm||0) }); if(p.length!==2||p.some(isNaN)) continue;
       let f=p[0]<360?p[0]+1440:p[0], t=p[1]; while(t<=f) t+=1440; out.push({days,from:f,to:t}) } }
+  if(!out.length&&a.w) for(const [f,t] of a.w) out.push({days:null,from:f*60,to:t*60});   // 時間寫成文字的(照顧她「她累倒或感冒時」):用 w,整天
   return WIN[k]=out }
 const rank=st=>DY.rank?DY.rank(st):(window.STAGE_RANK||[]).indexOf(st);
-const hasLib=(k,id)=>snips().some(sn=>sn.type==="act"&&sn.act===k&&(sn.member===id||sn.who?.[0]===id));
+const hasLib=(k,id)=>(actIdx()[id]||[]).some(sn=>sn.act===k);
 const doneKey=(k,id)=>S.day+"|"+k+"|"+id;
 /* 1.1 第 3 輪:有內建版本的活動一定列(不用等內容庫);全員版要內容庫有 all 的版本或內建全員版 */
 const hasBuiltin=k=>!!(EXC[k]||GEN[k]);
-const hasLibAll=k=>snips().some(sn=>sn.type==="act"&&sn.act===k&&sn.member==="all");
+const hasLibAll=k=>(actIdx().all||[]).some(sn=>sn.act===k);
 const inWin=k=>{ const wd=dateOf(S.day).getDay(); return windows(k).some(w=>(!w.days||w.days.includes(wd))&&S.min>=w.from&&S.min<w.to) };
 /* 五個人都在宿舍、而且還沒睡(全員版的條件) */
 const DORM=x=>DY.ROOM_AT?.[x]==="dorm";
-window.actAllHome=()=>{ const {b}=blockAt(); if(/睡覺|補眠/.test(b.n)) return false; return M.every(m=>DORM(S.where[m.id])&&!String(S.where[m.id]).startsWith("外出")) };
+window.actAllHome=()=>{ const {b}=blockAt(); if(/睡覺|補眠/.test(b.n)||M.some(m=>window.sickIs?.(m.id))) return false;   // 有人生病那天不叫大家一起(sick.js)
+  return M.every(m=>DORM(S.where[m.id])&&!String(S.where[m.id]).startsWith("外出")) };
 /* 上次和她做這件事是幾天前(沒做過 = null) */
 const lastDone=(k,id)=>{ const L=S.actLog||[]; for(let i=L.length-1;i>=0;i--){ const e=L[i]; if(e.k===k&&(e.id===id||e.all)) return S.day-e.d } return null };
-window.actsFor=id=>{ const st=stageOf(id), out=[], s=S.m[id]||{}, here=S.where[id], r=rng(seedOf(S.day,S.slot,"acts"+id));
+/* 內容庫裡的活動片段,依成員分好(all = 全員版)。snips() 每次都要複製整個內容庫(一萬段時手機上約 10 ms 以上),
+   所以只在內容庫變了才重建(scripts.js 每次改 SCRIPTS 都把 window.scriptsRev 加 1;整份換掉時 SCRIPTS 本身也會換)。
+   是不是看過(S.seen)每次用的時候才看;萬一有漏掉的改動,演之前再確認那段還在內容庫裡(liveSn) */
+let AIDX=null;
+function actIdx(){ const rev=window.scriptsRev||0;
+  if(!AIDX||AIDX.ref!==SCRIPTS||AIDX.rev!==rev){ const by={}; for(const sn of snips()) if(sn.type==="act"&&sn.act){ const m=sn.member==="all"?"all":(sn.member||sn.who?.[0]); if(m) (by[m]=by[m]||[]).push(sn) } AIDX={ref:SCRIPTS,rev,by} }
+  return AIDX.by }
+const liveSn=sn=>SCRIPTS[sn.code]===sn||WX_SNIPS.includes(sn);
+window.actIdxInfo=()=>AIDX?{rev:AIDX.rev,same:AIDX.ref===SCRIPTS}:null;   // 測試用
+/* 內容庫變了以後,趁閒置時先把索引建好(第一次打開「邀她做…」就不用等) */
+every(5000,()=>{ if(AIDX&&AIDX.ref===SCRIPTS&&AIDX.rev===(window.scriptsRev||0)) return; (window.requestIdleCallback||(f=>setTimeout(f,200)))(()=>{ try{ actIdx() }catch(e){} },{timeout:3000}) });
+/* 內容庫的版本合不合她現在(段落、關係、日期;有寫 sick 的,要和她今天生病的種類一樣)。地點另外看 */
+const libFit=(sn,id,band,st)=>(sn.member===id||sn.who?.[0]===id)&&(!sn.band||sn.band===band)&&(!sn.stage||rank(st)>=rank(sn.stage))&&(!sn.sick||sn.sick===window.sickKind?.(id))&&dateOk(sn)&&!!sn.nodes?.start;
+window.actsFor=id=>{ const st=stageOf(id), out=[], s=S.m[id]||{}, here=S.where[id], r=rng(seedOf(S.day,S.slot,"acts"+id)), ill=!!window.sickIs?.(id);
   const ok=x=>PL[x]?.open.includes(S.slot)&&!(x.startsWith("bed_")&&x!=="bed_"+id);
+  /* 1.1 第 3 輪第 2 包:她不在活動的任何一個地點時,先挑內容庫有她版本的地點(沒看過的優先),再挑第一個開著的。
+     以前一律挑第一個開著的(例如藝瑟在自己房間時小酌一定選頂樓),長對話寫在另一個地點的版本就演不到。內容庫整份只掃一次 */
+  let LR=null; const libRooms=k=>{ if(!LR){ LR={}; const band=DY.bandOf(st);
+      for(const sn of actIdx()[id]||[]){ if(!sn.room||!libFit(sn,id,band,st)) continue; const R=LR[sn.act]=LR[sn.act]||{}; R[sn.room]=Math.max(R[sn.room]||0,S.seen[sn.code]==null?2:1) } }
+    return LR[k]||null };
+  const pickRoom=(a,k,can)=>{ const open=a.rooms.filter(can); if(open.length<2) return open[0]||null; if(open.includes(here)) return here;
+    const R=libRooms(k); return (R&&(open.find(x=>R[x]===2)||open.find(x=>R[x]===1)))||open[0] };
   for(const [k,a] of Object.entries(DY.ACTS)){ if(a.later||(a.who&&a.who!==id)||rank(st)<rank(a.gate)) continue;
+    if(!!a.sick!==ill) continue;   // 第 2 包:她生病那天只有「照顧她」;平常不會列「照顧她」
     if(!a.first&&!hasBuiltin(k)&&!hasLib(k,id)) continue;
     if(!inWin(k)||S.actDone?.[doneKey(k,id)]) continue;
-    const room=a.rooms.find(x=>x===here&&ok(x))||a.rooms.find(ok); if(!room) continue;
+    const room=pickRoom(a,k,ok); if(!room) continue;
     const e=a.eff||"", ld=lastDone(k,id);
     const sc=(a.who===id?100:0)+(room===here?30:0)+(s.stress>=60&&e.includes("壓力下降")?15:0)+(s.mood<45&&e.includes("心情")?10:0)+(ld==null?8:Math.min(ld,14)*.6)+r()*6;
     out.push({k,a,room,sc,fresh:ld==null}) }
-  /* 全員版:五人都在宿舍時,「叫大家一起」;電影、桌遊、大掃除這種以全員版為主的排前面 */
-  if(window.actAllHome()){ let libAll=null; const hasAll=k=>ALLFB[k]||(libAll=libAll||new Set(snips().filter(sn=>sn.type==="act"&&sn.member==="all").map(sn=>sn.act))).has(k);   // 內容庫只掃一次
-  for(const [k,a] of Object.entries(DY.ACTS)){ if(a.later||a.who||!a.allv||!hasAll(k)) continue;
-    if(!inWin(k)||S.actDone?.[doneKey(k,"all")]) continue;
-    const room=a.rooms.find(x=>DORM(x)&&ok(x)); if(!room) continue;
-    out.push({k,a,room,all:1,sc:(a.allv>=5?40:6)+r()*6,fresh:lastDone(k,"all")==null}) } }
+  /* 全員版:五人都在宿舍時,「叫大家一起」;電影、桌遊、大掃除這種以全員版為主的排前面。地點也是先挑內容庫有全員版的那個 */
+  if(!ill&&window.actAllHome()){ let LA=null; const allIdx=()=>{ if(LA) return LA; LA={};   // 內容庫只掃一次
+      for(const sn of actIdx().all||[]){ if(!dateOk(sn)||!sn.nodes?.start) continue; const R=LA[sn.act]=LA[sn.act]||{}, rm=sn.room||"*"; R[rm]=Math.max(R[rm]||0,S.seen[sn.code]==null?2:1) } return LA };
+    const hasAll=k=>!!ALLFB[k]||!!allIdx()[k];
+    for(const [k,a] of Object.entries(DY.ACTS)){ if(a.later||a.who||!a.allv||!hasAll(k)) continue;
+      if(!inWin(k)||S.actDone?.[doneKey(k,"all")]) continue;
+      const open=a.rooms.filter(x=>DORM(x)&&ok(x)); if(!open.length) continue; const R=allIdx()[k];
+      const room=(R&&(open.find(x=>R[x]===2)||open.find(x=>R[x]===1)))||open[0];
+      out.push({k,a,room,all:1,sc:(a.allv>=5?40:6)+r()*6,fresh:lastDone(k,"all")==null}) } }
   return out.sort((x,y)=>y.sc-x.sc) };
 /* ---------- 內建版本(內容庫還沒有時用;品質照正式內容) ---------- */
 const N=(t)=>["",t];
@@ -305,6 +331,23 @@ Object.assign(GEN,{
     s:{ys:["這次的採買輪到我~清單是大家一起寫的喔。","smile"],tr:["……清單第一行是我的。泡麵。三種口味。","neutral"],hy:["代表,韓國的超市好大!這個醬是什麼?可以吃嗎?","surprise"],he:["今天的菜我來挑!代表負責提東西~","laugh"],hr:["代表!試吃!那邊有試吃的煎餃!","laugh"]},
     m:{ys:["欸……這是河嵐放的,這是夏恩……好啦,這包是我的。","shy"],tr:["……那包不是我放的。……好啦,是我。","pout"],hy:["這個日本的零食,韓國也有賣耶!要買給大家!","laugh"],he:["這個牛肉在打折!今晚可以煮牛肉湯了!","laugh"],hr:["我只有放一包!……兩包!好啦,三包!","laugh"]},
     e:{ys:["東西好多~回去大家一定會很開心。代表辛苦了!","smile"],tr:["……袋子我提一袋。不要一直搶。","shy"],hy:["好喜歡~跟代表一起買菜,好像真的住在韓國了。","smile"],he:["回去我煮牛肉湯!代表的份多加一點肉!","wink"],hr:["回去馬上開一包!……晚餐之後!晚餐之後啦!","laugh"]}}});
+/* 1.1 第 3 輪第 2 包:反過來照顧她(她累倒或感冒的那天,在她房間;sick.js)。
+   累倒 fever 與感冒 cold 的場景、開場不同;結尾依關係段落(A 段還有點客氣,B 段以上會撒嬌)。重點是她被照顧時手足無措 */
+EXC.ys_care=id=>{ const cold=window.sickKind?.(id)==="cold", B=DY.bandOf(stageOf(id))!=="A";
+  return {sc:cold?"藝瑟的房間有一股薑和蜂蜜的味道。床頭放著一盒用掉一半的面紙,她把被子裹成一個繭,只露出半張臉。"
+      :"藝瑟的房間很安靜。她額頭貼著退熱貼躺在床上,椅背上掛著昨天沒收的練習服。",
+    memo:cold?"藝瑟感冒那天,你照顧了她一個小時,她說被照顧的時候手不知道放哪裡。":"藝瑟累到發燒那天,你照顧了她一個小時,她第一次讓別人替她顧著。",
+    nodes:{start:{L:cold?[N("(她看到你,想說話,先咳了兩聲。)"),["ys","代表……咳,聲音變成這樣,好丟臉。","shy"],["ys","練習呢?大家呢?河嵐有沒有好好吃飯?","tired"]]
+        :[N("(她看到你,第一個動作是想坐起來,第二個動作是把椅背上的練習服塞進被子裡。)"),["ys","代、代表!這裡很亂……不對,我是說,我沒事,只是有一點點熱。","surprise"],["ys","大家練習還好嗎?泰梨是不是又沒休息——","tired"]],
+      C:[{t:"「大家都很好。今天妳的工作只有一個:休息。」",s:"嚴厲",to:"ys",g:3,next:"b",r:[["ys","……只有一個?那我已經在做了。你看,我在躺著。","laugh"]]},
+        {t:cold?"(把溫好的薑茶放進她手裡。)":"(撕掉她額頭上溫掉的退熱貼,換一片新的。)",s:"出手幫忙",to:"ys",g:3,next:"b",r:[["ys","欸?不、不用啦,我自己來……","shy"],N("(她伸手要接,手停在半空中,最後還是乖乖讓你弄。)")]},
+        {t:"「先別管大家了。妳呢?今天吃了什麼?」",s:"安慰",to:"ys",g:3,next:"b",r:[["ys","……我?","surprise"],N("(她想了很久,好像這是今天最難的問題。)")]}]},
+      b:{L:[N("(書桌上放著一碗粥,蓋子上壓著夏恩的紙條:「全部吃完,我會檢查。」粥已經涼了一半。)"),["ys","夏恩煮的。我本來想等一下再吃……","tired"],["ys","其實,我最不會的就是被照顧。","shy"],["ys","平常都是我在做這件事。現在反過來,手都不知道要放哪裡。","shy"]],
+      C:[{t:"(把粥熱過,一匙一匙吹涼了遞過去。)",s:"出手幫忙",to:"ys",g:3,next:"c",r:[["ys","代、代表!我自己可以吃啦!","shy"],N("(她把湯匙搶過去,吃了一口,偷偷看你一眼,才吃第二口。)")]},
+        {t:"「那就不要放。讓手休息,跟妳一樣。」",s:"鼓勵",to:"ys",g:3,next:"c",r:[["ys","……讓手休息。","moved"],N("(她把兩隻手放到被子外面,真的一動也不動,像在練習一件很難的事。)")]},
+        {t:"「隊長休息的這一天,大家都在學怎麼照顧妳。」",s:"陪著",to:"ys",g:2,next:"c",r:[["ys","……真的嗎?","surprise"],["ys","那我要快點好起來。不然大家學得太好,就不需要隊長了。","laugh"]]}]},
+      c:{L:[N(cold?"(一個小時過去,薑茶見了底,她的聲音沒那麼啞了。眼皮慢慢變重,手指勾住了你的袖口。)":"(一個小時過去,她的額頭沒那麼燙了。眼皮慢慢變重,手指勾住了你的袖口。)"),
+        B?["ys","代表~……等我睡著再走。生病的人,可以任性一次吧……","tired"]:["ys","代表……等我睡著再走,好不好?……就這一次。","shy"]],C:[]}}} };
 /* 全員版的內建版本(1.1 第 3 輪) */
 const ALLFB={};
 /* 1.1 第 3 輪:全員版內建 4 種(五人都在;選項用 to 指定影響誰) */
@@ -350,7 +393,7 @@ Object.assign(ALLFB,{
 /* sc 可以是字串,或依地點分的物件 */
 const scOf=(sc,room)=>sc&&typeof sc==="object"?(sc[room]||Object.values(sc)[0]):sc||"";
 function fallback(k,id,room){ const base={code:"fbact-"+k+"-"+id,type:"act",act:k,member:id,who:[id],cd:0};
-  if(EXC[k]) return {...base,...EXC[k],sc:scOf(EXC[k].sc,room)};
+  if(EXC[k]){ const E=typeof EXC[k]==="function"?EXC[k](id,room):EXC[k]; return {...base,...E,sc:scOf(E.sc,room)} }   // 照顧她:依累倒或感冒、關係段落
   const G=GEN[k]; if(!G||!G.s[id]) return null; const m=byId(id), nx=G.m?"b":"c";
   const nodes={start:{L:[N(G.in),[id,...G.s[id]]],C:G.C.map(([t,s,g])=>({t,s,to:id,g,next:nx}))},c:{L:[N(G.out),[id,...G.e[id]]],C:[]}};
   if(G.m) nodes.b={L:[N(G.mid),[id,...G.m[id]]],C:(G.C2||[]).map(([t,s,g])=>({t,s,to:id,g,next:"c"}))};
@@ -358,10 +401,10 @@ function fallback(k,id,room){ const base={code:"fbact-"+k+"-"+id,type:"act",act:
   return {...base,sc:scOf(G.sc,room),memo:G.memo.replace("{名}",m.n),nodes} }
 /* 內容庫:她的版本、關係段落對、地點對(有寫的話),沒看過的版本優先 */
 function fromLib(k,id,room){ const band=DY.bandOf(stageOf(id)), st=stageOf(id);
-  const L=snips().filter(sn=>sn.type==="act"&&sn.act===k&&(sn.member===id||sn.who?.[0]===id)&&(!sn.band||sn.band===band)&&(!sn.stage||rank(st)>=rank(sn.stage))&&(!sn.room||sn.room===room)&&dateOk(sn)&&sn.nodes?.start);
+  const L=(actIdx()[id]||[]).filter(sn=>sn.act===k&&libFit(sn,id,band,st)&&(!sn.room||sn.room===room)&&liveSn(sn));
   if(!L.length) return null; const fresh=L.filter(sn=>S.seen[sn.code]==null); return fillVars(pickW(fresh.length?fresh:L)) }
 const SKM={舞蹈:"dance",唱功:"vocal",Rap:"rap",表情:"expr",韓語:"kor"};
-function fromLibAll(k,room){ const L=snips().filter(sn=>sn.type==="act"&&sn.act===k&&sn.member==="all"&&(!sn.room||sn.room===room)&&dateOk(sn)&&sn.nodes?.start);
+function fromLibAll(k,room){ const L=(actIdx().all||[]).filter(sn=>sn.act===k&&(!sn.room||sn.room===room)&&dateOk(sn)&&sn.nodes?.start&&liveSn(sn));
   if(!L.length) return null; const fresh=L.filter(sn=>S.seen[sn.code]==null); return fillVars(pickW(fresh.length?fresh:L)) }
 function allFallback(k,id,room){ const F=ALLFB[k]; if(!F) return null; const o=typeof F==="function"?F(id):F; return {code:"fbact-"+k+"-all",type:"act",act:k,member:"all",who:M.map(m=>m.id),cd:0,...o,sc:scOf(o.sc,room)} }
 /* ---------- 1.1 第 3 輪:活動自己的結果 ----------
@@ -395,7 +438,8 @@ window.actPickBack=()=>{ const el=window.__ofpick; if(!el) return false; el.quer
 function react(id,o,done){ const G=GEN.outfit; play({code:"fbact-outfit-pick-"+id,type:"act",member:id,who:[id],nodes:{start:{L:[N(o?`(她把「${o.name}」掛到衣架最前面,又在鏡子前比了一次。)`:G.out),[id,...G.e[id]]],C:[]}}},()=>{ if(o) toast2(`明天${byId(id).n}會穿「${o.name}」出門`); done() }) }
 const HOOK={review:{done:(id,sn,all)=>{ if(all) return; const g=window.choreoReview?.(id); if(g) setTimeout(()=>window.fx?.(id,`熟練度 +${g}`),1100) }},
   starlog:{done:(id,sn,all,room)=>{ if(!all) postSnap(id,room) }},
-  outfit:{after:(id,sn,room,done)=>outfitPick(id,sn,done)}};
+  outfit:{after:(id,sn,room,done)=>outfitPick(id,sn,done)},
+  ys_care:{done:id=>window.sickCare?.(id)}};   // 第 2 包:照顧過她(深夜的謝謝、隔天心情多回升一點)
 window.actPlay=(k,id,room,all)=>{ const a=DY.ACTS[k]; if(!a){ menu(); return } const sn=all?(fromLibAll(k,room)||allFallback(k,id,room)):(fromLib(k,id,room)||fallback(k,id,room));
   const end=()=>{ const h=HOOK[k]?.after; if(h&&!all) h(id,sn,room,()=>{ finish(k,id,sn,all); menu() }); else { finish(k,id,sn,all); menu() } };   // 有的活動演完還有一步(挑衣服)
   if(!sn){ narr(all?`你和大家一起${a.n}。`:`你和${byId(id).n}一起${a.menu}。`); end(); return }

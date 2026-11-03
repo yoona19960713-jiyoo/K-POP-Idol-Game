@@ -721,11 +721,11 @@ const SLIM_S=["type","member","pair","stage","period","room","wx","ev","req","ar
 function slimSn(sn){ const o={code:sn.code}; for(const f of SLIM_S) o[f]=sn[f]||""; o.part=+sn.part||0; o.parts=+sn.parts||0; o.sl=sn.sl||[]; o.who=sn.who||[]; o.w=+sn.w||3; o.cd=+sn.cd||4; o.nodes=sn.nodes||{};
   for(const f of ["ver","hour","date","hear","need","wait"]) if(sn[f]!=null&&sn[f]!=="") o[f]=sn[f]; return o }
 window.slimSnip=slimSn;
-function toGame(sn){ if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]=slimSn(sn); else delete SCRIPTS[sn.code] }
+function toGame(sn){ if(sn.status==="ok"||sn.status==="auto") SCRIPTS[sn.code]=slimSn(sn); else delete SCRIPTS[sn.code]; window.scriptsRev=(window.scriptsRev||0)+1 }   // 1.1 第 3 輪第 2 包:內容庫變了(act.js 的活動索引要重建)
 async function saveItem(it,checkDup){ const body={...it,updatedAt:Date.now()}; if(body.nodes) cleanExpr(body.nodes); if(checkDup) markDup(body);
   const i=items.findIndex(x=>x.code===body.code); if(i>=0) items[i]=body; else items.push(body);
   await persist(); toGame(body); await IDB.set("scripts",SCRIPTS); spPut(body); renderAll() }
-async function removeItem(code){ items=items.filter(x=>x.code!==code); await persist(); delete SCRIPTS[code]; await IDB.set("scripts",SCRIPTS);
+async function removeItem(code){ items=items.filter(x=>x.code!==code); await persist(); delete SCRIPTS[code]; window.scriptsRev=(window.scriptsRev||0)+1; await IDB.set("scripts",SCRIPTS);
   const now=Date.now(); await spIdx(); SPI.tomb[code]=now; spSaveSoon(); spPut({code,deleted:true,updatedAt:now}); renderAll() }
 /* 一次收很多個:本機一次寫完,雲端在背景逐個上傳(沒登入就排進待上傳區) */
 let BULK=false;
@@ -848,7 +848,7 @@ async function spCompact(force){ const now=Date.now(), loose=Object.entries(SPI.
   for(const [c,ts] of Object.entries(SPI.tomb)) if(now-ts>SP_TOMB_KEEP) delete SPI.tomb[c];
   return codes.length }
 async function applyChanges(ch){ if(!ch.length) return; const map=new Map(items.map(x=>[x.code,x]));
-  for(const c of new Set(ch)){ const it=map.get(c); if(it) toGame(it); else delete SCRIPTS[c] }
+  for(const c of new Set(ch)){ const it=map.get(c); if(it) toGame(it); else delete SCRIPTS[c] } window.scriptsRev=(window.scriptsRev||0)+1;
   await persist(); await IDB.set("scripts",SCRIPTS); await renameOld(); if(OPEN) renderAll() }
 async function spPullMain(){ if(!syAuth()||!syCfg()) return 0; await itemsReady; await spIdx();
   await spFlush(); await legacyTombs();

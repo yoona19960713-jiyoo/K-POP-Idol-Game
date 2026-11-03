@@ -42,13 +42,13 @@ D.NK={insomnia:{n:"失眠",min:15,rooms:["living","kitchen","bed_ys","bed_tr","b
 D.STATES={tired:"累或壓力大",after_practice:"剛練完",sleepy:"深夜想睡",bright:"心情特別好"};
 /* 互動扣的遊戲時間(分) */
 D.COST={casual:5,chat:[15,20,30],long:50,night:{insomnia:15,snack:20,roof:20,msg:5},overhear:[0,10],work:{record:120,plan:60,fitting:30}};
-/* 36 種日常活動:who 專屬成員(null = 通用)、gate 門檻、rooms 地點、t 可以開始的時間(平日;sun 週日、sat 週六)、min 時長、first 1.0 第一批、later 要 1.1 的背景或狀態、eff 效果、allv 全員版目標 */
+/* 36 種日常活動:who 專屬成員(null = 通用)、gate 門檻、rooms 地點、t 可以開始的時間(平日;sun 週日、sat 週六)、min 時長、first 1.0 第一批、later 要 1.1 的背景或狀態、sick 只在她生病那天、eff 效果、allv 全員版目標 */
 const A=(n,menu,who,gate,rooms,t,min,o={})=>({n,menu,who,gate,rooms,t,min,...o});
 D.ACTS={
   ys_fangirl:A("追星時間","一起追星","ys","戒備",["bed_ys","living"],"21~24;週日 14~24",60,{w:[[21,24],[14,24]],eff:"心情"}),
   ys_notebook:A("隊長筆記本","看她的隊長筆記本","ys","戒備",["living","office"],"22~24",60,{w:[[22,24]],first:1,eff:"默契"}),
   ys_drink:A("小酌談心","陪她喝一杯","ys","夥伴",["roof","living"],"週六 23~26",90,{w:[[23,26]],eff:"壓力下降"}),
-  ys_care:A("反過來照顧她","照顧她","ys","信任",["bed_ys"],"她累倒或感冒時",60,{w:[[6,30]],later:1,eff:"心情"}),
+  ys_care:A("反過來照顧她","照顧她","ys","信任",["bed_ys"],"她累倒或感冒時",60,{w:[[6,30]],sick:1,eff:"心情、壓力下降"}),   // 1.1 第 3 輪第 2 包:只在她生病那天(sick.js),整天都可以
   tr_earphone:A("分一邊耳機","陪她聽歌","tr","戒備",["studio","bed_tr"],"21~26",60,{w:[[21,26]],first:1,eff:"心情"}),
   tr_rap:A("一起改 rap 詞","一起改詞","tr","信任",["studio","bed_tr"],"20~26",90,{w:[[20,26]],eff:"Rap"}),
   tr_ramen:A("深夜泡麵評鑑","宵夜吃泡麵","tr","戒備",["kitchen","store"],"23~26",60,{w:[[23,26]],eff:"心情"}),
