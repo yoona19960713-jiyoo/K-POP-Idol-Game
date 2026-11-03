@@ -41,8 +41,8 @@ const liveSn=sn=>SCRIPTS[sn.code]===sn||WX_SNIPS.includes(sn);
 window.actIdxInfo=()=>AIDX?{rev:AIDX.rev,same:AIDX.ref===SCRIPTS}:null;   // 測試用
 /* 內容庫變了以後,趁閒置時先把索引建好(第一次打開「邀她做…」就不用等) */
 every(5000,()=>{ if(AIDX&&AIDX.ref===SCRIPTS&&AIDX.rev===(window.scriptsRev||0)) return; (window.requestIdleCallback||(f=>setTimeout(f,200)))(()=>{ try{ actIdx() }catch(e){} },{timeout:3000}) });
-/* 內容庫的版本合不合她現在(段落、關係、日期;有寫 sick 的,要和她今天生病的種類一樣)。地點另外看 */
-const libFit=(sn,id,band,st)=>(sn.member===id||sn.who?.[0]===id)&&(!sn.band||sn.band===band)&&(!sn.stage||rank(st)>=rank(sn.stage))&&(!sn.sick||sn.sick===window.sickKind?.(id))&&dateOk(sn)&&!!sn.nodes?.start;
+/* 內容庫的版本合不合她現在(段落、關係、日期、hour、天氣、季節;有寫 sick 的,要和她今天生病的種類一樣)。地點另外看 */
+const libFit=(sn,id,band,st)=>(sn.member===id||sn.who?.[0]===id)&&(!sn.band||sn.band===band)&&(!sn.stage||rank(st)>=rank(sn.stage))&&(!sn.sick||sn.sick===window.sickKind?.(id))&&dateOk(sn)&&hourOk(sn)&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))&&!!sn.nodes?.start;   // 寫了 hour、wx、season 的版本只在那時候演(劇本的時間、天氣說得通),不然演別的版本或內建的
 window.actsFor=id=>{ const st=stageOf(id), out=[], s=S.m[id]||{}, here=S.where[id], r=rng(seedOf(S.day,S.slot,"acts"+id)), ill=!!window.sickIs?.(id);
   const ok=x=>PL[x]?.open.includes(S.slot)&&!(x.startsWith("bed_")&&x!=="bed_"+id);
   /* 1.1 第 3 輪第 2 包:她不在活動的任何一個地點時,先挑內容庫有她版本的地點(沒看過的優先),再挑第一個開著的。
@@ -62,7 +62,7 @@ window.actsFor=id=>{ const st=stageOf(id), out=[], s=S.m[id]||{}, here=S.where[i
     out.push({k,a,room,sc,fresh:ld==null}) }
   /* 全員版:五人都在宿舍時,「叫大家一起」;電影、桌遊、大掃除這種以全員版為主的排前面。地點也是先挑內容庫有全員版的那個 */
   if(!ill&&window.actAllHome()){ let LA=null; const allIdx=()=>{ if(LA) return LA; LA={};   // 內容庫只掃一次
-      for(const sn of actIdx().all||[]){ if(!dateOk(sn)||!sn.nodes?.start) continue; const R=LA[sn.act]=LA[sn.act]||{}, rm=sn.room||"*"; R[rm]=Math.max(R[rm]||0,S.seen[sn.code]==null?2:1) } return LA };
+      for(const sn of actIdx().all||[]){ if(!dateOk(sn)||!hourOk(sn)||(sn.wx&&sn.wx!==wxNow())||!sn.nodes?.start) continue; const R=LA[sn.act]=LA[sn.act]||{}, rm=sn.room||"*"; R[rm]=Math.max(R[rm]||0,S.seen[sn.code]==null?2:1) } return LA };
     const hasAll=k=>!!ALLFB[k]||!!allIdx()[k];
     for(const [k,a] of Object.entries(DY.ACTS)){ if(a.later||a.who||!a.allv||!hasAll(k)) continue;
       if(!inWin(k)||S.actDone?.[doneKey(k,"all")]) continue;
@@ -404,7 +404,7 @@ function fromLib(k,id,room){ const band=DY.bandOf(stageOf(id)), st=stageOf(id);
   const L=(actIdx()[id]||[]).filter(sn=>sn.act===k&&libFit(sn,id,band,st)&&(!sn.room||sn.room===room)&&liveSn(sn));
   if(!L.length) return null; const fresh=L.filter(sn=>S.seen[sn.code]==null); return fillVars(pickW(fresh.length?fresh:L)) }
 const SKM={舞蹈:"dance",唱功:"vocal",Rap:"rap",表情:"expr",韓語:"kor"};
-function fromLibAll(k,room){ const L=(actIdx().all||[]).filter(sn=>sn.act===k&&(!sn.room||sn.room===room)&&dateOk(sn)&&sn.nodes?.start&&liveSn(sn));
+function fromLibAll(k,room){ const L=(actIdx().all||[]).filter(sn=>sn.act===k&&(!sn.room||sn.room===room)&&dateOk(sn)&&hourOk(sn)&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))&&sn.nodes?.start&&liveSn(sn));
   if(!L.length) return null; const fresh=L.filter(sn=>S.seen[sn.code]==null); return fillVars(pickW(fresh.length?fresh:L)) }
 function allFallback(k,id,room){ const F=ALLFB[k]; if(!F) return null; const o=typeof F==="function"?F(id):F; return {code:"fbact-"+k+"-all",type:"act",act:k,member:"all",who:M.map(m=>m.id),cd:0,...o,sc:scOf(o.sc,room)} }
 /* ---------- 1.1 第 3 輪:活動自己的結果 ----------

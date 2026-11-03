@@ -717,7 +717,7 @@ function cleanExpr(nodes){ for(const n of Object.values(nodes||{})){ for(const l
   for(const c of n.C||[]) for(const l of c.r||[]) if(l.length>2&&!EXPRS.includes(l[2])) l.length=2 } return nodes }
 async function persist(){ const o={}; for(const x of items) o[x.code]=x; await IDB.set("scriptsAll",o) }
 /* 遊戲玩的時候用的精簡內容庫(2026-10-29 加上改版 1.0 的欄位) */
-const SLIM_S=["type","member","pair","stage","period","room","wx","ev","req","arc","at","sc","band","act","ca","by","nk","season","state","memo"];
+const SLIM_S=["type","member","pair","stage","period","room","wx","ev","req","arc","at","sc","band","act","ca","by","nk","season","state","memo","sick"];   // sick:照顧她只在累倒(fever)或感冒(cold)那天演(1.1 第 3 輪第 2 包)
 function slimSn(sn){ const o={code:sn.code}; for(const f of SLIM_S) o[f]=sn[f]||""; o.part=+sn.part||0; o.parts=+sn.parts||0; o.sl=sn.sl||[]; o.who=sn.who||[]; o.w=+sn.w||3; o.cd=+sn.cd||4; o.nodes=sn.nodes||{};
   for(const f of ["ver","hour","date","hear","need","wait"]) if(sn[f]!=null&&sn[f]!=="") o[f]=sn[f]; return o }
 window.slimSnip=slimSn;
