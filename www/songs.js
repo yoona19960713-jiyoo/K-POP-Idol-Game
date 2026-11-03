@@ -230,12 +230,14 @@ function computeRelease(){
 function suggest(T){
   const lines=T.secs.flatMap(s=>s.lines), tot=lines.reduce((x,l)=>x+(+l.s),0);
   const got={}; M.forEach(m=>got[m.id]=0); let prev=null,run=0; lines.forEach(l=>l.who=[]);
-  const last=T.secs[T.secs.length-2];
+  /* 2026-11-03(錄音室對話回報):全員句改成最後副歌裡「最後一句一般的句子」——以前固定是最後一句,樣板的最後一句是難度 5 的高音,會變成全員一起唱高音 */
+  const last=T.secs[T.secs.length-2], grp=last?[...last.lines].reverse().find(l=>!["spoken","high","adlib","rap"].includes(l.t)):null;
   for(const sec of T.secs) for(const l of sec.lines){
-    if(sec===last&&l===sec.lines[sec.lines.length-1]&&l.t!=="spoken"){l.who=M.map(m=>m.id);M.forEach(m=>got[m.id]+=(+l.s)/5);prev=null;continue}
+    if(l===grp){l.who=M.map(m=>m.id);M.forEach(m=>got[m.id]+=(+l.s)/5);prev=null;continue}
     let best=null,bv=-1e9;
     for(const m of M){const a=ability(m,l.t,l.k),fit=Math.min(1.15,a/req(l.d)),over=(got[m.id]+(+l.s))/tot-m.exp;
       let v=fit*100-Math.max(0,over)*320+Math.max(0,-over)*240; if(m.id===prev&&run>=2) v-=60; if(l.t==="rap"&&m.rap<45) v-=40;
+      const rq=req(l.d); if(l.d>=4&&a<rq-6) v-=(rq-a)*4;   // 2026-11-03:難度 4 以上的句子不要給唱不上去的人(和現場風險的算法一樣);以前分量的加減分比能力大,高音會分給唱功 58 的人
       if(v>bv){bv=v;best=m}}
     l.who=[best.id]; got[best.id]+=(+l.s); run=best.id===prev?run+1:1; prev=best.id;
   }
@@ -534,7 +536,7 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
 window.songsArchive=n=>{ R.archive=R.archive||[]; if(R.archive.some(a=>a.n===n)) return; R.archive.push({n,name:R.name||"",type:R.type,title:R.title,tracks:JSON.parse(JSON.stringify(R.tracks))}); save() };
 function albumsAll(){ const A=(R.archive||[]).map(a=>({...a,released:true})), last=A.at(-1), same=last&&last.tracks.map(x=>x.id).join()===R.tracks.map(x=>x.id).join();
   if(!same) A.push({n:(last?.n||0)+1,name:R.name||"",type:R.type,title:R.title,tracks:R.tracks,current:true}); return A }
-window.SONGS_API={get R(){return R},cur,save,applyLyrics,computeTrack,lengthOf,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
+window.SONGS_API={get R(){return R},cur,save,applyLyrics,computeTrack,lengthOf,suggest,template,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
   albums:albumsAll,track:id=>albumsAll().flatMap(a=>a.tracks).find(t=>t.id===id)||null};
 /* 2026-11-01(2.0 第 2 包):歌曲的音檔。定案 mp3 交給主體開發,處理後放 assets/song/<歌曲代號>.m4a、寫進 assets/song/list.json;
    遊戲用歌曲代號(製作單的 code)找;T.audio(雲端 blob)有的話優先 */
