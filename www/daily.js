@@ -22,8 +22,9 @@ D.ROOM_AT={practice:"practice",lobby:"practice",studio:"studio",vocal:"studio",o
   cafe:"out",market:"out",street:"out",mart:"out",court:"out",karaoke:"out"};
 D.ROOM_N={practice:"練習室",lobby:"大廳",studio:"錄音室",vocal:"聲樂室",office:"代表辦公室",styling:"造型室",photo:"攝影棚",living:"宿舍客廳",kitchen:"宿舍廚房",roof:"宿舍頂樓",
   bed_ys:"藝瑟的房間",bed_tr:"泰梨的房間",bed_hy:"日和的房間",bed_he:"夏恩的房間",bed_hr:"河嵐的房間",store:"便利商店",river:"漢江邊",
-  cafe:"咖啡廳",market:"市場與路邊攤",street:"街道",mart:"超市",court:"球場",karaoke:"卡拉 OK"};
-D.ROOM_LATER=["cafe","market","street","mart","court","karaoke"];
+  cafe:"咖啡廳",market:"傳統市場",street:"逛街的街道",mart:"超市",court:"室內體育館",karaoke:"卡拉 OK"};
+D.ROOM_LATER=[];   // 1.1 第 3 輪第 3 包:6 個新地點都有背景了(活動目的地,不上主地圖)
+D.ROOM_DEST=["cafe","market","street","mart","court","karaoke"];
 /* 隨口互動用的地點分組 */
 D.GRP={co:{n:"公司",rooms:["practice","studio","vocal","lobby","styling","photo","office"]},dorm:{n:"宿舍",rooms:["living","kitchen","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"]},out:{n:"外面",rooms:["store","river"]}};
 D.grpOf=room=>Object.keys(D.GRP).find(k=>D.GRP[k].rooms.includes(room))||"";
@@ -56,12 +57,12 @@ D.ACTS={
   hy_okonomi:A("大阪燒之夜","一起做大阪燒","hy","信任",["kitchen"],"週六 18~21",120,{w:[[18,21]],eff:"默契"}),
   hy_drama:A("一起看韓劇學台詞","陪她看韓劇","hy","戒備",["living"],"21~25;週日 14~24",90,{w:[[21,25],[14,24]],eff:"韓語"}),
   he_kitchen:A("夏恩的廚房","去廚房找她","he","戒備",["kitchen"],"06~07、18~19",60,{w:[[6,7],[18,19]],first:1,eff:"心情"}),
-  he_market:A("變裝當普通人","變裝出門","he","信任",["market"],"週日 13~20",120,{w:[[13,20]],later:1,eff:"心情"}),
+  he_market:A("變裝當普通人","變裝出門","he","信任",["market"],"週日 13~20",120,{w:[[13,20]],eff:"心情"}),
   he_skincare:A("保養之夜","保養之夜","he","心動",["bed_he"],"22~24",60,{w:[[22,24]],eff:"壓力下降"}),
   he_call:A("打電話給家人","陪她打給家人","he","夥伴",["bed_he","roof"],"21~23",60,{w:[[21,23]],eff:"心情"}),
   hr_guitar:A("吉他自彈自唱","聽她彈吉他","hr","戒備",["bed_hr","vocal"],"19~24",60,{w:[[19,24]],first:1,eff:"唱功"}),
-  hr_sports:A("打球流汗","一起打球","hr","戒備",["court"],"06:30~07:30;週日 14~18",90,{w:[[6.5,7.5],[14,18]],later:1,eff:"壓力下降"}),
-  hr_karaoke:A("卡拉 OK 對決","卡拉 OK","hr","信任",["karaoke"],"週六 21~25;週日 14~22",120,{w:[[21,25],[14,22]],later:1,eff:"唱功"}),
+  hr_sports:A("打球流汗","一起打球","hr","戒備",["court"],"06:30~07:30;週日 14~18",90,{w:[[6.5,7.5],[14,18]],eff:"壓力下降"}),
+  hr_karaoke:A("卡拉 OK 對決","卡拉 OK","hr","信任",["karaoke"],"週六 21~25;週日 14~22",120,{w:[[21,25],[14,22]],eff:"唱功"}),
   dance:A("一起練舞","陪她練舞",null,"戒備",["practice"],"19~21、06~07",120,{w:[[19,21],[6,7]],first:1,eff:"舞蹈",allv:3}),
   vocal:A("陪練唱","陪她練唱",null,"戒備",["studio","vocal"],"19~21",90,{w:[[19,21]],first:1,eff:"唱功",allv:2}),
   review:A("看練習影片檢討","看練習影片",null,"戒備",["practice"],"18~19、21~22",60,{w:[[18,19],[21,22]],eff:"表情",allv:2}),
@@ -75,9 +76,9 @@ D.ACTS={
   chores:A("大掃除與洗衣","一起打掃",null,"戒備",["living","kitchen"],"週日 10~13",90,{w:[[10,13]],eff:"默契",allv:5}),
   river:A("漢江散步","去漢江走走",null,"戒備",["river"],"19~23;週日 14~23",60,{w:[[19,23],[14,23]],first:1,eff:"壓力下降",allv:3}),
   store:A("便利商店宵夜","去便利商店",null,"戒備",["store"],"22~26",60,{w:[[22,26]],first:1,eff:"心情",allv:2}),
-  cafe:A("咖啡廳","去咖啡廳",null,"戒備",["cafe"],"12~13;週日 13~20",60,{w:[[12,13],[13,20]],later:1,eff:"心情",allv:2}),
-  shopping:A("變裝逛街","變裝逛街",null,"信任",["street"],"週日 13~19",120,{w:[[13,19]],later:1,eff:"心情",allv:2}),
-  mart:A("超市採買","去超市",null,"戒備",["mart"],"週六 19~22;週日 10~20",60,{w:[[19,22],[10,20]],later:1,eff:"心情",allv:2}),
+  cafe:A("咖啡廳","去咖啡廳",null,"戒備",["cafe"],"12~13;週日 13~20",60,{w:[[12,13],[13,20]],eff:"心情",allv:2}),
+  shopping:A("變裝逛街","變裝逛街",null,"信任",["street"],"週日 13~19",120,{w:[[13,19]],eff:"心情",allv:2}),
+  mart:A("超市採買","去超市",null,"戒備",["mart"],"週六 19~22;週日 10~20",60,{w:[[19,22],[10,20]],eff:"心情",allv:2}),
   run:A("晨跑或健身","一起晨跑",null,"戒備",["river"],"06:30~07:30",60,{w:[[6.5,7.5]],first:1,eff:"舞蹈、壓力下降",allv:3}),
   roof:A("看夜景和星星","去頂樓看夜景",null,"戒備",["roof"],"20~27",60,{w:[[20,27]],first:1,eff:"心情",allv:3})};
 D.actBands=k=>{ const a=D.ACTS[k]; if(!a) return []; return Object.keys(D.BANDS).filter(b=>D.rank(D.BANDS[b][D.BANDS[b].length-1])>=D.rank(a.gate)) };

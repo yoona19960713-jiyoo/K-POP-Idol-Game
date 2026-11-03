@@ -78,6 +78,13 @@ const PLACES=[
   {id:"bed_hr",  g:"宿舍",   n:"河嵐的房間", sp:"dorm",    open:[0,1,2,3,4],base:"bedroom",owner:"hr"},
   {id:"store",   g:"外面",   n:"便利商店",  sp:"out",     open:[0,1,2,3,4]},
   {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[0,1,2,3,4]},
+  /* 1.1 第 3 輪第 3 包:活動目的地(不上主地圖,邀她去時直接換背景;indoor = 室內,下雨不算淋雨) */
+  {id:"cafe",    g:"外面",   n:"咖啡廳",   sp:"out",     open:[1,2,3],dest:1,indoor:1},
+  {id:"market",  g:"外面",   n:"傳統市場", sp:"out",     open:[2,3],dest:1,indoor:1},
+  {id:"street",  g:"外面",   n:"逛街的街道",sp:"out",     open:[2,3],dest:1},
+  {id:"mart",    g:"外面",   n:"超市",     sp:"out",     open:[1,2,3],dest:1,indoor:1},
+  {id:"court",   g:"外面",   n:"室內體育館",sp:"out",     open:[0,1,2],dest:1,indoor:1},
+  {id:"karaoke", g:"外面",   n:"卡拉 OK",  sp:"out",     open:[2,3,4],dest:1,indoor:1},
   /* 製作中心(2026-10-27):facOnly=只有設施、不拜訪;拜訪內容沒有專屬片段前借用相近地點(sp) */
   {id:"planning",g:"製作中心", n:"企劃室",   sp:"office",  open:[1,2,3],facOnly:1},
   {id:"meeting", g:"製作中心", n:"會議室",   sp:"office",  open:[1,2,3],facOnly:1},
@@ -101,7 +108,9 @@ for(const [id,arr] of Object.entries(WHERE)) arr.forEach((w,sl)=>{ if(sl<1||sl>3
 /* ---------- 備用文字(內容庫沒有對應片段時才用) ---------- */
 const SCN={roof:"頂樓的風有點涼,欄杆上的小燈泡一閃一閃,遠處的城市一片燈海。",vocal:"琴聲和發聲練習的聲音,從門縫裡一點一點漏出來。",lobby:"大廳的獎盃櫃擦得發亮,接待台旁堆著粉絲送來的花。",photo:"攝影棚的燈還亮著,白色背景布前散著幾件剛拍完的造型。",practice:"鏡子前的音樂還在放,地板上散著毛巾和水瓶。",studio:"隔音門關上的瞬間,外面的聲音全部消失了。",office:"你的辦公室。桌上的企劃書疊得比昨天更高。",styling:["","上午的陽光從落地窗斜斜照進來,衣架上新到的打歌服還套著防塵袋,空氣裡有淡淡的熨斗蒸氣味。","下午的造型室最熱鬧:化妝鏡的燈泡一盞盞亮著,桌上攤著色票和飾品盒,試衣間的布簾拉開又拉上。","入夜後只剩衣架間的投射燈還亮著,鏡子裡映著一排排亮片與緞面,地上散著幾根被拆下的吊牌。",""],
   living:"客廳的電視開著,沙發上堆著抱枕和還沒摺的衣服。",kitchen:"廚房飄著味道,水槽裡泡著幾個碗。",bedroom:"你敲了敲寢室半開的門,裡面的燈還亮著。",
-  store:"便利商店的自動門叮咚一聲打開,冷氣撲面而來。",river:"江風吹過來,對岸的燈一盞一盞亮著。"};
+  store:"便利商店的自動門叮咚一聲打開,冷氣撲面而來。",river:"江風吹過來,對岸的燈一盞一盞亮著。",
+  cafe:"巷子裡的小咖啡廳,咖啡機嘶嘶作響,玻璃櫃裡的蛋糕排得整整齊齊。",market:"市場的採光罩透下白白的光,炒年糕的攤子冒著熱氣。",street:"街道兩旁是小小的服飾店和花店,櫥窗裡的燈亮著。",
+  mart:"超市的燈很亮,推車的輪子在地板上喀啦喀啦響。",court:"體育館的地板擦得發亮,球鞋踩上去吱吱作響。",karaoke:"包廂的彩色燈轉個不停,螢幕上的畫面一直在換。"};
 const EMPTY={practice:"這裡現在沒有人。鏡子上貼著一張寫滿走位的便條。",studio:"這裡現在沒有人。控制台上放著一張寫了一半的歌詞。",office:"辦公室只有你一個人。祕書留了一疊待簽的文件。",styling:["","造型室裡只有造型師在核對新到的衣服清單,一件件掛上衣架。","造型師把明天要用的配件排在絨布托盤上,現在沒有成員在這裡。","造型室已經沒有人了,只剩全身鏡旁的小燈還亮著,衣架上的打歌服靜靜垂著。",""],
   living:"客廳現在沒有人。遙控器被塞在沙發縫裡。",kitchen:"廚房現在沒有人。冰箱上貼著一張「不准偷吃」的紙條。",bedroom:"寢室裡沒有人,床鋪整理得比你想的還整齊。",
   store:"店裡只有店員在補貨,沒有認識的人。",river:"江邊只有慢跑的人和腳踏車,沒有認識的人。"};
@@ -316,7 +325,7 @@ function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stri
 /* 連續劇情:第 N 段要等第 N-1 段看過、隔一天以上才會出現 */
 function arcOk(sn){ if(!sn.arc||!(+sn.part>1)) return true; const prev=snips().find(x=>x.arc===sn.arc&&+x.part===+sn.part-1), d=prev&&S.seen[prev.code]; return d!=null&&S.day-d>=1 }
 /* 舞台指示(劇本裡的 ["@","bg:kitchen"] 這類):換背景、成員進場離場;sfx 先記著給之後的聲音系統 */
-const DIR_BG=["practice","studio","office","styling","living","kitchen","river","store","van","backstage","vocal","lobby","photo","roof","bed_ys","bed_tr","bed_hy","bed_he","bed_hr"];   // 2026-10-29 加製作中心、五人的房間
+const DIR_BG=["practice","studio","office","styling","living","kitchen","river","store","van","backstage","vocal","lobby","photo","roof","bed_ys","bed_tr","bed_hy","bed_he","bed_hr","cafe","market","street","mart","court","karaoke"];   // 1.1 第 3 輪:新地點   // 2026-10-29 加製作中心、五人的房間
 /* 2026-10-28 演出指令:cam:close 特寫(下一位說話的人,鏡頭慢慢推近她的臉)、cam:wide 拉回;
    fx:shake 輕震、fx:flash 白光一閃、fx:pause 沉默停頓(約 1.2 秒)、fx:slow 下一句慢慢打字;
    mood:memory 回憶(暖黃、柔光、暗角)、mood:dim 燈光變暗(難過、低潮)、mood:off 恢復。片段結束或離開時自動恢復。
@@ -391,7 +400,7 @@ function ensureWear(force){
   if(S.wear&&S.wear.day!==S.day) S.lastWear=S.wear.m;
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
-  if(g==="公司大樓"||g==="製作中心") return wm.練習||null; if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
+  if(g==="公司大樓"||g==="製作中心"||room==="court") return wm.練習||null; /* 室內體育館打球也穿練習服 */ if(g==="宿舍") return (slot===4&&wm.睡衣)||wm.居家||null; return wm.外出||null}
 const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 /* 以前處理的換衣立繪沒有「累」「驚訝」:用最接近的表情代替(不用重新處理) */
 const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"],pout:["shy","smile","neutral"],moved:["sad","smile","neutral"],serious:["neutral"],wink:["laugh","smile","neutral"]};
@@ -485,9 +494,11 @@ const inSpot=sp=>M.filter(m=>{const w=S.where[m.id];return !w.startsWith("外出
 const facesHTML=ms=>!ms.length?"":`<div class="avs">${ms.map(m=>`<span class="face" title="${m.n}" style="--c:${m.c};background-image:url(${spr(m.id,null,"neutral")})"></span>`).join("")}</div>`;
 const L=()=>SLOTS[S.slot].light;
 /* 季節版場景:春 3–5 月、秋 9–11 月、冬 12–2 月有專屬圖,夏季與還沒有圖的時段用原圖 */
-const SEASON_ART={map:["dawn","day","evening","night"],river:["dawn","day","evening","night"],roof:["dawn","day","evening","night"]};
+const SEASON_ART={map:["dawn","day","evening","night"],river:["dawn","day","evening","night"],roof:["dawn","day","evening","night"],street:["day","evening"]};
+/* 1.1 第 3 輪:新地點只有部分時段的圖(卡拉 OK 包廂沒有窗戶,全天同一張) */
+const BG_LIGHT={karaoke:{dawn:"night",day:"night",evening:"night"},cafe:{dawn:"day",night:"evening"},market:{dawn:"day",night:"evening"},street:{dawn:"day",night:"evening"},mart:{dawn:"day",night:"evening"},court:{evening:"day",night:"day"}};
 function seasonKey(){const m=dateOf(S.day).getMonth()+1;return m>=3&&m<=5?"spring":m>=9&&m<=11?"autumn":(m===12||m<=2)?"winter":""}
-function seasonArt(dir,name,light){const s=seasonKey();return `assets/${dir}/${name}_${light}${s&&(SEASON_ART[name]||[]).includes(light)?"_"+s:""}.webp`}
+function seasonArt(dir,name,light){if(dir==="bg") light=BG_LIGHT[name]?.[light]||light; const s=seasonKey();return `assets/${dir}/${name}_${light}${s&&(SEASON_ART[name]||[]).includes(light)?"_"+s:""}.webp`}
 window.seasonKey=seasonKey;
 /* 換圖:同一棟換時段時交叉淡入;換建築(instant)直接換,不會從上一棟的圖淡過去。淡入中再換圖會取消前一次 */
 const ART_T={};
@@ -1184,7 +1195,7 @@ const WX_IC={rain:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 18 0z"/><pa
 let WXK="clear", wxRaf=0, wxLast=0;
 function wxUpdate(){ WXK=window.WX_FORCE||weatherOf(S.day); $("#stage").dataset.wx=WXK;
   const ic=$("#wxIc"); if(ic){ ic.hidden=WXK==="clear"; ic.innerHTML=WX_IC[WXK]||"" }
-  const outdoorVisit=!!(V&&!V.test&&V.pid==="river");
+  const outdoorVisit=!!(V&&!V.test&&(V.pid==="river"||V.pid==="street"));
   $("#wxWorld")?.classList.toggle("on",WXK!=="clear");
   $("#wxVisit")?.classList.toggle("on",WXK!=="clear"&&outdoorVisit);
   if(WXK!=="clear"&&!wxRaf){ wxLast=0; wxRaf=requestAnimationFrame(wxFrame) } }
@@ -1275,7 +1286,7 @@ function firstSnowSnip(ppl){ if(wxNow()!=="snow"||!ppl.length) return null; cons
 /* 入場的天氣描寫 */
 const WX_LINES={rain:{in:["窗外下著雨,玻璃上的雨痕一道一道往下滑。","外面的雨聲淅淅瀝瀝,屋裡顯得特別安靜。"],out:["細雨打在傘面上,地面映著路燈的光。","雨絲斜斜地落下來,空氣裡都是潮濕的味道。"]},
   snow:{in:["窗外飄著雪,暖氣讓玻璃起了一層薄霧。","外面在下雪,整個世界安靜得只剩下呼吸聲。"],out:["雪花一片一片落在肩上,呼出的氣都變成白霧。","路燈下的雪閃著光,腳下踩出細細的聲響。"]}};
-function wxLine(pid){ const k=wxNow(); if(k==="clear") return ""; const a=WX_LINES[k][PL[pid]?.g==="外面"||pid==="roof"?"out":"in"];   /* 頂樓雖然屬於宿舍,天氣算外面 */ return a[Math.floor(Math.random()*a.length)] }
+function wxLine(pid){ const k=wxNow(); if(k==="clear") return ""; const a=WX_LINES[k][(PL[pid]?.g==="外面"&&!PL[pid]?.indoor)||pid==="roof"?"out":"in"];   /* 頂樓雖然屬於宿舍,天氣算外面 */ return a[Math.floor(Math.random()*a.length)] }
 /* 天氣對心情與去處的影響:藝瑟喜歡雨天寫歌、夏恩雨天想煎餅、泰梨討厭淋濕;日和與河嵐最愛下雪 */
 const WX_MOOD={rain:{ys:3,he:2,tr:-2,hr:-1},snow:{hy:4,hr:4,he:2,ys:2,tr:1}};
 const WX_WHERE={rain:{tr:{store:1},hr:{living:1}},snow:{hy:{river:2},hr:{living:1}}};
