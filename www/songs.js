@@ -66,7 +66,7 @@ const RTYPES={digital:{n:"數位單曲",min:1,max:1,wk:3,sale:.3},single:{n:"單
 
 /* 結構樣板 */
 const L=(t,s,d,k)=>({t,s,d,k:!!k,who:[]});
-const INST={"前奏":10,"主歌一":4,"主歌二":4,"導歌":2,"副歌":2,"後副歌":12,"舞蹈段":14,"橋段":6,"最後副歌":4,"尾奏":10};
+const INST={"前奏":10,"主歌一":4,"主歌二":4,"導歌":2,"副歌":2,"後副歌":12,"舞蹈段":14,"間奏":12,"橋段":6,"最後副歌":4,"尾奏":10};
 const instOf=sec=>sec.inst??INST[sec.n]??2;
 const IDEAL=[210,205,200,195,190,185,175,170]; // 各年份主打歌的常見長度(秒)
 const fmt=t=>`${Math.floor(t/60)}:${String(Math.round(t%60)).padStart(2,"0")}`;
@@ -460,9 +460,9 @@ function sheetOf(T){ const C=computeTrack(T), CH=window.choreoSections?.(T)||nul
       tracklist:R.tracks.map(x=>x.inst?`(${INSTK[x.inst]})`:x.name||"未命名"),
       note:T.inst==="intro"?"純音樂 INTRO:專輯第一軌,沒有人聲(可以有不成句的哼唱或環境音)。用主打歌的主題動機或和聲做預告,結尾自然接到第二軌。長度 60~100 秒。":"純音樂 OUTRO:專輯最後一軌,沒有人聲。把整張專輯的情緒收起來,可以回到主打歌的旋律片段,用漸弱或餘韻結束。長度 60~100 秒。"} }
   return {app:"kpop-song-sheet",ver:1,game:"完美女團",exportedAt:new Date().toISOString(),
-    code:T.id,title:T.name||"",isTitle:R.title===T.id,bpm:+T.bpm||null,release:R.name||"",releaseType:RTYPES[R.rtype]?.n||"",year:R.year,
+    code:T.id,title:T.name||"",isTitle:R.title===T.id,bpm:+T.bpm||null,release:R.name||"",releaseType:RTYPES[R.type||R.rtype]?.n||"",year:R.year,
     genres:T.g.filter(Boolean).map(k=>GENRES[k]?.n||k),mood:T.mood,producer:PRODS[T.prod]?.n||T.prod,lengthSec:Math.round(C.LN.t),
-    note:"段落 sections 的 name 與順序不能改。錄音室對話可以重排每段的句子(句數、who、type、sec、difficulty、killing、ko、zh),這段的人聲秒數就是匯入句子 sec 的總和(遊戲照給的,不縮放);合唱段可以給 center。只寫歌詞時沿用每段 lines 的順序。用同樣的結構回傳,遊戲在錄音室按「匯入歌詞與分配」貼上。who 是成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。type 是唱法(主唱句、高音、和聲、即興、Rap、唸白)。sec 是這句的秒數(1~12),difficulty 1~5,instSec 是這段的伴奏秒數(0~40,在企劃階段由音樂生成對話規劃;要改時在段落上寫 instSec),killing 是 killing part,dance 是這段的編舞(動作、強度 1~5、焦點成員)。members 是成員現在的能力與應有分量,analysis 是遊戲對目前分配的評估,releaseShares 是整張專輯到目前為止各人的分量(%)。",
+    note:"段落 sections 照遊戲的 name 與順序回傳;企劃(音樂生成對話)定的結構不一樣時,回傳完整的段落(name 與順序,可以多段、可以有同名的段落,例如第二個導歌),遊戲匯入時會照回傳的結構重建(先試算給使用者確認)。錄音室對話可以重排每段的句子(句數、who、type、sec、difficulty、killing、ko、zh),這段的人聲秒數就是匯入句子 sec 的總和(遊戲照給的,不縮放);合唱段可以給 center。只寫歌詞時沿用每段 lines 的順序。用同樣的結構回傳,遊戲在錄音室按「匯入歌詞與分配」貼上。who 是成員代號:ys 藝瑟、tr 泰梨、hy 日和、he 夏恩、hr 河嵐。type 是唱法(主唱句、高音、和聲、即興、Rap、唸白)。sec 是這句的秒數(1~12),difficulty 1~5,instSec 是這段的伴奏秒數(0~40,在企劃階段由音樂生成對話規劃;要改時在段落上寫 instSec),killing 是 killing part,dance 是這段的編舞(動作、強度 1~5、焦點成員)。members 是成員現在的能力與應有分量,analysis 是遊戲對目前分配的評估,releaseShares 是整張專輯到目前為止各人的分量(%)。",
     members:M.map(m=>({id:m.id,name:m.n,vocal:m.vocal,dance:m.dance,rap:m.rap,expr:m.expr,kor:m.kor,expectedShare:Math.round(m.exp*100)})),
     analysis:{score:Math.round(C.score),shares:Object.fromEntries(M.map(m=>[m.id,Math.round((C.shares[m.id]||0)*100)])),warnings:C.warns.filter(w=>w[0]!=="g").map(w=>w[1])},
     releaseShares:(()=>{ try{ const RL=computeRelease(); return Object.fromEntries(M.map(m=>[m.id,Math.round((RL.sharesAll[m.id]||0)*100)])) }catch(e){ return null } })(),
@@ -486,7 +486,16 @@ function allocSec(s,lines){ const before=s.lines.reduce((x,l)=>x+(+l.s||0),0);
       zh:y?.zh!=null?String(y.zh).trim():(old?.zh||""),ko:y?.ko!=null?String(y.ko).trim():(old?.ko||"")} });
   const after=L2.reduce((x,l)=>x+l.s,0);
   return {L2,before,after} }
-function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,vchg=0,inst=0; const secs=Array.isArray(src.sections)?src.sections:[], used=new Set();
+/* 2026-11-03(第四個大腦,〈LETTER〉):企劃(音樂生成對話)定的結構和遊戲的樣板不一樣時(例如抒情樣板只有 9 段,企劃排了 11 段、有間奏和第二個導歌),
+   回傳的 JSON 寫完整的段落(name 與順序),匯入時照它重建段落:同名的段落沿用原本的句子,新的段落先放一句,再照回傳的句子換掉。
+   試算視窗會先說段落要怎麼變;逐句對拍要重點;「還原匯入前」可以換回原本的結構 */
+const secDiff=(T,secs)=>secs.length>0&&secs.every(x=>x&&x.name)&&(secs.length!==T.secs.length||secs.some((x,i)=>String(x.name)!==T.secs[i]?.n));
+function restructure(T,secs){ const old=T.secs.map(s=>({s,u:0}));
+  T.secs=secs.map(x=>{ const o=old.find(y=>!y.u&&y.s.n===String(x.name)); if(o) o.u=1; const chorus=x.chorus!=null?!!x.chorus:/副歌/.test(x.name);
+    const sec={n:String(x.name),lines:o?o.s.lines:[L("main",5,3)]}; if(chorus) sec.chorus=1; if(o?.s.inst!=null) sec.inst=o.s.inst; if(chorus&&o?.s.c) sec.c=o.s.c; return sec });
+  if(T.sync) delete T.sync }   // 段落換了,逐句對拍整首重點
+function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,vchg=0,inst=0,re=""; const secs=Array.isArray(src.sections)?src.sections:[], used=new Set();
+  if(secDiff(T,secs)){ re=`${T.secs.length} 段 → ${secs.length} 段`; restructure(T,secs) }
   T.secs.forEach((s,si)=>{ let xi=secs.findIndex((y,yi)=>!used.has(yi)&&y?.name===s.n); if(xi<0&&secs[si]&&!used.has(si)) xi=si;
     if(xi<0){ miss+=s.lines.length; return } used.add(xi); const x=secs[xi];
     if(x.instSec!=null&&isFinite(+x.instSec)){ const v=Math.max(0,Math.min(40,half(+x.instSec))); if(v!==instOf(s)){ s.inst=v; inst++ } }   // 2026-10-31:伴奏秒數(音樂生成對話規劃時給)
@@ -497,7 +506,7 @@ function applyLyrics(T,src){ let n=0,ko=0,zh=0,miss=0,alloc=0,vchg=0,inst=0; con
     s.lines.forEach((l,li)=>{ const y=lines[li]; if(!y){ miss++; return } if(y.ko){ l.ko=String(y.ko).trim(); ko++ } if(y.zh){ l.zh=String(y.zh).trim(); zh++ } n++ });
     if(lines.length>s.lines.length) miss+=lines.length-s.lines.length });
   if(+src.bpm>=50&&+src.bpm<=240) T.bpm=Math.round(+src.bpm*100)/100;   // 2026-11-01:企劃或錄音室給的 BPM
-  T.lyricsAt=Date.now(); return {n,ko,zh,miss,alloc,vchg,inst} }
+  T.lyricsAt=Date.now(); return {n,ko,zh,miss,alloc,vchg,inst,re} }
 const shareTxt=C=>M.map(m=>`${m.n} ${Math.round((C.shares[m.id]||0)*100)}%`).join("、");
 function importLyricsUI(T){ const box=document.createElement("div"); box.className="sfmodal";
   box.innerHTML=`<div class="sfm-card"><h3>匯入歌詞與分配</h3><p>把錄音室對話(或音樂生成對話)回傳的 JSON 貼在下面,也可以選檔案。有分配(誰唱)的段落會整段換成新的分配;只有歌詞的段落照句子順序放進韓文與中文。</p>
@@ -511,13 +520,13 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
       let t=R.tracks.find(x=>x.id===sg.code||x.id===sg.track)||R.tracks.find(x=>sg.title&&normN(x.name)===normN(sg.title))||R.tracks.find(x=>sg.titleZh&&normN(x.name)===normN(sg.titleZh));
       if(!t&&list.length===1){ if(!confirm(`找不到同名的歌,要把這份歌詞放進目前這首《${T.name||"未命名"}》嗎?`)) return; t=T }
       if(!t){ skip++; continue }
-      const hasAlloc=sg.sections.some(x=>Array.isArray(x?.lines)&&x.lines.some(y=>y&&y.who!=null)), hasInst=sg.sections.some(x=>x?.instSec!=null);
-      if(hasAlloc||hasInst){ /* 先試算給使用者看,確認才換;換之前留一份,錄音室可以「還原匯入前」 */
-        const C0=computeTrack(t), trial={...t,secs:JSON.parse(JSON.stringify(t.secs))}; applyLyrics(trial,sg); const C1=computeTrack(trial);
+      const hasAlloc=sg.sections.some(x=>Array.isArray(x?.lines)&&x.lines.some(y=>y&&y.who!=null)), hasInst=sg.sections.some(x=>x?.instSec!=null), hasRe=secDiff(t,sg.sections);
+      if(hasAlloc||hasInst||hasRe){ /* 先試算給使用者看,確認才換;換之前留一份,錄音室可以「還原匯入前」 */
+        const C0=computeTrack(t), trial={...t,secs:JSON.parse(JSON.stringify(t.secs)),sync:t.sync?JSON.parse(JSON.stringify(t.sync)):t.sync}; applyLyrics(trial,sg); const C1=computeTrack(trial);
         const L0=lengthOf(t), L1=lengthOf(trial);
-        if(!confirm(`《${t.name||"未命名"}》${hasAlloc?"會換成錄音室對話的分配":"會改伴奏秒數"}。\n分數 ${Math.round(C0.score)} → ${Math.round(C1.score)},全長 ${Math.abs(L1.t-L0.t)>.4?`${fmt(L0.t)} → ${fmt(L1.t)}`:`${fmt(L0.t)}(不變)`}\n${shareTxt(C1)}\n要套用嗎?(之後可以在錄音室按「還原匯入前」)`)){ skip++; continue }
+        if(!confirm(`《${t.name||"未命名"}》${hasAlloc?"會換成錄音室對話的分配":"會改伴奏秒數"}。${hasRe?`\n段落會照匯入的結構重建(${t.secs.length} 段 → ${sg.sections.length} 段:${sg.sections.map(x=>x.name).join("、")});逐句對拍要重點,編過的舞要重新對段落。`:""}\n分數 ${Math.round(C0.score)} → ${Math.round(C1.score)},全長 ${Math.abs(L1.t-L0.t)>.4?`${fmt(L0.t)} → ${fmt(L1.t)}`:`${fmt(L0.t)}(不變)`}\n${shareTxt(C1)}\n要套用嗎?(之後可以在錄音室按「還原匯入前」)`)){ skip++; continue }
         t.secsBak=JSON.parse(JSON.stringify(t.secs)) }
-      const r=applyLyrics(t,sg); done.push(`《${t.name||"未命名"}》${r.alloc?`換了 ${r.alloc} 段的分配、`:""}${r.inst?`${r.inst} 段的伴奏秒數、`:""}${r.n} 句(韓文 ${r.ko}、中文 ${r.zh}${r.miss?`,${r.miss} 句對不上`:""}${r.vchg?`,${r.vchg} 段的人聲秒數改了`:""})`) }
+      const r=applyLyrics(t,sg); done.push(`《${t.name||"未命名"}》${r.re?`段落 ${r.re}、`:""}${r.alloc?`換了 ${r.alloc} 段的分配、`:""}${r.inst?`${r.inst} 段的伴奏秒數、`:""}${r.n} 句(韓文 ${r.ko}、中文 ${r.zh}${r.miss?`,${r.miss} 句對不上`:""}${r.vchg?`,${r.vchg} 段的人聲秒數改了`:""})`) }
     if(!done.length){ toast2(skip?"沒有套用":"沒有對上任何一首歌:請確認 code 或曲名"); return }
     save(); close(); render(); toast2("已匯入歌詞:"+done.join(";")+(skip?`;略過 ${skip} 份`:"")) } }
 /* 給 choreo.js(練習室)用 */
@@ -525,7 +534,7 @@ function importLyricsUI(T){ const box=document.createElement("div"); box.classNa
 window.songsArchive=n=>{ R.archive=R.archive||[]; if(R.archive.some(a=>a.n===n)) return; R.archive.push({n,name:R.name||"",type:R.type,title:R.title,tracks:JSON.parse(JSON.stringify(R.tracks))}); save() };
 function albumsAll(){ const A=(R.archive||[]).map(a=>({...a,released:true})), last=A.at(-1), same=last&&last.tracks.map(x=>x.id).join()===R.tracks.map(x=>x.id).join();
   if(!same) A.push({n:(last?.n||0)+1,name:R.name||"",type:R.type,title:R.title,tracks:R.tracks,current:true}); return A }
-window.SONGS_API={get R(){return R},cur,save,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
+window.SONGS_API={get R(){return R},cur,save,applyLyrics,computeTrack,lengthOf,render:()=>render(),open:k=>open(k),M,byId,instOf,fmt,GENRES,MOODS,sheetOf:T=>sheetOf(T),
   albums:albumsAll,track:id=>albumsAll().flatMap(a=>a.tracks).find(t=>t.id===id)||null};
 /* 2026-11-01(2.0 第 2 包):歌曲的音檔。定案 mp3 交給主體開發,處理後放 assets/song/<歌曲代號>.m4a、寫進 assets/song/list.json;
    遊戲用歌曲代號(製作單的 code)找;T.audio(雲端 blob)有的話優先 */
