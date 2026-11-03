@@ -977,6 +977,15 @@ h3.msep{margin-top:calc(2.2*var(--u));padding-top:calc(1*var(--u));border-top:ca
 .pn1 b{font-size:max(.85cqw,11px);color:#3A2A3E}
 .pn1 em{font-style:normal;font-size:max(.75cqw,11px);line-height:1.35;color:#E0457B}
 .pn2{font-size:max(.7cqw,11px);color:#9A8FA0;white-space:nowrap}
+/* 1.1 第 3 輪:代表幫她拍的照片(背景+她當天的穿著,顯示時才疊;右下角是相機的日期) */
+.pphoto.snap{position:relative}
+.snapimg{position:relative;display:block;width:100%;height:100%;overflow:hidden;background-repeat:no-repeat;background-size:cover;background-position:var(--bx,50%) 50%}
+.pphoto .snapimg img,.slview .snapimg img{position:absolute;left:var(--sx,50%);top:5%;width:auto;height:178%;max-width:none;max-height:none;object-fit:contain;border-radius:0;box-shadow:none;transform:translateX(-50%);filter:drop-shadow(0 .4cqw .9cqw rgba(20,10,30,.35))}
+.pphoto.snap:hover img{transform:translateX(-50%) scale(1.02)}
+.snapimg::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(125% 105% at 50% 38%,transparent 56%,rgba(34,14,34,.36)),linear-gradient(180deg,rgba(255,214,170,.10),rgba(255,180,205,.07))}
+.snapd{position:absolute;right:5%;bottom:4%;z-index:1;font:normal 700 max(.85cqw,10px)/1 var(--num);letter-spacing:.14em;color:#FF9A3C;text-shadow:0 0 .45em rgba(255,120,40,.75)}
+.slview .snapimg.big{width:44cqw;height:44cqw;max-width:min(86vw,72vh);max-height:72vh;border-radius:1.2cqw;box-shadow:0 1.6cqw 4cqw rgba(0,0,0,.55),0 0 0 .1cqw rgba(255,255,255,.12)}
+.slview .snapimg.big .snapd{font-size:max(1.3cqw,13px)}
 
 /* ===== 抽屜:關係進度、能力、默契 ===== */
 .mcard .rel{display:grid;grid-template-columns:auto 1fr;gap:calc(.2*var(--u)) calc(.6*var(--u));align-items:center;margin-top:calc(.5*var(--u));font-size:max(calc(.8*var(--u)),9px);color:var(--glassSoft)}
@@ -2094,6 +2103,46 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 .vopt.rc small{color:var(--acc)}
 @keyframes rcPulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){ #meet .mt-opt.rc::before{animation:none} }
+/* 1.1 第 3 輪:邀她做…(一頁 4 個;返回與換頁在左下;她專屬的圖示是她的顏色、通用是金色、全員版有五個小圓點) */
+#meet .mt-actnav{display:none;align-items:center;gap:calc(.7*var(--u));min-width:0}
+#meet .mt-pan.actm .mt-now{display:none}
+#meet .mt-pan.actm .mt-actnav{display:flex}
+#meet .mt-nb{flex:none;display:inline-flex;align-items:center;gap:calc(.25*var(--u));min-height:44px;padding:0 calc(1.1*var(--u)) 0 calc(.6*var(--u));border-radius:999px;
+  font:600 max(calc(1*var(--u)),13px)/1 var(--sans);letter-spacing:.1em;color:#5B4652;background:linear-gradient(180deg,#FBF6EF,#EFE4D6);border:1px solid #E2D2BC;box-shadow:inset 0 1px 0 #fff,0 1px 3px rgba(90,60,30,.12);transition:transform .15s}
+#meet .mt-nb:active{transform:scale(.96)}
+#meet .mt-nb .mt-ic{width:calc(1.7*var(--u));height:calc(1.7*var(--u));min-width:18px;min-height:18px;background:none;border:0;box-shadow:none}
+#meet .mt-nb .mt-ic svg{stroke:#8C7462;width:78%;height:78%}
+#meet .mt-nb.nx{margin-left:auto;padding:0 calc(.5*var(--u)) 0 calc(1.1*var(--u));color:var(--pd);border-color:color-mix(in srgb,var(--pm) 38%,#E2D2BC);background:linear-gradient(180deg,#FFFFFF,color-mix(in srgb,var(--pm) 8%,#F6EEE3))}
+#meet .mt-nb.nx .mt-ic svg{stroke:var(--pm)}
+#meet .mt-dots{display:flex;gap:5px;align-items:center}
+#meet .mt-dots i{width:6px;height:6px;border-radius:50%;background:rgba(125,111,132,.28);transition:background .2s,width .2s}
+#meet .mt-dots i.on{width:14px;border-radius:3px;background:var(--pm)}
+#meet .mt-opts.acts{touch-action:pan-y;grid-auto-rows:1fr}
+#meet .mt-opt.act{gap:calc(.6*var(--u));padding:calc(.5*var(--u)) calc(.9*var(--u)) calc(.5*var(--u)) calc(.6*var(--u))}
+#meet .mt-opt.act .mt-ic{width:calc(2.8*var(--u));height:calc(2.8*var(--u));min-width:25px;min-height:25px}
+#meet .mt-opt.act b{letter-spacing:0}
+#meet .mt-opt.act.gen .mt-ic{background:linear-gradient(145deg,#B7AABD,#8E7F96 55%,#6E6076);box-shadow:0 0 0 1px rgba(110,96,118,.35),inset 0 1px 1px rgba(255,255,255,.45),0 calc(.15*var(--u)) calc(.4*var(--u)) rgba(0,0,0,.18)}
+#meet .mt-opt.act.all .mt-ic{background:linear-gradient(145deg,#EDD9A8,#C9A35E 55%,#9E7B3E);box-shadow:0 0 0 1px rgba(184,149,90,.45),inset 0 1px 1px rgba(255,255,255,.5),0 calc(.15*var(--u)) calc(.4*var(--u)) rgba(0,0,0,.18)}
+#meet .mt-opt.act.own{border-color:color-mix(in srgb,var(--pm) 55%,#E6D3AE);background:linear-gradient(180deg,#FFFFFF,color-mix(in srgb,var(--pm) 7%,#FAF3EA))}
+#meet .mt-opt.act.all{border-color:rgba(201,162,75,.75);background:linear-gradient(180deg,#FFFDF7,#F8EEDB)}
+#meet .mt-five{display:inline-flex;gap:2px;margin-left:5px;vertical-align:1px}
+#meet .mt-five i{width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(255,255,255,.8)}
+#meet .mt-new{position:absolute;top:calc(.35*var(--u));right:calc(.55*var(--u));font:normal 700 11px/1 var(--sans);color:#C49A3E;text-shadow:0 0 4px rgba(232,196,112,.6)}
+#meet .mt-opt.act small .nw{white-space:nowrap}
+/* 1.1 第 3 輪:幫她挑明天出門穿的(拜訪畫面上的三張卡) */
+.ofpick{position:absolute;inset:0;z-index:80;display:grid;place-items:center;background:radial-gradient(90% 90% at 50% 60%,rgba(20,10,24,.35),rgba(20,10,24,.72));transition:opacity .25s}
+.ofpick.out{opacity:0;pointer-events:none}
+.ofpick .ofp-in{display:flex;flex-direction:column;align-items:center;gap:max(1cqw,8px);width:min(92%,720px)}
+.ofpick .ofp-t{margin:0;font:600 max(1.5cqw,15px)/1.3 var(--serif);letter-spacing:.14em;color:#FFF6E6;text-shadow:0 1px 6px rgba(0,0,0,.5)}
+.ofpick .ofp-row{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:max(1.2cqw,10px);width:min(100%,calc(var(--n,3) * 33%))}
+.ofpick .ofp-c{position:relative;display:flex;flex-direction:column;align-items:center;gap:max(.5cqw,4px);padding:max(.6cqw,5px) max(.6cqw,5px) max(.8cqw,7px);border-radius:max(1cqw,9px);cursor:pointer;
+  background:linear-gradient(180deg,#FFFDF9,#F6EEE3);border:1px solid #E9D29A;box-shadow:0 .6cqw 1.8cqw rgba(15,6,15,.42),inset 0 0 0 3px rgba(255,255,255,.7);transition:transform .15s}
+.ofpick .ofp-c:active{transform:scale(.97)}
+.ofpick .ofp-fig{display:block;width:100%;height:min(54cqh,190px);overflow:hidden;border-radius:max(.7cqw,6px);background:radial-gradient(80% 70% at 50% 35%,color-mix(in srgb,var(--pm) 22%,#fff),#F1E6DA)}
+.ofpick .ofp-fig img{display:block;height:200%;width:auto;margin:3% auto 0;filter:drop-shadow(0 2px 4px rgba(40,20,30,.25))}
+.ofpick .ofp-c b{font:600 max(1.05cqw,13px)/1.25 var(--sans);letter-spacing:.06em;color:#2B2030;text-align:center;min-height:2.5em;display:flex;align-items:center}
+.ofpick .ofp-skip{min-height:44px;padding:0 max(1.6cqw,14px);border-radius:999px;font:600 max(1cqw,13px)/1 var(--sans);letter-spacing:.12em;color:#FFF6E6;background:rgba(26,18,30,.6);border:1px solid rgba(233,210,154,.75)}
+#visit:has(> .ofpick:not(.out)) :is(.vbox,.vopts){opacity:0;pointer-events:none;transition:opacity .2s}
 /* ===== 改版 1.1 第 1 輪:成員之間(旁聽)(2026-10-30)=====
    剖面圖上兩人頭上的「…」泡泡(兩人配色的漸層框、三個點輪流跳);拜訪畫面頂部的「旁聽中」;加入她們的選項 */
 .ovbub{--u:max(1cqw,7.6px);position:absolute;z-index:6;transform:translate(-50%,-100%);display:flex;align-items:center;gap:calc(.42*var(--u));

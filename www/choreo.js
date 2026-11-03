@@ -315,6 +315,7 @@ const titleT=()=>{ const R=API()?.R; return R?R.tracks.find(t=>t.id===R.title):n
 function gain(D,id,base){ const g=Math.max(1,Math.round(base*(1-D.prof[id]/110))); D.prof[id]=Math.min(100,D.prof[id]+g); return g }
 window.choreoOnSlotEnd=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,3)); API().save() };
 window.choreoKPHeat=n=>{ const T=titleT(), D=getD(T); if(!D||!n) return; D.heat=(+D.heat||0)+n; API().save() };   /* KEY POINT 的短影音挑戰熱度(打歌後累積) */
+window.choreoReview=id=>{ const T=titleT(), D=getD(T); if(!D) return 0; const g=gain(D,id,2); API().save(); return g };   /* 1.1 第 3 輪:陪她看練習影片 */
 window.choreoAfterShow=ids=>{ const T=titleT(), D=getD(T); if(!D||!ids?.length) return; ids.forEach(id=>gain(D,id,2)); API().save() };
 function practice(T){ const D=getD(T), e=evalDance(T); S.lastPrac=S.day; let tot=0;   // 改版 1.0:全員練一次花 1 小時(以前花 1 次行動)
   for(const id of IDS){ const st=S.m[id]; tot+=gain(D,id,14*(.6+byId(id).dance/200)*(1.25-e.diff*.07)*(st.stress>75?.6:1));

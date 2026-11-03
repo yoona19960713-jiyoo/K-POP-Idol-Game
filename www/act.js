@@ -19,15 +19,31 @@ function windows(k){ if(WIN[k]) return WIN[k]; const a=DY.ACTS[k]; const out=[];
 const rank=st=>DY.rank?DY.rank(st):(window.STAGE_RANK||[]).indexOf(st);
 const hasLib=(k,id)=>snips().some(sn=>sn.type==="act"&&sn.act===k&&(sn.member===id||sn.who?.[0]===id));
 const doneKey=(k,id)=>S.day+"|"+k+"|"+id;
-window.actsFor=id=>{ const st=stageOf(id), wd=dateOf(S.day).getDay(), out=[];
+/* 1.1 第 3 輪:有內建版本的活動一定列(不用等內容庫);全員版要內容庫有 all 的版本或內建全員版 */
+const hasBuiltin=k=>!!(EXC[k]||GEN[k]);
+const hasLibAll=k=>snips().some(sn=>sn.type==="act"&&sn.act===k&&sn.member==="all");
+const inWin=k=>{ const wd=dateOf(S.day).getDay(); return windows(k).some(w=>(!w.days||w.days.includes(wd))&&S.min>=w.from&&S.min<w.to) };
+/* 五個人都在宿舍、而且還沒睡(全員版的條件) */
+const DORM=x=>DY.ROOM_AT?.[x]==="dorm";
+window.actAllHome=()=>{ const {b}=blockAt(); if(/睡覺|補眠/.test(b.n)) return false; return M.every(m=>DORM(S.where[m.id])&&!String(S.where[m.id]).startsWith("外出")) };
+/* 上次和她做這件事是幾天前(沒做過 = null) */
+const lastDone=(k,id)=>{ const L=S.actLog||[]; for(let i=L.length-1;i>=0;i--){ const e=L[i]; if(e.k===k&&(e.id===id||e.all)) return S.day-e.d } return null };
+window.actsFor=id=>{ const st=stageOf(id), out=[], s=S.m[id]||{}, here=S.where[id], r=rng(seedOf(S.day,S.slot,"acts"+id));
+  const ok=x=>PL[x]?.open.includes(S.slot)&&!(x.startsWith("bed_")&&x!=="bed_"+id);
   for(const [k,a] of Object.entries(DY.ACTS)){ if(a.later||(a.who&&a.who!==id)||rank(st)<rank(a.gate)) continue;
-    if(!a.first&&!hasLib(k,id)) continue;
-    if(!windows(k).some(w=>(!w.days||w.days.includes(wd))&&S.min>=w.from&&S.min<w.to)) continue;
-    if(S.actDone?.[doneKey(k,id)]) continue;
-    const ok=x=>PL[x]?.open.includes(S.slot)&&!(x.startsWith("bed_")&&x!=="bed_"+id);
-    const room=a.rooms.find(x=>x===S.where[id]&&ok(x))||a.rooms.find(ok); if(!room) continue;
-    out.push({k,a,room}) }
-  return out.sort((x,y)=>(y.a.who?1:0)-(x.a.who?1:0)) };   // 她專屬的排前面
+    if(!a.first&&!hasBuiltin(k)&&!hasLib(k,id)) continue;
+    if(!inWin(k)||S.actDone?.[doneKey(k,id)]) continue;
+    const room=a.rooms.find(x=>x===here&&ok(x))||a.rooms.find(ok); if(!room) continue;
+    const e=a.eff||"", ld=lastDone(k,id);
+    const sc=(a.who===id?100:0)+(room===here?30:0)+(s.stress>=60&&e.includes("壓力下降")?15:0)+(s.mood<45&&e.includes("心情")?10:0)+(ld==null?8:Math.min(ld,14)*.6)+r()*6;
+    out.push({k,a,room,sc,fresh:ld==null}) }
+  /* 全員版:五人都在宿舍時,「叫大家一起」;電影、桌遊、大掃除這種以全員版為主的排前面 */
+  if(window.actAllHome()){ let libAll=null; const hasAll=k=>ALLFB[k]||(libAll=libAll||new Set(snips().filter(sn=>sn.type==="act"&&sn.member==="all").map(sn=>sn.act))).has(k);   // 內容庫只掃一次
+  for(const [k,a] of Object.entries(DY.ACTS)){ if(a.later||a.who||!a.allv||!hasAll(k)) continue;
+    if(!inWin(k)||S.actDone?.[doneKey(k,"all")]) continue;
+    const room=a.rooms.find(x=>DORM(x)&&ok(x)); if(!room) continue;
+    out.push({k,a,room,all:1,sc:(a.allv>=5?40:6)+r()*6,fresh:lastDone(k,"all")==null}) } }
+  return out.sort((x,y)=>y.sc-x.sc) };
 /* ---------- 內建版本(內容庫還沒有時用;品質照正式內容) ---------- */
 const N=(t)=>["",t];
 const EXC={
@@ -86,28 +102,267 @@ const GEN={
     C:[["(站在她旁邊,一起看夜景。)","陪著",3],["「想家嗎?」","安慰",3],["「總有一天,那些燈裡會有你們的看板。」","鼓勵",2]],
     s:{ys:["首爾的星星好少喔……可是燈好多。","smile"],tr:["……這裡是我發現的。你是第二個知道的人。","neutral"],hy:["代表,日本也看得到同一個月亮呢。","smile"],he:["好安靜~在這裡什麼都不用想。","smile"],hr:["代表你看!那顆最亮的是星星?還是飛機?","laugh"]},
     e:{ys:["跟代表在這裡,好像什麼煩惱都變小了。","smile"],tr:["……下次想來,就來。我不會趕你。","shy"],hy:["今天的月亮,我會記得的。","smile"],he:["冷了吧?下去我泡熱可可給你~","smile"],hr:["我以後出道了,也要常常上來看!跟代表一起!","laugh"]}}};
-function fallback(k,id){ const base={code:"fbact-"+k+"-"+id,type:"act",act:k,member:id,who:[id],cd:0};
-  if(EXC[k]) return {...base,...EXC[k]};
-  const G=GEN[k]; if(!G||!G.s[id]) return null; const m=byId(id);
-  return {...base,sc:G.sc,memo:G.memo.replace("{名}",m.n),nodes:{start:{L:[N(G.in),[id,...G.s[id]]],C:G.C.map(([t,s,g])=>({t,s,to:id,g,next:"b"}))},b:{L:[N(G.out),[id,...G.e[id]]],C:[]}}} }
+/* 1.1 第 3 輪:專屬 9 種(sc 可以依地點分;三個節點、兩個選擇點) */
+Object.assign(EXC,{
+  ys_fangirl:{sc:{bed_ys:"藝瑟的房間只開了桌燈,筆電停在一段女團的打歌舞台。床上攤著一本塞滿小卡的收藏本。",living:"客廳的電視停在一段女團的打歌舞台,茶几上攤著一本塞滿小卡的收藏本。"},
+    memo:"陪藝瑟追星,收藏本第一頁是她 2011 年第一次看演唱會的票根。",
+    nodes:{start:{L:[N("(她看到你,手忙腳亂想把收藏本闔上,最後放棄了。)"),["ys","代表……這是情報收集。真的。不准笑。","pout"],["ys","TWINKLE 這週的舞台,副歌那個換位,你看——超乾淨的對吧!","laugh"]],
+      C:[{t:"(坐下來,讓她從頭播一次。)",s:"陪著",to:"ys",g:3,next:"b",r:[["ys","好!從前奏開始!你看她們的走位,一步都沒亂。","smile"]]},
+        {t:"「隊長筆記本裡的東西,原來是從這裡來的?」",s:"開玩笑",to:"ys",g:2,next:"b",r:[["ys","嘿嘿,被發現了~別的團的優點,偷學一點點不犯法吧。","wink"]]},
+        {t:"「妳看她們的時候,眼睛跟平常不一樣。」",s:"安慰",to:"ys",g:3,next:"b",r:[["ys","……有嗎?","shy"]]}]},
+      b:{L:[N("(收藏本的第一頁,貼著一張舊得發白的票根,日期是 2011 年。)"),["ys","這是我第一次去看的演唱會。那時候就想,總有一天換我站上去。","smile"],["ys","後來……差一點就站上去了。","neutral"]],
+      C:[{t:"「這次不會只差一點。」",s:"鼓勵",to:"ys",g:3,next:"c",r:[["ys","……代表這樣說,我會當真喔。","moved"]]},
+        {t:"(把那張票根輕輕壓平,放回原位。)",s:"陪著",to:"ys",g:3,next:"c",r:[N("(她看著你的手,很久沒有說話。)")]},
+        {t:"「出道以後,妳們的小卡就貼在這頁旁邊。」",s:"鼓勵",to:"ys",g:2,next:"c",r:[["ys","旁邊?那一整頁要留給我們五個人!","laugh"]]}]},
+      c:{L:[["ys","好啦,今天的情報收集到此結束~","laugh"],["ys","……謝謝你陪我看完。下次換我請你看我們的舞台。","shy"]],C:[]}}},
+  ys_drink:{sc:{roof:"週六深夜的頂樓,小燈泡在風裡輕輕晃。欄杆邊放著兩罐啤酒,一罐已經打開了。",living:"週六深夜,客廳只剩一盞落地燈。藝瑟盤腿坐在地毯上,茶几上一瓶米酒、兩個小杯子。"},
+    memo:"週六深夜陪藝瑟喝了一杯,她第一次說出自己也會累。",
+    nodes:{start:{L:[["ys","代表~這週辛苦了,陪隊長喝一杯?","smile"],["ys","放心,我酒量很好的。……是真的很好喔。","wink"]],
+      C:[{t:"(接過杯子,跟她碰一下。)",s:"陪著",to:"ys",g:3,next:"b",r:[["ys","乾杯~這週也活下來了!","laugh"]]},
+        {t:"「只喝一杯。明天還要早起。」",s:"嚴厲",to:"ys",g:1,next:"b",r:[["ys","知道啦~代表比經紀人還嚴格。","pout"]]},
+        {t:"「隊長也會想喝一杯?」",s:"開玩笑",to:"ys",g:2,next:"b",r:[["ys","隊長也是人嘛……偶爾。","smile"]]}]},
+      b:{L:[N("(喝到第二口,她的笑容慢慢停住,看著遠處的燈。)"),["ys","這週日和的腳又在痛,河嵐被說了身材,泰梨三天沒睡好……","tired"],["ys","我每一個都看到了。可是我能做的,好像只有笑。","sad"]],
+      C:[{t:"「那妳呢?這週誰看到妳了?」",s:"安慰",to:"ys",g:3,next:"c",r:[["ys","……我?","surprise"],N("(她愣住了,好像從來沒想過這個問題。)")]},
+        {t:"(什麼都不說,把外套披到她肩上。)",s:"陪著",to:"ys",g:3,next:"c",r:[["ys","欸、欸?代表,不用啦,我又不冷……","shy"],N("(她嘴上這樣說,手卻把外套拉緊了。)")]},
+        {t:"「明天的練習表我來排。妳今天什麼都不准想。」",s:"出手幫忙",to:"ys",g:2,next:"c",r:[["ys","……代表,這樣我會手足無措耶。","shy"]]}]},
+      c:{L:[["ys","被你這樣照顧,好奇怪喔……可是,不討厭。","moved"],N("(她把杯子裡剩下的喝完,第一次在你面前打了一個大大的呵欠。)")],C:[]}}},
+  tr_rap:{sc:{studio:"錄音室的控制台上攤著三張改到看不清楚的歌詞,螢幕上是一段只有鼓的 beat。",bed_tr:"泰梨的房間,黑膠唱片機轉著,書桌上的歌詞本寫滿了劃掉的字。"},
+    memo:"陪泰梨改 rap 詞,她把「不在乎」改成了真心話。",
+    nodes:{start:{L:[["tr","……第二段 verse 卡住了。兩天。","serious"],["tr","你聽一下。……然後說實話。","neutral"],N("(她唸了一遍。押韻很漂亮,但最後一句明顯接不上。)")],
+      C:[{t:"「前面都很好,最後一句像是別人寫的。」",s:"嚴厲",to:"tr",g:3,next:"b",r:[["tr","……對。我也這樣覺得。","surprise"]]},
+        {t:"「押韻很漂亮。卡在哪裡?」",s:"鼓勵",to:"tr",g:2,next:"b",r:[["tr","卡在……我不想寫得太好懂。","neutral"]]},
+        {t:"「先休息一下?泡麵我請。」",s:"轉移話題",to:"tr",g:1,next:"b",r:[["tr","……不要。寫完再吃。","pout"]]}]},
+      b:{L:[["tr","這句本來是「我不在乎你怎麼看」。","neutral"],["tr","可是那是假的。我很在乎。……所以寫不下去。","shy"]],
+      C:[{t:"「那就寫真的那句。」",s:"鼓勵",to:"tr",g:3,next:"c",r:[["tr","……真的那句,很丟臉。","shy"],["tr","……算了,我來。","serious"]]},
+        {t:"「用英文寫呢?有些話用英文比較說得出口。」",s:"出手幫忙",to:"tr",g:2,next:"c",r:[["tr","……Hm. That's……not bad。","smile"]]},
+        {t:"(把筆遞給她,安靜地等。)",s:"陪著",to:"tr",g:2,next:"c",r:[N("(筆在紙上停了很久,才開始動。)")]}]},
+      c:{L:[N("(她寫了一行,劃掉,又寫一行。這次沒有劃掉。)"),["tr","……「你看我的時候,我也在看你」。就這樣。不准笑。","shy"],["tr","……謝了。這段,算你一半。","smile"]],C:[]}}},
+  tr_ramen:{sc:{kitchen:"深夜的宿舍廚房,只開了抽油煙機上的小燈。泰梨面前排著三包不同口味的泡麵。",store:"深夜的便利商店,熱水機旁的小桌子上,泰梨排了三碗泡麵,正盯著手錶。"},
+    memo:"深夜和泰梨辦了泡麵評鑑,她說二號像下雨天的公車站。",
+    nodes:{start:{L:[["tr","……深夜泡麵評鑑。今天三種。","serious"],["tr","評審要兩個。坐。","neutral"],N("(她很認真地在每一碗旁邊貼了一張便利貼:1、2、3。)")],
+      C:[{t:"(坐下來,拿起筷子等她說開始。)",s:"陪著",to:"tr",g:3,next:"b",r:[["tr","……很好。有評審的樣子。","smile"]]},
+        {t:"「評分標準是什麼?」",s:"開玩笑",to:"tr",g:2,next:"b",r:[["tr","湯、麵,還有……吃完之後的罪惡感。","neutral"]]},
+        {t:"「這麼晚吃三碗,經紀人會殺了我們。」",s:"嚴厲",to:"tr",g:1,next:"b",r:[["tr","……所以是三碗分兩個人。數學。","pout"]]}]},
+      b:{L:[N("(計時器響了。她把第一碗推給你,自己先吃了一口第二碗。)"),["tr","二號。……像下雨天的公車站。","neutral"],["tr","……意思是,很普通,但是會想起一些事。","shy"]],
+      C:[{t:"「一號像週五的練習室。很累,但是很香。」",s:"開玩笑",to:"tr",g:3,next:"c",r:[N("(她盯著你看了兩秒。)"),["tr","……你也會這種比喻?","laugh"]]},
+        {t:"「想起什麼事?」",s:"安慰",to:"tr",g:2,next:"c",r:[["tr","……洛杉磯。我媽煮泡麵,會加一片起司。","smile"]]},
+        {t:"「三號最好吃。我投三號。」",s:"鼓勵",to:"tr",g:2,next:"c",r:[["tr","……評審不能這麼快下結論。扣分。","pout"]]}]},
+      c:{L:[["tr","結果:三號第一。二號……留著,下次想家的時候吃。","smile"],["tr","……下次評鑑,你也要來。這是命令。","shy"]],C:[]}}},
+  hy_lang:{sc:{living:"客廳茶几上攤著一本畫滿螢光筆的韓語課本,旁邊是日和的筆記本,一半韓文、一半日文。",lobby:"製作中心的大廳很安靜。日和坐在獎盃牆下的沙發上,課本攤在膝蓋上。"},
+    memo:"和日和語言交換,她教你「大丈夫」,也說了不是大丈夫的時候怎麼說。",
+    nodes:{start:{L:[["hy","代表!今天的韓語老師是代表喔~","laugh"],["hy","那我教代表日文,交換!……公平吧?","smile"],["hy","第一題。「마음이 간질간질해」……心裡癢癢的,是生病嗎?","pout"]],
+      C:[{t:"「不是生病。是喜歡上什麼,心裡靜不下來。」",s:"鼓勵",to:"hy",g:3,next:"b",r:[["hy","喜歡……!原來韓劇裡的女主角是這個意思!","surprise"]]},
+        {t:"(假裝咳兩聲)「對,很嚴重,要看醫生。」",s:"開玩笑",to:"hy",g:2,next:"b",r:[["hy","真的嗎?!……代表騙人!我看到你在笑!","pout"]]},
+        {t:"「妳用日文說一次,我猜猜看。」",s:"陪著",to:"hy",g:2,next:"b",r:[["hy","えっと……「胸がくすぐったい」?","shy"]]}]},
+      b:{L:[["hy","換我教代表。「大丈夫」,是沒事的意思。","smile"],["hy","可是……有時候我說大丈夫,其實不是大丈夫。","neutral"]],
+      C:[{t:"「那不是大丈夫的時候,要怎麼說?」",s:"安慰",to:"hy",g:3,next:"c",r:[["hy","……「ちょっとだけ、大丈夫じゃない」。有一點點,不是沒事。","sad"]]},
+        {t:"「以後妳說大丈夫,我會再問一次。」",s:"陪著",to:"hy",g:3,next:"c",r:[["hy","……再問一次?","surprise"],["hy","好。那我第二次,會說實話。","moved"]]},
+        {t:"「韓語的「괜찮아」也一樣。大家都這樣說。」",s:"鼓勵",to:"hy",g:2,next:"c",r:[["hy","大家都一樣……那我就不是一個人了。","smile"]]}]},
+      c:{L:[["hy","今天學了兩句韓語,教了代表一句日文。","laugh"],["hy","……還有一句,是我自己的。下次再告訴你。","shy"]],C:[]}}},
+  hy_okonomi:{sc:"週六晚上的宿舍廚房,鐵板已經熱了。日和捲起袖子,大碗裡是切得細細的高麗菜。",
+    memo:"週六晚上和日和做大阪燒,她一鏟翻面,說廚房第一次像奶奶家。",
+    nodes:{start:{L:[["hy","代表,今天是大阪燒之夜!我是大阪人,這是我的主場!","laugh"],["hy","代表負責攪拌,我負責翻面。……翻面最難喔。","smile"]],
+      C:[{t:"(照她說的,輕輕攪拌,讓空氣進去。)",s:"陪著",to:"hy",g:3,next:"b",r:[["hy","對對對!要像這樣,ふわっと……輕輕的!","laugh"]]},
+        {t:"「翻面讓我試試看?」",s:"開玩笑",to:"hy",g:2,next:"b",r:[["hy","代表確定?失敗的話,要吃掉失敗的那片喔。","wink"]]},
+        {t:"「這是媽媽教妳的?」",s:"安慰",to:"hy",g:2,next:"b",r:[["hy","嗯……是奶奶。週末都會做給我吃。","smile"]]}]},
+      b:{L:[N("(油在鐵板上滋滋作響。她深吸一口氣,鏟子一插、一翻——完美落地。)"),["hy","すごい!……啊,我是說,我好厲害!","laugh"],N("(香味飄出去,走廊傳來河嵐的大嗓門:「什麼味道!!」)")],
+      C:[{t:"「看來今天要做五人份了。」",s:"鼓勵",to:"hy",g:3,next:"c",r:[["hy","嗯!大家一起吃,才是大阪燒之夜!","laugh"]]},
+        {t:"「第一片先給妳吃。主廚先吃。」",s:"陪著",to:"hy",g:3,next:"c",r:[["hy","……主廚先吃?","surprise"],["hy","那我分代表一半。這是規定。","shy"]]}]},
+      c:{L:[["hy","在韓國,第一次覺得廚房像奶奶家。","moved"],["hy","代表,下週六……也可以再一起做嗎?","shy"]],C:[]}}},
+  hy_drama:{sc:"客廳只開了一盞落地燈。日和抱著抱枕坐在沙發上,手機架在茶几上,螢幕裡是一部正在播的愛情劇。",
+    memo:"陪日和看韓劇,她學會了「我會在你旁邊」,在筆記本上畫了一把雨傘。",
+    nodes:{start:{L:[["hy","代表,快坐!這集是男主角告白的那一集!","laugh"],["hy","我要學他的台詞……每一句都要學起來。","serious"]],
+      C:[{t:"(坐下來,把字幕調大一點。)",s:"陪著",to:"hy",g:3,next:"b",r:[["hy","啊,代表好貼心!這樣我看得懂了!","laugh"]]},
+        {t:"「學告白的台詞,要說給誰聽?」",s:"開玩笑",to:"hy",g:2,next:"b",r:[["hy","欸?不、不是那個意思啦!是為了韓語!","shy"]]},
+        {t:"「妳跟著唸,我幫妳聽發音。」",s:"鼓勵",to:"hy",g:2,next:"b",r:[["hy","好!代表是發音老師!","smile"]]}]},
+      b:{L:[N("(劇裡的男主角站在雨裡,慢慢說了一句話。日和跟著小聲唸了一遍。)"),["hy","「내가 옆에 있을게」……我會在你旁邊。","shy"],["hy","代表,這句的語氣,是這樣嗎?","pout"]],
+      C:[{t:"「再溫柔一點。像在對一個很怕寂寞的人說。」",s:"嚴厲",to:"hy",g:2,next:"c",r:[["hy","很怕寂寞的人……","neutral"],["hy","「내가 옆에 있을게」。……這樣?","moved"]]},
+        {t:"「很好。比男主角還好。」",s:"鼓勵",to:"hy",g:3,next:"c",r:[["hy","真的嗎!那我比他還會告白了!……啊,不是!","laugh"]]},
+        {t:"(點點頭,沒有說話。)",s:"陪著",to:"hy",g:2,next:"c",r:[["hy","……代表沒說話,是因為很好,還是不好?","pout"]]}]},
+      c:{L:[N("(片尾曲響起。她把那句台詞寫進筆記本,在旁邊畫了一把雨傘。)"),["hy","今天學到最好的一句。……我會好好留著。","smile"]],C:[]}}},
+  he_skincare:{sc:"夏恩的房間,梳妝台上排滿瓶瓶罐罐。她頭上綁著兔耳朵髮帶,手裡拿著兩片面膜。",
+    memo:"和夏恩一起敷面膜,她說敷著面膜的時候,終於可以不用漂亮。",
+    nodes:{start:{L:[["he","代表~來得剛好!今天是保養之夜,你也要敷!","laugh"],["he","不准拒絕。男生也要保養,這是常識。","wink"]],
+      C:[{t:"(乖乖坐好,讓她幫你貼面膜。)",s:"陪著",to:"he",g:3,next:"b",r:[["he","哎唷,好乖~別動喔,氣泡要推出來。","smile"]]},
+        {t:"「我敷的話,妳要拍照嗎?」",s:"開玩笑",to:"he",g:2,next:"b",r:[["he","當然要拍!……騙你的啦,我才不會發出去。大概。","laugh"]]},
+        {t:"「妳每天都這麼認真保養?」",s:"安慰",to:"he",g:2,next:"b",r:[["he","嗯……鏡頭很誠實嘛。一點點不好,大家都看得到。","neutral"]]}]},
+      b:{L:[N("(兩個人臉上都貼著白白的面膜,只露出眼睛。她看著鏡子裡的你,先笑出聲。)"),["he","你看我們,好像兩隻鬼。","laugh"],["he","……這樣很好。敷著面膜,誰都看不到我的臉。","neutral"]],
+      C:[{t:"「看不到臉,我還是認得出妳。」",s:"安慰",to:"he",g:3,next:"c",r:[["he","……幹嘛突然說這種話啦。","shy"],N("(面膜底下,她的耳朵紅了。)")]},
+        {t:"「那今天就當普通人。不用漂亮,只要休息。」",s:"鼓勵",to:"he",g:3,next:"c",r:[["he","普通人……嘿嘿,好啊。","smile"]]},
+        {t:"「妳的臉,不只是妳的工作。」",s:"嚴厲",to:"he",g:2,next:"c",r:[["he","……我知道。可是有時候,我會忘記。","sad"]]}]},
+      c:{L:[["he","十五分鐘到了!……哇,你的臉好滑,嫉妒。","laugh"],["he","下次保養之夜,你也要來。……只有你可以來喔。","shy"]],C:[]}}},
+  he_call:{sc:{bed_he:"夏恩坐在床邊,手機開著擴音。螢幕上寫著「媽媽」,背景是烤肉店吵吵鬧鬧的聲音。",roof:"頂樓的小燈泡下,夏恩把手機開了擴音放在欄杆上,另一頭傳來烤肉店吵吵鬧鬧的聲音。"},
+    memo:"陪夏恩打電話回大邱,她媽媽說這孩子就是要人唸。",
+    nodes:{start:{L:[["he","代表,坐這裡。我媽說要聽聽「那個代表」的聲音。","shy"],N("(電話那頭是很重的慶尚道口音:「是代表嗎?我們家夏恩有沒有好好吃飯?」)")],
+      C:[{t:"「阿姨好。她有好好吃飯,我每天都在唸她。」",s:"陪著",to:"he",g:3,next:"b",r:[N("(電話那頭笑得很大聲:「唸得好!這孩子就是要人唸!」)"),["he","媽!","pout"]]},
+        {t:"「阿姨,夏恩昨天午餐又沒吃。」",s:"開玩笑",to:"he",g:3,next:"b",r:[["he","代表!!你怎麼可以告密!","angry"],N("(電話那頭:「什麼?!韓夏恩!」)")]},
+        {t:"「阿姨好,我是代表。夏恩很努力。」",s:"鼓勵",to:"he",g:2,next:"b",r:[N("(電話那頭安靜了一下:「……是嗎。那就好。」)")]}]},
+      b:{L:[N("(她媽媽被客人叫走了,電話換成她爸爸,只說了一句「吃飯了沒」就掛了。)"),["he","我爸就是這樣,一通電話只講一句。","laugh"],["he","……我每次打回家,都只會說「我很好啊」。","neutral"]],
+      C:[{t:"「今天呢?今天是真的很好嗎?」",s:"安慰",to:"he",g:3,next:"c",r:[["he","……今天有一點累。可是你在旁邊,所以還好。","moved"]]},
+        {t:"「下次打的時候,也可以說一點不好的事。」",s:"鼓勵",to:"he",g:3,next:"c",r:[["he","說了,他們會擔心嘛。","sad"],["he","……好啦。一點點就好。","smile"]]},
+        {t:"(陪她一起看著暗下來的手機螢幕。)",s:"陪著",to:"he",g:2,next:"c",r:[N("(她把手機翻過來蓋在膝蓋上,肩膀輕輕靠了過來。)")]}]},
+      c:{L:[["he","我媽之後一定會一直問你的事。……我先跟你說對不起喔。","laugh"],["he","謝謝你陪我打這通電話。比平常多講了一點真的話。","smile"]],C:[]}}}});
+/* 1.1 第 3 輪:通用 8 種。開頭(in+她的一句)→ 三個選項 → 中段(mid+她的一句)→ 兩個選項(C2,有的沒有)→ 結尾(out+她的一句) */
+Object.assign(GEN,{
+  review:{sc:"練習室的燈關了一半,筆電放在地板上,螢幕裡是今天下午的團體練習影片。",in:"(她抱著膝蓋坐在筆電前,一格一格地倒帶。)",mid:"(影片停在她自己的特寫。她盯著螢幕裡的自己,看了很久。)",out:"(一個小時後,她在手機的備忘錄裡記下了三件明天要改的事。)",memo:"和{名}在練習室看了今天的練習影片,一格一格地檢討。",
+    C:[["(坐到她旁邊,一起從頭看。)","陪著",3],["「這段的表情很好,鏡頭會喜歡。」","鼓勵",2],["「第二段妳慢了半拍,看到了嗎?」","嚴厲",2]],
+    C2:[["「再看一次。這次只看妳自己。」","嚴厲",2],["「這一格的妳,眼神是對的。」","鼓勵",3]],
+    s:{ys:["代表,陪我看一下今天的影片?我想看大家的走位。","serious"],tr:["……這段。我的手太早收了。","serious"],hy:["代表,我轉圈的時候,表情好像很痛……","sad"],he:["我想看看我在 C 位的時候,是不是只是站著。","serious"],hr:["代表!我今天有沒有撞到人?幫我看!","laugh"]},
+    m:{ys:["我總是在看大家,很少看自己。……原來我笑的時候,肩膀會緊。","surprise"],tr:["……我在鏡頭裡,看起來在生氣。我明明沒有。","pout"],hy:["芭蕾的老師說,痛也要笑。……可是這裡不是芭蕾。","neutral"],he:["你看,我在這裡是真的在跳。不是只有臉。","smile"],hr:["我唱歌的時候表情超好欸!跳舞的時候……好像在背數學。","laugh"]},
+    e:{ys:["明天的練習,我會多看自己一點。謝謝代表。","smile"],tr:["……明天改。這段我會跳得比影片好。","smile"],hy:["明天,我要用自己的表情轉圈。大丈夫,這次是真的。","smile"],he:["下次你也要這樣看我。看我的舞,不是看我的臉。","shy"],hr:["明天跳舞的時候,我要想著唱歌!這樣表情就對了!","laugh"]}},
+  outfit:{sc:"造型室的衣架推到了中間,全身鏡旁的小燈亮著。她手裡拿著兩件衣服,在鏡子前比來比去。",in:"(她看到你,把兩件衣服同時舉到你面前。)",mid:"(衣架上又多了好幾套。她把最後的決定權,交到了你手上。)",out:"(她把衣服掛回衣架,最前面那件,是剛剛決定的那套。)",memo:"在造型室幫{名}挑了明天出門要穿的衣服。",
+    C:[["(認真看了兩件,再看看她。)","陪著",3],["「明天要去哪裡?看場合挑。」","出手幫忙",3],["「妳自己最喜歡哪一件?」","鼓勵",2]],
+    s:{ys:["代表~明天想出門走走,穿哪件好?","smile"],tr:["……這件,還是這件。不准說都好。","neutral"],hy:["代表,韓國的女生出門,都穿這樣嗎?","pout"],he:["哎唷,被你看到我在選衣服了~幫我看!","laugh"],hr:["代表!我不會挑衣服啦,都長一樣!","laugh"]},
+    m:{ys:["平常都是我幫大家挑……被人幫忙挑,好緊張喔。","shy"],tr:["……造型師說我只穿黑色。今天,想試試別的。","neutral"],hy:["在日本的時候,都是媽媽幫我挑的。……代表幫我挑吧。","shy"],he:["拍照的衣服是公司挑的。出門的衣服,想要你挑。","smile"],hr:["代表挑什麼我就穿什麼!……不可以挑太奇怪的喔!","laugh"]},
+    e:{ys:["就這套!明天出門,我要跟大家炫耀是代表挑的~","laugh"],tr:["……還可以。明天穿。不准說是你挑的。","shy"],hy:["好喜歡~這套!明天穿出去,好期待。","laugh"],he:["嘿嘿,明天穿這套出門。被拍到的話,就說是代表的品味。","wink"],hr:["喔!穿上去比想像中好看欸!代表眼光不錯嘛!","laugh"]}},
+  starlog:{sc:{photo:"攝影棚只開了一盞柔光燈,白色背景布前放著一張高腳椅。",roof:"頂樓的欄杆邊,城市的燈剛好亮起來,小燈泡串在風裡輕輕晃。",river:"漢江邊的風很舒服,對岸的大樓在水面上映出一排光。"},in:"(她把手機交到你手上,往後退了兩步。)",mid:"(你按下快門。她跑過來搶手機,一張一張往回滑。)",out:"(最後她選了一張,低頭打了很久的字,才按下發文。)",memo:"幫{名}拍了 STARLOG 的照片,她選了一張發文。",
+    C:[["(蹲低一點,找她最自然的角度。)","出手幫忙",3],["「不要擺姿勢,看我就好。」","鼓勵",3],["「表情太僵了。想一件好笑的事。」","開玩笑",2]],
+    C2:[["「第三張最好。那張才是妳自己。」","鼓勵",3],["「再拍一張。這次換妳選地方。」","陪著",2]],
+    s:{ys:["代表,幫我拍一張 STARLOG 的照片?要自然一點的~","smile"],tr:["……公司說要多發照片。你拍。不要拍到我在生氣。","neutral"],hy:["代表!幫我拍!我想給日本的朋友看!","laugh"],he:["幫我拍一張~不要拍臉的特寫喔,拍有背景的。","smile"],hr:["代表!拍我拍我!我要比耶!……還是不要比耶?","laugh"]},
+    m:{ys:["欸……這張我在笑耶。原來我笑起來是這樣。","shy"],tr:["……這張。我沒有在生氣。……你怎麼拍到的?","surprise"],hy:["這張好像在拍電影!代表是導演!","laugh"],he:["這張好好……不是因為臉。是我跟背景,好像在同一個故事裡。","smile"],hr:["哇!這張我看起來好帥!……等等,這是我嗎?","laugh"]},
+    e:{ys:["發好了~第一則留言,代表要按讚喔。","wink"],tr:["……發了。寫了是你拍的。……不准得意。","shy"],hy:["發好了!日本的朋友說,好喜歡~!","laugh"],he:["發好了!大家說照片好有感覺,嘿嘿,是攝影師厲害。","laugh"],hr:["發了!留言好多!代表,你以後當我的專屬攝影師!","laugh"]}},
+  cook:{sc:"宿舍廚房的流理台上擺著洗好的菜,電鍋冒著白煙,冰箱上貼著「今晚菜單」的便利貼。",in:"(她把一條圍裙丟給你。)",mid:"(鍋裡的油開始響,廚房一下子充滿香味。她偷夾了一塊,先塞進你嘴裡。)",out:"(一個半小時後,桌上擺滿了菜。走廊傳來其他人的腳步聲。)",memo:"和{名}一起做了晚餐,大家吃得一乾二淨。",
+    C:[["(綁好圍裙,開始切菜。)","出手幫忙",3],["「今天主廚是誰?我聽主廚的。」","開玩笑",2],["「先說好,我只會煮泡麵。」","陪著",2]],
+    C2:[["「好吃。再多一點鹽就完美了。」","嚴厲",2],["「好吃到可以開店了。」","鼓勵",3]],
+    s:{ys:["代表~今天我們兩個負責晚餐!大家都在等喔。","laugh"],tr:["……今天輪到我煮。我只會三道菜。你幫忙。","neutral"],hy:["今天我想做玉子燒!代表幫我打蛋好嗎?","smile"],he:["代表要幫我?哎唷,那今天加菜!","laugh"],hr:["代表!我要做濟州的海鮮湯!……雖然沒有濟州的海鮮。","laugh"]},
+    m:{ys:["和代表一起煮飯,好像在家裡一樣耶。……啊,我在說什麼。","shy"],tr:["……好吃?……那就好。這是我媽的做法。","smile"],hy:["玉子燒要捲三次……一、二、三!成功了!","laugh"],he:["你知道嗎?煮飯的時候,我什麼都不用想,只要想誰會吃。","smile"],hr:["鹽放太多了嗎?……沒關係!多加一點水!","laugh"]},
+    e:{ys:["大家吃得好開心。……下次也要一起煮喔,代表。","smile"],tr:["……吃完了。全部。……下次也可以。","shy"],hy:["大家說玉子燒很好吃!代表,我們是最強的組合!","laugh"],he:["看大家吃光光,最幸福了。代表的份,我多留了一碗。","wink"],hr:["大家說很好喝!雖然有點鹹!下次會更好!","laugh"]}},
+  movie:{sc:"週六晚上的客廳,燈全關了,只剩牆上電影的片頭。沙發上堆滿了毯子和零食。",in:"(她拍拍旁邊的位子,把毯子分了一半給你。)",mid:"(電影演到最緊張的那一幕。她的手不知道什麼時候,抓住了你的袖子。)",out:"(片尾名單跑完,客廳安靜下來。她還裹著毯子,沒有要起來的意思。)",memo:"週六晚上和{名}在客廳看了一部電影。",
+    C:[["(坐下來,把爆米花放在兩個人中間。)","陪著",3],["「挑了什麼片?不准挑恐怖片。」","開玩笑",2],["「今天妳選,我都陪。」","鼓勵",2]],
+    C2:[["(不說破,讓她抓著。)","陪著",3],["「怕的話,可以把眼睛閉起來。」","安慰",2]],
+    s:{ys:["今天的電影是我挑的~保證好看!","laugh"],tr:["……這部我看過三次。你沒看過的話,不准滑手機。","neutral"],hy:["代表,這部是日本的電影!有韓文字幕喔!","smile"],he:["週六就是要看電影嘛~零食我準備好了!","laugh"],hr:["代表!這部超好笑!……應該是好笑的吧?","laugh"]},
+    m:{ys:["我、我沒有怕喔。只是……袖子剛好在這裡。","shy"],tr:["……這一幕最好。……不要看我,看電影。","shy"],hy:["這個主角,好像我剛來韓國的時候……","sad"],he:["欸欸,這裡要哭了,衛生紙!衛生紙!","laugh"],hr:["哇啊啊!……我、我是在笑!不是在叫!","surprise"]},
+    e:{ys:["下週六也要電影之夜喔。……這次換代表挑。","smile"],tr:["……第四次,還是好看。……因為有人一起看吧。","shy"],hy:["好喜歡~這樣的週六。代表,謝謝你陪我。","smile"],he:["零食全部吃光了~嘿嘿,明天晨跑要多跑一圈。","laugh"],hr:["好好看!代表,下次看動作片!我要學那個踢腿!","laugh"]}},
+  boardgame:{sc:"客廳的茶几清空了,桌上攤著一盒桌遊,紙牌和骰子散了一地。",in:"(她把骰子塞進你手裡。)",mid:"(玩到第三輪,局勢開始緊張。她盯著手上的牌,眉頭皺得緊緊的。)",out:"(一個半小時過去,茶几上的點數紙寫得滿滿的。)",memo:"和{名}在客廳玩了一個半小時的桌遊。",
+    C:[["「先說好,輸的人洗碗。」","開玩笑",2],["(認真聽她解釋規則。)","陪著",3],["「我會讓妳。……開玩笑的,我很強。」","開玩笑",2]],
+    C2:[["「妳的表情,已經把牌出賣了。」","開玩笑",3],["(故意出了一張爛牌。)","陪著",2]],
+    s:{ys:["代表來得剛好!缺一個人~規則很簡單喔。","laugh"],tr:["……這個遊戲,我沒輸過。要挑戰的話,坐。","serious"],hy:["代表!這是日本的桌遊!我教你!","laugh"],he:["今天玩這個~輸的人明天要做早餐喔!","wink"],hr:["代表!我今天手氣超好!一定贏!","laugh"]},
+    m:{ys:["我是隊長,不能輸……可是好難喔!","pout"],tr:["……下一張決定勝負。不要看我的手。","serious"],hy:["這張牌……代表,不要看我的臉!","shy"],he:["哎唷,怎麼辦,我好像要輸了~","pout"],hr:["為什麼!為什麼又是我!骰子是不是壞了!","angry"]},
+    e:{ys:["今天是代表贏……好啦,下次我一定贏回來!","laugh"],tr:["……平手。下次分勝負。","smile"],hy:["我贏了!すごい!……啊,代表是不是讓我?","surprise"],he:["我輸了……好啦,明天早餐我做。本來就是我做嘛!","laugh"],hr:["我輸了啦!哎咕!碗我洗!……但是明天再比一次!","laugh"]}},
+  game:{sc:"客廳的電視連著遊戲機,兩支手把放在沙發上。螢幕停在選角色的畫面。",in:"(她把一支手把丟給你,眼睛還盯著螢幕。)",mid:"(最後一局,兩邊都只剩一點血。她整個人往前傾,手把按得喀喀響。)",out:"(一個小時過去,遊戲機的風扇呼呼地轉,兩個人都笑到沒力氣。)",memo:"和{名}在客廳打了一個小時的電動。",
+    C:[["「我很久沒玩了,手下留情。」","陪著",2],["「輸的人請宵夜。」","開玩笑",3],["(默默選了最強的角色。)","開玩笑",2]],
+    C2:[["(最後一刻放水,讓她贏。)","陪著",2],["(全力出手,一點都不讓。)","嚴厲",3]],
+    s:{ys:["代表,陪我玩一局?我最近練很久喔~","wink"],tr:["……一局。輸的人幫對方買泡麵。","neutral"],hy:["代表!這個遊戲我在大阪玩過!很強喔!","laugh"],he:["來來來,今天我要報仇!上次輸給河嵐太不甘心了!","laugh"],hr:["代表!來單挑!我是宿舍第一名!","laugh"]},
+    m:{ys:["不行不行,我是隊長,不能在這裡輸!","laugh"],tr:["……這一招,我練了一個月。看好。","serious"],hy:["啊啊啊,快一點、快一點!代表不要過來!","laugh"],he:["哎唷!你怎麼這麼厲害!騙人!","pout"],hr:["最後一擊!交給我——!","laugh"]},
+    e:{ys:["好久沒玩得這麼開心了~代表,再一局就好!","laugh"],tr:["……還不錯。下次,再挑戰你。","smile"],hy:["好喜歡~跟代表玩,比一個人玩好玩一百倍!","laugh"],he:["明天還要再比!今天不算!","laugh"],hr:["呼——好爽!代表,你有資格當我的對手了!","laugh"]}},
+  chores:{sc:{living:"週日上午,客廳的窗戶全打開了。地上堆著要洗的抱枕套,吸塵器的線拖得長長的。",kitchen:"週日上午的廚房,流理台上的東西全搬了下來,冰箱門開著在退冰。"},in:"(她把一副橡膠手套遞給你。)",mid:"(洗衣機轉了兩輪。她從沙發底下掏出一堆不知道是誰的東西,一件一件攤在地上。)",out:"(一個半小時後,陽光照進乾淨的宿舍,陽台上掛滿了晾著的衣服。)",memo:"週日上午和{名}大掃除,從沙發底下找出一堆東西。",
+    C:[["(捲起袖子,先把最重的搬走。)","出手幫忙",3],["「分工吧。妳擦,我拖地。」","陪著",2],["「打掃完,我請吃炸雞。」","鼓勵",2]],
+    C2:[["「這隻襪子是誰的?」","開玩笑",3],["(安靜地幫她分類,一人一堆。)","陪著",2]],
+    s:{ys:["週日大掃除!代表也要幫忙喔,這是宿舍的規定~","laugh"],tr:["……我負責洗衣服。你不要把我的黑衣服跟白衣服放一起。","serious"],hy:["代表,日本人打掃很認真的!今天要閃閃發亮!","laugh"],he:["哎唷,冰箱裡有東西放到過期了……誰的!","angry"],hr:["代表!我負責吸塵器!這個聲音超大,超爽!","laugh"]},
+    m:{ys:["河嵐的髮夾、泰梨的耳機、還有……我的兔子?","surprise"],tr:["……這是我的筆。找了一個禮拜。……謝了。","smile"],hy:["這是……我的圍巾!原來在這裡!好喜歡~","laugh"],he:["欸欸,這是我小時候的照片……怎麼會在沙發底下!","shy"],hr:["哇!一千韓元!這是我的!……應該是我的!","laugh"]},
+    e:{ys:["乾淨的宿舍,心情也變好了~代表辛苦了!","smile"],tr:["……衣服都晾好了。……你摺衣服,比我想的還整齊。","smile"],hy:["閃閃發亮!代表,我們是最強的打掃組合!","laugh"],he:["打掃完要吃好吃的!……代表,炸雞要不要?","wink"],hr:["呼——累死了!可是好乾淨!我要躺在地上!","laugh"]}}});
+/* 全員版的內建版本(1.1 第 3 輪) */
+const ALLFB={};
+/* 1.1 第 3 輪:全員版內建 4 種(五人都在;選項用 to 指定影響誰) */
+Object.assign(ALLFB,{
+  movie:{sc:"週六晚上的客廳,五個人擠在一張沙發上,燈全關了,牆上是電影的片頭。茶几上的零食堆成一座小山。",memo:"週六晚上全員在客廳看電影,片尾名單跑完,沒有人起來。",
+    nodes:{start:{L:[["hr","我要坐中間!中間是最好的位子!","laugh"],["tr","……妳上次坐中間,一直講話。","neutral"],["ys","好了好了,今天的片是我挑的,大家不准抱怨~","smile"],["he","代表坐這裡!我幫你留位子了!","laugh"]],
+      C:[{t:"(坐到夏恩留的位子。)",s:"陪著",to:"he",g:2,next:"b",r:[["he","嘿嘿,這裡離零食最近喔。","wink"],["hr","不公平!夏恩歐尼偷留位子!","pout"]]},
+        {t:"(坐到地板上,把沙發讓給她們。)",s:"出手幫忙",to:"ys",g:2,next:"b",r:[["ys","代表……好紳士喔。那毯子分你一條。","shy"]]},
+        {t:"「我坐河嵐旁邊,負責讓她安靜。」",s:"開玩笑",to:"hr",g:2,next:"b",r:[["hr","我、我會安靜的啦!……大概!","laugh"],["tr","……謝謝你的犧牲。","smile"]]}]},
+      b:{L:[N("(電影演到最緊張的一幕。沙發上五個人同時往後縮。)"),["hy","啊……這裡,好可怕……","surprise"],["hr","我、我沒有怕!我是在伸懶腰!","surprise"],["tr","……河嵐。妳抓的是我的手。","neutral"]],
+      C:[{t:"(把爆米花遞給日和,讓她有東西抓。)",s:"安慰",to:"hy",g:3,next:"c",r:[["hy","ありがとう……代表好溫柔。","shy"]]},
+        {t:"「泰梨,妳也抓個抱枕吧。手在抖。」",s:"開玩笑",to:"tr",g:2,next:"c",r:[["tr","……沒有在抖。是冷氣。","pout"],["he","噗——泰梨也怕!","laugh"]]},
+        {t:"(小聲說:「快過去了,再兩分鐘。」)",s:"陪著",to:"ys",g:2,next:"c",r:[["ys","……代表怎麼知道?你偷看過結局?","pout"]]}]},
+      c:{L:[N("(片尾名單跑完,沒有人起來。毯子底下,五個人的肩膀靠在一起。)"),["ys","下週六也要電影之夜喔。這是隊長的命令~","smile"],["he","零食我來準備!這次準備兩倍!","laugh"],["hy","好喜歡~這樣的週六。","smile"]],C:[]}}},
+  boardgame:{sc:"客廳的茶几清空了,五個人圍成一圈坐在地毯上,中間攤著一盒新買的桌遊。",memo:"全員在客廳玩桌遊,河嵐連擲三次一點,最後早餐變成泡麵。",
+    nodes:{start:{L:[["he","今天玩這個!規則我看過了,很簡單~","laugh"],["hr","輸的人明天包辦早餐!誰都不准反悔!","laugh"],["tr","……我沒輸過。妳們確定?","serious"],["hy","代表!代表跟我一隊好不好?","smile"]],
+      C:[{t:"「我跟日和一隊。」",s:"陪著",to:"hy",g:3,next:"b",r:[["hy","やった!我們是最強的!","laugh"],["hr","欸——那我跟誰一隊!","pout"]]},
+        {t:"「我當裁判,大家公平比。」",s:"嚴厲",to:"ys",g:2,next:"b",r:[["ys","代表當裁判?那我要先賄賂裁判~","wink"]]},
+        {t:"「我跟泰梨一隊。打敗沒輸過的人太難了。」",s:"開玩笑",to:"tr",g:2,next:"b",r:[["tr","……聰明。坐我旁邊。","smile"]]}]},
+      b:{L:[N("(玩到第三輪,局勢一團亂。河嵐的骰子連續三次擲出一點。)"),["hr","為什麼!骰子絕對壞了!","angry"],["ys","哈哈哈,河嵐的運氣全部用在唱歌上了啦~","laugh"],["he","換我換我!……啊,我也是一點!","surprise"]],
+      C:[{t:"「河嵐,換我幫妳擲一次。」",s:"出手幫忙",to:"hr",g:3,next:"c",r:[["hr","代表!拜託了!濟州的命運交給你了!","laugh"],N("(你擲出了六點。客廳爆出一陣尖叫。)")]},
+        {t:"「規則說擲出一點可以再擲一次。……我剛剛編的。」",s:"開玩笑",to:"he",g:2,next:"c",r:[["he","代表偏心!……好啦,我也要再擲一次!","laugh"]]},
+        {t:"(偷偷在點數紙上,幫輸最多的人多畫一顆星。)",s:"陪著",to:"ys",g:2,next:"c",r:[["ys","……代表,我看到了喔。隊長也要一顆。","wink"]]}]},
+      c:{L:[N("(一個半小時後,點數紙上寫得密密麻麻。最後一名是誰,大家吵了十分鐘。)"),["tr","……第一名是我。照舊。","smile"],["hr","明天的早餐我做啦!……可是我只會煮泡麵!","laugh"],["ys","那就泡麵早餐~大家都要吃喔!","laugh"]],C:[]}}},
+  chores:{sc:"週日上午,宿舍的窗戶全打開了。客廳中間堆著抱枕套、毛毯和一籃要洗的衣服。",memo:"週日上午全員大掃除,從沙發底下找回了每個人遺失的東西。",
+    nodes:{start:{L:[["ys","週日大掃除開始!分工表我寫好了~","laugh"],N("(冰箱上貼著一張手寫的分工表。最下面寫著:「代表:哪裡需要就去哪裡」。)"),["hr","我負責吸塵器!這是我的專長!","laugh"],["tr","……我負責洗衣服。黑的白的分開。誰都不准碰。","serious"]],
+      C:[{t:"「我先幫夏恩整理冰箱。」",s:"出手幫忙",to:"he",g:3,next:"b",r:[["he","代表最懂我了~冰箱裡有好幾樣過期了,一起丟!","laugh"]]},
+        {t:"「我跟日和擦窗戶。」",s:"陪著",to:"hy",g:2,next:"b",r:[["hy","好!日本人擦窗戶很厲害的!閃閃發亮!","laugh"]]},
+        {t:"「藝瑟,分工表上沒有妳自己。」",s:"嚴厲",to:"ys",g:3,next:"b",r:[["ys","……欸?啊,我忘了寫自己。","surprise"],["he","藝瑟歐尼每次都這樣!","pout"]]}]},
+      b:{L:[N("(河嵐的吸塵器吸到一半,從沙發底下拖出一堆東西。五個人圍過來看。)"),["he","這是誰的襪子!只有一隻!","angry"],["hy","啊,我的圍巾!找了好久!","laugh"],["tr","……我的筆。一個禮拜了。","smile"]],
+      C:[{t:"「這隻襪子,我猜是河嵐的。」",s:"開玩笑",to:"hr",g:2,next:"c",r:[["hr","才不是!……好啦,是我的。","shy"]]},
+        {t:"(把找到的東西分好,放到每個人面前。)",s:"陪著",to:"ys",g:3,next:"c",r:[["ys","代表分得好整齊……比我的分工表還厲害。","laugh"]]}]},
+      c:{L:[N("(中午的陽光照進乾淨的客廳,陽台上晾滿了衣服,在風裡一起擺動。)"),["he","打掃完要吃好吃的!我煮泡菜鍋!","laugh"],["ys","大家辛苦了~這週也是乾乾淨淨的宿舍!","smile"]],C:[]}}},
+  cook:{sc:"宿舍廚房擠滿了人。夏恩站在瓦斯爐前指揮,其他人各自拿著一樣食材,不知道該放哪裡。",memo:"全員一起下廚,鹽放了兩次,但每一盤都被吃光了。",
+    nodes:{start:{L:[["he","好!今天全員一起煮!每個人負責一道!","laugh"],["hy","我做玉子燒!","smile"],["hr","我負責……試吃!","laugh"],["tr","……河嵐,試吃不是一道菜。","neutral"]],
+      C:[{t:"「我幫夏恩顧火。」",s:"出手幫忙",to:"he",g:3,next:"b",r:[["he","好!火候交給代表了~不准讓它焦掉喔!","wink"]]},
+        {t:"「河嵐跟我一起洗菜。試吃要先工作。」",s:"嚴厲",to:"hr",g:2,next:"b",r:[["hr","哎咕……好啦好啦!洗菜就洗菜!","pout"]]},
+        {t:"「藝瑟,妳坐下來,今天讓她們煮。」",s:"安慰",to:"ys",g:3,next:"b",r:[["ys","欸?可是我是隊長……好、好吧,我坐一下下就好。","shy"]]}]},
+      b:{L:[N("(廚房一團混亂:日和的玉子燒捲到第三層、泰梨在切蔥、河嵐偷吃了第一塊煎餅。)"),["tr","……鹽是誰放的。放了兩次。","serious"],["hr","不是我!……應該不是我!","surprise"],["he","沒關係沒關係,多加一點水就好~","laugh"]],
+      C:[{t:"「鹽是我放的。對不起。」",s:"陪著",to:"hr",g:2,next:"c",r:[["hr","代表!……你是在幫我頂罪嗎?好感動!","moved"]]},
+        {t:"「日和的玉子燒,完美。」",s:"鼓勵",to:"hy",g:3,next:"c",r:[["hy","真的嗎!好喜歡~這是奶奶教我的!","laugh"]]}]},
+      c:{L:[N("(一個半小時後,桌上擺滿了五個人的菜。味道有好有壞,但每一盤都被吃光了。)"),["ys","好好吃……今天是我吃過最好吃的一餐。","moved"],["he","下次也要全員一起煮!說好了!","laugh"]],C:[]}}}});
+/* sc 可以是字串,或依地點分的物件 */
+const scOf=(sc,room)=>sc&&typeof sc==="object"?(sc[room]||Object.values(sc)[0]):sc||"";
+function fallback(k,id,room){ const base={code:"fbact-"+k+"-"+id,type:"act",act:k,member:id,who:[id],cd:0};
+  if(EXC[k]) return {...base,...EXC[k],sc:scOf(EXC[k].sc,room)};
+  const G=GEN[k]; if(!G||!G.s[id]) return null; const m=byId(id), nx=G.m?"b":"c";
+  const nodes={start:{L:[N(G.in),[id,...G.s[id]]],C:G.C.map(([t,s,g])=>({t,s,to:id,g,next:nx}))},c:{L:[N(G.out),[id,...G.e[id]]],C:[]}};
+  if(G.m) nodes.b={L:[N(G.mid),[id,...G.m[id]]],C:(G.C2||[]).map(([t,s,g])=>({t,s,to:id,g,next:"c"}))};
+  if(G.m&&!G.C2?.length) delete nodes.c;   // 沒有第二個選擇點:中段就是結尾(例如挑衣服,結尾在挑完之後)
+  return {...base,sc:scOf(G.sc,room),memo:G.memo.replace("{名}",m.n),nodes} }
 /* 內容庫:她的版本、關係段落對、地點對(有寫的話),沒看過的版本優先 */
 function fromLib(k,id,room){ const band=DY.bandOf(stageOf(id)), st=stageOf(id);
   const L=snips().filter(sn=>sn.type==="act"&&sn.act===k&&(sn.member===id||sn.who?.[0]===id)&&(!sn.band||sn.band===band)&&(!sn.stage||rank(st)>=rank(sn.stage))&&(!sn.room||sn.room===room)&&dateOk(sn)&&sn.nodes?.start);
   if(!L.length) return null; const fresh=L.filter(sn=>S.seen[sn.code]==null); return fillVars(pickW(fresh.length?fresh:L)) }
 const SKM={舞蹈:"dance",唱功:"vocal",Rap:"rap",表情:"expr",韓語:"kor"};
-window.actPlay=(k,id,room)=>{ const a=DY.ACTS[k]; if(!a){ menu(); return } const sn=fromLib(k,id,room)||fallback(k,id);
-  if(!sn){ narr(`你和${byId(id).n}一起${a.menu}。`); finish(k,id,null); menu(); return }
-  play(sn,()=>{ finish(k,id,sn); menu() }) };
-function finish(k,id,sn){ const a=DY.ACTS[k], s=S.m[id], e=a.eff||"", got=[];
-  (S.actDone=S.actDone||{})[doneKey(k,id)]=1; for(const key of Object.keys(S.actDone)) if(+key.split("|")[0]<S.day-1) delete S.actDone[key];
-  if(e.includes("心情")){ s.mood=clamp(s.mood+8,0,100); got.push("心情 +8") }
-  if(e.includes("壓力下降")){ s.stress=clamp(s.stress-12,0,100); got.push("壓力 −12") }
-  for(const [n,sk] of Object.entries(SKM)) if(e.includes(n)&&S.skill?.[id]){ S.skill[id][sk]=Math.min(100,(S.skill[id][sk]||0)+.6); got.push(n+" ↑") }
-  if(e.includes("默契")) window.applyGain?.(id,{s:"陪著",g:1,to:id},()=>{});
-  got.forEach((t,i)=>setTimeout(()=>window.fx?.(id,t),i*350));
-  (S.actLog=S.actLog||[]).push({d:S.day,k,id,m:sn?.memo||`和${byId(id).n}一起${a.menu}。`}); if(S.actLog.length>300) S.actLog.splice(0,S.actLog.length-300);
-  const used=window.spendTime?.(a.min,"活動")||0; if(used) toast2(`「${a.n}」・花了 ${fmtMin(used)}`); save(true) }
+function fromLibAll(k,room){ const L=snips().filter(sn=>sn.type==="act"&&sn.act===k&&sn.member==="all"&&(!sn.room||sn.room===room)&&dateOk(sn)&&sn.nodes?.start);
+  if(!L.length) return null; const fresh=L.filter(sn=>S.seen[sn.code]==null); return fillVars(pickW(fresh.length?fresh:L)) }
+function allFallback(k,id,room){ const F=ALLFB[k]; if(!F) return null; const o=typeof F==="function"?F(id):F; return {code:"fbact-"+k+"-all",type:"act",act:k,member:"all",who:M.map(m=>m.id),cd:0,...o,sc:scOf(o.sc,room)} }
+/* ---------- 1.1 第 3 輪:活動自己的結果 ----------
+   review  看練習影片:這首主打的熟練度也加一點
+   starlog 拍 STARLOG:她把代表拍的照片發出去(照片 = 那個地點的背景+她那天的穿著+表情,顯示時才疊)
+   outfit  幫忙挑衣服:演完從她衣櫃這一季的外出服挑三套給你選,她明天出門就穿那套(不到兩套就只演劇情) */
+const SL_CAP={ys:{photo:"代表幫我拍的~攝影棚的燈一打,好像在拍畫報!",roof:"宿舍頂樓的夜景,今天特別漂亮。攝影師是代表喔~",river:"漢江的風好舒服。今天的攝影師:代表(偷偷)"},
+  tr:{photo:"……攝影棚。不是我自己拍的。",roof:"……頂樓。風很大。照片是別人拍的。",river:"……漢江。這張沒有在生氣。"},
+  hy:{photo:"攝影棚で一枚!代表拍的,好喜歡~",roof:"頂樓の夜景!首爾的燈,跟大阪一樣溫暖。",river:"漢江散歩~代表說我看起來像電影裡的人!"},
+  he:{photo:"今天不是公司拍的,是代表拍的~有沒有不一樣?",roof:"頂樓的晚上~拍照的人說,背景比我還漂亮。哼。",river:"漢江邊~吃飽飯散步,剛好有人幫我拍!"},
+  hr:{photo:"攝影棚!我在棚裡比耶了!代表拍的!",roof:"頂樓!!星星沒拍到,我拍到了!",river:"漢江!風超大!頭髮亂掉也很帥對吧!"}};
+const SL_CMT={ys:"好看!隊長第一個按讚~",tr:"……還行。",hy:"好喜歡~!",he:"哎唷,這張好有感覺!",hr:"我也要!代表下次拍我!"};
+const SL_E={ys:"smile",tr:"shy",hy:"laugh",he:"smile",hr:"laugh"};
+function postSnap(id,room){ const r=rng(seedOf(S.day,"snap"+id)), cap=SL_CAP[id]?.[room]||SL_CAP[id]?.photo||"";
+  const others=M.map(m=>m.id).filter(x=>x!==id).sort(()=>r()-.5).slice(0,2), d=dateOf(S.day), pad2=n=>String(n).padStart(2,"0");
+  window.phonePost?.({id,code:`snap-${S.day}-${id}`,lines:[[id,cap],...others.map(x=>[x,SL_CMT[x]])],
+    snap:{bg:seasonArt("bg",room,SLOTS[S.slot].light),id,of:outfitAt(id,room,S.slot)||null,e:SL_E[id]||"smile",x:[35,50,62][Math.floor(r()*3)],sx:50,d:`'${String(d.getFullYear()).slice(2)} ${pad2(d.getMonth()+1)} ${pad2(d.getDate())}`}});
+  setTimeout(()=>toast2(`${byId(id).n}在 STARLOG 發了代表拍的照片`),900) }
+function outfitPick(id,sn,done){ const m=byId(id), season=seasonOf(dateOf(S.day)), wear=S.wear?.m?.[id]?.外出, fb=String(sn?.code||"").startsWith("fbact-");
+  let L=wardrobe(id).filter(o=>o.occ==="日常・外出"&&(!o.seasons.length||o.seasons.includes(season))&&o.id!==wear);
+  if(L.length<2){ if(fb) react(id,null,done); else done(); return }
+  const r=rng(seedOf(S.day,"pick"+id)); L=L.map(o=>[r(),o]).sort((a,b)=>a[0]-b[0]).slice(0,3).map(x=>x[1]); L.forEach(o=>window.needDyn?.(o.id,id));
+  const el=document.createElement("div"); el.className="ofpick"; el.style.setProperty("--pm",m.c);
+  el.innerHTML=`<div class="ofp-in"><p class="ofp-t">幫${esc(m.n)}挑明天出門穿的</p><div class="ofp-row" style="--n:${L.length}">${L.map((o,i)=>`<button class="ofp-c" data-i="${i}"><span class="ofp-fig"><img src="${spr(id,o.id,"smile")}" alt=""></span><b>${esc(o.name||"")}</b></button>`).join("")}</div><button class="ofp-skip">讓她自己決定</button></div>`;
+  $("#visit").appendChild(el); window.__ofpick=el; if(!RM.matches) el.animate([{opacity:0},{opacity:1}],{duration:240,easing:"ease-out"});
+  let n=0; const tick=()=>{ if(!el.isConnected) return; el.querySelectorAll(".ofp-c img").forEach((im,i)=>{ const u=spr(id,L[i].id,"smile"); if(im.getAttribute("src")!==u) im.src=u }); if(++n<20) setTimeout(tick,200) }; setTimeout(tick,200);
+  const close=()=>{ window.__ofpick=null; el.classList.add("out"); setTimeout(()=>el.remove(),260) };
+  el.querySelectorAll(".ofp-c").forEach(b=>b.onclick=()=>{ const o=L[+b.dataset.i]; (S.wearPick=S.wearPick||{})[id]={day:S.day+1,of:o.id}; close(); react(id,o,done) });
+  el.querySelector(".ofp-skip").onclick=()=>{ close(); react(id,null,done) } }
+window.actPickBack=()=>{ const el=window.__ofpick; if(!el) return false; el.querySelector(".ofp-skip")?.click(); return true };
+function react(id,o,done){ const G=GEN.outfit; play({code:"fbact-outfit-pick-"+id,type:"act",member:id,who:[id],nodes:{start:{L:[N(o?`(她把「${o.name}」掛到衣架最前面,又在鏡子前比了一次。)`:G.out),[id,...G.e[id]]],C:[]}}},()=>{ if(o) toast2(`明天${byId(id).n}會穿「${o.name}」出門`); done() }) }
+const HOOK={review:{done:(id,sn,all)=>{ if(all) return; const g=window.choreoReview?.(id); if(g) setTimeout(()=>window.fx?.(id,`熟練度 +${g}`),1100) }},
+  starlog:{done:(id,sn,all,room)=>{ if(!all) postSnap(id,room) }},
+  outfit:{after:(id,sn,room,done)=>outfitPick(id,sn,done)}};
+window.actPlay=(k,id,room,all)=>{ const a=DY.ACTS[k]; if(!a){ menu(); return } const sn=all?(fromLibAll(k,room)||allFallback(k,id,room)):(fromLib(k,id,room)||fallback(k,id,room));
+  const end=()=>{ const h=HOOK[k]?.after; if(h&&!all) h(id,sn,room,()=>{ finish(k,id,sn,all); menu() }); else { finish(k,id,sn,all); menu() } };   // 有的活動演完還有一步(挑衣服)
+  if(!sn){ narr(all?`你和大家一起${a.n}。`:`你和${byId(id).n}一起${a.menu}。`); end(); return }
+  play(sn,end) };
+function finish(k,id,sn,all){ const a=DY.ACTS[k], e=a.eff||"", ids=all?M.map(m=>m.id):[id];
+  S.actDone=S.actDone||{}; S.actDone[doneKey(k,all?"all":id)]=1; for(const x of ids) S.actDone[doneKey(k,x)]=1;
+  for(const key of Object.keys(S.actDone)) if(+key.split("|")[0]<S.day-1) delete S.actDone[key];
+  ids.forEach((x,j)=>{ const s=S.m[x], got=[];
+    if(e.includes("心情")||all){ s.mood=clamp(s.mood+(all?5:8),0,100); got.push(`心情 +${all?5:8}`) }   // 全員版:大家一起玩,每個人心情都好一點
+    if(e.includes("壓力下降")){ s.stress=clamp(s.stress-(all?10:12),0,100); got.push(`壓力 −${all?10:12}`) }
+    for(const [n,sk] of Object.entries(SKM)) if(e.includes(n)&&S.skill?.[x]){ S.skill[x][sk]=Math.min(100,(S.skill[x][sk]||0)+.6); got.push(n+" ↑") }
+    if(e.includes("默契")) window.applyGain?.(x,{s:"陪著",g:1,to:x},()=>{});
+    if(all) got.splice(1);   // 全員版:每人只飄一個字,不然五個人一起飄太亂
+    got.forEach((t,i)=>setTimeout(()=>window.fx?.(x,t),(i+j)*300)) });
+  if(all) window.addBond?.(ids,1.5);   // 全員版:成員之間的默契也一起加
+  (S.actLog=S.actLog||[]).push({d:S.day,k,id,...(all?{all:1}:{}),m:sn?.memo||(all?`和大家一起${a.n}。`:`和${byId(id).n}一起${a.menu}。`)}); if(S.actLog.length>300) S.actLog.splice(0,S.actLog.length-300);
+  try{ HOOK[k]?.done?.(id,sn,all,S.where[id]) }catch(e){ window.logErr?.("活動結果",e) }   // 活動自己的結果(STARLOG 貼文、熟練度…)
+  const used=window.spendTime?.(a.min,"活動")||0; if(used) toast2(`「${all?"全員・":""}${a.n}」・花了 ${fmtMin(used)}`); save(true) }
 window.actWindows=windows;
 /* 從互動面板開始:她跟你一起過去(作息表的位置先蓋掉,到下一段才回作息) */
-window.actStart=(id,k)=>{ const it=window.actsFor(id).find(x=>x.k===k); if(!it){ toast2("現在不能做這件事了"); return } S.where[id]=it.room; if(S.doing) S.doing[id]=it.a.n; window.visitAct(it.room,id,k) };
+window.actStart=(id,k,all)=>{ const it=window.actsFor(id).find(x=>x.k===k&&!!x.all===!!all); if(!it){ toast2("現在不能做這件事了"); return }
+  if(all){ for(const m of M){ S.where[m.id]=it.room; if(S.doing) S.doing[m.id]=it.a.n } window.visitAct(it.room,id,k,1); return }
+  S.where[id]=it.room; if(S.doing) S.doing[id]=it.a.n; window.visitAct(it.room,id,k) };
 })();

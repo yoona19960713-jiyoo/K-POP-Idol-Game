@@ -17,7 +17,12 @@ const CH={insomnia:.35,snack:.3,roof:.25,msg:.45};
 const DOING={insomnia:"睡不著",snack:"偷吃宵夜",roof:"在頂樓吹風"};
 function plan(){ if(S.night?.day===S.day) return S.night; const r=rng(seedOf(S.day,"night")), used=new Set(), ev=[];
   const pick=w=>{ const ok=Object.fromEntries(Object.entries(w).filter(([id])=>!used.has(id))); const id=pickKey(ok,r); used.add(id); return id };
-  for(const k of ["roof","snack","insomnia"]) if(r()<CH[k]){ const id=pick(P[k]), room=k==="roof"?"roof":k==="snack"?(r()<.7?"kitchen":"store"):(r()<.6?"living":"kitchen");
+  /* 1.1 第 3 輪:有一段「記得你」要在頂樓、廚房、客廳、便利商店說的人,今晚比較會是她,地點也照那段 */
+  const RC_ROOMS={roof:["roof"],snack:["kitchen","store"],insomnia:["living","kitchen"]}, rcRoom={};
+  for(const m of M){ for(const sn of window.recallPending?.(m.id)||[]){ for(const [k,rs] of Object.entries(RC_ROOMS)) if(rs.includes(sn.room)&&!rcRoom[k+m.id]) rcRoom[k+m.id]=sn.room } }
+  for(const k of ["roof","snack","insomnia"]){ const boost=M.some(m=>rcRoom[k+m.id]); if(!(r()<(boost?Math.max(CH[k],.6):CH[k]))) continue;
+    const w=Object.fromEntries(Object.entries(P[k]).map(([id,v])=>[id,rcRoom[k+id]?v*6+3:v])), id=pick(w);
+    const room=rcRoom[k+id]||(k==="roof"?"roof":k==="snack"?(r()<.7?"kitchen":"store"):(r()<.6?"living":"kitchen"));
     ev.push({k,id,room,from:WIN[k][0],to:WIN[k][1],done:0}) }
   const msg=r()<CH.msg?{id:pick(P.msg),at:1410+Math.floor(r()*12)*10,sent:0}:null;
   return S.night={day:S.day,ev,msg} }

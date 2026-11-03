@@ -44,7 +44,7 @@ D.COST={casual:5,chat:[15,20,30],long:50,night:{insomnia:15,snack:20,roof:20,msg
 /* 36 種日常活動:who 專屬成員(null = 通用)、gate 門檻、rooms 地點、t 可以開始的時間(平日;sun 週日、sat 週六)、min 時長、first 1.0 第一批、later 要 1.1 的背景或狀態、eff 效果、allv 全員版目標 */
 const A=(n,menu,who,gate,rooms,t,min,o={})=>({n,menu,who,gate,rooms,t,min,...o});
 D.ACTS={
-  ys_fangirl:A("追星時間","一起看女團舞台","ys","戒備",["bed_ys","living"],"21~24;週日 14~24",60,{w:[[21,24],[14,24]],eff:"心情"}),
+  ys_fangirl:A("追星時間","一起追星","ys","戒備",["bed_ys","living"],"21~24;週日 14~24",60,{w:[[21,24],[14,24]],eff:"心情"}),
   ys_notebook:A("隊長筆記本","看她的隊長筆記本","ys","戒備",["living","office"],"22~24",60,{w:[[22,24]],first:1,eff:"默契"}),
   ys_drink:A("小酌談心","陪她喝一杯","ys","夥伴",["roof","living"],"週六 23~26",90,{w:[[23,26]],eff:"壓力下降"}),
   ys_care:A("反過來照顧她","照顧她","ys","信任",["bed_ys"],"她累倒或感冒時",60,{w:[[6,30]],later:1,eff:"心情"}),
@@ -58,13 +58,13 @@ D.ACTS={
   he_kitchen:A("夏恩的廚房","去廚房找她","he","戒備",["kitchen"],"06~07、18~19",60,{w:[[6,7],[18,19]],first:1,eff:"心情"}),
   he_market:A("變裝當普通人","變裝出門","he","信任",["market"],"週日 13~20",120,{w:[[13,20]],later:1,eff:"心情"}),
   he_skincare:A("保養之夜","保養之夜","he","心動",["bed_he"],"22~24",60,{w:[[22,24]],eff:"壓力下降"}),
-  he_call:A("打電話給家人","陪她打電話回家","he","夥伴",["bed_he","roof"],"21~23",60,{w:[[21,23]],eff:"心情"}),
+  he_call:A("打電話給家人","陪她打給家人","he","夥伴",["bed_he","roof"],"21~23",60,{w:[[21,23]],eff:"心情"}),
   hr_guitar:A("吉他自彈自唱","聽她彈吉他","hr","戒備",["bed_hr","vocal"],"19~24",60,{w:[[19,24]],first:1,eff:"唱功"}),
   hr_sports:A("打球流汗","一起打球","hr","戒備",["court"],"06:30~07:30;週日 14~18",90,{w:[[6.5,7.5],[14,18]],later:1,eff:"壓力下降"}),
   hr_karaoke:A("卡拉 OK 對決","卡拉 OK","hr","信任",["karaoke"],"週六 21~25;週日 14~22",120,{w:[[21,25],[14,22]],later:1,eff:"唱功"}),
   dance:A("一起練舞","陪她練舞",null,"戒備",["practice"],"19~21、06~07",120,{w:[[19,21],[6,7]],first:1,eff:"舞蹈",allv:3}),
   vocal:A("陪練唱","陪她練唱",null,"戒備",["studio","vocal"],"19~21",90,{w:[[19,21]],first:1,eff:"唱功",allv:2}),
-  review:A("看練習影片檢討","一起看練習影片",null,"戒備",["practice"],"18~19、21~22",60,{w:[[18,19],[21,22]],eff:"表情",allv:2}),
+  review:A("看練習影片檢討","看練習影片",null,"戒備",["practice"],"18~19、21~22",60,{w:[[18,19],[21,22]],eff:"表情",allv:2}),
   outfit:A("幫忙挑衣服","幫她挑衣服",null,"戒備",["styling"],"12~13、18~20",60,{w:[[12,13],[18,20]],eff:"心情",allv:1}),
   starlog:A("拍 STARLOG 照片","幫她拍照",null,"信任",["photo","roof","river"],"9~22",60,{w:[[9,22]],eff:"心情",allv:2}),
   cook:A("一起下廚","一起下廚",null,"戒備",["kitchen"],"18~20;週日 11~20",90,{w:[[18,20],[11,20]],eff:"心情",allv:3}),
@@ -117,15 +117,21 @@ D.SCHED={
     {at:1080,n:"晚餐",w:{all:{kitchen:2,living:1},he:{kitchen:3}}},
     {at:1140,n:"自主練習",w:{ys:{practice:2,living:1},tr:{studio:2,bedroom:1},hy:{practice:2,living:1},he:{kitchen:1,living:2,styling:1},hr:{vocal:2,studio:1,practice:1}},
       doing:{tr:"寫詞",he:"休息",hr:"練高音"}},
-    {at:1320,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,store:1,roof:1},hy:{living:1,bedroom:2},he:{living:2,kitchen:1},hr:{living:2,store:1,kitchen:1,roof:.6}},doing:{ys:"巡房前的休息"}},
+    {at:1320,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,store:1,roof:1},hy:{living:1,bedroom:2},he:{living:2,kitchen:1,bedroom:1},hr:{living:2,store:1,kitchen:1,roof:.6,bedroom:1}},doing:{ys:"巡房前的休息"}},   // 1.1 第 3 輪:夏恩(保養、打電話回家)、河嵐(彈吉他)也會待在自己房間
     {at:1440,n:"睡覺",w:{all:{bedroom:1}},doing:{tr:"還在寫詞"}}],
   sun:[
     {at:360,n:"補眠",w:{all:{bedroom:1}},doing:{he:"睡到自然醒"}},
     {at:630,n:"早午餐",w:{all:{kitchen:2,living:2}}},
     {at:720,n:"休假",w:{ys:{living:2,"外出:逛街":1,river:1,roof:.6},tr:{bedroom:2,store:1,"外出:唱片行":1},hy:{living:1,river:1,"外出:咖啡廳":1},he:{kitchen:1,living:1,"外出:逛街":2},hr:{living:1,river:2,store:1}}},
     {at:1080,n:"晚餐",w:{all:{kitchen:2,living:1}}},
-    {at:1140,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,studio:1},hy:{living:2,bedroom:1},he:{living:2,kitchen:1},hr:{living:2,store:1}}},
+    {at:1140,n:"宿舍時間",w:{ys:{living:2,bedroom:1},tr:{bedroom:2,studio:1},hy:{living:2,bedroom:1},he:{living:2,kitchen:1,bedroom:.8},hr:{living:2,store:1,bedroom:1}}},
     {at:1440,n:"睡覺",w:{all:{bedroom:1}},doing:{tr:"還在寫詞"}}]};
+/* 「邀她做…」打開時她說的話(1.1 第 3 輪;A 段 = 戒備・信任,B 段以上 = 夥伴以後) */
+D.ACT_ASK={ys:{A:["要一起做點什麼嗎?隊長今天有空喔~","smile"],B:["代表想做什麼?今天我全部奉陪~","laugh"]},
+  tr:{A:["……要做什麼。你選。","neutral"],B:["……今天聽你的。不要選太吵的。","smile"]},
+  hy:{A:["代表!今天要一起做什麼呢?","laugh"],B:["好喜歡跟代表一起做事~這次做什麼?","laugh"]},
+  he:{A:["要做什麼?先說好,我會很認真喔~","smile"],B:["哎唷,要約我嗎?好啊,去哪裡?","wink"]},
+  hr:{A:["要做什麼!我什麼都可以!","laugh"],B:["代表選!選好了我就衝!","laugh"]}};
 /* 互動面板打開時她說的第一句(第 3 輪;A 段 = 戒備・信任,B 段以上 = 夥伴以後) */
 D.GREET={
   ys:{A:[["代表好!要找我嗎?","smile"],["啊,代表。今天也辛苦了~","smile"],["代表?……是要說練習的事嗎?","neutral"]],

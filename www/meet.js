@@ -50,9 +50,36 @@ const IC={
   bag:'<path d="M5.5 8h13l-1 12.5h-11z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
   book:'<path d="M4 5.5c3-1.3 5.5-1.3 8 .5 2.5-1.8 5-1.8 8-.5v13c-3-1.3-5.5-1.3-8 .5-2.5-1.8-5-1.8-8-.5z"/><path d="M12 6v13"/>',
   pan:'<circle cx="10" cy="13" r="6"/><path d="M15.6 10.6L21 7"/><path d="M8 11.5c.8-.9 2-.9 2.8 0"/>',
-  walk:'<path d="M3 17c2.5-1.6 4.5-1.6 7 0s4.5 1.6 7 0 3-1.2 4-1"/><path d="M3 12c2.5-1.6 4.5-1.6 7 0s4.5 1.6 7 0 3-1.2 4-1"/><path d="M15 4.5l2.5 3"/>'};
+  walk:'<path d="M3 17c2.5-1.6 4.5-1.6 7 0s4.5 1.6 7 0 3-1.2 4-1"/><path d="M3 12c2.5-1.6 4.5-1.6 7 0s4.5 1.6 7 0 3-1.2 4-1"/><path d="M15 4.5l2.5 3"/>',
+  /* 1.1 第 3 輪:其餘 24 種活動的圖示 */
+  stick:'<path d="M12 3.4a4.1 4.1 0 0 1 4.1 4.1c0 2.3-1.9 3.7-4.1 3.7S7.9 9.8 7.9 7.5A4.1 4.1 0 0 1 12 3.4z"/><path d="M12 11.2v9.3M9.8 20.5h4.4"/><path d="M12 5.8l.6 1.2 1.3.2-.95.9.25 1.3-1.2-.65-1.2.65.25-1.3-.95-.9 1.3-.2z"/>',
+  glass:'<path d="M7.5 4h9l-1 6.4a3.55 3.55 0 0 1-7 0z"/><path d="M12 14v6M8.8 20h6.4M8 7.4h8"/>',
+  pen:'<path d="M15.4 4.4l4.2 4.2L9 19.2l-4.9.7.7-4.9z"/><path d="M13.3 6.5l4.2 4.2"/>',
+  ramen:'<path d="M3.8 11.5h16.4a8.2 8.2 0 0 1-16.4 0z"/><path d="M9 19.4v1.2M15 19.4v1.2"/><path d="M14.6 3.2l-2.6 7.4M18.6 4.4l-4 6.6"/><path d="M7 8.6c.9-.8 1.9-.8 2.8 0"/>',
+  lang:'<path d="M3.6 4.8h9.6a1.6 1.6 0 0 1 1.6 1.6v4.6a1.6 1.6 0 0 1-1.6 1.6H8.4l-3 2.4v-2.4H3.6A1.6 1.6 0 0 1 2 11V6.4a1.6 1.6 0 0 1 1.6-1.6z"/><path d="M17.6 9.4h2.8A1.6 1.6 0 0 1 22 11v4.6a1.6 1.6 0 0 1-1.6 1.6h-1.2v2.4l-3-2.4h-4.4a1.6 1.6 0 0 1-1.6-1.6v-1"/>',
+  okono:'<ellipse cx="9.6" cy="15.4" rx="6.8" ry="3.4"/><path d="M6.2 14.6c1.8.8 5.2.8 6.8 0"/><path d="M14.8 11.6l5.6-7.2M18.4 3.4l2.8 2.2"/>',
+  skin:'<rect x="6.6" y="9.2" width="7.6" height="11.4" rx="1.8"/><path d="M8.4 9.2V6.6h4v2.6M9.5 6.6V4h1.8v2.6"/><path d="M18.4 5.2l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z"/>',
+  call:'<path d="M6.6 3.6h2.9l1.5 3.9-2 1.3a10.6 10.6 0 0 0 6.2 6.2l1.3-2 3.9 1.5v2.9a2 2 0 0 1-2.2 2A16 16 0 0 1 4.6 5.8a2 2 0 0 1 2-2.2z"/>',
+  ball:'<circle cx="12" cy="12" r="8.2"/><path d="M3.8 12h16.4M12 3.8v16.4M6.3 6.2c3.1 3.1 3.1 8.5 0 11.6M17.7 6.2c-3.1 3.1-3.1 8.5 0 11.6"/>',
+  mic:'<rect x="9" y="3" width="6" height="10.6" rx="3"/><path d="M6 11.2a6 6 0 0 0 12 0M12 17.2v3.3M9 20.5h6"/>',
+  video:'<rect x="2.8" y="6" width="13.2" height="12" rx="2"/><path d="M16 10.6l5.2-3v8.8l-5.2-3z"/><path d="M8 9.6v4.8l3.6-2.4z"/>',
+  hanger:'<path d="M12 8.6V7.8c0-1.3 1.8-1.7 1.8-3a1.8 1.8 0 0 0-3.6 0"/><path d="M12 8.6l-8.3 6.3a1.2 1.2 0 0 0 .7 2.2h15.2a1.2 1.2 0 0 0 .7-2.2z"/>',
+  camera:'<path d="M4.5 8h3l1.5-2.5h6L16.5 8h3A1.5 1.5 0 0 1 21 9.5V18a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V9.5A1.5 1.5 0 0 1 4.5 8z"/><circle cx="12" cy="13.4" r="3.4"/>',
+  pot:'<path d="M4.6 10.2h14.8v6.4a3 3 0 0 1-3 3H7.6a3 3 0 0 1-3-3z"/><path d="M2.6 10.2h18.8M9.2 7h5.6M12 7V5.4"/>',
+  popcorn:'<rect x="3.6" y="10" width="16.8" height="10" rx="1.6"/><path d="M3.6 10l-.5-3.4 16.4-2.4.5 3.4"/><path d="M7.4 5.8l2 3.6M12 5.1l2 3.6M16.6 4.4l2 3.6"/><path d="M3.6 13.4h16.8"/>',
+  dice:'<rect x="4" y="4" width="16" height="16" rx="3.2"/><path d="M8.6 8.6h.01M15.4 8.6h.01M12 12h.01M8.6 15.4h.01M15.4 15.4h.01" stroke-width="2.6"/>',
+  pad:'<path d="M7.6 8h8.8a4.6 4.6 0 0 1 4.4 5.9l-1 3.2a2.3 2.3 0 0 1-4 .8L14.6 16H9.4l-1.2 1.9a2.3 2.3 0 0 1-4-.8l-1-3.2A4.6 4.6 0 0 1 7.6 8z"/><path d="M8 10.8v3.2M6.4 12.4h3.2"/><path d="M15.6 11.4h.01M17.6 13.4h.01" stroke-width="2.4"/>',
+  broom:'<path d="M15 3.4l-3 7.4"/><path d="M7.4 10.8h8.4l1.6 9.6H5.8z"/><path d="M9.6 14.6v5.8M13.2 14.6v5.8"/>',
+  cart:'<path d="M3 4.6h2.4l2.2 10.4h10.2l2-7.4H6.4"/><circle cx="9.4" cy="18.8" r="1.4"/><circle cx="16.4" cy="18.8" r="1.4"/>',
+  basket:'<path d="M4.4 10.6h15.2l-1.4 8.2a2 2 0 0 1-2 1.7H7.8a2 2 0 0 1-2-1.7z"/><path d="M8.2 10.6L11 4.6M15.8 10.6L13 4.6M2.8 10.6h18.4"/>',
+  care:'<path d="M10 14.3V5a2 2 0 0 1 4 0v9.3a3.6 3.6 0 1 1-4 0z"/><path d="M12 9v7.2"/>',
+  next:'<path d="M9.5 6l6 6-6 6"/>'};
 const ic=(k,cls="")=>`<i class="mt-ic${cls?" "+cls:""}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg></i>`;
-const ACT_IC={dance:"five",vocal:"note",hr_guitar:"note",tr_earphone:"note",drama:"tv",river:"walk",store:"bag",run:"run",roof:"star",ys_notebook:"book",he_kitchen:"pan",hy_ballet:"five"};
+const ACT_IC={dance:"five",vocal:"note",hr_guitar:"note",tr_earphone:"note",drama:"tv",river:"walk",store:"bag",run:"run",roof:"star",ys_notebook:"book",he_kitchen:"pan",hy_ballet:"five",
+  ys_fangirl:"stick",ys_drink:"glass",ys_care:"care",tr_rap:"pen",tr_ramen:"ramen",hy_lang:"lang",hy_okonomi:"okono",hy_drama:"tv",he_market:"basket",he_skincare:"skin",he_call:"call",
+  hr_sports:"ball",hr_karaoke:"mic",review:"video",outfit:"hanger",starlog:"camera",cook:"pot",movie:"popcorn",boardgame:"dice",game:"pad",chores:"broom",cafe:"casual",shopping:"bag",mart:"cart"};
+/* 全員版在選單上的字 */
+const ALL_MENU={movie:"大家看電影",boardgame:"大家玩桌遊",chores:"大家大掃除",cook:"大家一起下廚",drama:"大家一起追劇",game:"大家打電動",dance:"大家一起練舞",vocal:"大家一起練唱",review:"大家看練習影片",roof:"大家上頂樓",river:"大家去漢江",store:"大家去買宵夜",starlog:"拍團體照",cafe:"大家去咖啡廳",mart:"大家去超市",shopping:"大家去逛街"};
 const CA_N={drink:"遞飲料",notice:"注意到她的變化",scroll:"一起滑手機",five:"擊掌",pat:"摸頭"};
 const CA_SHORT={drink:"遞飲料",notice:"注意變化",scroll:"滑手機",five:"擊掌",pat:"摸頭"};
 const CA_SUB={drink:"順手遞一瓶",notice:"髮型、配件、心情",scroll:"她給你看手機",five:"練完、做得好的時候",pat:"夥伴以上"};
@@ -84,16 +111,29 @@ function optsHTML(id){ const greeted=S.greet?.[id]===S.day;
     <button class="mt-opt sub" data-mt="casual">${ic("casual")}<span><b>隨口互動</b><small>每次 5 分</small></span></button>
     ${(()=>{ const rc=window.recallReady?.(id,MT?.pid||S.where[id]); return `<button class="mt-opt${rc?" rc":""}" data-mt="talk">${ic("talk")}<span><b>聊天</b><small>${rc?"她有話想說":"15~30 分"}</small></span></button>` })()}
     ${(()=>{ const n=window.actsFor?.(id)?.length||0; return `<button class="mt-opt sub" data-mt="act" ${n?"":"disabled"}>${ic("act")}<span><b>邀她做…</b><small>${n?`${n} 個活動`:"現在沒有"}</small></span></button>` })()}</div>` }
-/* 邀她做…:現在能一起做的活動(最多 5 個)+返回 */
-function actHTML(id){ const L=(window.actsFor?.(id)||[]).slice(0,3);   // A55 上放得下的數量:三個活動+返回(她專屬的排前面)
-  return `<div class="mt-opts">${L.map(({k,a,room})=>`<button class="mt-opt act" data-act="${k}" aria-label="${esc(a.n)}">${ic(ACT_IC[k]||"act")}<span><b>${esc(a.menu)}</b><small>${fmtMin(a.min)}${room!==S.where[id]?`・去${esc(PL[room]?.n||"")}`:""}</small></span></button>`).join("")}
-    <button class="mt-opt back" data-mt="home">${ic("back")}<span><b>返回</b></span></button></div>` }
+/* 邀她做…(1.1 第 3 輪):一頁 4 個,她最想做的排前面(她專屬的、在她現在這裡的、她今天狀態適合的、好久沒做的);
+   返回和換頁在左邊(面板左下原本是「在哪裡・心情」那一列),也可以在右邊左右滑。她專屬的圖示是她的顏色,通用的是金色 */
+const PER=4;
+const fmtA=m=>{ const h=Math.floor(m/60), r=m%60; return h?`${h} 小時${r===30?"半":r?` ${r} 分`:""}`:`${r} 分` };
+const DOTS=()=>`<span class="mt-five">${M.map(m=>`<i style="--c:${m.c}"></i>`).join("")}</span>`;
+function actList(id){ if(MT?.acts&&MT.actsAt===S.min) return MT.acts; const L=window.actsFor?.(id)||[]; if(MT){ MT.acts=L; MT.actsAt=S.min } return L }   // 同一次畫面只算一次
+function actHTML(id){ const L=actList(id), pages=Math.max(1,Math.ceil(L.length/PER)); MT.pg=Math.max(0,Math.min(MT.pg||0,pages-1));
+  const P=L.slice(MT.pg*PER,MT.pg*PER+PER);
+  return `<div class="mt-opts acts">${P.map(it=>{ const {k,a,room}=it, pn=PL[room]?.n||"", go=it.all||room===S.where[id]||a.menu.includes(pn.replace(/邊$/,""))?"":`・<span class="nw">去${esc(pn)}</span>`;
+    const name=it.all?(ALL_MENU[k]||"大家一起"+a.n):a.menu, cls=it.all?" all":a.who?" own":" gen";
+    return `<button class="mt-opt act${cls}" data-act="${k}"${it.all?' data-all="1"':""} aria-label="${esc(name)}">${ic(ACT_IC[k]||"act")}<span><b>${esc(name)}</b><small>${fmtA(a.min)}${go}${it.all?DOTS():""}</small></span>${it.fresh&&a.who?'<em class="mt-new" title="還沒一起做過">✦</em>':""}</button>` }).join("")}</div>` }
+function actNav(id){ const n=Math.ceil(actList(id).length/PER), pg=MT.pg||0;
+  return `<button class="mt-nb" data-mt="home">${ic("back")}<span>返回</span></button>${n>1?`<span class="mt-dots" aria-label="第 ${pg+1} 頁,共 ${n} 頁">${Array.from({length:n},(_,i)=>`<i class="${i===pg?"on":""}"></i>`).join("")}</span><button class="mt-nb nx" data-pg="${(pg+1)%n}">${pg+1<n?"下一頁":"第一頁"}${ic("next")}</button>`:""}` }
+function actPage(d){ if(!MT||MT.mode!=="act") return; const n=Math.ceil(actList(MT.id).length/PER); if(n<2) return; MT.pg=((MT.pg||0)+d+n)%n; MT.dir=d; render() }
 function casualHTML(id){ return `<div class="mt-opts six">${Object.keys(CA_N).map(k=>{ const ok=gateOk(id,k); return `<button class="mt-opt sm" data-ca="${k}" ${ok?"":"disabled"} aria-label="${CA_N[k]}">${ic(k)}<span><b>${CA_SHORT[k]}</b>${ok?"":`<small>${CA_GATE[k]}以後</small>`}</span></button>` }).join("")}
     <button class="mt-opt sm back" data-mt="home">${ic("back")}<span><b>返回</b></span></button></div>` }
 function render(){ if(!MT) return; const {id,el}=MT, pan=el.querySelector(".mt-pan");
-  pan.classList.toggle("play",MT.mode==="play");
+  pan.classList.toggle("play",MT.mode==="play"); pan.classList.toggle("actm",MT.mode==="act");
   el.querySelector(".mt-right").innerHTML=MT.mode==="casual"?casualHTML(id):MT.mode==="act"?actHTML(id):MT.mode==="play"?"":optsHTML(id);
-  el.querySelectorAll("[data-act]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const k=b.dataset.act, pid=MT.pid; close(()=>window.actStart?.(id,k)) });
+  el.querySelector(".mt-actnav").innerHTML=MT.mode==="act"?actNav(id):"";
+  if(MT.mode==="act"&&MT.dir&&!RM.matches){ const g=el.querySelector(".mt-opts.acts"); g?.animate([{opacity:0,transform:`translateX(${MT.dir*6}%)`},{opacity:1,transform:"none"}],{duration:240,easing:"cubic-bezier(.2,.8,.25,1)"}) } MT.dir=0;
+  el.querySelectorAll("[data-act]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(Date.now()-(MT.swiped||0)<400) return; const k=b.dataset.act, all=!!b.dataset.all; close(()=>window.actStart?.(id,k,all)) });
+  el.querySelectorAll("[data-pg]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); actPage(1) });
   el.querySelectorAll("[data-mt]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); act(b.dataset.mt) });
   el.querySelectorAll("[data-ca]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); play(b.dataset.ca) }) }
 function say(line,expr,narr){ if(!MT) return; const t=MT.el.querySelector(".mt-line"); t.classList.toggle("narr",!!narr); t.classList.remove("in"); void t.offsetWidth;
@@ -105,9 +145,9 @@ function chip(t,cls=""){ const w=MT?.el.querySelector(".mt-chips"); if(!w) retur
   if(!RM.matches) c.animate([{opacity:0,translate:"0 40%"},{opacity:1,translate:"0 0"}],{duration:300,easing:"ease-out"}); setTimeout(()=>c.remove(),2600) }
 /* ---------- 動作 ---------- */
 function act(k){ if(!MT) return; const id=MT.id;
-  if(k==="home"){ MT.mode="home"; render(); return }
+  if(k==="home"){ const was=MT.mode; MT.mode="home"; if(was==="act"){ const [g,ge]=greet(id); say(g,ge) } render(); return }
   if(k==="casual"){ MT.mode="casual"; render(); return }
-  if(k==="act"){ MT.mode="act"; render(); return }
+  if(k==="act"){ MT.mode="act"; MT.pg=0; const q=DY.ACT_ASK?.[id]?.[bandNow(id)==="A"?"A":"B"]; if(q) say(q[0],q[1]); render(); return }
   if(k==="hello"){ play("hello"); return }
   if(k==="talk"){ const pid=MT.pid; close(()=>window.visitTalk?.(pid,id)); return } }
 function play(ca){ if(!MT) return; const id=MT.id, c=pickCasual(id,ca); if(!c){ toast2("這個還沒有內容"); return }
@@ -130,13 +170,17 @@ window.meetOpen=async(id,pid)=>{ if(MT||V||D||Date.now()-lastOpen<400) return; c
   el.innerHTML=`<div class="mt-veil"></div><div class="mt-por"><i data-u="${u}" style="background-image:url(&quot;${u}&quot;)"></i></div>
     <button class="mt-x" aria-label="返回">${ic("back")}<span>返回</span></button>
     <div class="mt-pan"><span class="mt-orn tl"></span><span class="mt-orn tr"></span><span class="mt-orn bl"></span><span class="mt-orn br"></span>
-      <div class="mt-left">${head(id)}<p class="mt-line">「${esc(g)}」</p><div class="mt-now"><span>${esc(nowLine(id))}</span><span class="mt-mood" style="--v:${S.m[id].mood}%">心情</span></div><div class="mt-chips"></div><span class="mt-next">▼</span></div>
+      <div class="mt-left">${head(id)}<p class="mt-line">「${esc(g)}」</p><div class="mt-now"><span>${esc(nowLine(id))}</span><span class="mt-mood" style="--v:${S.m[id].mood}%">心情</span></div><div class="mt-actnav"></div><div class="mt-chips"></div><span class="mt-next">▼</span></div>
       <div class="mt-right"></div></div>`;
   $("#stage").appendChild(el); $("#stage").classList.add("mt-on"); MT={id,pid,el,mode:"home",q:[]}; render();
   el.querySelector(".mt-veil").onclick=()=>MT?.mode==="play"?next():close();
   el.querySelector(".mt-x").onclick=e=>{ e.stopPropagation(); close() };
   el.querySelector(".mt-pan").onclick=()=>{ if(MT?.mode==="play") next() };
   el.querySelector(".mt-por").onclick=()=>{ if(MT?.mode==="play") next() };
+  { const rt=el.querySelector(".mt-right"); let x0=null, y0=0;   // 邀她做…:左右滑換頁
+    rt.addEventListener("pointerdown",e=>{ if(MT?.mode==="act"){ x0=e.clientX; y0=e.clientY } },{passive:true});
+    rt.addEventListener("pointerup",e=>{ if(x0==null) return; const dx=e.clientX-x0, dy=e.clientY-y0; x0=null; if(Math.abs(dx)>42&&Math.abs(dx)>Math.abs(dy)*1.4){ e.preventDefault(); MT.swiped=Date.now(); actPage(dx<0?1:-1) } });
+    rt.addEventListener("pointercancel",()=>{ x0=null }) }
   if(!RM.matches){ el.querySelector(".mt-veil").animate([{opacity:0},{opacity:1}],{duration:240,easing:"ease-out"});
     el.querySelector(".mt-por").animate([{opacity:0,translate:"-6% 0"},{opacity:1,translate:"0 0"}],{duration:380,easing:"cubic-bezier(.2,.8,.25,1)"});
     el.querySelector(".mt-pan").animate([{opacity:0,translate:"0 14%"},{opacity:1,translate:"0 0"}],{duration:320,delay:60,easing:"cubic-bezier(.2,.8,.25,1)",fill:"backwards"}) }
@@ -149,6 +193,6 @@ function close(after){ if(!MT) return; const el=MT.el; MT=null;
   el.querySelector(".mt-por").animate([{opacity:1},{opacity:0,translate:"-4% 0"}],{duration:200,fill:"forwards"});
   el.querySelector(".mt-pan").animate([{opacity:1},{opacity:0,translate:"0 8%"}],{duration:200,fill:"forwards"}).finished.then(done,done) }
 window.meetClose=close;
-window.meetBack=()=>{ if(!MT) return false; if(MT.mode==="casual"||MT.mode==="act"){ MT.mode="home"; render() } else if(MT.mode==="play") next(); else close(); return true };
+window.meetBack=()=>{ if(!MT) return false; if(MT.mode==="act"&&(MT.pg||0)>0){ actPage(-1) } else if(MT.mode==="casual"||MT.mode==="act"){ act("home") } else if(MT.mode==="play") next(); else close(); return true };
 window.meetIsOpen=()=>!!MT;
 })();

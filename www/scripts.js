@@ -555,7 +555,7 @@ function offer10(offer,L2){ const cnt={}, inc=k=>cnt[k]=(cnt[k]||0)+1;
     for(const nk of Object.keys(DY.NK)){ const tgt=TYPES.night.target, gap=tgt-(cnt[`n|${m.id}|${nk}|${b}`]||0);
       if(gap>0) offer(gap/tgt*1.2*bw,{type:"night",member:m.id,band:b,nk,pair:"",stage:"",period:b==="C"?"出道與上升期":"",count:Math.min(TYPES.night.batch,gap),hint:""}) }
     for(const [ak,a] of Object.entries(DY.ACTS)){ if(a.who||!DY.actBands(ak).includes(b)) continue; const tgt=TYPES.act.target, gap=tgt-(cnt[`a|${ak}|${m.id}|${b}`]||0);
-      if(gap>0) offer(gap/tgt*(a.first?1.4:a.later?.3:.6)*bw,{type:"act",act:ak,member:m.id,band:b,pair:"",stage:"",period:b==="C"?"出道與上升期":"練習生期",count:Math.min(TYPES.act.batch,gap),hint:""}) } }
+      if(gap>0) offer(gap/tgt*(a.first?1.4:a.later?.3:1.2)*bw,{type:"act",act:ak,member:m.id,band:b,pair:"",stage:"",period:b==="C"?"出道與上升期":"練習生期",count:Math.min(TYPES.act.batch,gap),hint:""}) } }
   /* 1.1 第 2 輪:季節與天氣。每人每季隨口互動 SEAS_T.c、深夜 SEAS_T.n;雨天、雪天各 WX_T。遊戲裡現在的季節(與下一季)優先 */
   const curS=typeof seasonOf==="function"&&typeof S!=="undefined"&&S?.day!=null?seasonOf(dateOf(S.day)):"", SS=["春","夏","秋","冬"], nxS=curS?SS[(SS.indexOf(curS)+1)%4]:"", NKS=Object.keys(DY.NK).filter(k=>k!=="msg");
   const BB=Object.keys(DY.BANDS).filter(x=>x!=="C"), casOf=b=>DY.CA_NOW.filter(ca=>bandTop(b)>=DY.rank(DY.CA[ca].gate));   // 季節天氣先做 A、B 段(輪流)
@@ -571,7 +571,7 @@ function offer10(offer,L2){ const cnt={}, inc=k=>cnt[k]=(cnt[k]||0)+1;
   for(const pr of OPAIRS) for(const [g,tgt] of Object.entries(DY.OVH_T)){ const gap=tgt-(cnt[`o|${pr}|${g}`]||0);   // 成員之間(1.1 第 1 輪)
     if(gap>0) offer(gap/tgt*1.1,{type:"overhear",pair:pr,member:pr.split("-")[0],grp:g,band:"",stage:"",period:"",count:Math.min(TYPES.overhear.batch,gap),hint:""}) }
   for(const [ak,a] of Object.entries(DY.ACTS)){ if(a.who||!a.allv) continue; const gap=a.allv-(cnt[`a|${ak}|all|`]||0);
-    if(gap>0) offer(gap/a.allv*(a.first?.9:a.later?.2:.4),{type:"act",act:ak,member:"all",band:"",pair:"all",stage:"",period:"練習生期",count:1,hint:""}) } }
+    if(gap>0) offer(gap/a.allv*(a.first?.9:a.later?.2:a.allv>=5?1:.5),{type:"act",act:ak,member:"all",band:"",pair:"all",stage:"",period:"練習生期",count:1,hint:""}) } }
 const SEAS_T={c:3,n:1}, WX_T={c:3,n:1};   // 1.1 第 2 輪:季節、天氣格的目標(每人)
 const taskLabel10=x=>x.type==="overhear"?`${TYPES.overhear.n}・${pairName(x.pair)}・${DY.OVH_GRP[x.grp]?.n||""}`:`${TYPES[x.type].n}・${kindName10(x)}・${x.member==="all"?"全員":mb(x.member)?.n||""}${x.band?"・"+x.band+" 段":""}${x.grp?"・"+DY.GRP[x.grp].n:""}${x.season?"・"+x.season:""}${x.wx?"・"+({rain:"雨天",snow:"雪天"}[x.wx]||x.wx):""}`;
 

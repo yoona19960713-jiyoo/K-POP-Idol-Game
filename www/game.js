@@ -387,6 +387,7 @@ function ensureWear(force){
     for(const [k,occ] of Object.entries(CAT)){let c=ward.filter(o=>o.occ===occ&&(!o.seasons.length||o.seasons.includes(season)));
       const last=S.lastWear?.[m.id]?.[k]; if(c.length>1) c=c.filter(o=>o.id!==last);
       w.m[m.id][k]=c.length?c[Math.floor(r()*c.length)].id:null}}
+  for(const [id,p] of Object.entries(S.wearPick||{})){ if(p.day===S.day&&w.m[id]&&ITEMS[p.of]&&!ITEMS[p.of].deleted) w.m[id].外出=p.of; if(p.day<S.day) delete S.wearPick[id] }   // 1.1 第 3 輪:代表幫她挑的那套
   if(S.wear&&S.wear.day!==S.day) S.lastWear=S.wear.m;
   S.wear=w}
 function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
@@ -431,8 +432,8 @@ function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxN
     if(wk!=="clear") delete w.river;
     const ok=Object.fromEntries(Object.entries(w).filter(([k])=>k.startsWith("外出")||PL[k==="bedroom"?"bed_"+m.id:k]?.open.includes(S.slot)));
     let w2=pickKey(Object.keys(ok).length?ok:{practice:1},r); if(w2==="bedroom") w2="bed_"+m.id; S.where[m.id]=w2; S.doing[m.id]=doingOf(b,m.id,w2,wd) }
-  window.lifeWhere?.(); window.nightWhere?.(); window.mileWhere?.(); window.ovhWhere?.(); S.whereKey=whereKey() }   // 成員之間(ovh.js)
-const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0)+"|"+(window.nightKey?.()||"");   // 深夜事件(night.js)開始、結束也換位置
+  window.lifeWhere?.(); window.nightWhere?.(); window.recallWhere?.(); window.mileWhere?.(); window.ovhWhere?.(); S.whereKey=whereKey() }   // 1.1 第 3 輪:紀念日的記得你(她在約好的地方等你)   // 成員之間(ovh.js)
+const whereKey=()=>blockAt().b.at+"|"+(window.lifeInvOn?.()?1:0)+"|"+(window.nightKey?.()||"")+"|"+(window.recallKey?.()||"");   // 深夜事件(night.js)開始、結束也換位置
 let FIG_FADE=false;
 
 const stageOf=id=>window.stageOfXp?stageOfXp(id):"戒備";
@@ -695,21 +696,24 @@ function vsubSet(add){ const el=$("#vsub"); if(!el) return; el.innerHTML=`${SLOT
   const v=el.querySelector(".vplus"); if(v&&!RM.matches) v.animate([{opacity:0,translate:"0 30%"},{opacity:1,translate:"0 0"}],{duration:420,easing:"ease-out"}) }
 /* 互動面板的「聊天」:進她在的房間,直接跟她聊(不演進場的小片段) */
 window.visitTalk=(pid,id)=>visit(pid,{talk:id});
-window.visitAct=(pid,id,k)=>visit(pid,{act:{id,k}});
+window.visitAct=(pid,id,k,all)=>visit(pid,{act:{id,k,all:!!all}});
 window.visitMile=(pid,k,who)=>visit(pid,{mile:{k,who}});   // 里程碑(mile.js):在那個地點演   // 日常活動(act.js):兩個人一起到活動的地點
 function visit(pid,o={}){
   const p=PL[pid]||(o.mile?{n:{backstage:"Showcase 場地"}[pid]||pid,open:[0,1,2,3,4],g:"外面"}:null); if(!p||(!o.mile&&!p.open.includes(S.slot))||V) return;
   const snap=JSON.stringify(S), first=!S.entered.includes(pid);
   if(first) S.entered.push(pid); save(true); setPause("visit",true);
-  const ppl=o.mile?o.mile.who:o.act?[o.act.id]:pid==="office"?[]:who(pid).map(m=>m.id);
-  V={pid,room:pid,present:ppl,talked:new Set(o.mile?o.mile.who:o.act?[o.act.id]:[]),summoned:null,snap,spent:0,act:o.act||null,mile:o.mile||null}; logLines=[]; setBack();
+  const ppl=o.mile?o.mile.who:o.act?(o.act.all?[o.act.id,...M.map(m=>m.id).filter(x=>x!==o.act.id)]:[o.act.id]):pid==="office"?[]:who(pid).map(m=>m.id);
+  V={pid,room:pid,present:ppl,talked:new Set(o.mile?o.mile.who:o.act?ppl:[]),summoned:null,snap,spent:0,act:o.act||null,mile:o.mile||null}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; vsubSet(0);
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
   if(o.mile){ window.milePlay?.(o.mile.k,pid); return }
-  if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid); return }
+  if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid,o.act.all); return }
   const ns=window.nightScene?.(pid,o.talk);   // 深夜:她睡不著、偷吃宵夜、在頂樓(night.js)
-  if(ns){ V.talked.add(ns.id); setBack(); play(ns.sn,()=>{ ns.done(); menu() }); return }
+  if(ns){ V.talked.add(ns.id); setBack();
+    const rc=window.recallTake?.(ns.id,pid);   // 1.1 第 3 輪:她剛好有一段要在這裡、這個時間說的「記得你」,就演那段(今晚的深夜事件也算過了)
+    if(rc){ S.lastTalk={id:ns.id,day:S.day}; window.missSeen?.(ns.id); play(rc,()=>{ ns.done(); menu() },"talk"); return }
+    play(ns.sn,()=>{ ns.done(); menu() }); return }
   if(!o.talk){ const oh=window.ovhScene?.(pid); if(oh){ oh.play(); return } }   // 成員之間:她們在聊天,先旁聽(ovh.js)
   if(o.talk&&ppl.includes(o.talk)){ narr(`你走到${byId(o.talk).n}身邊。`); talk(o.talk); return }
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
@@ -1139,6 +1143,7 @@ function titleReady(){
     ()=>window.stagePlayBack?.(),   // 舞台預覽(2026-11-01 第 4 包:以前返回鍵關不掉,反而會關掉底下的排舞模式)
     ()=>{ if(document.querySelector(".mvp,.mvv")&&window.closeMV){ closeMV(); return true } },   // 動態 MV
     ()=>window.meetBack?.(),   // 互動面板
+    ()=>window.actPickBack?.(),   // 1.1 第 3 輪:幫她挑衣服(返回 = 讓她自己決定)
     ()=>window.choreoBack?.(),   // 練習室:排舞模式、匯入編舞(2026-11-01)
     ()=>{const e=document.querySelector("#cgView"); if(e){e.click(); return true}},
     ()=>{const d=document.querySelector("#facDetail"); if(d&&!d.classList.contains("hide")){(d.querySelector("#dClose")||d).click(); d.classList.add("hide"); return true}},

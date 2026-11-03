@@ -100,9 +100,9 @@ function needDay(sn){ const nd=sn.need||{}, id=sn.member||sn.who?.[0];
   if(nd.act){ const e=(S.actLog||[]).find(x=>x.k===nd.act&&(!x.id||x.id===id)); return e?e.d:null }
   if(nd.anniv!=null){ const d=annivDay(nd.anniv); return d!=null&&S.day>=d?d:null }
   return null }
-function recallOk(sn,id,room){ if(sn.type!=="recall"||(sn.member||sn.who?.[0])!==id||RC().done[sn.code]!=null||!sn.nodes?.start) return false;
-  if(sn.room?sn.room!==room:(sn.at&&DYR().ROOM_AT?.[room]&&sn.at!==DYR().ROOM_AT[room])) return false;
-  const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; if(h?!(t>=+h[0]&&t<+h[1]):(sn.sl?.length&&!sn.sl.includes(S.slot))) return false;
+function recallOk(sn,id,room,any){ if(sn.type!=="recall"||(sn.member||sn.who?.[0])!==id||RC().done[sn.code]!=null||!sn.nodes?.start) return false;
+  if(!any){ if(sn.room?sn.room!==room:(sn.at&&DYR().ROOM_AT?.[room]&&sn.at!==DYR().ROOM_AT[room])) return false;
+    const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; if(h?!(t>=+h[0]&&t<+h[1]):(sn.sl?.length&&!sn.sl.includes(S.slot))) return false }
   if(sn.band&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
   if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
   const d0=needDay(sn); if(d0==null) return false; const w=Array.isArray(sn.wait)?sn.wait:[2,10], dd=S.day-d0; return dd>=+w[0]&&dd<=+w[1] }
@@ -111,6 +111,14 @@ window.recallReady=(id,room)=>{ try{ const r=RC(); if(!byId(id)||r.n>=2||r.ids.i
   const L=snips().filter(sn=>recallOk(sn,id,room)); if(!L.length) return null;
   const end=sn=>needDay(sn)+(Array.isArray(sn.wait)?+sn.wait[1]:10); L.sort((a,b)=>end(a)-end(b)); return L[0] }catch(e){ window.logErr?.("記得你",e); return null } };
 window.recallTake=(id,room)=>{ const sn=window.recallReady(id,room); if(!sn) return null; const r=RC(); r.done[sn.code]=S.day; r.n++; r.ids.push(id); return sn };
+/* 1.1 第 3 輪:
+   ① recallPending(id):今天已經「成立」的(天數、關係、日期都對),先不管房間和時間——深夜事件挑人時用(她有一段要在頂樓、廚房說的話,今晚就比較會是她)。
+   ② 紀念日(need.anniv)那幾天,到了寫好的時間,她會在那個房間等你(像約好的一樣,蓋過作息表),紀念日的話不會因為剛好不在那裡就錯過。 */
+window.recallPending=id=>{ try{ const r=RC(); if(r.ids.includes(id)||r.n>=2) return []; return snips().filter(sn=>recallOk(sn,id,"",true)) }catch(e){ return [] } };
+const hourIn=sn=>{ const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; return h?t>=+h[0]&&t<+h[1]:(!sn.sl?.length||sn.sl.includes(S.slot)) };
+function annivNow(){ const out=[]; for(const m of M){ const sn=window.recallPending(m.id).find(x=>x.need?.anniv!=null&&x.room&&PL[x.room]?.open.includes(S.slot)&&hourIn(x)&&!(x.room.startsWith("bed_")&&x.room!=="bed_"+m.id)); if(sn) out.push([m.id,sn]) } return out }
+window.recallWhere=()=>{ try{ for(const [id,sn] of annivNow()){ S.where[id]=sn.room; if(S.doing) S.doing[id]="等你" } }catch(e){ window.logErr?.("記得你・紀念日",e) } };
+window.recallKey=()=>{ try{ return annivNow().map(([id,sn])=>id+sn.code).join(",") }catch(e){ return "" } };
 window.recallDebug=()=>({flagAt:{...flagAt()},done:{...RC().done},today:{n:RC().n,ids:[...RC().ids]}});   // 測試用
 
 /* ---------- ⑥ 台詞帶動作 ---------- */
