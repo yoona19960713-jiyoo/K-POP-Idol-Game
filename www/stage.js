@@ -59,7 +59,9 @@ function fresh(){return {year:2016,idx:0,wins:0,log:[],uses:{},camCount:{},prev:
 let S; try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}
 if(!S||!S.m) S=fresh();
 const save=(bump=true)=>{if(bump){S.updatedAt=Date.now();schedulePush()} try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){window.logErr?.("stage",e)}};
-const TOTAL=24;
+let TOTAL=24;   /* 1.2 第 2 包:宣傳期 28 天裡實際有幾場(週二~週日)——發行日不是週二時,第 5 週的週二~週四也要打歌(以前固定 24,最後幾天手機寫打歌卻沒有場次) */
+const setTotal=()=>{ const P=window.promoInfo?.(); if(!P?.active){ TOTAL=24; return } const back=(dateOf(P.start).getDay()+5)%7;
+  for(let o=back+27;o>=0;o--){ const k=o%7; if(k<=5){ TOTAL=Math.floor(o/7)*6+k+1; return } } };
 const weekOf=i=>Math.floor(i/6)+1, showOf=i=>SHOWS[i%6];
 let seed=0; const rnd=()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648};
 
@@ -105,7 +107,7 @@ function rotOf(T){ const K=RKS(); if(!K||!T) return {list:[],mode:"show",out:[]}
   if(alb?.title===T.id){ const used=new Set(Object.values(K).flatMap(v=>[...(v.list||[]),...(v.out||[])])); for(const it of pool) if(!used.has(it.code)){ e.list.push(it.code); ch=true } }
   const n0=e.list.length; e.list=e.list.filter(c=>{ const it=typeof ITEMS!=="undefined"?ITEMS[c]:null; return it&&!it.deleted }); if(e.list.length!==n0) ch=true;
   if(ch) window.SONGS_API?.save?.(); return e }
-const rotN=e=>e.mode==="week"?Math.max(0,weekOf(S.idx)-1):(S.log||[]).length;
+const rotN=e=>e.mode==="week"?Math.max(0,weekOf(S.idx)-1):(S.log||[]).filter(x=>!x.cancel).length;
 function rotPick(T){ const e=T?rotOf(T):null; if(!e?.list.length) return null; const N=e.list.length, i=rotN(e)%N; return {code:e.list[i],i,N,e} }
 function rotLook(mid,T){ const p=rotPick(T); if(!p) return ""; const ok=c=>LOOKS.some(l=>l.id===c&&(l.g||l.own===mid));
   if(!ok(p.code)) return ""; if(hasSpr(p.code,mid)) return p.code;
@@ -171,10 +173,10 @@ function perform(){ syncSkill();
     if(DN.kp?.name){ const ld=DN.kp.lead, q=(DN.kpm||0)*.6+avgPr*.4-(dmiss.some(m=>m.id===ld)?25:0)+(rnd()*20-10)-(ld&&ld!=="all"&&p.rest[ld]?15:0);
       if(q>=65){ kpRes=1; social+=6 } else if(q<35){ kpRes=-1; social-=3 } } }
   // 一位計分
-  const decay=[0,.92,1,.9,.78][wk];
+  const decay=[0,.92,1,.9,.78,.72][Math.min(5,wk)];
   const us={digital:SONG.score*decay,sales:70,views:Math.min(100,views/3.4),social:Math.min(100,social*.95),stage};
   const RV=rivalOf(i,S.promoStart), pw=RV.pw||1;
-  const rv={digital:Math.min(100,(79+rnd()*12)*([0,1,.96,.88,.78][wk])*pw),sales:Math.min(100,82*pw),views:Math.min(100,(58+rnd()*24)*pw),social:Math.min(100,(52+rnd()*28)*pw),stage:Math.min(100,(70+rnd()*14)*pw)};
+  const rv={digital:Math.min(100,(79+rnd()*12)*([0,1,.96,.88,.78,.74][Math.min(5,wk)])*pw),sales:Math.min(100,82*pw),views:Math.min(100,(58+rnd()*24)*pw),social:Math.min(100,(52+rnd()*28)*pw),stage:Math.min(100,(70+rnd()*14)*pw)};
   const pts=o=>Math.round(Object.entries(sh.w).reduce((x,[k,w])=>x+o[k]*w,0)*100);
   const up=pts(us), rp=pts(rv), win=up>rp;
   // 劇情片段(內容庫的樣子)
@@ -225,6 +227,8 @@ function applyResult(r){
   seed=(r.i+3)*104729; for(const m of M){const st=S.m[m.id]; st.stamina=Math.min(100,st.stamina+6); st.throat=Math.min(100,st.throat+5);
     if(!st.cond&&st.stamina<45&&rnd()<.25) st.cond="sick"; if(!st.cond&&r.i%6>=3&&p.ver!=="orig"&&rnd()<.08) st.cond="hurt";}
   S.log.push({i:r.i,win:r.win,grade:r.grade}); S.prev=JSON.parse(JSON.stringify(p)); S.prev.rest={}; S.plan=null; S.idx++; S.last=r; save();
+  /* 1.2 第 2 包:失誤的人(破音優先,其次跳錯;一場只算一個)→ 可以去安慰她(promo.js) */
+  if(window.promoInfo?.()?.active&&S.promoStart!=null){ const cm=r.mistakes?.[0], dm=r.dmiss?.[0]; if(cm||dm) window.promoSetDown?.((cm||dm).id,cm?"crack":"slip",{show:r.sh?.n,auto:!!r.auto,day:dayOfIdx(r.i)}) }
 }
 
 
@@ -288,20 +292,28 @@ window.STAGE_SHOWS=SHOWS.map(s=>s.n);
 let TODAY={state:"test"};
 window.stageNewPromo=P=>{ const y=dateOf(P.start).getFullYear(); S=fresh(); S.year=Math.min(2022,Math.max(2016,y)); S.promoStart=P.start; S.updatedAt=Date.now(); save() };
 /* 沒去電視台的打歌:用上一場的準備單自動上台,不扣分 */
-window.stageCatchUp=(n,first)=>{ loadLinked(); if(S.idx<first) S.idx=first; let k=0;
-  while(S.idx<n&&S.idx<TOTAL){ ensurePlan(); const r=perform(); r.auto=true; applyResult(r); k++ }
-  if(k) save(); return k };
-function checkToday(){ const T=window.promoToday?.();
+/* 1.2 第 2 包:第 i 場是哪一天;那天是連假(春節)就停播(節日特輯),跳過不算場次 */
+const dayOfIdx=i=>{ const P=window.promoInfo?.(); if(!P) return null; const back=(dateOf(P.start).getDay()+5)%7; return P.start-back+Math.floor(i/6)*7+(i%6) };
+const holIdx=i=>{ const d=dayOfIdx(i); return d!=null&&!!window.mileHoliday?.(d) };
+const played=()=>(S.log||[]).filter(x=>!x.cancel).length;
+const planned=()=>{ const P=window.promoInfo?.(); if(!P||TODAY.state==="test") return TOTAL; const f=promoFirstIdx(P); let n=0; for(let i=f;i<TOTAL;i++) if(!holIdx(i)) n++; return n };
+window.stageCatchUp=(n,first)=>{ loadLinked(); setTotal(); if(S.idx<first) S.idx=first; let k=0, c=0;
+  while(S.idx<n&&S.idx<TOTAL){ if(holIdx(S.idx)){ S.log.push({i:S.idx,cancel:1}); S.idx++; c++; continue } ensurePlan(); const r=perform(); r.auto=true; applyResult(r); k++ }
+  if(k||c) save(); return k };
+function checkToday(){ const T=window.promoToday?.(); setTotal();
   if(!T){ TODAY={state:"test"}; return }
   if(S.promoStart!==T.P.start) stageNewPromo(T.P);
   if(T.idx==null){ TODAY={state:"none",T}; return }
   stageCatchUp(T.idx,promoFirstIdx(T.P));
+  const gd=window.gameState?.().day; if(gd!=null&&window.mileHoliday?.(gd)){ TODAY={state:"holiday",T,hol:window.mileHolidayOf?.(gd)}; return }   // 待機室自己的 S 沒有日期,用遊戲的   // 1.2 第 2 包:春節停播
   TODAY={state:S.idx>T.idx?"done":"ready",T} }
+window.stageDoneToday=()=>{ try{ loadLinked(); checkToday(); return TODAY.state==="done" }catch(e){ return false } };
+window.stageMoodAdd=(id,n)=>{ if(S.m?.[id]){ S.m[id].mood=Math.max(0,Math.min(100,S.m[id].mood+n)); save() } };   // 1.2 第 2 包:安慰之後(promo.js)
 const optB=(group,key,o,on,dis)=>`<button class="topt${on?" on":""}" data-g="${group}" data-k="${key}" ${dis?"disabled":""}>${o.n}${o.s?`<small>${o.s}</small>`:""}</button>`;
 const syncSkill=()=>{ const k=window.gameSkill?.(); if(!k) return; for(const m of M){ const s=k[m.id]; if(!s) continue; for(const f of ["vocal","dance","rap","expr","kor"]) if(m[f]!=null&&s[f]!=null) m[f]=Math.round(s[f]) } };
 function render(){ if(!OPEN) return; syncSkill();
   const done=S.idx>=TOTAL, wk=weekOf(Math.min(S.idx,TOTAL-1)), sh=showOf(Math.min(S.idx,TOTAL-1)), base=(wk-1)*6;
-  $("#tvOnair").innerHTML=done?`<b>宣傳期結束</b><span>四週共拿下 ${S.wins} 個一位</span>`:`<i class="lamp"></i><b>${sh.n}</b><span>〈${esc(SONG.name)}〉第 ${wk} 週・${sh.d}・第 ${S.idx+1}/${TOTAL} 場${+S.year===2020||+S.year===2021?"・無觀眾錄影":""}</span>`;
+  $("#tvOnair").innerHTML=done?`<b>宣傳期結束</b><span>四週共拿下 ${S.wins} 個一位</span>`:`<i class="lamp"></i><b>${sh.n}</b><span>〈${esc(SONG.name)}〉第 ${wk} 週・${sh.d}・第 ${played()+1}/${planned()} 場${+S.year===2020||+S.year===2021?"・無觀眾錄影":""}</span>`;
   let prep="";
   if(!done){ ensurePlan(); const p=S.plan;
     prep=`<div class="cue"><div class="cuehead"><h3>打歌準備單</h3><button class="tbtn" id="tvReuse" ${S.prev?"":"disabled"}>沿用上一場</button></div>
@@ -317,14 +329,14 @@ function render(){ if(!OPEN) return; syncSkill();
       <h4>收音方式</h4><div class="topts">${Object.entries(MICS).map(([k,o])=>optB("mic",k,o,p.mic===k)).join("")}</div>
       <h4>主推直拍</h4><div class="topts">${M.map(m=>optB("cam",m.id,{n:m.n,s:`已主推 ${S.camCount[m.id]||0} 次${m.id===SONG.killer?"・killing part":""}`},p.cam===m.id,!!p.rest[m.id])).join("")}</div>
       ${+S.year>=2017?`<h4>Ending 鏡頭</h4><div class="topts">${M.map(m=>optB("end",m.id,{n:m.n,s:m.id===SONG.center?"副歌 C 位":""},p.end===m.id,!!p.rest[m.id])).join("")}</div>`:""}
-      <div class="golive">${TODAY.state==="none"?`<span class="tvwait">今天(週一)沒有打歌,好好休息</span>`:TODAY.state==="done"?`<span class="tvwait">今天的打歌已經結束了,明天見</span>`
+      <div class="golive">${TODAY.state==="holiday"?`<span class="tvwait">今天${esc(TODAY.hol?.n||"連假")},各台播節日特輯,打歌停播</span>`:TODAY.state==="none"?`<span class="tvwait">今天(週一)沒有打歌,好好休息</span>`:TODAY.state==="done"?`<span class="tvwait">今天的打歌已經結束了,明天見</span>`
         :`<button class="tbtn go" id="tvGo" ${!p.end&&+S.year>=2017?"disabled":""}>${!p.end&&+S.year>=2017?"先選 Ending 鏡頭":"確認上台"}</button>`}</div></div>`; }
-  const last=S.log[S.log.length-1];
+  const last=[...S.log].reverse().find(x=>!x.cancel);
   const ban=TODAY.state==="test"?`<div class="tvban">練習模式:${window.promoInfo?.()?"目前不在宣傳期,到企劃室決定回歸日":"出道前的模擬打歌"},結果不會影響正式宣傳期</div>`
     :`<div class="tvban live">宣傳期第 ${TODAY.T.week} 週・第 ${TODAY.T.dayN} 天${TODAY.T.show?`・今天是《${TODAY.T.show}》`:""}</div>`;
   $("#tvBody").innerHTML=ban+`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
-    <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${TOTAL} 場,拿下 ${S.wins} 個一位。${TODAY.state==="test"?"可以在右邊重新開始一輪模擬。":"下一次回歸日可以到 2F 企劃室決定。"}</p></div>`:prep}</div>
-    <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${S.log.length}/${TOTAL}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${rivalOf(Math.min(S.idx,TOTAL-1),S.promoStart).n}</b></div>
+    <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${played()} 場,拿下 ${S.wins} 個一位。${TODAY.state==="test"?"可以在右邊重新開始一輪模擬。":"下一次回歸日可以到 2F 企劃室決定。"}</p></div>`:prep}</div>
+    <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${played()}/${planned()}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${rivalOf(Math.min(S.idx,TOTAL-1),S.promoStart).n}</b></div>
       ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear">${[2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
       <div class="tvcard"><h4>成員狀態</h4>${M.map(m=>{const st=S.m[m.id],b=(n,v,c)=>`<span>${n}</span><span class="tbar"><i style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></i></span>`;
         return `<div class="tstat">${face(m.id)}<div><b style="color:${m.c}">${m.n}</b>${st.cond==="sick"?`<i class="tg w">感冒</i>`:st.cond==="hurt"?`<i class="tg n">舊傷</i>`:""}<div class="tbars">${b("體力",st.stamina,"#4FE0A0")}${b("喉嚨",st.throat,"#5CC8FF")}${b("心情",st.mood,"#FFC857")}${b("人氣",Math.min(100,st.pop),m.c)}</div></div></div>`}).join("")}</div>
@@ -354,7 +366,7 @@ function confirmSheet(){ ensurePlan(); const p=S.plan, T=songT(), rp=T?rotPick(T
   const rot=rp?rp.e.list.map((c,k)=>`<span class="${k===rp.i?"on":k<rp.i&&rp.e.mode!=="week"&&(S.log||[]).length<rp.N?"done":""}"><i>${k===rp.i?"●":k<rp.i&&(S.log||[]).length<rp.N?"✓":"○"}</i>${esc(lookName(c))}</span>`).join(""):"";
   const mem=M.map(m=>`<div class="${p.rest[m.id]?"rest":""}"><i style="--c:${m.c};background-image:url(${spr(m.id,null,"smile")})"></i><small>${m.n}</small><em>${p.rest[m.id]?"休息":esc(lookName(p.looks[m.id])!==main?lookName(p.looks[m.id]):"")}</em></div>`).join("");
   const sub={hl:hl?`約 ${Math.round(hl.dur/60)>=1?Math.floor(hl.dur/60)+" 分 "+Math.round(hl.dur%60)+" 秒":Math.round(hl.dur)+" 秒"}`:"",full:full?fmtT(full):"",result:""};
-  const el=sheetEl("cf",`<div class="tvx-top"><div class="tt"><small>BROADCAST ・ BACKSTAGE</small><b>上台前確認</b></div><span class="sp"></span><span class="lmp"><i></i>${esc(sh.n)}・${sh.d}・第 ${S.idx+1}/${TOTAL} 場</span><button class="tvx-bk" id="cfBack">‹ 回準備單</button></div>
+  const el=sheetEl("cf",`<div class="tvx-top"><div class="tt"><small>BROADCAST ・ BACKSTAGE</small><b>上台前確認</b></div><span class="sp"></span><span class="lmp"><i></i>${esc(sh.n)}・${sh.d}・第 ${played()+1}/${planned()} 場</span><button class="tvx-bk" id="cfBack">‹ 回準備單</button></div>
     <div class="tvx-body"><div><h4>今天的打歌服${rp?`<small>〈${esc(T.name)}〉輪流穿</small>`:""}</h4>
       <div class="tvx-look"><div class="nm"><b>${esc(main||"(還沒選)")}</b>${rp?`<em>第 ${rp.i+1} 套・共 ${rp.N} 套</em>`:""}</div>
         ${rp&&rp.N>1?`<p>${S.prev?.looks?`上一場穿${esc(lookName(Object.values(S.prev.looks)[0])||"")}。`:""}下一場輪到${esc(lookName(rp.e.list[(rp.i+1)%rp.N]))}。</p>`:""}
@@ -415,8 +427,10 @@ function showResult(r){ const el=$("#tvRes"), rows=[["digital","音源"],["sales
     <table><thead><tr><th>計分項目</th><th>比重</th><th>我們</th><th>${esc(r.rival?.n||RIVAL.n)}</th></tr></thead><tbody>
       ${rows.map(([k,n])=>`<tr><td>${n}</td><td>${Math.round(r.sh.w[k]*100)}%</td><td class="us">${Math.round(r.us[k])}</td><td>${Math.round(r.rv[k])}</td></tr>`).join("")}
       <tr class="tot"><td>總分</td><td></td><td class="us">${r.up.toLocaleString()}</td><td>${r.rp.toLocaleString()}</td></tr></tbody></table>
+    ${r.auto?"":window.promoDownCard?.()||""}
     <div class="golive"><button class="tbtn go" id="tvNext">${S.idx<TOTAL?"準備下一場":"看宣傳期總結"}</button></div></div>`;
-  el.classList.remove("hide"); $("#tvNext").onclick=()=>{el.classList.add("hide");render()} }
+  el.classList.remove("hide"); $("#tvNext").onclick=()=>{el.classList.add("hide");render()};
+  const cf=$("#tvComfort"); if(cf) cf.onclick=()=>{ el.classList.add("hide"); close(); setTimeout(()=>window.promoComfortNow?.(),260) } }
 
 /* 造型被改版取代、舊的刪掉時(wardrobe.js deleteLook),打歌準備單裡選的舊造型改成新版 */
 window.stageRemapLook=(o,n)=>{ let ch=0; for(const p of [S.plan,S.prev]) if(p?.looks) for(const k in p.looks) if(p.looks[k]===o){ p.looks[k]=n; ch++ }
@@ -424,5 +438,5 @@ window.stageRemapLook=(o,n)=>{ let ch=0; for(const p of [S.plan,S.prev]) if(p?.l
   const K=RKS(); let c2=0; if(K) for(const e of Object.values(K)) for(const f of ["list","out"]) (e[f]||[]).forEach((c,i)=>{ if(c===o){ e[f][i]=n; c2++ } });   // 1.2:每首歌的打歌服順序也換成新版
   if(c2){ for(const e of Object.values(K)){ e.list=[...new Set(e.list)]; e.out=[...new Set(e.out)] } window.SONGS_API?.save?.() }
   return ch+c2 };
-window.stagePlanLooks=()=>({...(S.plan?.looks||{})});   // 動態 MV:主打用打歌準備單選的造型
+window.stagePlanLooks=()=>({...(S.plan?.looks||S.prev?.looks||{})});   // 1.2 第 2 包:打歌結束後(簽售會)穿剛剛那場的   // 動態 MV:主打用打歌準備單選的造型
 })();

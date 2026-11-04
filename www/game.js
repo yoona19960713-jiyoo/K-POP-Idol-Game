@@ -80,6 +80,10 @@ const PLACES=[
   {id:"river",   g:"外面",   n:"漢江邊",   sp:"out",     open:[0,1,2,3,4]},
   /* 1.1 第 3 輪第 3 包:活動目的地(不上主地圖,邀她去時直接換背景;indoor = 室內,下雨不算淋雨) */
   {id:"cafe",    g:"外面",   n:"咖啡廳",   sp:"out",     open:[1,2,3],dest:1,indoor:1},
+  /* 1.2 第 2 包:宣傳期跟去的地點(不上主地圖;tvroom 用 backstage 的背景) */
+  {id:"fansign", g:"外面",   n:"簽售會場", sp:"out",     open:[0,1,2,3,4],dest:1,indoor:1},
+  {id:"radio",   g:"外面",   n:"廣播電台", sp:"out",     open:[0,1,2,3,4],dest:1,indoor:1},
+  {id:"tvroom",  g:"外面",   n:"電視台待機室",sp:"out",  open:[0,1,2,3,4],dest:1,indoor:1},
   {id:"market",  g:"外面",   n:"傳統市場", sp:"out",     open:[2,3],dest:1,indoor:1},
   {id:"street",  g:"外面",   n:"逛街的街道",sp:"out",     open:[2,3],dest:1},
   {id:"mart",    g:"外面",   n:"超市",     sp:"out",     open:[1,2,3],dest:1,indoor:1},
@@ -403,7 +407,8 @@ function ensureWear(force){
   for(const [id,p] of Object.entries(S.wearPick||{})){ if(p.day===S.day&&w.m[id]&&ITEMS[p.of]&&!ITEMS[p.of].deleted) w.m[id].外出=p.of; if(p.day<S.day) delete S.wearPick[id] }   // 1.1 第 3 輪:代表幫她挑的那套
   if(S.wear&&S.wear.day!==S.day) S.lastWear=S.wear.m;
   S.wear=w}
-function outfitAt(mid,room,slot){ensureWear(); const g=PL[room]?.g, wm=S.wear.m[mid]||{};
+function outfitAt(mid,room,slot){ensureWear(); const po=window.promoOutfit?.(mid,room); if(po!==undefined) return po;   /* 1.2 第 2 包 */
+  const g=PL[room]?.g, wm=S.wear.m[mid]||{};
   if(g==="公司大樓"||g==="製作中心"||room==="court") return wm.練習||null; /* 室內體育館打球也穿練習服 */ if(g==="宿舍") return ((slot===4||window.sickIs?.(mid))&&wm.睡衣)||wm.居家||null;   /* 生病那天整天穿睡衣 */ return wm.外出||null}
 const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 /* 以前處理的換衣立繪沒有「累」「驚訝」:用最接近的表情代替(不用重新處理) */
@@ -435,9 +440,9 @@ const seedOf=(...xs)=>xs.reduce((h,x)=>Math.imul(h^(typeof x==="string"?[...x].r
 function pickKey(w,r){const ks=Object.keys(w);let x=r()*ks.reduce((s,k)=>s+w[k],0);for(const k of ks){x-=w[k];if(x<=0)return k}return ks[ks.length-1]}
 /* 作息表(改版 1.0 第 3 輪):成員依時間在不同地方(DAILY.SCHED),同一段裡位置固定;每到下一段才換位置。
    邀約的時間點由 life.js 的 lifeWhere 蓋上去(她會在約好的地方等你) */
-function blockAt(min=S.min,day=S.day){ const B=dateOf(day).getDay()===0||window.mileHoliday?.(day)?DAILY.SCHED.sun:DAILY.SCHED.wk;   /* 中秋連假照週日 */ let b=B[0], nx=null;
+function blockAt(min=S.min,day=S.day){ const B=window.promoBlocks?.(day)||(dateOf(day).getDay()===0||window.mileHoliday?.(day)?DAILY.SCHED.sun:DAILY.SCHED.wk);   /* 1.2 第 2 包:宣傳期的作息(promo.js) */   /* 中秋連假照週日 */ let b=B[0], nx=null;
   for(let i=0;i<B.length;i++) if(min>=B[i].at){ b=B[i]; nx=B[i+1]||null } return {b,nx} }
-function doingOf(b,id,place,wd){ if(place?.startsWith("外出:")) return place.slice(3); const base=b.wdn?.[wd]||b.n;
+function doingOf(b,id,place,wd){ if(place?.startsWith("外出:")) return b.pdo||place.slice(3); const base=b.wdn?.[wd]||b.n;
   if(b.n==="自主練習"&&/^(living|kitchen|bed_)/.test(place||"")) return b.doing?.[id]==="寫詞"?"寫詞":"休息"; return b.doing?.[id]||base }
 function assign(){S.where={}; S.doing={}; const wk=typeof wxNow==="function"?wxNow():"clear", {b}=blockAt(), wd=dateOf(S.day).getDay();
   for(const m of M){ const src=(wk!=="clear"&&b.wet)||b.wd?.[wd]||b.w; let w={...(src[m.id]||src.all||b.w[m.id]||b.w.all||{practice:1})}; const r=rng(seedOf(S.day,b.at,m.id));
@@ -500,9 +505,10 @@ const L=()=>SLOTS[S.slot].light;
 /* 季節版場景:春 3–5 月、秋 9–11 月、冬 12–2 月有專屬圖,夏季與還沒有圖的時段用原圖 */
 const SEASON_ART={map:["dawn","day","evening","night"],river:["dawn","day","evening","night"],roof:["dawn","day","evening","night"],street:["day","evening"]};
 /* 1.1 第 3 輪:新地點只有部分時段的圖(卡拉 OK 包廂沒有窗戶,全天同一張) */
-const BG_LIGHT={karaoke:{dawn:"night",day:"night",evening:"night"},cafe:{dawn:"day",night:"evening"},market:{dawn:"day",night:"evening"},street:{dawn:"day",night:"evening"},mart:{dawn:"day",night:"evening"},court:{evening:"day",night:"day"}};
+const BG_ALIAS={tvroom:"backstage"};   // 1.2 第 2 包:電視台待機室借用 backstage 的四張
+const BG_LIGHT={fansign:{dawn:"day",night:"evening"},radio:{dawn:"day",evening:"night"},karaoke:{dawn:"night",day:"night",evening:"night"},cafe:{dawn:"day",night:"evening"},market:{dawn:"day",night:"evening"},street:{dawn:"day",night:"evening"},mart:{dawn:"day",night:"evening"},court:{evening:"day",night:"day"}};
 function seasonKey(){const m=dateOf(S.day).getMonth()+1;return m>=3&&m<=5?"spring":m>=9&&m<=11?"autumn":(m===12||m<=2)?"winter":""}
-function seasonArt(dir,name,light){if(dir==="bg") light=BG_LIGHT[name]?.[light]||light; const s=seasonKey();return `assets/${dir}/${name}_${light}${s&&(SEASON_ART[name]||[]).includes(light)?"_"+s:""}.webp`}
+function seasonArt(dir,name,light){if(dir==="bg"){ name=BG_ALIAS[name]||name; light=BG_LIGHT[name]?.[light]||light } const s=seasonKey();return `assets/${dir}/${name}_${light}${s&&(SEASON_ART[name]||[]).includes(light)?"_"+s:""}.webp`}
 window.seasonKey=seasonKey;
 /* 換圖:同一棟換時段時交叉淡入;換建築(instant)直接換,不會從上一棟的圖淡過去。淡入中再換圖會取消前一次 */
 const ART_T={};
@@ -713,17 +719,19 @@ function vsubSet(add){ const el=$("#vsub"); if(!el) return; el.innerHTML=`${SLOT
 /* 互動面板的「聊天」:進她在的房間,直接跟她聊(不演進場的小片段) */
 window.visitTalk=(pid,id)=>visit(pid,{talk:id});
 window.visitAct=(pid,id,k,all)=>visit(pid,{act:{id,k,all:!!all}});
-window.visitMile=(pid,k,who)=>visit(pid,{mile:{k,who}});   // 里程碑(mile.js):在那個地點演   // 日常活動(act.js):兩個人一起到活動的地點
+window.visitMile=(pid,k,who)=>visit(pid,{mile:{k,who}});
+window.visitScene=(pid,sc)=>visit(pid,{scene:sc});   // 1.2 第 2 包:宣傳期跟去(簽售會、廣播、待機室的安慰):指定背景、標題、在場的人與片段   // 里程碑(mile.js):在那個地點演   // 日常活動(act.js):兩個人一起到活動的地點
 function visit(pid,o={}){
-  const p=PL[pid]||(o.mile?{n:{backstage:"Showcase 場地"}[pid]||pid,open:[0,1,2,3,4],g:"外面"}:null); if(!p||(!o.mile&&!p.open.includes(S.slot))||V) return;
+  const p=(o.scene&&PL[pid])?{...PL[pid],n:o.scene.n||PL[pid].n}:PL[pid]||(o.mile||o.scene?{n:o.scene?.n||{backstage:"Showcase 場地"}[pid]||pid,open:[0,1,2,3,4],g:"外面"}:null); if(!p||(!o.mile&&!o.scene&&!p.open.includes(S.slot))||V) return;
   const snap=JSON.stringify(S), first=!S.entered.includes(pid);
   if(first) S.entered.push(pid); save(true); setPause("visit",true);
-  const ppl=o.mile?o.mile.who:o.act?(o.act.all?[o.act.id,...M.map(m=>m.id).filter(x=>x!==o.act.id)]:[o.act.id]):pid==="office"?[]:who(pid).map(m=>m.id);
-  V={pid,room:pid,present:ppl,talked:new Set(o.mile?o.mile.who:o.act?ppl:[]),summoned:null,snap,spent:0,act:o.act||null,mile:o.mile||null}; logLines=[]; setBack();
-  $("#vbg").style.backgroundImage=`url(${seasonArt("bg",pid,SLOTS[S.slot].light)})`;
-  $("#vtitle").textContent=p.n; vsubSet(0);
+  const ppl=o.scene?o.scene.who:o.mile?o.mile.who:o.act?(o.act.all?[o.act.id,...M.map(m=>m.id).filter(x=>x!==o.act.id)]:[o.act.id]):pid==="office"?[]:who(pid).map(m=>m.id);
+  V={pid,room:pid,present:ppl,talked:new Set(o.mile?o.mile.who:o.act||o.scene?ppl:[]),summoned:null,snap,spent:0,act:o.act||null,mile:o.mile||null,scene:o.scene||null}; logLines=[]; setBack();
+  $("#vbg").style.backgroundImage=`url(${o.scene?.bg||seasonArt("bg",pid,SLOTS[S.slot].light)})`;
+  $("#vtitle").textContent=p.n; vsubSet(0); if(o.scene?.sub) $("#vsub").textContent=o.scene.sub;
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
   if(o.mile){ window.milePlay?.(o.mile.k,pid); return }
+  if(o.scene){ play(o.scene.sn,()=>{ try{ o.scene.done?.() }catch(e){ window.logErr?.("宣傳期跟去",e) } menu() }); return }
   if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid,o.act.all); return }
   const ns=window.nightScene?.(pid,o.talk);   // 深夜:她睡不著、偷吃宵夜、在頂樓(night.js)
   if(ns){ V.talked.add(ns.id); setBack();
@@ -800,10 +808,11 @@ function demoSnip(id){const pool=LINES[id],[t,e]=pool[Math.floor(Math.random()*p
 function talk(id){V.talked.add(id); setBack(); const p=PL[V.pid]; S.lastTalk={id,day:S.day};
   const inv=window.lifeInviteScene?.(id,V.pid);   // 真人化:她約你來的,就演約會的片段
   const sk=inv?null:window.sickTalk?.(id,V.pid);   // 1.1 第 3 輪第 2 包:她生病那天的聊天(sick.js)
-  const rc=inv||sk?null:window.recallTake?.(id,V.pid);   // 1.1 第 2 輪:記得你(她有話想說,就先演這段)
-  const sn=inv||sk||rc||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
+  const pc=inv||sk?null:window.promoTalk?.(id,V.pid);   // 1.2 第 2 包:打歌失誤的那天,去安慰她(promo.js)
+  const rc=inv||sk||pc?null:window.recallTake?.(id,V.pid);   // 1.1 第 2 輪:記得你(她有話想說,就先演這段)
+  const sn=inv||sk||pc||rc||pickW(pool({sp:p.sp,room:V.pid,slot:S.slot,present:[...V.present,...(V.summoned?[V.summoned]:[])],types:TALK,member:id}))||demoSnip(id);
   if(sn.demoLine){const s=S.m[id];s.trust=clamp(s.trust+1,0,100);s.mood=clamp(s.mood+2,0,100);fx(id,"信任 +1")}
-  if(!inv&&!rc&&!sk) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
+  if(!inv&&!rc&&!sk&&!pc) window.__opener=window.lifeOpener?.(id,sn)||null;   // 真人化:近況、回憶、身體狀態、紀念日的第一句
   window.missSeen?.(id);   // 冷落的心情:有來找她了
   play(sn,()=>{ window.lifeAfterTalk?.(id); menu() },"talk")}
 function summon(id){V.summoned=id; V.talked.add(id); setBack(); drawPeople(); S.lastTalk={id,day:S.day};

@@ -138,17 +138,19 @@ const WEEK=[["日","休假日・上午補眠、下午放假","rest"],["一","上
 function sched(){ const d=dateOf(S.day);
   const lastSat=(()=>{const x=new Date(d.getFullYear(),d.getMonth()+1,0); while(x.getDay()!==6) x.setDate(x.getDate()-1); return x.getDate()})();
   const days=[...Array(7)].map((_,i)=>{const day=S.day+i, x=dateOf(day); const w=WEEK[x.getDay()]; const eva=window.isEvalDay?isEvalDay(x):(x.getDay()===6&&x.getDate()===lastSat);
-    const show=window.promoShowOn?.(day), deb=day===window.DEBUT_DAY, cb=S.comeback===day;
-    const txt=deb?"<em>出道日</em>・Showcase":cb?"<em>回歸日</em>・回歸 Showcase":show?`<em>打歌</em>・${show}`:eva?"<em>月評</em>・全天 月末評估":w[1];
-    return `<div class="pcal${i===0?" today":""}${w[2]==="rest"&&!show?" rest":""}${eva||show||deb||cb?" eva":""}"><b>${x.getMonth()+1}/${x.getDate()}<small>週${w[0]}</small></b><span>${txt}</span></div>`}).join("");
+    const show=window.promoShowOn?.(day), deb=day===window.DEBUT_DAY, cb=S.comeback===day, pw=window.promoWeekText?.(day);   // 1.2 第 2 包:宣傳期的簽售會、廣播、週一行程、春節停播
+    const txt=deb?"<em>出道日</em>・Showcase":cb?"<em>回歸日</em>・回歸 Showcase":pw?pw.html:show?`<em>打歌</em>・${show}`:eva?"<em>月評</em>・全天 月末評估":w[1];
+    return `<div class="pcal${i===0?" today":""}${w[2]==="rest"&&!show?" rest":""}${pw?.stop?" stop":""}${eva||show||deb||cb?" eva":""}"><b>${x.getMonth()+1}/${x.getDate()}<small>週${w[0]}</small></b><span>${txt}</span></div>`}).join("");
   const P=window.promoInfo?.(), dd=(window.DEBUT_DAY||0)-S.day;
   const notice=dd>0?`<b>出道企劃進行中・${debutText()}</b><p>${fmtGameDay(window.DEBUT_DAY)} 出道。歌曲在製作中心 3F 企劃室、造型在公司 1F 造型室準備,每月最後一個週六有月評。</p>`
-    :P?.active?`<b>${P.kind==="debut"?"出道":"回歸"}宣傳期進行中</b><p>〈${esc(P.title)}〉打歌到 ${fmtGameDay(P.end)}。沒去電視台的那天,會用上一場的準備單自動上台。</p>`
+    :P?.active?`<b>${P.kind==="debut"?"出道":"回歸"}宣傳期進行中</b><p>〈${esc(P.title)}〉打歌到 ${fmtGameDay(P.end)}。沒去電視台的那天,會用上一場的準備單自動上台。</p>${(()=>{ const h=[...Array(7)].map((_,i)=>S.day+i).filter(d=>window.promoHoliday?.(d)); if(!h.length) return ""; const o=window.mileHolidayOf?.(h[0]); return `<p><b>${esc(o?.n||"連假")} ${fmtGameDay(h[0]).slice(5)}~${fmtGameDay(h.at(-1)).slice(5)} 打歌停播</b>(各台播節日特輯)。${o?.stay?.length&&o.stay.length<5?`${M.filter(m=>!o.stay.includes(m.id)).map(m=>m.n).join("、")}回家過節,其他人在宿舍休息。`:""}</p>` })()}`
     :S.comeback!=null?`<b>回歸日 ${fmtGameDay(S.comeback)}</b><p>還有 ${S.comeback-S.day} 天,企劃室和造型室可以開始準備了。</p>`
     :`<b>空白期</b><p>到 2F 企劃室決定下一次的回歸日。</p>`;
   const fansLine=dd<=0&&window.fansText?`<p class="pfans">粉絲 ${fansText()}・一位 ${S.stats?.wins||0} 次${(S.stats?.awards||[]).flatMap(a=>a.got).length?`・獎項 ${(S.stats.awards||[]).flatMap(a=>a.got).length} 座`:""}</p>`:"";
   const {nx}=blockAt(), wd=dateOf(S.day).getDay();   // 作息表(改版 1.0):現在在哪、在做什麼;下一段幾點做什麼
-  return head("行程")+`<div class="pscroll"><h4>今天的成員動向 <small>現在 ${hm()}</small></h4>
+  const IT=window.promoItin?.();   // 1.2 第 2 包:宣傳期的今天的行程(跟去)
+  const itin=IT?`<h4>今天的行程 <small>${esc(IT.head)}</small></h4><div class="pit">${IT.rows.map(r=>`<div class="r ${r.st||""}"><span class="t">${r.t||""}</span><span class="d"></span><span class="x"><b>${esc(r.n)}</b><small>${r.sub||""}</small></span>${r.btn?`<button class="go${r.btn.off?" off":""}" ${r.btn.off?"disabled":`data-promo-go="${r.go}"`}>${esc(r.btn.t)}</button>`:"<span></span>"}</div>`).join("")}</div>`:"";
+  return head("行程")+`<div class="pscroll">${itin}<h4>今天的成員動向 <small>現在 ${hm()}</small></h4>
     <div class="pnow">${M.map(m=>`<div class="pnr">${face(m.id,"sm")}<span class="pn1"><b>${esc(m.n)}</b><em>${esc(placeName(S.where[m.id]))}・${esc(S.doing?.[m.id]||"")}</em></span><span class="pn2">${nx?`${hm(nx.at)} ${esc(window.sickIs?.(m.id)?"在房間休息":doingOf(nx,m.id,"",wd))}`:""}</span></div>`).join("")}</div>
     <h4>這一週</h4><div class="pweek">${days}</div>
     <h4>公司公告</h4><div class="pnote">${notice}${fansLine}</div></div>`}
@@ -204,6 +206,7 @@ function settings(){ const p=ph();
 
 function bind(B){
   B.querySelectorAll("[data-app]").forEach(b=>b.onclick=()=>{ const a=b.dataset.app; if(a==="group"){APP="chat";CHAT="group"} else APP=a; if(a==="album") window.cgAlbumOpen?.(); render() });
+  B.querySelectorAll("[data-promo-go]").forEach(b=>b.onclick=()=>{ const k=b.dataset.promoGo; if(k==="tv"){ close(); window.openStageRoom?.() } else window.promoGo?.(k) });   // 1.2 第 2 包:跟去
   B.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{APP=b.dataset.go;CHAT=null;render()});
   B.querySelectorAll("[data-chat]").forEach(b=>b.onclick=()=>{APP="chat";CHAT=b.dataset.chat;render()});
   B.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>{B.querySelectorAll("[data-rep]").forEach(x=>x.disabled=true); reply(+b.dataset.rep)});
@@ -218,5 +221,5 @@ every(2000,()=>{ if($("#phone")?.classList.contains("on")) status() });
 /* 有直式合照(assets/bg/wall_group.webp)時才出現在選項裡,並自動當預設桌布 */
 let HAS_PORTRAIT=false; { const im=new Image(); im.onload=()=>{HAS_PORTRAIT=true}; im.src=WALLS.portrait }
 function curWall(){ const p=ph(); return !p.wallSet&&HAS_PORTRAIT?"portrait":(p.wall||"title") }
-window.openPhone=open;
+window.openPhone=open; window.closePhone=()=>{ if($("#phone")?.classList.contains("on")) close() };
 })();
