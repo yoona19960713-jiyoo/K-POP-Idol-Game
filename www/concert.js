@@ -81,10 +81,19 @@ const MC={ys:"今天來到這裡的每一位,謝謝你們。一年前的我們,�
 
 /* ---- 演出畫面 ---- */
 async function runConcert(c){
-  const V0=VENUES[c.venue], bg=await pick([V0.art,V0.fb]), L=setlist(c);
+  const V0=VENUES[c.venue], bg=await pick([V0.art,V0.fb]), L0=setlist(c);
+  /* 1.2 第 3 包(2026-11-04):唱到有自己打歌服的歌,換成那首的打歌服(企劃室/待機室「〈歌名〉的打歌服」的第 1 套,stage.js 的 stageSongLooks);
+     沒有就穿這場演唱會的造型。前後兩首穿的不一樣時,中間放一段換裝的 VCR。個人舞台、MC 穿當下那套 */
+  const trackOf=t=>(window.SONGS_API?.albums?.()||[]).flatMap(a=>a.tracks||[]).find(x=>!x.inst&&x.name===t)||null;
+  const songLooks=t=>{ const T=trackOf(t), R=T?(window.stageSongLooks?.(T)||[]):[]; return Object.fromEntries(M.map(m=>[m.id,R.find(code=>hasLook(code,m.id))||lookFor(c,m.id)])) };
+  const L=[]; let prevL=null;
+  for(const s of L0){ if(s.k==="song"&&!s.fan){ s.looks=songLooks(s.t); if(prevL&&JSON.stringify(prevL)!==JSON.stringify(s.looks)) L.push({k:"vcr2"}); prevL=s.looks }
+    else if(s.k==="song"&&s.fan){ s.looks=Object.fromEntries(M.map(m=>[m.id,lookFor(c,m.id)])); if(prevL&&JSON.stringify(prevL)!==JSON.stringify(s.looks)) L.push({k:"vcr2"}); prevL=s.looks }
+    L.push(s) }
+  let cur=L.find(x=>x.looks)?.looks||Object.fromEntries(M.map(m=>[m.id,lookFor(c,m.id)]));
   const el=document.createElement("div"); el.id="cnView"; el.className="cnview";
-  const figIds=M.map(m=>m.id).filter(id=>lookFor(c,id)), real=bg===V0.art;
-  el.innerHTML=`<div class="cnbg" style="background-image:url(${bg})"></div>${figIds.length?`<div class="cnstage" style="--sb:${real?V0.sb:44}%;--sh:${real?V0.sh:22}%">${figIds.map(id=>`<img class="cnfig" data-id="${id}" src="${spr(id,lookFor(c,id),"smile")}" alt="">`).join("")}</div>`:""}<div class="cnbeams"></div><canvas class="cnsticks"></canvas>
+  const figIds=M.map(m=>m.id).filter(id=>lookFor(c,id)||L.some(x=>x.looks?.[id])), real=bg===V0.art;
+  el.innerHTML=`<div class="cnbg" style="background-image:url(${bg})"></div>${figIds.length?`<div class="cnstage" style="--sb:${real?V0.sb:44}%;--sh:${real?V0.sh:22}%">${figIds.map(id=>`<img class="cnfig" data-id="${id}" src="${spr(id,cur[id],"smile")}" alt="">`).join("")}</div>`:""}<div class="cnbeams"></div><canvas class="cnsticks"></canvas>
     <div class="cnscreen"><span></span></div><div class="cntitle"><small></small><b></b></div><div class="cnline"><span class="pface"></span><p></p></div>
     <div class="cnconf"></div><button class="cnskip">略過 ›</button><p class="cntap">點一下畫面繼續</p>`;
   $("#stage").appendChild(el); setPause("concert",true);
@@ -103,13 +112,15 @@ async function runConcert(c){
   const say=(id,text,ex="smile")=>{ const m=byId(id); LN.querySelector(".pface").style.cssText=`--c:${m.c};background-image:url(${spr(id,null,ex)})`; LN.querySelector("p").innerHTML=`<b style="color:${m.c}">${m.n}</b>${esc(text)}`; LN.classList.add("on") };
   const screen=id=>{ if(!id){ SCR.classList.remove("on"); return } const m=byId(id); SCR.querySelector("span").style.backgroundImage=`url(${spr(id,null,"smile")})`; SCR.style.setProperty("--c",m.c); SCR.classList.add("on") };
   const STG=$c(".cnstage"), figs=[...el.querySelectorAll(".cnfig")];
-  const stage=(on,solo)=>{ if(!STG) return; figs.forEach(f=>{ f.src=spr(f.dataset.id,lookFor(c,f.dataset.id),"smile"); f.hidden=!!solo&&f.dataset.id!==solo }); STG.classList.toggle("solo",!!solo&&figs.some(f=>f.dataset.id===solo)); STG.classList.toggle("on",on&&(!solo||figs.some(f=>f.dataset.id===solo))) };
+  const stage=(on,solo)=>{ if(!STG) return; figs.forEach(f=>{ const u=spr(f.dataset.id,cur[f.dataset.id]||lookFor(c,f.dataset.id),"smile"); if(f.getAttribute("src")!==u) f.src=u; f.hidden=!!solo&&f.dataset.id!==solo||!cur[f.dataset.id]&&!lookFor(c,f.dataset.id) }); STG.classList.toggle("solo",!!solo&&figs.some(f=>f.dataset.id===solo)); STG.classList.toggle("on",on&&(!solo||figs.some(f=>f.dataset.id===solo))) };
   const step=()=>{ clearTimeout(timer); if(i>=L.length) return finish(); const s=L[i++]; LN.classList.remove("on"); T.classList.remove("on"); el.classList.remove("dark","encore");
+    if(s.looks) cur=s.looks;
     stage(s.k==="song"||s.k==="solo"||s.k==="mc"||s.k==="end",s.k==="solo"?s.id:null);
+    if(s.k==="vcr2"){ el.classList.add("dark"); screen(null); wave=.3; T.querySelector("small").textContent="VCR"; T.querySelector("b").textContent="換裝中……"; T.classList.add("on"); timer=setTimeout(step,2600); return }
     if(s.k==="vcr"){ el.classList.add("dark"); T.querySelector("small").textContent=`PERFECT GIRL GROUP ${c.first?"1ST ":""}CONCERT`; T.querySelector("b").textContent=`〈${c.title}〉`; T.classList.add("on","big"); wave=.3; timer=setTimeout(step,3200); return }
     T.classList.remove("big");
     if(s.k==="song"||s.k==="solo"){ col=s.fan?"#FF2E63":LIGHT[songs.length%LIGHT.length]; songs.push(s); wave=s.fan?.6:1.2;
-      el.style.setProperty("--beam",col); T.querySelector("small").textContent=s.k==="solo"?`SOLO STAGE ・ ${byId(s.id).n}`:s.fan?"ENCORE ・ 粉絲之歌":`SONG ${songs.length}`;
+      el.style.setProperty("--beam",col); T.querySelector("small").textContent=s.k==="solo"?`SOLO STAGE ・ ${byId(s.id).n}`:s.fan?"ENCORE ・ 粉絲之歌":`SONG ${songs.filter(x=>x.k==="song"&&!x.fan).length}`;   // 個人舞台不算進團體歌的編號
       T.querySelector("b").textContent=`〈${s.t}〉`; T.classList.add("on");
       const focus=s.k==="solo"?s.id:M[(songs.length*2)%M.length].id; setTimeout(()=>screen(focus),900);
       if(s.fan) setTimeout(()=>say("ys","這首歌,要送給一路陪著我們的你們。","smile"),1200);

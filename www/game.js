@@ -168,7 +168,7 @@ function save(progress){ if(progress){ S.updatedAt=Date.now(); try{ localStorage
   backupTick(js) }
 /* 自動備份:每 30 分鐘一份,保留最近 6 份 + 最近 3 天每天一份(選單「存檔備份」可以回到其中一份) */
 let bakAt=+localStorage.getItem("kpopGame.bakAt")||0, bakBusy=false;
-async function backupTick(js,force,why){ if(saveFail&&IDB.db) IDB.set("saveFallback",js);
+async function backupTick(js,force,why){ if(window.SANDBOX) return;   /* 試玩存檔不寫進正式存檔的備份 */ if(saveFail&&IDB.db) IDB.set("saveFallback",js);
   if(bakBusy||!IDB.db||(!force&&Date.now()-bakAt<30*60e3)) return; bakBusy=true;
   try{ const L=(await IDB.get("saveBackups"))||[]; L.unshift({t:Date.now(),day:why?(()=>{try{return JSON.parse(js).day}catch(e){return S.day}})():S.day,json:js,why:why||""});
     const keep=L.slice(0,6), days=new Set(keep.map(b=>new Date(b.t).toDateString()));
@@ -204,7 +204,7 @@ every(5000,()=>{ if(!opsDirty) return; opsDirty=false; try{ localStorage.setItem
 window.syOps=()=>({...opsGet()});
 async function syJSON(url,opt){let r;try{r=await fetch(url,opt)}catch(e){throw {code:"network"}}
   const j=await r.json().catch(()=>({})); opCount(url,opt,j); if(!r.ok) throw {code:String(j?.error?.message||j?.error?.status||"HTTP "+r.status),status:r.status,st:String(j?.error?.status||"")}; return j}
-async function syToken(){const a=syAuth(),c=syCfg(); if(!a||!c) throw {code:"未登入"}; if(syTok&&syTok.exp>Date.now()) return syTok.id;
+async function syToken(){ if(window.SANDBOX) throw {code:"試玩存檔中"};   /* 1.2 第 5 包:試玩存檔不碰雲端(sandbox.js) */ const a=syAuth(),c=syCfg(); if(!a||!c) throw {code:"未登入"}; if(syTok&&syTok.exp>Date.now()) return syTok.id;
   const j=await syJSON(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(c.apiKey)}`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"grant_type=refresh_token&refresh_token="+encodeURIComponent(a.refreshToken)});
   a.refreshToken=j.refresh_token; localStorage.setItem(SY_AUTH,JSON.stringify(a)); syTok={id:j.id_token,exp:Date.now()+(+j.expires_in-60)*1000}; return syTok.id}
 const syBase=()=>{const c=syCfg(),a=syAuth();return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(c.projectId)}/databases/(default)/documents/users/${a.uid}`};
@@ -267,7 +267,7 @@ async function cloudChanged(d){ const o=cloudSave(d); if(!o) return false;
   if(seqNow()<=seqPushed()){ await adoptCloud(d,o); return "adopt" }        // 這台沒有新進度:直接讀雲端
   showConflict(d,o,cAt); return "ask" }
 async function pullSave(){ const d=await syGet("game/state"); if(!d) return false; const r=await cloudChanged(d); return r==="adopt"?true:r }
-async function pushSave(force){ if(!syAuth()||!syCfg()||!S.updatedAt) return; if(syConflict&&!force) return;
+async function pushSave(force){ if(window.SANDBOX||!syAuth()||!syCfg()||!S.updatedAt) return; if(syConflict&&!force) return;
   try{ syLastPush=Date.now(); save(); let ut=syUT();
     if(!ut){ const d=await syGet("game/state"); if(d){ const r=await cloudChanged(d); if(r){ if(r==="adopt"){ ensureWear(true); renderAll(); toast2("已讀取雲端較新的進度") } return } ut=syUT() } }
     const at=S.updatedAt, seq=seqNow(), r=await syPatch("game/state"+(ut?"?currentDocument.updateTime="+encodeURIComponent(ut):""),{json:{stringValue:JSON.stringify(S)},updatedAt:{integerValue:String(at)}});
@@ -289,8 +289,9 @@ function showConflict(d,o,cAt){ if(syConflict) return; syConflict=true; setPause
     if(k==="cloud"){ await adoptCloud(d,o,"改用雲端進度前的本機進度"); ensureWear(true); renderAll(); toast2("已改用雲端的進度(這台原本的進度在存檔備份)") }
     else { await backupTick(d.fields.json.stringValue,true,"被這台覆蓋前的雲端進度"); syMark(d.updateTime,seqPushed()) }
     el.remove(); syConflict=false; setPause("sync",false); if(k==="here") pushSave(true) }) }
-function schedulePush(){if(!syAuth()) return; clearTimeout(pushT); pushT=setTimeout(pushSave,Math.max(3000,20000-(Date.now()-syLastPush)))}
+function schedulePush(){if(window.SANDBOX||!syAuth()) return; clearTimeout(pushT); pushT=setTimeout(pushSave,Math.max(3000,20000-(Date.now()-syLastPush)))}
 async function syncAll(manual,atStart){
+  if(window.SANDBOX){ if(manual) toast2("試玩存檔中,不會同步雲端"); return }
   if(!syAuth()||!syCfg()){ if(manual) toast2("請先登入雲端同步"); renderSources(); return }
   if(syBusy) return; syBusy=true; syStatus("同步中…");
   try{ if(window.pushOutbox) await pushOutbox(); const n=await pullContent(); let adopted=false;
@@ -1139,10 +1140,11 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
    養成的初始化(growthInit)和雲端同步的掛勾(歌曲、打歌、劇本)會被跳過 */
 async function boot(){
   await IDB.open();
-  try{ const fb=await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){window.logErr?.("game",e)}
+  try{ const fb=window.SANDBOX?null:await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){window.logErr?.("game",e)}
   SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
   await keepV0();
   if(window.growthInit) growthInit();
+  window.sandboxApply?.();   // 1.2 第 5 包:試玩存檔第一次載入時跳到選的那一天
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
   ensureWear(true); renderAll();
   $("#boot").classList.add("done");
@@ -1150,6 +1152,16 @@ async function boot(){
   setTimeout(()=>checkUpdate(false),3000);
   titleReady();
 }
+/* 1.2 第 5 包:試玩存檔(sandbox.js)第一次載入時跳日。跳到出道日之後的話,先把出道那天的開始跑一次(建立宣傳期),
+   再跳到那一天;中間沒去的打歌,打開待機室或那天結束時會用上一場的準備單自動上台。好感、能力照複製時的樣子 */
+window.sandboxApply=()=>{ if(!window.SANDBOX) return; let m=null; try{ m=JSON.parse(localStorage.getItem("kpopGame.sandboxMeta")||"null") }catch(e){} if(!m?.pending) return;
+  const T=Math.max(0,+m.to||0), DD=window.DEBUT_DAY??366;
+  try{ if(T>DD&&!S.promo){ S.day=DD; S.min=DAY0; S.slot=0; window.timelineOnDayStart?.() } }catch(e){ window.logErr?.("試玩存檔",e) }
+  S.day=T; S.min=DAY0; S.slot=0; S.whereKey=""; S.where={}; try{ window.timelineOnDayStart?.() }catch(e){ window.logErr?.("試玩存檔",e) }
+  if(T>=DD) S.debuted=true;
+  m.pending=false; localStorage.setItem("kpopGame.sandboxMeta",JSON.stringify(m)); save(true);
+  if(T>DD) setTimeout(()=>{ document.querySelectorAll(".bigev").forEach(e=>e.remove()); setPause("bigev",false) },1500);   // 跳過出道當天的大事件卡
+  toast2(`試玩存檔:已經跳到 ${fmtGameDay?.(T)||T}`) };
 if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot,{once:true}); else boot();
 /* 改版 1.0:換成新遊戲時,改版前的存檔另外存一份(IndexedDB 的 saveV0 與「存檔備份」),新遊戲第一次開始時有一張「上任第一天」的卡 */
 async function keepV0(){ if(!V0_PENDING) return; const js=V0_PENDING; V0_PENDING=null;
@@ -1169,7 +1181,7 @@ function titleReady(){
   const btn=$("#ttStart"), msg=$("#ttMsg"), sy=$("#ttSync");
   btn.disabled=false; msg.textContent="點擊畫面開始";
   if(syAuth()&&syCfg()){ sy.textContent="正在同步雲端…"; syncAll(false,true).then(()=>{sy.textContent="雲端同步完成"}).catch(()=>{sy.textContent="雲端同步失敗,可稍後在選單重試"}) }
-  else sy.textContent="離線遊玩・可在選單登入雲端同步";
+  else sy.textContent=window.SANDBOX?"試玩存檔中・不會同步雲端":"離線遊玩・可在選單登入雲端同步";
   const go=()=>{ if(el.classList.contains("leaving")||el.classList.contains("out")) return;
     setTimeout(dayOneCard,2400);   // 新遊戲:上任第一天的卡(迎接、回憶照片之後)
     if(window.introGo){ try{ window.introGo(el,()=>setPause("title",false)); return }catch(e){window.logErr?.("game",e)} }   // 開場動畫(intro.js):白光一閃、地圖與 HUD 進場

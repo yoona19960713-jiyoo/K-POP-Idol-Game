@@ -920,12 +920,12 @@ async function open(){ shell(); await itemsReady; OPEN=true; setPause("maker",tr
   window.facShow?facShow($("#makerFac"),"assets/bg/office_night.webp"):$("#makerFac").classList.remove("hide") }   // 內容排好、背景解好才淡入
 function close(){ $("#makerFac").classList.add("hide"); setPause("maker",false); OPEN=false }
 window.openMaker=open;
-const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"]];
+const TABS=[["auto","自動生產"],["make","手動產生"],["review","待審"],["lib","內容庫"],["cover","覆蓋率"],["key","金鑰"],["try","試玩存檔"]];
 function renderAll(){ if(!OPEN) return;
   $("#mkTabs").innerHTML=TABS.map(([k,n])=>`<button data-mt="${k}" aria-selected="${k===tab}">${n}${k==="review"&&reviewQ_().length?`<i>${reviewQ_().length}</i>`:""}</button>`).join("");
   $("#mkTabs").querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>{tab=b.dataset.mt;renderAll()});
   const L=lib(); const stats=`<div class="mstats"><span><b>${L.length}</b>內容庫</span><span><b>${L.filter(x=>x.status==="auto").length}</b>未審</span><span><b>${reviewQ_().length}</b>待審</span><span><b>${L.filter(x=>x.type==="long"||x.type==="pairlong").length}</b>長對話</span>${apiKey()?"":`<span class="warn">還沒設定 Gemini 金鑰</span>`}</div>`;
-  const B=$("#mkBody"); B.innerHTML=stats+(tab==="auto"?autoHTML():tab==="make"?makeHTML():tab==="review"?reviewHTML():tab==="lib"?libHTML():tab==="cover"?coverHTML():keyHTML());
+  const B=$("#mkBody"); B.innerHTML=stats+(tab==="auto"?autoHTML():tab==="make"?makeHTML():tab==="review"?reviewHTML():tab==="lib"?libHTML():tab==="cover"?coverHTML():tab==="try"?tryHTML():keyHTML());
   bind(B);
 }
 const chipsH=(list,cur,key,label)=>list.map(v=>`<button class="mchip${v===cur?" on":""}" data-${key}="${v}">${label?label(v):v}</button>`).join("");
@@ -1203,6 +1203,15 @@ window.mkGapCopy=async()=>{ const L=lib(), cnt={}; for(const x of L){const k=cel
     +`\n【改版 1.0】專屬活動還缺的格子(每格 4 版;★ 是 1.0 第一批):\n${ex.length?ex.map(c=>`- ${c.label}:${c.n}/4`).join("\n"):"全部完成"}\n里程碑事件:${ms}\n新種類目前數量(Gemini 產):隨口互動 ${g10("casual")}、深夜 ${g10("night")}、成員之間 ${g10("overhear")}、日常活動 ${L.filter(x=>x.type==="act"&&!DY.ACTS[x.act]?.who).length}(通用)\n`;
   const ok=await (window.copyText?copyText(txt):navigator.clipboard?.writeText(txt).then(()=>true,()=>false));
   toast2(ok?"已複製缺口摘要,可以直接貼給長對話劇本對話":"複製失敗") };
+/* 1.2 第 5 包(2026-11-04):試玩存檔(sandbox.js)——複製一份存檔跳到某一天,正式存檔與雲端都不動 */
+const isoOf=d=>{ const x=dateOf(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}` };
+function tryHTML(){ const DD=window.DEBUT_DAY??366, dd=d=>{ const x=dateOf(d), w="日一二三四五六"[x.getDay()]; return `${x.getFullYear()}/${x.getMonth()+1}/${x.getDate()}(${w})` };
+  if(window.SANDBOX){ const m=window.sandboxInfo?.(); return `<div class="msheet"><h3>試玩存檔</h3><p class="mnote">現在就在試玩存檔裡${m?.label?`(${esc(m.label)})`:""}。正式存檔沒有被動到,這裡玩的進度在結束試玩時會刪掉。</p><div class="mrow"><button class="mbtn pri" id="sbxExit">結束試玩,回到正式存檔</button></div></div>` }
+  const P=[["出道前一天",DD-1,"隔天就是出道日:Showcase 和第一次打歌"],["出道日",DD,"直接從出道當天開始"],["宣傳期第 2 週",DD+11,"打歌日的行程、跟去深夜廣播"],["春節前一天",DD+13,"隔天開始春節停播"],["告別週",DD+21,"加演收錄曲、GOODBYE STAGE"]];
+  return `<div class="msheet"><h3>試玩存檔</h3><p class="mnote">從現在的存檔複製一份,跳到某一天開始玩。正式存檔、雲端都不會被動到;玩完按畫面上方的「結束試玩」就回來。</p>
+    <div class="sbxgrid">${P.map(([n,d,t])=>`<button class="mbtn sbxp" data-sbx="${d}" data-sbxn="${n}"><b>${n}</b><small>${dd(d)}・${t}</small></button>`).join("")}</div>
+    <div class="mrow"><label>自己選日期 <input type="date" id="sbxDate" min="2016-01-13" max="2019-12-31" value="${isoOf(DD-1)}"></label><button class="mbtn" id="sbxGo">從這天開始</button></div>
+    <ul class="mnote"><li>好感、能力、粉絲照現在的存檔,跳過的日子不會補。</li><li>跳到出道日之後,會先建立出道宣傳期;中間沒去的打歌會自動上台。</li><li>只隔開遊戲進度;在衣櫃、製作者模式改的內容會留下來。</li><li>試玩中不會同步雲端。</li></ul></div>` }
 function keyHTML(){ const m=model(), known=["gemini-flash-latest","gemini-flash-lite-latest"].includes(m);
   return `<div class="msheet"><h3>Gemini API 金鑰</h3><p class="mnote">金鑰只存在這台裝置,不會上傳。</p>
     <div class="mrow"><input type="password" id="keyIn" class="grow" value="${esc(apiKey())}" placeholder="貼上金鑰" autocomplete="off"><button class="mbtn" id="keyShow">顯示</button></div>
@@ -1269,6 +1278,10 @@ function bind(B){
   B.querySelectorAll("[data-ncell]").forEach(b=>b.onclick=()=>{const [m,nk,bd]=b.dataset.ncell.split("|");P={...P,type:"night",member:m,nk,band:bd,count:TYPES.night.batch};tab="make";renderAll()});
   B.querySelectorAll("[data-ecell]").forEach(b=>b.onclick=()=>{P={...P,type:"event",ev:b.dataset.ecell,count:TYPES.event.batch};tab="make";renderAll()});
   B.querySelectorAll("[data-scell]").forEach(b=>b.onclick=()=>{const [k,m]=b.dataset.scell.split("|");P={...P,type:"situ",req:k,member:m,period:SITU[k].per.includes(P.period)?P.period:SITU[k].per[0],count:TYPES.situ.batch};tab="make";renderAll()});
+  B.querySelectorAll("[data-sbx]").forEach(b=>b.onclick=()=>{ const n=b.dataset.sbxn; if(!confirm(`用試玩存檔跳到「${n}」?正式存檔不會被動到。`)) return; const r=window.sandboxEnter?.(+b.dataset.sbx,n); if(r&&!r.ok) toast2(r.msg) });
+  if(q("#sbxGo")) q("#sbxGo").onclick=()=>{ const v=q("#sbxDate").value; if(!v) return; const [y,m,d]=v.split("-").map(Number), day=Math.round((new Date(y,m-1,d)-dateOf(0))/864e5); if(day<0){ toast2("要選 2016/1/13 以後"); return }
+    if(!confirm(`用試玩存檔跳到 ${v}?正式存檔不會被動到。`)) return; const r=window.sandboxEnter?.(day,v); if(r&&!r.ok) toast2(r.msg) };
+  if(q("#sbxExit")) q("#sbxExit").onclick=()=>window.sandboxExit?.(true);
   if(q("#keySave")){ const saveK=()=>{const k=q("#keyIn").value.trim(); if(k) localStorage.setItem(KEY_K,k); const m=q("#modelIn").value==="custom"?q("#modelCustom").value.trim():q("#modelIn").value; if(m) localStorage.setItem(KEY_M,m)};
     q("#modelIn").onchange=()=>q("#modelCustom").classList.toggle("hidden",q("#modelIn").value!=="custom");
     q("#keyShow").onclick=()=>{const k=q("#keyIn");k.type=k.type==="password"?"text":"password"};

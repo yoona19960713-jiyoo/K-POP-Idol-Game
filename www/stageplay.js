@@ -163,6 +163,7 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
   const bcKP=w=>{ if(!KPT) return; const k=CS.kp; if(!w||!k){ KPT.classList.remove("on"); return } const ld=w.lead&&w.lead!=="all"&&IDS.includes(w.lead)?w.lead:null;
     KPT.innerHTML=`${ld?`<span class="f" style="--c:${memOf(ld).c};background-image:url(${faceURL(ld)})"></span>`:""}<span><small>✦ KEY POINT${w.final?" ・ 最後副歌":""}</small><b>${esc(k.name||"KEY POINT")}<em>${ld?memOf(ld).n+"領舞":"全員"}</em></b></span>`; KPT.classList.add("on") };
   const endShot=()=>{ const E=q("#bcEnd"); if(!E||me.bcEnd) return; me.bcEnd=1; setPlay(false); const id=BC.end, nm=E.dataset.nm||"";
+    if(BC.noEnd){ DIP.classList.add("on"); me.bcT=setTimeout(closeSP,450); return }   // 1.2 第 3 包:加演的收錄曲沒有 Ending 鏡頭,黑場後接主打
     if(!IDS.includes(id)||!endURL){ me.bcT=setTimeout(closeSP,900); return }
     const sp=[[18,22,10,.9],[26,64,6,.7],[71,18,12,.95],[80,52,7,.8],[63,74,5,.6],[34,40,4,.6],[88,30,5,.7],[12,80,6,.5]].map(([x,y,z,o],i)=>`<i class="sp" style="left:${x}%;top:${y}%;width:${z}px;height:${z}px;--o:${o};animation-delay:${(i*.17).toFixed(2)}s"></i>`).join("");
     E.innerHTML=`<div class="bg"></div><div class="halo" style="--c:${memOf(id).c}"></div><img src="${endURL}" alt=""><div class="flare"></div>${sp}<i class="lb t"></i><i class="lb b"></i>
