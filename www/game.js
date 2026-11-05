@@ -724,7 +724,7 @@ window.visitMile=(pid,k,who)=>visit(pid,{mile:{k,who}});
 /* 2.0 第六個大腦:宣傳期劇情(type promo,ev = fansign/radio/magazine/variety/comfort_crack/comfort_slip)從內容庫挑。
    member 寫焦點成員(全團版寫 all);條件跟其他片段一樣(關係階段、日期、時期、天氣、季節、冷卻);沒看過的優先 */
 window.scriptsPool=({types=["promo"],ev,member}={})=>snips().filter(sn=>types.includes(sn.type)&&(!ev||sn.ev===ev)&&(!member||(sn.member||sn.who?.[0])===member)&&sn.who?.length
-  &&stageOk(sn)&&reqOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))
+  &&(!sn.band||(sn.member||sn.who[0])==="all"||sn.band===window.DAILY?.bandOf?.(stageOf(sn.member||sn.who[0])))&&stageOk(sn)&&reqOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))
   &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||7))&&sn.nodes?.start);
 window.scriptsPick=list=>{ if(!list?.length) return null; const fresh=list.filter(sn=>S.seen[sn.code]==null); return pickW(fresh.length?fresh:list) };
 window.visitScene=(pid,sc)=>visit(pid,{scene:sc});   // 1.2 第 2 包:宣傳期跟去(簽售會、廣播、待機室的安慰):指定背景、標題、在場的人與片段   // 里程碑(mile.js):在那個地點演   // 日常活動(act.js):兩個人一起到活動的地點
