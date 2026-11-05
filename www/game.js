@@ -760,7 +760,7 @@ function drawPeople(){
   const xs=n<=1?[$("#stage").clientWidth<900?36:30]:n===2?[18,46]:ids.map((_,i)=>+(L+(R-L)*(i+.5)/n).toFixed(2));
   $("#visit").classList.toggle("crowd",crowd);
   $("#vppl").innerHTML=ids.map((id,i)=>{const m=byId(id),of=outfitAt(id,V.room,S.slot), e0=window.sickIs?.(id)?"tired":"neutral"; preload(id,of);   // 生病那天一進來就是累的表情(sick.js)
-    return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" data-ex="${e0}" src="${spr(id,of,e0)}" style="--ch:${ch}cqw;--ty:-1cqw;--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
+    return `<img alt="${m.n}" data-id="${id}" data-of="${of||""}" data-ex="${e0}" src="${spr(id,of,e0)}" style="--ch:${ch}cqw;--ty:${crowd?"2.4cqw":"-1cqw"};--h:${(m.cm/168).toFixed(3)};--x:${xs[i]}%">`}).join("")}
 let lastSpk=null;
 function setExpr(id,e){ if(id&&id!==lastSpk&&!RM.matches){ const im=imgOf(id); if(im) animPortrait(im,[{translate:"0 .8%"},{translate:"0 0"}],{duration:300,easing:"cubic-bezier(.2,.7,.3,1)"}) } lastSpk=id||lastSpk;
   $("#vppl").querySelectorAll("img").forEach(img=>{const me=img.dataset.id===id; img.classList.toggle("dim",!!id&&!me); img.classList.toggle("on",me);
@@ -953,7 +953,7 @@ function queueAuto(){if(!auto||!D) return; clearTimeout(autoT); const n=($("#vte
 function stopAutoTimer(){clearTimeout(autoT)}
 function stopAuto(){auto=false;$("#autoBtn").setAttribute("aria-pressed","false");clearTimeout(autoT)}
 $("#autoBtn").onclick=()=>{auto=!auto;$("#autoBtn").setAttribute("aria-pressed",String(auto)); if(auto&&!typing&&D) queueAuto()};
-$("#skipBtn").onclick=e=>{ e.stopPropagation(); skip=!skip; $("#skipBtn").setAttribute("aria-pressed",String(skip)); if(skip&&D&&!typing&&!$("#vopts .choice")) step() };
+if($("#skipBtn")) $("#skipBtn").onclick=e=>{ e.stopPropagation(); skip=!skip; $("#skipBtn").setAttribute("aria-pressed",String(skip)); if(skip&&D&&!typing&&!$("#vopts .choice")) step() };
 $("#logBtn").onclick=()=>{const L=$("#vlog");L.innerHTML=`<button class="x" id="logX">關閉</button>`+logLines.map(([n,t])=>`<p>${n?`<b>${esc(n)}</b>`:""}${esc(t)}</p>`).join("");L.classList.add("on");L.scrollTop=L.scrollHeight;$("#logX").onclick=()=>L.classList.remove("on")};
 
 /* ---------- 手機 ---------- */

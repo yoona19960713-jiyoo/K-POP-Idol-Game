@@ -75,7 +75,7 @@ window.stageHighlight=T=>{ try{ const L=(window.choreoStage?.(T)||{}).L||window.
 /* Ending 鏡頭的表情(每個人自己的招牌表情) */
 const END_EX={ys:"smile",tr:"shy",hy:"laugh",he:"wink",hr:"laugh"};
 function closeSP(){ if(!CUR) return; const c=CUR; CUR=null; cancelAnimationFrame(c.raf); c.au?.pause(); c.off?.(); clearTimeout(c.bcT); c.el.querySelectorAll("canvas").forEach(x=>{ x.width=x.height=0 }); c.el.remove(); setPause("spv",false);
-  if(c.bcCb){ const f=c.bcCb; c.bcCb=null; try{ f() }catch(e){ window.logErr?.("打歌轉播",e) } } }   // 1.2 第 1 包:打歌轉播看完(或按看結果、返回鍵)→ 一位發表
+  if(c.bcCb){ const f=c.bcCb; c.bcCb=null; try{ f(c.skipAll?"all":"") }catch(e){ window.logErr?.("打歌轉播",e) } } }   // 1.2 第 1 包:打歌轉播看完(或按看結果、返回鍵)→ 一位發表
 window.closeStagePlay=closeSP;
 window.stagePlayCtl=()=>CUR?.ctl||null;
 /* 返回鍵:先關直拍的成員選單,再關舞台預覽 */
@@ -108,13 +108,13 @@ window.openStagePlay=async(T,opts={})=>{ if(!T) return; closeSP(); const A=API()
     <div class="bcx-bug"><span class="bcx-logo"><b>${esc(w[0])}${w.length>1?`<em>${esc(w.slice(1).join(" "))}</em>`:""}</b><small>MUSIC SHOW ・ ${esc(sh.en||"")}</small></span><span class="bcx-live"><i></i>LIVE</span></div>
     <div class="bcx-song">${BC.group?`<small>${esc(BC.group)}</small>`:""}<b>${esc(BC.title||T.name||"")}</b>${BC.tag?`<i>${esc(BC.tag)}</i>`:""}</div>
     <div class="bcx-title" id="bcT"><small>${esc(sh.n||"")}${sh.d?` ・ ${esc(sh.d)}`:""}</small><b>${BC.group?`${esc(BC.group)} `:""}〈${esc(BC.title||T.name||"")}〉</b>${BC.album?`<span>《${esc(BC.album)}》</span>`:""}</div>
-    <div class="bcx-kp" id="bcKP"></div><div class="bcx-ctl"><span id="bcTm"></span><button id="bcSkip">看結果 ›</button></div>
+    <div class="bcx-kp" id="bcKP"></div><div class="bcx-ctl"><span id="bcTm"></span>${BC.noEnd?`<button id="bcNext">下一首 ›</button>`:""}<button id="bcSkip">看結果 ${BC.noEnd?"››":"›"}</button></div>
     <div class="bcx-dip" id="bcDip"></div><div class="bcx-end" id="bcEnd" data-nm="${esc(nm)}"></div>`) }
   $("#stage").appendChild(el); setPause("spv",true);
   const q=s=>el.querySelector(s), W0=()=>el.clientWidth||784, H0=()=>el.clientHeight||354;
   const me={el,raf:0,au:null,lastS:-1}; CUR=me;
   q("#spX").onclick=closeSP;
-  if(BC){ me.bcCb=BC.onDone||null; q("#bcSkip").onclick=closeSP }
+  if(BC){ me.bcCb=BC.onDone||null; q("#bcSkip").onclick=()=>{ if(BC.noEnd) me.skipAll=1; closeSP() }; if(q("#bcNext")) q("#bcNext").onclick=closeSP }   // 收錄曲轉播:「下一首」接主打,「看結果」連主打一起跳過
 
   /* ---------- 立繪:縮好、畫好正面與背面 ---------- */
   const dpr=Math.min(3,window.devicePixelRatio||1), FIG={}, chMax=Math.min(1500,Math.round(G.h0*H0()*1.75*dpr));

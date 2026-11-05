@@ -105,11 +105,16 @@ button:disabled{cursor:default}
 .toast.show{animation:toast 2.4s ease forwards}
 @keyframes toast{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.toast.show{animation-duration:.01s;opacity:0}}
-/* 三個人以上在場時,選項移到臉的下面(drawPeople 加 .crowd) */
-#visit.crowd .vopts{left:50%;right:auto;transform:translateX(-50%);top:calc(10.5*var(--u));width:calc(62*var(--u));max-height:calc(100% - 10.5*var(--u) - 15.1*var(--u) - 2.4*var(--u))}
-#visit.crowd .vopts:has(.vopt){display:grid;grid-template-columns:1fr 1fr;gap:calc(.6*var(--u))}
-#visit.crowd .vopts .vopt{min-height:44px}
-#visit.crowd .vopts:has(.vopt:nth-child(5):not(.choice)){grid-template-columns:repeat(3,1fr)}   /* 五人在場的選單:三欄兩排,不用捲 */
+/* 三個人以上在場時(drawPeople 加 .crowd;2.0 第六個大腦改):立繪整體往下讓出頭頂;選項改成一排小卡,貼在台詞框正上方(只蓋到腰),
+   胸口以上全部看得到。對話中的選擇(.choice)句子長,三個並排。 */
+#visit.crowd .vopts{left:50%;right:auto;top:auto;transform:translateX(-50%);bottom:calc(16.6*var(--u));width:min(calc(88*var(--u)),calc(100% - 3*var(--u)));max-height:calc(100% - 16.6*var(--u) - 9*var(--u));
+  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:calc(.5*var(--u));align-content:end}
+#visit.crowd .vopts:has(.vopt:nth-child(8)){grid-auto-flow:row;grid-template-columns:repeat(4,minmax(0,1fr))}   /* 選項很多時才分兩排 */
+#visit.crowd .vopts .vopt{min-height:40px;padding:calc(.4*var(--u)) calc(.8*var(--u)) calc(.4*var(--u)) calc(2.2*var(--u));font-size:calc(1.25*var(--u));line-height:1.35}
+#visit.crowd .vopts .vopt::before{left:calc(.9*var(--u))}
+#visit.crowd .vopts .vopt small{letter-spacing:.06em}
+#visit.crowd .vopts:has(.choice){width:min(calc(96*var(--u)),calc(100% - 3*var(--u)))}
+#visit.crowd .vopts .vopt.choice{font-size:calc(1.2*var(--u));line-height:1.45}
 
 /* ===== 遊戲本體追加 ===== */
 .boot{position:absolute;inset:0;z-index:60;display:grid;place-items:center;background:#1A1420;color:#fff;font-size:calc(1.6*var(--u));letter-spacing:.2em;transition:opacity .5s}
@@ -971,7 +976,9 @@ h3.msep{margin-top:calc(2.2*var(--u));padding-top:calc(1*var(--u));border-top:ca
 }
 /* 行程 app 的成員動向(改版 1.0 第 3 輪:作息表) */
 .pnow{background:#fff;border-radius:1cqw;padding:.5cqw .7cqw;box-shadow:0 .1cqw .4cqw rgba(60,30,70,.06)}
-.pnr{display:grid;grid-template-columns:auto 1fr auto;gap:.6cqw;align-items:center;padding:.4cqw 0}
+.pnr{display:grid;grid-template-columns:auto 1fr auto;column-gap:.6cqw;row-gap:1px;align-items:center;padding:.4cqw 0}
+/* 2.0 第六個大腦:名字和「接下來」在第一行,現在在哪・做什麼獨佔第二行(784 寬時不再擠成三四行) */
+.pnr>.pface{grid-row:1/3;align-self:center}.pnr .pn1{display:contents}.pnr .pn1 b{grid-column:2;grid-row:1}.pnr .pn1 em{grid-column:2/4;grid-row:2}.pnr .pn2{grid-column:3;grid-row:1;justify-self:end}
 .pnr+.pnr{border-top:1px dashed rgba(125,111,132,.22)}
 .pn1{display:flex;flex-direction:column;min-width:0}
 .pn1 b{font-size:max(.85cqw,11px);color:#3A2A3E}
@@ -2582,9 +2589,12 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 .bcx-kp small{display:block;font:700 7.5px/1.1 var(--sans);letter-spacing:.2em}
 .bcx-kp b{display:block;font:700 13px/1.1 var(--serif);white-space:nowrap}
 .bcx-kp em{font:600 10px/1 var(--sans);font-style:normal;margin-left:6px;opacity:.8}
-.bcx-ctl{position:absolute;right:10px;bottom:10px;z-index:24;display:flex;align-items:center;gap:6px}
+.bcx-ctl{position:absolute;right:10px;bottom:10px;z-index:24;display:grid;grid-template-columns:auto auto;justify-items:end;align-items:center;gap:5px 6px}
+.bcx-ctl>span{grid-column:1/-1}   /* 2.0 第六個大腦:時間在上、按鈕在下,右下角變窄,字幕不會壓到 */
+.sp2.bc .sp2-sub{max-width:min(60%,calc(100% - 360px))}
 .bcx-ctl span{font:600 9.5px/1 var(--sans);letter-spacing:.06em;color:rgba(255,240,214,.92);background:rgba(12,6,18,.55);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:6px 9px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .bcx-ctl button{min-height:30px;padding:0 13px;border-radius:999px;border:1px solid rgba(232,196,112,.75);background:rgba(20,12,6,.6);color:#F3DFB4;font:600 11px/1 var(--sans);cursor:pointer}
+.bcx-ctl #bcNext{border-color:rgba(255,255,255,.34);background:rgba(12,6,18,.5);color:#FFF4EA}
 .bcx-dip{position:absolute;inset:0;z-index:21;background:#05030A;opacity:0;pointer-events:none;transition:opacity .3s}
 .bcx-dip.on{opacity:1}
 /* Ending 鏡頭 */
@@ -2806,7 +2816,7 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
     <div class="vbox" id="vbox">
       <div class="panel"></div>
       <div class="vname" id="vname">旁白</div>
-      <div class="dia"><button class="dbtn" id="autoBtn" aria-pressed="false"><span><b>▶</b>Auto</span></button><button class="dbtn" id="skipBtn" aria-pressed="false"><span><b>▶▶</b>Skip</span></button><button class="dbtn" id="logBtn"><span><b>≡</b>Log</span></button></div>
+      <div class="dia"><button class="dbtn" id="autoBtn" aria-pressed="false"><span><b>▶</b>Auto</span></button><button class="dbtn" id="logBtn"><span><b>≡</b>Log</span></button></div>
       <div class="vtext" id="vtext"></div>
       <div class="vnext">▼</div>
     </div>
@@ -2856,7 +2866,6 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
     <h3>閱讀</h3>
     <div class="row"><span>文字速度</span><select id="rdSpeed" class="b"><option value="slow">慢</option><option value="normal">普通</option><option value="fast">快</option><option value="instant">瞬間</option></select>
       <span>Auto 速度</span><select id="rdAuto" class="b"><option value="slow">慢</option><option value="normal">普通</option><option value="fast">快</option></select></div>
-    <p class="hint">對話框的「Skip」只快轉看過的台詞,遇到沒看過的台詞或選項就會停下來。</p>
 
     <h3>震動</h3>
     <label class="row chk"><input type="checkbox" id="hapOn" checked><span>重要時刻手機輕輕震動<small>關係升階、拿下一位、解鎖 CG、出道與回歸、演唱會</small></span></label>
