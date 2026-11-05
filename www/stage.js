@@ -331,13 +331,13 @@ function render(){ if(!OPEN) return; syncSkill();
   let prep="";
   if(!done){ ensurePlan(); const p=S.plan;
     prep=`<div class="cue"><div class="cuehead"><h3>打歌準備單</h3><button class="tbtn" id="tvReuse" ${S.prev?"":"disabled"}>沿用上一場</button></div>
-      <h4>造型 <select id="tvGroup"><option value="">一鍵全員套用團體服…</option>${LOOKS.filter(l=>l.g).map(l=>`<option value="${l.id}">${esc(l.n)}</option>`).join("")}</select></h4>
+      <h4>造型 <select id="tvGroup" aria-label="全員的打歌服"><option value="">一鍵全員套用團體服…</option>${LOOKS.filter(l=>l.g).map(l=>`<option value="${l.id}">${esc(l.n)}</option>`).join("")}</select></h4>
       ${(()=>{ const T=songT(), rp=T?rotPick(T):null, nm=esc(T?.name||SONG.name);
         return `<div class="tvx-rot">${rp?`<span>今天輪到</span><b>${esc(ITEMS?.[rp.code]?.name||"")}</b><small>〈${nm}〉第 ${rp.i+1} 套・共 ${rp.N} 套${rp.e.mode==="week"?"・每週換":"・每場換"}</small>`:`<span>〈${nm}〉還沒有排打歌服</span><small>造型室的團體打歌服可以排進來輪流穿</small>`}${T?`<button class="tbtn sm" id="tvRot">〈${nm}〉的打歌服…</button>`:""}</div>` })()}
       ${M.map(m=>{const st=S.m[m.id], L=LOOKS.find(l=>l.id===p.looks[m.id]), ls=L?lookScore(L,m.id):{s:0,used:0}, tags=[];
         if(st.cond==="sick") tags.push(`<i class="tg w">感冒</i>`); if(st.cond==="hurt") tags.push(`<i class="tg n">腳踝舊傷</i>`); if(st.stamina<40) tags.push(`<i class="tg w">體力低</i>`); if(ls.used>=2) tags.push(`<i class="tg w">這套已穿 ${ls.used} 場</i>`);
         return `<div class="trow${p.rest[m.id]?" rest":""}">${face(m.id)}<div class="tn"><b style="color:${m.c}">${m.n}</b>${tags.join("")}<small>概念契合 <em>${Math.round(ls.s)}</em></small></div>
-          <select data-look="${m.id}" ${p.rest[m.id]?"disabled":""}>${LOOKS.filter(l=>l.g||l.own===m.id).map(l=>`<option value="${l.id}" ${l.id===p.looks[m.id]?"selected":""}>${esc(l.n)}${l.own?"(個人)":""}・${esc(l.occ)}</option>`).join("")||`<option value="">造型室裡還沒有她的造型</option>`}</select>
+          <select data-look="${m.id}" aria-label="${m.n}的打歌服" ${p.rest[m.id]?"disabled":""}>${LOOKS.filter(l=>l.g||l.own===m.id).map(l=>`<option value="${l.id}" ${l.id===p.looks[m.id]?"selected":""}>${esc(l.n)}${l.own?"(個人)":""}・${esc(l.occ)}</option>`).join("")||`<option value="">造型室裡還沒有她的造型</option>`}</select>
           ${st.cond?`<label class="trest"><input type="checkbox" data-rest="${m.id}" ${p.rest[m.id]?"checked":""}>讓她休息</label>`:""}</div>`}).join("")}
       <h4>舞台版本</h4><div class="topts">${Object.entries(VERS).map(([k,o])=>optB("ver",k,o,p.ver===k,k==="goodbye"&&wk<4)).join("")}</div>
       ${(()=>{ const bw=bsideWeek(), bt=bsideTracks(); if(!bw||!bt.length) return ""; return `<h4>加演收錄曲 <small>${bw==="cb"&&window.promoInfo?.()?.kind==="debut"?"出道週":BWK[bw]}・主打和收錄曲連演,一位只算主打</small></h4><div class="topts">${bt.map(t=>optB("bside",t.id,{n:`〈${esc(t.name)}〉`,s:rotOf(t).list.length?esc(lookName(rotOf(t).list[0])):""},p.bside===t.id)).join("")}${optB("bside","",{n:"不加演"},!p.bside)}</div>` })()}
@@ -352,7 +352,7 @@ function render(){ if(!OPEN) return; syncSkill();
   $("#tvBody").innerHTML=ban+`<div class="tweek">${SHOWS.map((s,k)=>{const i=base+k, L=S.log.find(x=>x.i===i);return `<div class="tday${i===S.idx?" now":""}${L?(L.win?" win":" lose"):""}"><b>${s.d}</b><span>${L?(L.win?"一位":L.grade):s.n.split(" ")[0]}</span></div>`}).join("")}</div>
     <div class="tgrid"><div class="tmain">${done?`<div class="cue"><h3>這次宣傳期結束了</h3><p class="tnote">四週 ${played()} 場,拿下 ${S.wins} 個一位。${TODAY.state==="test"?"可以在右邊重新開始一輪模擬。":"下一次回歸日可以到 2F 企劃室決定。"}</p></div>`:prep}</div>
     <div class="tside"><div class="tvcard"><h4>這次回歸</h4><div class="kv"><span>一位次數</span><b>${S.wins}</b><span>完成場次</span><b>${played()}/${planned()}</b><span>上一場評價</span><b>${last?last.grade:"–"}</b><span>同週對手</span><b>${rivalOf(Math.min(S.idx,TOTAL-1),S.promoStart).n}</b></div>
-      ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear">${[2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
+      ${TODAY.state==="test"?`<div class="trow2"><label>年份<select id="tvYear" aria-label="年份">${[2016,2017,2018,2019,2020,2021,2022].map(y=>`<option ${+S.year===y?"selected":""}>${y}</option>`).join("")}</select></label><button class="tbtn sm" id="tvRestart">重新開始模擬</button></div>`:""}</div>
       <div class="tvcard"><h4>成員狀態</h4>${M.map(m=>{const st=S.m[m.id],b=(n,v,c)=>`<span>${n}</span><span class="tbar"><i style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></i></span>`;
         return `<div class="tstat">${face(m.id)}<div><b style="color:${m.c}">${m.n}</b>${st.cond==="sick"?`<i class="tg w">感冒</i>`:st.cond==="hurt"?`<i class="tg n">舊傷</i>`:""}<div class="tbars">${b("體力",st.stamina,"#4FE0A0")}${b("喉嚨",st.throat,"#5CC8FF")}${b("心情",st.mood,"#FFC857")}${b("人氣",Math.min(100,st.pop),m.c)}</div></div></div>`}).join("")}</div>
       <p class="tnote">${esc(srcText)}</p></div></div>`;

@@ -319,8 +319,8 @@ function renderPlan(){
     <input class="pin-in big" id="pName" value="${esc(R.name)}" aria-label="專輯或單曲名稱" placeholder="發行名稱">
     <p class="psub">${RT.n}・${R.tracks.length} 首・總長 ${fmt(tot)}・準備期約 ${RT.wk} 週</p>
     <div class="pchips">${Object.entries(RTYPES).map(([k,t])=>`<button class="pchip${R.type===k?" on":""}" data-rt="${k}">${t.n}<small>${t.min===t.max?t.min:t.min+"~"+t.max} 首</small></button>`).join("")}</div>
-    <div class="prow"><label>發行<select id="pYear" ${fixed!=null?"disabled":""}>${YEARS.map(y=>`<option ${+R.year===y?"selected":""}>${y}</option>`).join("")}</select>年</label>
-      <label><select id="pMonth" ${fixed!=null?"disabled":""}>${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${+R.month===i+1?"selected":""}>${i+1}</option>`).join("")}</select>月</label>${fixed!=null?`<small class="psub">跟著${fixed===window.DEBUT_DAY?"出道日":"回歸日"}</small>`:""}</div>
+    <div class="prow"><label>發行<select id="pYear" aria-label="發行年" ${fixed!=null?"disabled":""}>${YEARS.map(y=>`<option ${+R.year===y?"selected":""}>${y}</option>`).join("")}</select>年</label>
+      <label><select id="pMonth" aria-label="發行月" ${fixed!=null?"disabled":""}>${[...Array(12)].map((_,i)=>`<option value="${i+1}" ${+R.month===i+1?"selected":""}>${i+1}</option>`).join("")}</select>月</label>${fixed!=null?`<small class="psub">跟著${fixed===window.DEBUT_DAY?"出道日":"回歸日"}</small>`:""}</div>
     <h4>曲目</h4>
     <div class="tapes">${R.tracks.map((x,i)=>{const c=RL.res.find(r=>r.T.id===x.id).c;return `<button class="tape${x.id===R.cur?" on":""}" data-tk="${x.id}">
       <span class="tno">${String(i+1).padStart(2,"0")}</span><span class="tnm">${esc(x.name||"未命名")}${x.id===R.title?`<i class="stamp">主打</i>`:""}${x.inst?`<i class="stamp inst">純音樂</i>`:""}</span>

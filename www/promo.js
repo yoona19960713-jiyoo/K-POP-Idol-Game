@@ -107,7 +107,9 @@ const SC={
   he:[N("(料理單元。夏恩十分鐘做出一鍋大醬湯,主持人喝了一口就不說話了。)"),["he","怎麼了?太鹹嗎?……還是太好喝?","wink"],N("(主持人默默又舀了一碗。)")],
   hr:[N("(高音接力。最後一棒是河嵐,她一口氣把音拉到比原曲還高。)"),["hr","哈!還可以再高喔!","laugh"],["ys","可以了可以了,玻璃要破了!","laugh"]]}};
 /* 內容庫有那一格(type promo,ev = fansign / radio / magazine / variety)就先演 */
-const fromLib=(k,id)=>{ try{ const L=window.scriptsPool?.({types:["promo"],ev:k,member:id})||[]; return L.length?L[Math.floor(Math.random()*L.length)]:null }catch(e){ return null } };
+const fromLib=(k,id)=>{ try{ const P=window.scriptsPool, K=window.scriptsPick; if(!P||!K) return null;   // 焦點成員那一格 → 沒有就用全團版
+    return K(P({types:["promo"],ev:k,member:id}))||K(P({types:["promo"],ev:k,member:"all"})) }catch(e){ window.logErr?.("宣傳期劇情",e); return null } };
+const speakers=sn=>[...new Set(Object.values(sn.nodes||{}).flatMap(n=>[...(n.L||[]),...(n.C||[]).flatMap(c=>c.r||[])].map(l=>l[0])))];
 const focusOf=(k,day)=>IDS[Math.abs((day*7+({fansign:1,radio:3,magazine:5,variety:2}[k]||0)))%5];
 const bgOK={};
 function bgFor(room,light){ const pick={fansign:{dawn:"day",day:"day",evening:"evening",night:"evening"},radio:{dawn:"day",day:"day",evening:"night",night:"night"}}[room];
@@ -124,7 +126,7 @@ window.promoGo=async k=>{ const ex=extraOn(S.day); if(!ex||ex.k!==k||done(k)) { 
   if(ex.room==="fansign"||ex.room==="radio"){ const u=bgFor(ex.room,light); bg=await probe(u)?u:FALLBACK[ex.room] }
   const stay=Math.max(30,end-Math.max(now,ex.at)), wait=Math.max(0,ex.at-now);
   (S.promoGo&&S.promoGo.day===S.day?S.promoGo:(S.promoGo={day:S.day,done:{}})).done[k]=1; save(true);
-  const spk=[...new Set((sn.nodes?.start?.L||[]).map(l=>l[0]).filter(x=>who.includes(x)))], show=spk.length?spk:[id];   // 畫面上只站有台詞的人(五個人都站會太擠),效果算全員
+  const spk=speakers(sn).filter(x=>who.includes(x)), show=spk.length?spk:[id];   // 畫面上只站有台詞的人(五個人都站會太擠),效果算全員
   window.visitScene?.(ex.room,{sn,who:show,n:ex.n,sub:ex.place,bg,done:()=>{
     for(const x of who){ const s=S.m[x]; if(!s) continue; s.mood=clamp(s.mood+5,0,100) } who.forEach((x,j)=>setTimeout(()=>fx(x,"心情 +5"),j*200));
     window.applyGain?.(id,{s:"陪著",g:1,to:id},()=>{});
@@ -161,7 +163,7 @@ const CF={
   hr:{L:[N("(河嵐坐在待機室門口的台階上,鞋帶散了也沒綁。)"),["hr","代表……我那段舞步整個忘了。腦袋一片空白。","sad"],["hr","泰梨歐尼教了我好多次的……","sad"]],
      C:[["(蹲下來,幫她把鞋帶綁好)","陪著",[["hr","……代表綁的蝴蝶結,好醜。可是我喜歡。","laugh"]]],["「忘記一次,下次就記得更牢。」","鼓勵",[["hr","嗯!下一場我一定一次都不會錯!","laugh"]]],["「回去我請泰梨再教一次,我在旁邊幫妳錄影。」","出手幫忙",[["hr","好!代表要錄我最帥的角度喔!","laugh"]]]]}}};
 const comfortSn=d=>{ const c=CF[d.kind]?.[d.id]; if(!c) return null;
-  const lib=(()=>{ try{ const L=window.scriptsPool?.({types:["promo"],ev:"comfort_"+d.kind,member:d.id})||[]; return L.length?L[0]:null }catch(e){ return null } })(); if(lib) return lib;
+  const lib=(()=>{ try{ return window.scriptsPick?.(window.scriptsPool?.({types:["promo"],ev:"comfort_"+d.kind,member:d.id}))||null }catch(e){ window.logErr?.("宣傳期劇情",e); return null } })(); if(lib) return {...lib,who:[d.id]};
   return {code:`promo-comfort-${d.kind}-${d.id}`,type:"promo",who:[d.id],member:d.id,nodes:{start:{L:c.L,C:c.C.map(([t,s,r])=>({t,s,to:d.id,g:2,r}))}}} };
 const boost=d=>{ const s=S.m[d.id]; if(s){ s.mood=clamp(s.mood+10,0,100); s.stress=clamp((s.stress||0)-5,0,100) } window.stageMoodAdd?.(d.id,12); d.done=1; save(true);
   setTimeout(()=>fx(d.id,"心情 +10"),400) };
@@ -174,6 +176,6 @@ window.promoComfortNow=()=>{ const d=downNow(); if(!d) return; const sn=comfortS
 /* 沒去的那天:當天跟她聊天就是安慰場景(game.js talk) */
 window.promoTalk=(id,pid)=>{ const d=downNow(); if(!d||d.id!==id) return null; const sn=comfortSn(d); if(!sn) return null;
   const when=d.day<S.day?"昨天":"今天", pre=d.auto?[N(d.kind==="crack"?`(${when}的${d.show||"打歌"}你沒去。聽說她的高音破了。)`:`(${when}的${d.show||"打歌"}你沒去。聽說她跳錯了一段,已經被剪成影片。)`)]:[];
-  boost(d); return {...sn,nodes:{start:{L:[...pre,...sn.nodes.start.L],C:sn.nodes.start.C}}} };
+  boost(d); return {...sn,nodes:{...sn.nodes,start:{...sn.nodes.start,L:[...pre,...sn.nodes.start.L]}}} };   // 內容庫的片段有好幾個節點,其他節點要留著
 window.promoDownOf=id=>{ const d=downNow(); return d&&d.id===id?d:null };
 })();

@@ -335,12 +335,14 @@ ${JSON.stringify({snippets:[ex]})}
    定義在 daily.js(window.DAILY),格式說明《改版1.0_新內容格式.md》;規則和 pack_scripts.py 第三版一致
    ===================================================================== */
 const DY=window.DAILY;
-const NEWK=new Set(["casual","night","act","overhear","recall"]);
+const NEWK=new Set(["casual","night","act","overhear","recall","promo"]);
 TYPES.casual={n:"隨口互動",kind:"casual",len:"1~3 句",places:["practice","dorm","studio","office","styling","out"],target:9,batch:6};
 TYPES.night={n:"深夜",kind:"night",len:"8~16 句、2~4 個選擇點(訊息 3~8 句)",places:["dorm","out","phone"],target:4,batch:3};
 TYPES.act={n:"日常活動",kind:"act",len:"三段、3~5 個選擇點、12~28 句",places:["practice","dorm","studio","office","styling","out"],target:2,batch:2};
 TYPES.overhear={n:"成員之間(旁聽)",kind:"overhear",len:"旁聽 4~8 句+加入後 2~3 個選擇點",places:["practice","dorm","studio","styling","out"],target:10,batch:3};   // 1.1 第 1 輪開始自動生產;目標依地點(DAILY.OVH_T)
 TYPES.recall={n:"記得你",kind:"later",len:"",places:[],target:0,batch:0};
+TYPES.promo={n:"宣傳期",kind:"later",len:"",places:[],target:0,batch:0};   // 2.0 第六個大腦:宣傳期劇情(⑦ 寫,不自動生產)
+const PROMO_EV={fansign:"簽售會",radio:"深夜廣播",magazine:"雜誌拍攝",variety:"綜藝錄影",comfort_crack:"安慰・高音破了",comfort_slip:"安慰・跳錯"};
 const BAND_W={A:1,B:.85,C:.2};   // 自動生產的急迫度:新遊戲從戒備開始,C 段(戀人以上)要出道後才用得到
 const bandTop=b=>DY.rank((DY.BANDS[b]||["戒備"]).slice(-1)[0]);
 const hourTxt=h=>Array.isArray(h)?h.map(x=>{ const v=+x, hh=Math.floor(v)%24, mm=Math.round((v-Math.floor(v))*60); return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}` }).join("~"):"";
@@ -371,6 +373,8 @@ function analyse10(sn,w){ const N=sn.nodes||{}, ps=paths10(N), dc=dirCount(N), s
   if(sn.stage&&sn.band&&DY.BANDS[sn.band]&&!DY.BANDS[sn.band].includes(sn.stage)) w.push(`stage ${sn.stage} 不在 ${sn.band} 段裡`);
   for(const n of Object.values(N)) for(const c of n.C||[]) if(c.set&&!FLAG_RE.test(c.set)) w.push(`旗標 ${c.set} 要用成員代號開頭的駝峰`);
   if(NEWK.has(sn.type)) for(const n of Object.values(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>[[0,c.t],...(c.r||[])])]) if(l[0]!=="@"&&String(l[1]||"").length>45){ w.push("有一句超過 45 字"); break }
+  if(sn.type==="promo"){ if(!PROMO_EV[sn.ev]) w.push(`宣傳期的 ev ${sn.ev||"(空白)"} 不對`); if(sn.period==="練習生期") w.push("宣傳期劇情不能標練習生期");
+    if(String(sn.ev).startsWith("comfort_")&&!(sn.member in Object.fromEntries(MB.map(m=>[m.id,1])))) w.push("安慰要寫是哪一位(member)") }
   if(sn.type==="casual"){ const L=N.start?.L||[];
     if(L.length<1||L.length>3) w.push(`隨口互動要 1~3 句(現在 ${L.length})`);
     if(L.filter(l=>l[0]==="").length>1) w.push("隨口互動的旁白最多 1 句");
@@ -410,6 +414,7 @@ function sameCell10(x,p){ if(x.type!==p.type) return false;
   if(p.type==="night") return x.member===p.member&&x.nk===p.nk&&x.band===p.band;
   if(p.type==="act") return x.act===p.act&&x.member===p.member&&(x.band||"")===(p.band||"");
   if(p.type==="overhear") return opairOf(x)===p.pair&&(!p.grp||DY.ovhGrp(x.room)===p.grp);
+  if(p.type==="promo") return x.ev===p.ev&&x.member===p.member;
   return x.member===p.member&&(x.pair||"")===(p.pair||"") }
 /* ---- Gemini 提示詞與回傳格式 ---- */
 function bio10(id,stage){ const romance=ROMANCE.includes(stage);

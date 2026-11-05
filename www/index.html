@@ -2769,6 +2769,29 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 .sbxgrid .sbxp{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-height:48px;padding:6px 10px}
 .sbxgrid .sbxp b{font-weight:700}
 .sbxgrid .sbxp small{font-weight:400;opacity:.75;line-height:1.35}
+/* 2.0 第六個大腦:遊戲風格的選單卡(gpick.js)。原生下拉選單不再打開 */
+#stage select{pointer-events:none}
+.gpk{position:absolute;inset:0;z-index:240;display:grid;place-items:center;background:rgba(14,8,20,.58);animation:gpkIn .18s ease-out}
+.gpk.out{opacity:0;transition:opacity .16s}
+.gpk-card{width:min(560px,88%);max-height:86%;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;
+  background:linear-gradient(170deg,#2E2238 0%,#1E1626 70%);border:1px solid rgba(232,196,112,.62);box-shadow:0 10px 34px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,236,190,.14);
+  animation:gpkCard .22s cubic-bezier(.2,.8,.3,1)}
+.gpk-hd{display:flex;align-items:center;gap:8px;padding:10px 12px 8px 16px;border-bottom:1px solid rgba(232,196,112,.25);background:linear-gradient(90deg,rgba(232,196,112,.14),transparent 70%)}
+.gpk-hd b{flex:1;font:700 15px/1.3 var(--serif);letter-spacing:.12em;color:#F3DFB4}
+.gpk-hd b::before{content:"◆";margin-right:8px;font-size:10px;color:#E8C470;vertical-align:2px}
+.gpk-x{width:32px;height:32px;border-radius:50%;border:1px solid rgba(232,196,112,.45);background:rgba(255,244,222,.06);color:#F3DFB4;font-size:13px;cursor:pointer}
+.gpk-list{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:6px;padding:10px 12px 12px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.gpk-list h5{grid-column:1/-1;margin:6px 2px 0;font:600 11px/1.2 var(--sans);letter-spacing:.2em;color:#C9B48C}
+.gpk-o{position:relative;min-height:40px;padding:7px 12px 7px 26px;border-radius:8px;text-align:left;cursor:pointer;
+  background:rgba(255,244,222,.05);border:1px solid rgba(232,196,112,.22);color:#FFF4E6;font:500 13.5px/1.35 var(--sans);transition:background .12s,border-color .12s,transform .12s}
+.gpk-o::before{content:"";position:absolute;left:10px;top:50%;width:6px;height:6px;margin-top:-3px;transform:rotate(45deg);border:1px solid rgba(232,196,112,.55)}
+.gpk-o:active{transform:scale(.98)}
+.gpk-o.on{background:linear-gradient(90deg,rgba(232,196,112,.26),rgba(232,196,112,.1));border-color:#E8C470;color:#FFF8E8}
+.gpk-o.on::before{background:#E8C470;border-color:#E8C470}
+.gpk-o:disabled{opacity:.4}
+@keyframes gpkIn{from{opacity:0}}
+@keyframes gpkCard{from{transform:translateY(10px) scale(.97);opacity:0}}
+@media (prefers-reduced-motion:reduce){.gpk,.gpk-card{animation:none}}
 </style>
 </head>
 <body>
@@ -2950,5 +2973,6 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 <script src="cg.js"></script>
 <script src="concert.js"></script>
 <script src="refine.js"></script>
+<script src="gpick.js"></script>
 </body>
 </html>
