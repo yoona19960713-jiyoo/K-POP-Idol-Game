@@ -1401,7 +1401,10 @@ every(300,()=>{ if(!V||document.hidden||RM.matches||$("#vppl .ghost")) return; c
     else animPortrait(img,[{rotate:"0deg"},{rotate:(Math.random()<.5?"-":"")+".55deg"},{rotate:"0deg"}],{duration:1900,easing:"ease-in-out"})   // 換重心
   }) });
 /* 回饋分級(參考 game-feel 技能):s 小(只有畫面上的數字跳動)、m 中(輕震+柔光)、l 大(震動節奏+全畫面閃光);設定裡可以關震動 */
-window.feedback=lv=>{ if(localStorage.getItem("kpopGame.haptic")!=="0"&&lv!=="s") try{ navigator.vibrate?.(lv==="l"?[40,70,60]:25) }catch(e){window.logErr?.("game",e)}
+window.feedback=lv=>{ if(localStorage.getItem("kpopGame.haptic")!=="0") try{   // 2.0 第六個大腦:APK 走 Capacitor Haptics(@capacitor/haptics 會加震動權限;以前 navigator.vibrate 在 APK 裡沒有權限不會震)
+    const H=window.Capacitor?.isNativePlatform?.()&&window.Capacitor?.Plugins?.Haptics;
+    if(H){ if(lv==="l") H.notification({type:"SUCCESS"}); else if(lv==="m") H.impact({style:"MEDIUM"}); else H.impact({style:"LIGHT"}) }
+    else if(lv!=="s") navigator.vibrate?.(lv==="l"?[40,70,60]:25) }catch(e){window.logErr?.("game",e)}
   if(lv==="s"||RM.matches) return; const f=document.createElement("div"); f.className="fbk "+lv; $("#stage").appendChild(f); setTimeout(()=>f.remove(),lv==="l"?1400:1000) };
 (()=>{ const s=$("#rdSpeed"), a=$("#rdAuto"), h=$("#hapOn"), keep=()=>localStorage.setItem("kpopGame.read",JSON.stringify(RD));
   if(s){ s.value=RD.speed; s.onchange=()=>{ RD.speed=s.value; keep() } } if(a){ a.value=RD.auto; a.onchange=()=>{ RD.auto=a.value; keep() } }

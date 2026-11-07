@@ -18,7 +18,7 @@ function open(sel){ close(); const st=document.querySelector("#stage"); if(!st) 
     <div class="gpk-list" role="listbox">${items.map((x,i)=>x.g!=null?`<h5>${esc(x.g)}</h5>`:x.o.hidden?"":`<button class="gpk-o${x.o.selected?" on":""}" role="option" data-i="${i}"${x.o.disabled?" disabled":""}>${esc(x.o.textContent.trim())}</button>`).join("")}</div></div>`;
   st.appendChild(el); CUR={el,sel}; window.sfx?.("tap");
   el.addEventListener("click",e=>{ e.stopPropagation(); const b=e.target.closest(".gpk-o");
-    if(b&&!b.disabled){ const o=items[+b.dataset.i].o; if(sel.value!==o.value){ sel.value=o.value; sel.dispatchEvent(new Event("input",{bubbles:true})); sel.dispatchEvent(new Event("change",{bubbles:true})) } close(); return }
+    if(b&&!b.disabled){ const o=items[+b.dataset.i].o; window.feedback?.("s"); if(sel.value!==o.value){ sel.value=o.value; sel.dispatchEvent(new Event("input",{bubbles:true})); sel.dispatchEvent(new Event("change",{bubbles:true})) } close(); return }
     if(e.target===el||e.target.closest(".gpk-x")) close() });
   requestAnimationFrame(()=>{ const on=el.querySelector(".gpk-o.on"); if(on){ const L=el.querySelector(".gpk-list"); L.scrollTop=on.offsetTop-L.clientHeight/2+on.offsetHeight/2 } }) }
 document.addEventListener("click",e=>{ if(CUR) return; const st=document.querySelector("#stage"); if(!st||!st.contains(e.target)) return;
