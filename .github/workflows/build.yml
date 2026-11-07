@@ -200,3 +200,5 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1800000   # 2.0 第六個大腦:網頁版(含 APK 下載檔)約 300 MB,GitHub 忙的時候同步超過預設的 10 分鐘會被取消;放寬到 30 分鐘
