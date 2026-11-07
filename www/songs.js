@@ -545,10 +545,15 @@ let SONG_LIST=null; const songListP=fetch("assets/song/list.json",{cache:"no-sto
    這首還沒有對拍的小節(沒匯入編舞;收錄曲不編舞)而且段落名稱、順序對得上時,自動套到這首(T.sync、T.bpm 改成音檔的實際速度),
    舞台預覽、動態 MV、字幕就照 mp3 走;逐句對拍(lines)保留。段落結構換過(重建)會再套一次 */
 function audioSync(){ const LS=SONG_LIST; if(!LS||!R?.tracks) return 0; let n=0;
-  for(const T of R.tracks){ const a=LS[T.id]?.sync; if(!a||T.sync?.bars||!Array.isArray(a.sections)) continue;
+  for(const T of R.tracks){ const a=LS[T.id]?.sync; if(!a||!Array.isArray(a.sections)) continue;
+    const newer=+a.rev>0&&(+T.sync?.rev||0)<+a.rev;   // 2.0 第六個大腦:音檔分析的新版(rev)蓋過舊的小節表與逐句(舊的留在 syncPrev,可以還原)
+    if(T.sync?.bars&&!newer) continue;
     if(a.sections.length!==T.secs.length||a.sections.some((x,i)=>x.name!==T.secs[i].n)) continue;
     const bars={}; a.sections.forEach((x,i)=>{ if(+x.bar>=1) bars[i]=+x.bar });
-    T.sync={downbeat:+a.downbeat||0,bars,...(+a.end>0?{end:+a.end}:{}),src:"audio",...(T.sync?.lines?{lines:T.sync.lines}:{})}; if(+a.bpm>=50&&+a.bpm<=240) T.bpm=+a.bpm; n++ }
+    let lines=T.sync?.lines||null;
+    if(newer&&Array.isArray(a.lines)&&a.lines.length===T.secs.length){ lines={}; a.lines.forEach((L,si)=>{ if(Array.isArray(L)&&L.length===T.secs[si].lines.length) lines[si]=L.map(Number) }) }
+    if(newer&&T.sync) T.syncPrev=JSON.parse(JSON.stringify(T.sync));
+    T.sync={downbeat:+a.downbeat||0,bars,...(+a.end>0?{end:+a.end}:{}),src:"audio",...(+a.rev?{rev:+a.rev}:{}),...(lines?{lines}:{})}; if(+a.bpm>=50&&+a.bpm<=240) T.bpm=+a.bpm; n++ }
   return n }
 songListP.then(()=>{ try{ if(audioSync()) save() }catch(e){ window.logErr?.("歌曲對拍",e) } });
 window.songsAudioSync=()=>{ try{ if(audioSync()) save() }catch(e){} };   // 舞台預覽、動態 MV 算時間軸前先套(choreo.js songTimeline)
