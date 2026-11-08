@@ -98,7 +98,10 @@ async function runConcert(c){
     <div class="cnconf"></div><button class="cnskip">略過 ›</button><p class="cntap">點一下畫面繼續</p>`;
   $("#stage").appendChild(el); setPause("concert",true);
   const cv=el.querySelector(".cnsticks"), ctx=cv.getContext("2d"); let col=LIGHT[0], wave=1, raf=0, t0=performance.now();
-  const sticks=[]; const draw=t=>{ const dpr=Math.min(2,devicePixelRatio||1), w=cv.clientWidth, h=cv.clientHeight;
+  /* 2.0 第七個大腦:畫布大小每 30 格才讀一次(以前每一格讀 clientWidth,畫面有變動時會強制重算樣式與排版)。
+     (試過依亮度分組一次填色:測起來沒有比較快、重疊處亮度也會不同,所以畫法照舊) */
+  const sticks=[]; let fc=0, cw=0, chh=0;
+  const draw=t=>{ const dpr=Math.min(2,devicePixelRatio||1); if(!cw||fc++%30===0){ cw=cv.clientWidth; chh=cv.clientHeight } const w=cw, h=chh;
     if(cv.width!==Math.round(w*dpr)){ cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); sticks.length=0;
       const n=Math.round(w*h/260); for(let i=0;i<n;i++){ const y=Math.pow(Math.random(),.7); sticks.push({x:Math.random(),y,ph:Math.random()*6.28,s:.4+y*1.1}) } }
     const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H); ctx.globalCompositeOperation="lighter"; ctx.fillStyle=col;

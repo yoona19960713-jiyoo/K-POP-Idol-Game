@@ -398,8 +398,16 @@ function wardrobe(mid){
   const slot=Object.keys(WMEM).find(k=>WMEM[k]===mid);
   return Object.values(ITEMS).filter(l=>l&&!l.deleted&&slot&&l.members?.[slot]?.sprites)
     .map(l=>({m:mid,id:l.code,look:l.code,name:l.name,occ:l.occasion==="日常"?"日常・外出":l.occasion,seasons:l.seasons||[]}))}
+let WEAR_SIG="";
 function ensureWear(force){
-  if(S.wear&&S.wear.day===S.day&&!force) return;
+  if(S.wear&&S.wear.day===S.day&&!force){   // 2.0 第七個大腦:衣櫃資料晚到(雲端同步)時,補上當天還空著的人;已經穿著的不換
+    const sig=Object.keys(ITEMS).length+"|"+Object.keys(WMEM).length; if(sig===WEAR_SIG) return; WEAR_SIG=sig;
+    const season=seasonOf(dateOf(S.day)), r=rng(seedOf(S.day,"wear2"));
+    for(const m of M){ const wm=S.wear.m[m.id]=S.wear.m[m.id]||{}; let ward=null;
+      for(const [k,occ] of Object.entries(CAT)){ if(wm[k]&&ITEMS[wm[k]]&&!ITEMS[wm[k]].deleted) continue; ward=ward||wardrobe(m.id);
+        const c=ward.filter(o=>o.occ===occ&&(!o.seasons.length||o.seasons.includes(season))); if(c.length) wm[k]=c[Math.floor(r()*c.length)].id } }
+    return }
+  WEAR_SIG=Object.keys(ITEMS).length+"|"+Object.keys(WMEM).length;
   const season=seasonOf(dateOf(S.day)), r=rng(seedOf(S.day,"wear")), w={day:S.day,m:{}};
   for(const m of M){w.m[m.id]={}; const ward=wardrobe(m.id);
     for(const [k,occ] of Object.entries(CAT)){let c=ward.filter(o=>o.occ===occ&&(!o.seasons.length||o.seasons.includes(season)));
@@ -422,6 +430,13 @@ function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
 const SPR_Q=[], SPR_HAD=new Set(); let sprQBusy=false;
 function sprQRun(){ if(sprQBusy) return; const s=SPR_Q.shift(); if(!s) return; sprQBusy=true; const i=new Image(); i.decoding="async";
   i.onload=i.onerror=()=>{ sprQBusy=false; setTimeout(sprQRun,40) }; i.src=s }
+/* 2.0 第七個大腦(使用者回報對話裡四個人穿白 T):造型立繪讀好時,正在顯示的對話立繪換上去(淡入);表情先用代替的,合成好後換正確的 */
+window.dynArrived=(code,mid,n=0)=>{ try{ if(!V) return; for(const im of $("#vppl").querySelectorAll(`img[data-id="${mid}"]`)){ if(im.dataset.of!==code) continue;
+    const want=spr(mid,code,im.dataset.ex||"neutral"); if(!want||im.getAttribute("src")===want) continue;
+    if($("#vppl .ghost")){ if(n<12) setTimeout(()=>window.dynArrived(code,mid,n+1),350); continue }   // 別人正在換(淡入淡出中):等一下再換,不會疊在一起
+    swapExpr(im,want) } }catch(e){ logErr("立繪",e) } };
+/* 標題畫面閒著時,先讀五個人現在那套衣服、練習服的立繪 */
+window.dynWarm=()=>{ try{ for(const m of M){ const a=outfitAt(m.id,S.where?.[m.id]||"living",S.slot), b=(S.wear?.m?.[m.id]||{}).練習; for(const of of [a,b]) if(of) window.needDyn?.(of,m.id) } }catch(e){ logErr("立繪",e) } };
 function preload(mid,outfit){ for(const e of EXPR){ const s=spr(mid,outfit,e); if(!SPR_HAD.has(s)){ SPR_HAD.add(s); SPR_Q.push(s) } } sprQRun() }
 /* 下兩句要換的表情先解碼好(留住最近 12 張),換表情時不用當場解 */
 const LINE_WARM=new Map();

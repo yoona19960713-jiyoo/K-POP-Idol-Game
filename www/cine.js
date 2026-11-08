@@ -46,9 +46,13 @@ function animShot(L,sh){ const D=sh.dur, A=[], rm=RM.matches;
   if(L._title){ L._title.style.opacity=0; A.push(L._title.animate([{opacity:0,letterSpacing:".6em"},{opacity:1,letterSpacing:".32em",offset:.25},{opacity:1,offset:.8},{opacity:0}],{duration:D,delay:200,easing:"ease-out",fill:"both"})) }
   return A }
 /* 準備鏡頭:做出元素、照順序一個一個解碼(h.P[i] = {L, ready}) */
+/* 2.0 第七個大腦:鏡頭裡的成員,等她那套衣服的立繪讀好再做這個鏡頭(以前讀好前就做,會穿白 T 出場),最多等 2.5 秒 */
+async function dynReady(sh){ const ks=[]; for(const f of sh.figs||[]){ let of=null; try{ of=f.outfit!==undefined?f.outfit:outfitAt(f.id,f.room||S.where[f.id],f.slot??S.slot) }catch(e){} if(of){ window.needDyn?.(of,f.id); ks.push(of+"@"+f.id) } }
+  for(let t=0;t<25&&ks.some(k=>!window.DYN?.[k]&&window.dynBusy?.(k));t++) await wait(100) }
 const decEls=L=>Promise.all([...L.querySelectorAll("img")].map(im=>(im.decode?im.decode():Promise.resolve()).catch(()=>{})));
 function prepper(script,h){ h=h&&h.script===script?h:{P:[],chain:Promise.resolve(),script};
-  h.get=i=>{ const sh=script.shots[i]; if(!sh) return null; if(!h.P[i]){ const L=shotEl(sh); h.P[i]={L,ready:h.chain=h.chain.then(()=>decEls(L))} } return h.P[i] };
+  h.get=i=>{ const sh=script.shots[i]; if(!sh) return null;
+    if(!h.P[i]){ const P={L:null}; h.P[i]=P; P.ready=h.chain=h.chain.then(async()=>{ await dynReady(sh); if(!P.L) P.L=shotEl(sh); await decEls(P.L) }) } return h.P[i] };
   return h }
 window.cinePrep=(script,n=2)=>{ const h=prepper(script); for(let i=0;i<n;i++) h.get(i); return h };   // 標題畫面閒著時先解前兩個鏡頭(mile.js)
 const WARM=1300;
@@ -67,7 +71,7 @@ window.cinePlay=async(script,onEnd,h)=>{ if(RUN) return; const root=mk("div","ci
   let prev=null; const N=script.shots.length;
   for(let i=0;i<N;i++){ if(!alive) return; const sh=script.shots[i], p=h.get(i);
     if(i>0) await Promise.race([p.ready,wait(1500)]); if(!alive) return;
-    const L=p.L; if(!L.isConnected){ L.style.opacity=".001"; stage.appendChild(L) }
+    if(!p.L) p.L=shotEl(sh); const L=p.L; if(!L.isConnected){ L.style.opacity=".001"; stage.appendChild(L) }
     { const d=root.querySelector(".cn-date");   // 日期只在有寫的鏡頭出現,下一個鏡頭淡掉(不跟名牌疊在一起)
       if(sh.date){ d.innerHTML=`<b>${esc(sh.date[0])}</b><span>${esc(sh.date[1]||"")}</span>`; d.animate([{opacity:0,transform:"translateY(-.3em)"},{opacity:1,transform:"none"}],{duration:900,delay:300,fill:"both"}); d._on=1 }
       else if(d._on){ d._on=0; d.animate([{opacity:1},{opacity:0}],{duration:500,fill:"forwards"}) } }
@@ -78,7 +82,7 @@ window.cinePlay=async(script,onEnd,h)=>{ if(RUN) return; const root=mk("div","ci
     if(i===N-1&&under) setTimeout(()=>{ if(alive) root.classList.add("under") },Math.max(0,sh.dur-1300));   // 最後約 1.3 秒才讓底下的畫面開始畫(之前完全蓋住,不多畫)
     if(prev){ const pv=prev; setTimeout(()=>pv.remove(),T+60) } prev=L; h.P[i]={L:null,ready:p.ready};
     const nx=h.get(i+1), t0=performance.now();
-    if(nx) nx.ready.then(()=>setTimeout(()=>{ if(alive&&!nx.L.isConnected){ nx.L.style.opacity=".001"; stage.appendChild(nx.L) } },Math.max(0,t0+sh.dur-WARM-performance.now())));   // 下一個鏡頭先隱形放上去
+    if(nx) nx.ready.then(()=>setTimeout(()=>{ if(alive&&nx.L&&!nx.L.isConnected){ nx.L.style.opacity=".001"; stage.appendChild(nx.L) } },Math.max(0,t0+sh.dur-WARM-performance.now())));   // 下一個鏡頭先隱形放上去
     if(nx) nx.ready.then(()=>h.get(i+2));
     await wait(sh.dur) }
   if(alive){ const d=root.querySelector(".cn-date"); d.animate([{opacity:1},{opacity:0}],{duration:500,fill:"forwards"}); await wait(400); RUN?.end() } };

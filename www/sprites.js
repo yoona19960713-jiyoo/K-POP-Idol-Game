@@ -69,13 +69,21 @@ function keyOut2(ctx,W,H){
         Bf[p*3+c]=(a*(1-tx)+b*tx)*(1-ty)+(e*(1-tx)+f*tx)*ty}}}
   // ---- 3. 用新的底色圖重新填充,再清被包住的灰塊 ----
   bg=fill(TOL);
+  /* 2.0 第七個大腦(使用者回報白色衣服被吃掉):底色很淺(約 230 以上)時,白衣服、淺色衣服的亮面與陰影跟底色只差 15~20,
+     以前第 3、3b 步用 TOL(12~26)判斷「跟底色一樣」,把衣服中間整片清掉(白 T 合成在 236 的灰底上會被吃掉 18~26%)。
+     現在先量真正底色的雜訊(確定是底色的像素離平滑底色圖多遠,取 95%),第 3、3b 步只清「跟底色一樣近」的像素 */
+  let TB; { const rs=[]; for(let p=0;p<N;p+=7) if(bg[p]) rs.push(dist(p)); rs.sort((a,b)=>a-b);
+    const med=rs.length?rs[rs.length>>1]:TOL*.3, p75=rs.length?rs[Math.floor(rs.length*.75)]:TOL*.4;   // 用中位數與 75%:就算第一次填充漏進一些衣服,也不會把門檻拉高
+    TB=Math.max(6,Math.min(TOL*.8,Math.max(med*2.6,p75*1.9)+2.5)) }
+  bg=fill(Math.min(TOL,TB*1.15)); window.__keyTB=[TOL,TB]; const DBG=window.__keyDebug?{}:null; if(DBG){ DBG.fill=bg.slice(); window.__keyMasks=DBG }   // 用平滑底色圖重新填充時只走「跟底色一樣近」的像素,不會從邊緣漏進白衣服
   const gradAt=p=>{const x=p%W; let s=0,n=0; for(const q of [x>0?p-1:-1,x<W-1?p+1:-1,p-W,p+W]){ if(q<0||q>=N) continue; s+=step(p,q); n++} return n?s/n:0};
   const seen=new Uint8Array(N), SMALL=Math.round(N*.0016), BIG=Math.round(N*.04);
-  for(let s0=0;s0<N;s0++){ if(bg[s0]||seen[s0]||dist(s0)>=TOL*.8) continue;
+  for(let s0=0;s0<N;s0++){ if(bg[s0]||seen[s0]||dist(s0)>=TB) continue;
     const comp=[s0]; seen[s0]=1; let k=0, sum=0, gs=0;
-    while(k<comp.length){const p=comp[k++],x=p%W; sum+=dist(p); gs+=gradAt(p); for(const n of [x>0?p-1:-1,x<W-1?p+1:-1,p-W,p+W]){ if(n<0||n>=N||seen[n]||bg[n]) continue; if(dist(n)<TOL*.8){seen[n]=1;comp.push(n)} } }
+    while(k<comp.length){const p=comp[k++],x=p%W; sum+=dist(p); gs+=gradAt(p); for(const n of [x>0?p-1:-1,x<W-1?p+1:-1,p-W,p+W]){ if(n<0||n>=N||seen[n]||bg[n]) continue; if(dist(n)<TB){seen[n]=1;comp.push(n)} } }
     const avg=sum/comp.length, flat=gs/comp.length;
-    if(comp.length<=SMALL&&avg<TOL*.6 || comp.length<=BIG&&avg<Math.min(9,TOL*.45)&&flat<7) for(const p of comp) bg[p]=1 }
+    if(comp.length<=SMALL&&avg<TB*.75 || comp.length<=BIG&&avg<Math.min(9,TB*.6)&&flat<7) for(const p of comp) bg[p]=1 }
+  if(DBG) DBG.s3=bg.slice();
   // ---- 3b. 輪廓附近(離外面的底色 36px 內)跟底色幾乎一樣、沒什麼彩度、很平的像素也是底色:頭髮縫、髮尾和脖子之間 ----
   for(let pass=0;pass<2;pass++){
     const dd=new Uint8Array(N).fill(255), qq=new Int32Array(N); let h0=0,t0=0;
@@ -84,8 +92,9 @@ function keyOut2(ctx,W,H){
     let added=0;
     for(let p=0;p<N;p++){ if(bg[p]||dd[p]>36) continue; const i=p*4;
       const ch=Math.max(d[i],d[i+1],d[i+2])-Math.min(d[i],d[i+1],d[i+2]);
-      if(dist(p)<TOL*.85&&ch<20&&gradAt(p)<12){bg[p]=1;added++} }
+      if(dist(p)<TB&&ch<20&&gradAt(p)<12){bg[p]=1;added++} }
     if(!added) break }
+  if(DBG) DBG.s3b=bg.slice();
   // ---- 4. 邊緣摳像:輪廓 36px 內、顏色介於底色與前景之間的像素(邊緣、髮絲之間透出的底色)
   //      用附近「確定是前景」的顏色 F 與底色 B 投影出透明度,並把灰色從顏色裡扣掉 ----
   const dt=new Uint8Array(N).fill(255), q=new Int32Array(N); let qh=0,qt=0;
@@ -117,6 +126,7 @@ function keyOut2(ctx,W,H){
     if(!nb) continue; const D=dist(p); if(D<TOL*.6) continue; const a=Math.min(.6,(D-TOL*.6)/(TOL*2)); if(a<.06) continue;
     const Br=bgc(p,0),Bg=bgc(p,1),Bb=bgc(p,2); out[i]=Br+(d[i]-Br)/a; out[i+1]=Bg+(d[i+1]-Bg)/a; out[i+2]=Bb+(d[i+2]-Bb)/a; out[i+3]=Math.round(255*a) }
   im.data.set(out); ctx.putImageData(im,0,0);
+  Bf.tb=TB; Bf.row=R0;   // 2.0 第七個大腦:底色的雜訊門檻、只看圖片左右邊緣的每列底色(人物裡面被去背誤吃時,平滑底色圖會被衣服的顏色帶偏),換衣合成(fuseWithPrior)用
   return Bf;
 }
 
@@ -149,17 +159,21 @@ async function fuseWithPrior(B,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD){
       for(let i=0;i<md.length;i+=4) id.data[i+3]=md[i]; x.putImageData(id,0,0);
       const pp=locate(id.data,w,h,nD,cw,ch,face), c2=canvas(cw,ch), x2=c2.getContext("2d",{willReadFrequently:true});
       x2.drawImage(c,-pp.x,-pp.y); P=x2.getImageData(0,0,cw,ch).data }catch(e){ P=nD } }
+  const BGT=Math.max(8,(Bf.tb||10)*1.1);
   for(let y=0;y<ch;y++){ const Y=y+pos.y; for(let x=0;x<cw;x++){ const X=x+pos.x, i=(y*cw+x)*4;
     if(X<0||Y<0||X>=W||Y>=H){B[i+3]=0;continue}
     const q=Y*W+X, j=q*4, r=rawD[j],g=rawD[j+1],b=rawD[j+2], br=Bf[q*3],bg=Bf[q*3+1],bb=Bf[q*3+2];
     const db=Math.hypot(r-br,g-bg,b-bb), chr=Math.max(r,g,b)-Math.min(r,g,b), L=(r+g+b)/3, bL=(br+bg+bb)/3;
-    const bgLike=(db<30&&chr<18)||(chr<14&&L<bL+6&&L>bL-70);          // 灰底或灰色影子
+    /* 2.0 第七個大腦(使用者回報白衣服被吃掉):以前「離底色 30 以內、彩度 18 以下」就當底色,淺灰底上的白衣服、淺色衣服整片變透明。
+       現在只有「跟底色一樣近」(去背量到的雜訊門檻)才算底色;灰色影子只在畫面最下面兩成(腳下的影子)才算 */
+    const R=Bf.row, dr=R?Math.hypot(r-R[Y*3],g-R[Y*3+1],b-R[Y*3+2]):db;   // 身體裡面:用邊緣的每列底色比(不受誤吃的衣服影響)
+    const bgLike=(Math.max(db,P[i+3]>=200?dr-4:0)<BGT&&chr<12)||(Y>H*.8&&chr<14&&L<bL-4&&L>bL-70);
     const Pa=P[i+3], diff=Math.abs(r-P[i])+Math.abs(g-P[i+1])+Math.abs(b-P[i+2]);
     let a, cr=B[i],cg=B[i+1],cb=B[i+2];
     if(Pa>=8&&diff<45){ a=Pa; cr=r;cg=g;cb=b;                        // 同一張畫:用底模的透明度,並扣掉邊緣的灰
       if(a<250){const k=a/255; cr=br+(r-br)/k; cg=bg+(g-bg)/k; cb=bb+(b-bb)/k} }
-    else if(Pa>=8){ a=bgLike?0:(B[i+3]>0?B[i+3]:(db>40?255:0)); if(a===255&&B[i+3]===0){cr=r;cg=g;cb=b} }   // 衣服變了
-    else a=bgLike?0:B[i+3];                                            // 底模這裡沒有人:造型多出來的部分(裙擺等)
+    else if(Pa>=8){ a=bgLike&&B[i+3]<128?0:(Pa>=200&&!bgLike)?255:(B[i+3]>0?B[i+3]:(db>40?255:0)); if(a===255&&B[i+3]===0){cr=r;cg=g;cb=b} }   // 衣服變了:身體裡面(底模幾乎不透明)不是底色的就留下
+    else a=bgLike&&B[i+3]<128?0:B[i+3];                                // 底模這裡沒有人:造型多出來的部分(裙擺等);去背(或高品質去背)說是人的就留
     B[i]=Math.max(0,Math.min(255,cr)); B[i+1]=Math.max(0,Math.min(255,cg)); B[i+2]=Math.max(0,Math.min(255,cb)); B[i+3]=a } }
 }
 const POSE_CUT=(f,pose)=>!!(window.POSE_ASSETS||{})[f+"_"+pose];
@@ -289,14 +303,15 @@ async function composeMain(baseU,patchU,at){ const ld=s=>new Promise((ok,no)=>{c
   const c=canvas(b.naturalWidth,b.naturalHeight),x=c.getContext("2d"); x.drawImage(b,0,0); x.drawImage(p,at[0],at[1]); return await new Promise(r=>c.toBlob(r,"image/webp",.9)) }
 window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) return; LOADING.add(k);
   (async()=>{ const slot=Object.keys(WMEM).find(s=>WMEM[s]===mid), mm=ITEMS[code]?.members?.[slot], sp=mm?.sprites; if(!sp) return;
-    if(!mm.faces){ const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender()} return }   // 舊的格式:12 張全身
-    const nu=await getBlob(sp.neutral); if(!nu) return; const o={neutral:toBlobURL(nu)}; DYN[k]=o; rerender();
+    if(!mm.faces){ const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender(); window.dynArrived?.(code,mid)} return }   // 舊的格式:12 張全身
+    const nu=await getBlob(sp.neutral); if(!nu) return; const o={neutral:toBlobURL(nu)}; DYN[k]=o; rerender(); window.dynArrived?.(code,mid);   // 2.0 第七個大腦:正在顯示的對話立繪換上這套(以前讀好前就畫的人整段都是白 T)
     const W=composer(), bid=++cwId; let first=true;
     for(const e of ORDER_EX){ const pu=mm.faces[e]&&await getBlob(mm.faces[e]); if(!pu) continue;
       try{ let blob;
         if(W){ const id=++cwId; blob=await new Promise(r=>{ cwWait.set(id,d=>r(d.blob||null)); W.postMessage({id,bid,at:mm.fat,patch:dataBlob(pu),...(first?{base:dataBlob(nu)}:{})}) }); first=false }
         else blob=await composeMain(nu,pu,mm.fat);
         if(blob) o[e]=URL.createObjectURL(blob) }catch(err){ window.logErr?.("立繪合成",err) } }
+    window.dynArrived?.(code,mid);   // 表情都合成好了:正在顯示的表情如果先用代替的,換成正確的
     if(W) W.postMessage({free:bid}) })().finally(()=>LOADING.delete(k)) };   // 每一套各自一個 bid,同時載好幾套也不會拿錯底圖
 window.dynBusy=k=>LOADING.has(k);   // 2.0 第七個大腦:這一套的表情還在合成(回來時的迎接要等合成完才出場)
 

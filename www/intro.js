@@ -153,7 +153,7 @@ window.preloadFontSlices=preloadFontSlices;
 
 /* 結束(自然播完或跳過):標題回到一般狀態,收掉開場用的圖層 */
 function endIntro(title){ if(!IN||IN.done) return; IN.done=true; setTimeout(preloadFontSlices,400);   // 其餘的字在開場結束後、標題畫面靜止時載(載入會讓文字重新排版,開場中載會頓)
-  setTimeout(()=>{ try{ window.audioWarm?.(); window.mileCineWarm?.() }catch(e){ logE(e) } },900);   // 2.0 第七個大腦:標題畫面閒著時先備好音訊、要播的過場前兩個鏡頭
+  setTimeout(()=>{ try{ window.audioWarm?.(); window.mileCineWarm?.(); window.dynWarm?.() }catch(e){ logE(e) } },900);   // 2.0 第七個大腦:標題畫面閒著時先備好音訊、要播的過場前兩個鏡頭
   document.getElementById("stage")?.classList.remove("intro-solo");
   title.classList.remove("intro"); title.classList.add("played");
   for(const a of IN.anims){ try{ a.cancel() }catch(e){} }
