@@ -861,11 +861,19 @@ function ovlMake(img,f,part,cls){ const im=OVL_IMG[f+"|"+part], o0=OVL[f]; if(!i
   return o }
 const BLINK_EX=new Set(["neutral","smile"]);   // 閉眼小塊是從平常的臉做的,害羞的臉有紅暈,眨眼會蓋出一塊不同的膚色
 const fading=img=>img.getAnimations().some(x=>x instanceof CSSTransition&&x.transitionProperty==="filter"&&x.playState==="running");
+/* 2.0 第七個大腦:眨眼的疊加層改成每個立繪一層常駐(場景畫好後先做好、對齊一次,平常透明度 .001 看不見),眨眼只播 120 毫秒的透明度動畫。
+   以前每眨一次都新建一層、讀一次計算後樣式、每一格重新對齊動畫,五個人在場時一直吃主執行緒。
+   之後的動作都經過 animPortrait(life.js 的台詞動作也改成走它),常駐層會跟著一起動 */
+function blinkLayer(img){ let o=img._blk; if(o?.isConnected) return o;
+  o=ovlMake(img,byId(img.dataset.id)?.f,"blink","blink"); if(!o) return null;
+  o.style.zIndex=""; o.style.opacity=".001"; return img._blk=o }
 function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")||fading(img)) return;
-  const o=ovlMake(img,byId(img.dataset.id)?.f,"blink","blink"); if(o) setTimeout(()=>o.remove(),120) }
+  const o=blinkLayer(img); if(!o) return;
+  for(const c of ["dim","on"]) o.classList.toggle(c,img.classList.contains(c));   // 跟立繪一樣的亮度與前後
+  o.animate([{opacity:1},{opacity:1}],{duration:120}) }
 every(200,()=>{ if(!V||document.hidden||window.cineBusy?.()) return; const now=performance.now();   // 2.0 第七個大腦:過場還蓋在上面時(底下先搭好的場景)不眨眼
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
-    const t=+img.dataset.nb||0; if(!t){img.dataset.nb=now+1200+Math.random()*3000; return}
+    const t=+img.dataset.nb||0; if(!t){img.dataset.nb=now+1200+Math.random()*3000; blinkLayer(img); return}
     if(now<t) return; blinkOnce(img); if(Math.random()<.18) setTimeout(()=>blinkOnce(img),230);
     img.dataset.nb=now+2600+Math.random()*3800 }) });
 
