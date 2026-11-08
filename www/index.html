@@ -2182,9 +2182,11 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 .cine{position:absolute;inset:0;z-index:70;background:#07040A;overflow:hidden;--u:max(1cqw,7.4px);cursor:pointer}
 .cine .cn-stage,.cine .cn-shot{position:absolute;inset:0}
 .cine .cn-bg{position:absolute;inset:-4%;background:center/cover no-repeat;will-change:transform}
+.cine .cn-bg .cn-bgi{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}   /* 2.0 第七個大腦:背景改用 <img>,才能在換鏡頭前先解碼 */
+.cine.under{background:rgba(7,4,10,.996)}.cine.under .cn-bar{background:rgba(5,3,7,.996)}   /* 最後的字卡:不是完全不透明,底下先搭好的畫面才會先畫好(看起來一樣是黑的) */
 .cine .cn-shot::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(8,3,10,.55)),linear-gradient(180deg,rgba(8,3,10,.15),transparent 30%,transparent 62%,rgba(8,3,10,.55))}
 .cine .cn-fig{position:absolute;transform:translateX(-50%);z-index:1;will-change:transform,opacity}   /* 寬度跟著立繪(手伸出去的立繪比較寬) */
-.cine .cn-fig img{display:block;height:100%;width:auto;transform-origin:50% 100%}
+.cine .cn-fig img{display:block;height:100%;width:auto;transform-origin:50% 100%;will-change:transform}   /* 2.0 第七個大腦:立繪一開始就是自己的圖層(鏡頭開始時才加飄動,會臨時重畫一次整張立繪) */
 .cine .cn-bar{position:absolute;left:0;right:0;height:9%;background:#050307;z-index:5}
 .cine .cn-bar.t{top:0}.cine .cn-bar.b{bottom:0}
 .cine .cn-date{position:absolute;left:4.5%;top:12%;z-index:6;display:flex;flex-direction:column;gap:calc(.3*var(--u));color:#F3E4C2;opacity:0;text-shadow:0 1px 6px rgba(0,0,0,.6)}

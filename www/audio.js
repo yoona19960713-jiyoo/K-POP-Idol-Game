@@ -18,7 +18,10 @@ function ctx(){ if(AC) return AC;
   bus.master=AC.createGain(); bus.master.connect(AC.destination);
   for(const k of ["music","sfx","voice"]){ bus[k]=AC.createGain(); bus[k].connect(bus.master) }
   bus.duck=AC.createGain(); bus.duck.connect(bus.music);   // 語音播放時壓低音樂
-  apply(); return AC }
+  apply(); IDLE(()=>{ try{ revPrep(); nbPrep() }catch(e){window.logErr?.("audio",e)} }); return AC }
+/* 2.0 第七個大腦:標題畫面閒著時先把音訊準備好(瀏覽器允許先建立、按第一下時才出聲),按「開始」那一下就不用當場建立 */
+const IDLE=window.requestIdleCallback?(f=>requestIdleCallback(f,{timeout:800})):(f=>setTimeout(()=>f({timeRemaining:()=>8}),40));
+window.audioWarm=()=>IDLE(()=>{ try{ ctx() }catch(e){window.logErr?.("audio",e)} });
 function apply(){ if(!AC) return; const t=AC.currentTime; bus.master.gain.setTargetAtTime(gainOf(cfg.master),t,.05);
   for(const k of ["music","sfx","voice"]) bus[k].gain.setTargetAtTime(gainOf(cfg[k]),t,.05) }
 window.audioCtx=()=>{ try{ ctx(); return {ctx:AC,sfx:bus.sfx} }catch(e){ return null } };
@@ -82,18 +85,28 @@ window.voice=url=>{ try{ ctx(); const a=new Audio(url), s=AC.createMediaElementS
          start 標題按開始、welcome 成員迎接、bye 晚安字卡 */
 const BUF={}; let SFXL=null, lastSfx=0;
 fetch("assets/sfx/list.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>{ SFXL=Array.isArray(j)?new Set(j):null }).catch(()=>{});
-let REV=null;
-function reverb(){ if(REV) return REV; const len=Math.floor(AC.sampleRate*1.3), b=AC.createBuffer(2,len,AC.sampleRate);
-  for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.4) }
-  const cv=AC.createConvolver(); cv.buffer=b; const g=AC.createGain(); g.gain.value=.2; cv.connect(g); g.connect(bus.sfx); return REV=cv }
+let REV=null, REVJOB=false;
+/* 回音(2.0 第七個大腦):以前第一次播有回音的音效時才當場算 1.3 秒 × 2 聲道(每個取樣都算一次次方),按「開始」那一下會停住;
+   現在建立音訊後在背景空檔分 10 段算(衰減曲線先算 513 點再內插),聲音一樣。還沒算好的那一聲先不加回音 */
+function revPrep(){ if(REV||REVJOB||!AC) return; REVJOB=true;
+  try{ const sr=AC.sampleRate, len=Math.floor(sr*1.3), b=AC.createBuffer(2,len,sr), d0=b.getChannelData(0), d1=b.getChannelData(1), N=512, T=new Float32Array(N+1);
+    for(let k=0;k<=N;k++) T[k]=Math.pow(1-k/N,3.4);
+    let i=0; const CH=Math.ceil(len/10);
+    const run=()=>{ const end=Math.min(len,i+CH);
+      for(;i<end;i++){ const x=i*N/len, k=x|0, e=T[k]+(T[k+1]-T[k])*(x-k); d0[i]=(Math.random()*2-1)*e; d1[i]=(Math.random()*2-1)*e }
+      if(i<len){ IDLE(run); return }
+      const cv=AC.createConvolver(); cv.buffer=b; const g=AC.createGain(); g.gain.value=.2; cv.connect(g); g.connect(bus.sfx); REV=cv };
+    IDLE(run) }catch(e){ window.logErr?.("audio",e) } }
+function reverb(){ if(!REV) revPrep(); return REV }
 function tone(out,{f,type="sine",t=0,a=.004,d=.25,g=.1,f2,rev=0}){ const now=AC.currentTime+t, o=AC.createOscillator(), v=AC.createGain();
   o.type=type; o.frequency.setValueAtTime(f,now); if(f2) o.frequency.exponentialRampToValueAtTime(f2,now+d*.8);
   v.gain.setValueAtTime(0,now); v.gain.linearRampToValueAtTime(g,now+a); v.gain.exponentialRampToValueAtTime(.0001,now+a+d);
-  o.connect(v); v.connect(out); if(rev){ const r=AC.createGain(); r.gain.value=rev; v.connect(r); r.connect(reverb()) } o.start(now); o.stop(now+a+d+.05) }
+  o.connect(v); v.connect(out); if(rev){ const cv=reverb(); if(cv){ const r=AC.createGain(); r.gain.value=rev; v.connect(r); r.connect(cv) } } o.start(now); o.stop(now+a+d+.05) }
 const bell=(o,f,t,g,d)=>{ tone(o,{f,t,g,d,rev:.7}); tone(o,{f:f*2.01,t,g:g*.32,d:d*.55,rev:.6}); tone(o,{f:f*3.03,t,g:g*.1,d:d*.3,rev:.4}) };
 let NB=null;
+function nbPrep(){ if(NB||!AC) return; const len=AC.sampleRate; NB=AC.createBuffer(1,len,AC.sampleRate); const x=NB.getChannelData(0); for(let i=0;i<len;i++) x[i]=Math.random()*2-1 }
 function noise(out,{t=0,d=.15,g=.06,type="highpass",f=2000,f2,q=.8,lp=12000}){ const now=AC.currentTime+t;
-  if(!NB){ const len=AC.sampleRate; NB=AC.createBuffer(1,len,AC.sampleRate); const x=NB.getChannelData(0); for(let i=0;i<len;i++) x[i]=Math.random()*2-1 }
+  nbPrep();
   const s=AC.createBufferSource(); s.buffer=NB; s.loop=true; const fl=AC.createBiquadFilter(); fl.type=type; fl.frequency.setValueAtTime(f,now); fl.Q.value=q;
   if(f2) fl.frequency.exponentialRampToValueAtTime(f2,now+d); const l=AC.createBiquadFilter(); l.type="lowpass"; l.frequency.value=lp;
   const v=AC.createGain(); v.gain.setValueAtTime(0,now); v.gain.linearRampToValueAtTime(g,now+.01); v.gain.exponentialRampToValueAtTime(.0001,now+d);

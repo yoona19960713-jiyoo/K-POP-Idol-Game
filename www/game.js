@@ -418,7 +418,17 @@ function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
   if(outfit){ // 造型室處理好的換衣立繪(DYN);還沒載入好時先穿白 T
     const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||(EXPR_FB[ex]||[]).map(k=>d[k]).find(Boolean)||d.neutral; window.needDyn&&needDyn(outfit,mid) }
   return `assets/chara/${f}_${ex}.webp`}
-function preload(mid,outfit){for(const e of EXPR){const i=new Image();i.src=spr(mid,outfit,e)}}
+/* 立繪預載(2.0 第七個大腦):排隊一次一張。以前一進場景就同時要 5 人 × 12 張(60 張),第一天五人打招呼的開頭會卡 */
+const SPR_Q=[], SPR_HAD=new Set(); let sprQBusy=false;
+function sprQRun(){ if(sprQBusy) return; const s=SPR_Q.shift(); if(!s) return; sprQBusy=true; const i=new Image(); i.decoding="async";
+  i.onload=i.onerror=()=>{ sprQBusy=false; setTimeout(sprQRun,40) }; i.src=s }
+function preload(mid,outfit){ for(const e of EXPR){ const s=spr(mid,outfit,e); if(!SPR_HAD.has(s)){ SPR_HAD.add(s); SPR_Q.push(s) } } sprQRun() }
+/* 下兩句要換的表情先解碼好(留住最近 12 張),換表情時不用當場解 */
+const LINE_WARM=new Map();
+function lineWarm(){ if(!D||!V) return; let n=0;
+  for(const it of D.q){ if(it.k!=="line") continue; if(++n>2) break; const im=$("#vppl")?.querySelector(`img[data-id="${it.id}"]`); if(!im) continue;
+    const s=spr(it.id,im.dataset.of||null,EXPR.includes(it.e)?it.e:guessExpr(it.text)); if(!s||LINE_WARM.has(s)||im.getAttribute("src")===s) continue;
+    const i=new Image(); i.decoding="async"; i.src=s; i.decode?.().catch(()=>{}); LINE_WARM.set(s,i); if(LINE_WARM.size>12) LINE_WARM.delete(LINE_WARM.keys().next().value) } }
 
 /* 劇本沒有標表情時,從台詞推測 */
 function guessExpr(t){t=String(t||"");
@@ -527,7 +537,8 @@ function warmArt(){ if(document.getElementById("title")) return; const key=S.day
   for(const r of rooms) warmQ.push(seasonArt("bg",r,l0));
   if(l1!==l0) for(const k of ["map","company","dorm","center"]) warmQ.push(seasonArt("scene",k,l1));
   warmQ=warmQ.filter(u=>!WARMED.has(u)); if(!warming) warmNext() }
-function warmNext(){ const u=warmQ.shift(); if(!u){warming=false;return} warming=true; WARMED.add(u);
+function warmNext(){ if(window.cineBusy?.()){ warming=true; setTimeout(()=>{ warming=false; warmNext() },1500); return }   // 2.0 第七個大腦:過場播放中不搶解碼(過場自己會先解下一個鏡頭)
+  const u=warmQ.shift(); if(!u){warming=false;return} warming=true; WARMED.add(u);
   const go=()=>{ const i=new Image(); i.src=u; (i.decode?i.decode():Promise.resolve()).catch(()=>{}).finally(()=>setTimeout(warmNext,120)) };
   window.requestIdleCallback?requestIdleCallback(go,{timeout:2000}):setTimeout(go,200) }
 /* 頂部列每一格畫面都會呼叫:只在數值真的改變時才寫進畫面(每格都重寫會讓玻璃面板一直重畫,手機很耗電、很卡) */
@@ -720,7 +731,7 @@ function vsubSet(add){ const el=$("#vsub"); if(!el) return; el.innerHTML=`${SLOT
 /* 互動面板的「聊天」:進她在的房間,直接跟她聊(不演進場的小片段) */
 window.visitTalk=(pid,id)=>visit(pid,{talk:id});
 window.visitAct=(pid,id,k,all)=>visit(pid,{act:{id,k,all:!!all}});
-window.visitMile=(pid,k,who)=>visit(pid,{mile:{k,who}});
+window.visitMile=(pid,k,who,hold)=>visit(pid,{mile:{k,who,hold:!!hold}});
 /* 2.0 第六個大腦:宣傳期劇情(type promo,ev = fansign/radio/magazine/variety/comfort_crack/comfort_slip)從內容庫挑。
    member 寫焦點成員(全團版寫 all);條件跟其他片段一樣(關係階段、日期、時期、天氣、季節、冷卻);沒看過的優先 */
 window.scriptsPool=({types=["promo"],ev,member}={})=>snips().filter(sn=>types.includes(sn.type)&&(!ev||sn.ev===ev)&&(!member||(sn.member||sn.who?.[0])===member)&&sn.who?.length
@@ -737,7 +748,8 @@ function visit(pid,o={}){
   $("#vbg").style.backgroundImage=`url(${o.scene?.bg||seasonArt("bg",pid,SLOTS[S.slot].light)})`;
   $("#vtitle").textContent=p.n; vsubSet(0); if(o.scene?.sub) $("#vsub").textContent=o.scene.sub;
   drawPeople(); $("#visit").classList.add("on"); $("#vopts").innerHTML=""; wxUpdate();
-  if(o.mile){ window.milePlay?.(o.mile.k,pid); return }
+  if(o.mile){ if(o.mile.hold){ V.resume=()=>{ if(V) V.resume=null; window.milePlay?.(o.mile.k,pid) }; return }   // 2.0 第七個大腦:過場最後的字卡時先在底下搭好,過場淡出後才開始第一句
+    window.milePlay?.(o.mile.k,pid); return }
   if(o.scene){ play(o.scene.sn,()=>{ try{ o.scene.done?.() }catch(e){ window.logErr?.("宣傳期跟去",e) } menu() }); return }
   if(o.act){ window.actPlay?.(o.act.k,o.act.id,pid,o.act.all); return }
   const ns=window.nightScene?.(pid,o.talk);   // 深夜:她睡不著、偷吃宵夜、在頂樓(night.js)
@@ -851,7 +863,7 @@ const BLINK_EX=new Set(["neutral","smile"]);   // 閉眼小塊是從平常的臉
 const fading=img=>img.getAnimations().some(x=>x instanceof CSSTransition&&x.transitionProperty==="filter"&&x.playState==="running");
 function blinkOnce(img){ if(!BLINK_EX.has(img.dataset.ex||"neutral")||$("#vppl .ghost")||fading(img)) return;
   const o=ovlMake(img,byId(img.dataset.id)?.f,"blink","blink"); if(o) setTimeout(()=>o.remove(),120) }
-every(200,()=>{ if(!V||document.hidden) return; const now=performance.now();
+every(200,()=>{ if(!V||document.hidden||window.cineBusy?.()) return; const now=performance.now();   // 2.0 第七個大腦:過場還蓋在上面時(底下先搭好的場景)不眨眼
   $("#vppl").querySelectorAll("img[data-id]").forEach(img=>{
     const t=+img.dataset.nb||0; if(!t){img.dataset.nb=now+1200+Math.random()*3000; return}
     if(now<t) return; blinkOnce(img); if(Math.random()<.18) setTimeout(()=>blinkOnce(img),230);
@@ -911,7 +923,7 @@ function showText(id,text,still,e){
   const m=byId(id), me=id==="me";
   $("#vname").innerHTML=me?"代表":m?`${m.n}<i class="en">${m.f.toUpperCase()}</i>`:"旁白"; $("#vname").style.setProperty("--nc",me?"var(--acc)":m?m.c:"#9b8aa0");
   if(m&&$("#vppl").querySelector(`[data-id="${id}"]`)){ const ex=EXPR.includes(e)?e:guessExpr(text); setExpr(id,ex); window.lifeLineMotion?.(id,ex) } else if(!m) setExpr(null);
-  $("#vbox").dataset.m=me?"me":m?m.id:"narr";
+  $("#vbox").dataset.m=me?"me":m?m.id:"narr"; try{ lineWarm() }catch(e){}
   logLines.push([me?"代表":m?m.n:"",text]);
   const el=$("#vtext"); el.className="vtext"+(me?" me":""); clearInterval(typing); $("#vbox").classList.remove("wait");
   fitText(el,text);

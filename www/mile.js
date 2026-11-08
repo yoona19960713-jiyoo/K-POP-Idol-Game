@@ -97,12 +97,23 @@ async function run(k){ if(RUNNING) return; RUNNING=true; const m=MS[k];
       window.visitMile?.(m.room,k,who) };
     const next=()=>m.ask==="團名"&&!S.groupName?askName(after):after();
     if(k==="first_day") S.flags.day1Card=1;
-    if(m.cine&&window.CINE?.[k]&&window.cinePlay){ const v=await cineVars(k); window.cinePlay(window.CINE[k](v),next) } else next();
+    if(m.cine&&window.CINE?.[k]&&window.cinePlay){
+      const w=WARM&&WARM.k===k?WARM:null; WARM=null;
+      const sc=w?w.sc:window.CINE[k](await cineVars(k));
+      /* 2.0 第七個大腦:過場最後的字卡那幾秒,把要演的地點與在場的人先在底下搭好(還不開始講),過場淡出時直接看到她們 */
+      const direct=!(m.card&&CARD[k])&&!(m.ask==="團名"&&!S.groupName); let held=false;
+      if(direct&&window.visitMile) sc.under=()=>{ if(held||V) return; const who=m.who||M.map(x=>x.id); for(const id of who) S.where[id]=m.room; window.visitMile(m.room,k,who,true); held=!!V?.resume };
+      window.cinePlay(sc,()=>{ if(held&&V?.resume) V.resume(); else next() },w?.h) } else next();
   }catch(e){ window.logErr?.("里程碑",e); RUNNING=false } }
 function finish(k){ (S.mile=S.mile||{})[k]=S.day; RUNNING=false; window.spendTime?.(MS[k].dur||60,MS[k].n); save(true) }
 window.milePlay=(k,pid)=>{ const sn=window.eventSnip?.(k,null)||fbSnip(k); if(!sn){ finish(k); menu(); return }
   S.seen[sn.code]=S.day; play(fillVars(sn),()=>{ finish(k); menu() }) };
-window.mileTick=()=>{ notify(); if(RUNNING||V||D||window.cineBusy?.()||document.querySelector(".bigev:not(.out),#cgView,#meet")) return; const k=todayMile(); if(!k) return;
-  if(S.day>DAYS[k]||S.min>=MS[k].at) run(k) };
+window.mileTick=()=>{ notify(); if(RUNNING||V||D||window.cineBusy?.()||document.querySelector(".bigev:not(.out),#cgView,#meet,#welc,#exitv")) return; const k=todayMile(); if(!k) return;
+  if(S.day>DAYS[k]||S.min>=MS[k].at) run(k) };   // 2.0 第七個大腦:回來時的迎接(#welc)、離開的動畫(#exitv)還在時不開始過場
 window.mileDays=DAYS; window.mileRun=run;
+/* 2.0 第七個大腦:時鐘一走就要播過場(例如新遊戲的上任第一天)→ 按開始時不跑被蓋住的地圖進場;標題畫面閒著時先解好前兩個鏡頭 */
+let WARM=null;
+const cineDue=()=>{ const k=todayMile(); return k&&MS[k].cine&&window.CINE?.[k]&&(S.day>DAYS[k]||S.min>=MS[k].at)?k:null };
+window.mileCinePending=()=>{ try{ return !RUNNING&&!!cineDue() }catch(e){ return false } };
+window.mileCineWarm=async()=>{ try{ const k=cineDue(); if(!k||RUNNING||WARM?.k===k||!window.cinePrep) return; const sc=window.CINE[k](await cineVars(k)); if(!RUNNING) WARM={k,sc,h:window.cinePrep(sc,2)} }catch(e){ window.logErr?.("里程碑",e) } };
 })();

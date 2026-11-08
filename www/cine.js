@@ -15,19 +15,26 @@ const ROLE={ys:["YESEUL","LEADER · LEAD VOCAL"],tr:["TAERI","MAIN RAPPER · LEA
 let RUN=null;
 /* 成員立繪:她現在穿的衣服(或指定的造型) */
 const figSrc=(f)=>spr(f.id,f.outfit!==undefined?f.outfit:outfitAt(f.id,f.room||S.where[f.id],f.slot??S.slot),f.e||"neutral");
+/* 2.0 第七個大腦(使用者回報第一天的過場有點卡):
+   ① 背景改成 <img>(以前是 CSS 背景圖,沒辦法先解碼),每個鏡頭的圖解碼「會放上畫面的那幾張元素本身」,解好的結果跟著元素留住
+      (以前先解碼的是另外的圖片物件,解完就丟,真的要顯示時又重讀、重解,成員第一次出場的鏡頭會停 0.3~0.7 秒)。
+   ② 下一個鏡頭提前約 1.3 秒用 0.001 的透明度放在最上面(看不見),繪製與上傳在換鏡頭之前做完;時間到只做淡入。
+   ③ 一次只解一個鏡頭,不跟正在播的動畫搶。下一個鏡頭的圖還沒好時,現在的鏡頭多停一下(最多 1.5 秒),不在換的那一刻卡住。 */
 function shotEl(sh){ const L=mk("div","cn-shot");
-  if(sh.bg){ const b=mk("div","cn-bg"); b.style.backgroundImage=`url("${sh.bg}")`; if(sh.pos) b.style.backgroundPosition=sh.pos; L.appendChild(b); L._bg=b;
-    if(sh.video){ const v=mk("video","cn-vid"); Object.assign(v,{src:sh.video,muted:true,loop:true,playsInline:true,autoplay:true}); v.setAttribute("playsinline",""); v.addEventListener("playing",()=>v.classList.add("on"),{once:true}); b.appendChild(v); v.play?.().catch(()=>{}) } }   // 會動的 CG(載不到就看背景圖)
+  if(sh.bg){ const b=mk("div","cn-bg"), k=sh.kb||[1.04,1.12,0,0,0,0]; b.style.transform=`translate(${k[2]}%,${k[4]}%) scale(${k[0]})`;
+    const bi=mk("img","cn-bgi"); bi.alt=""; bi.decoding="async"; bi.src=sh.bg; if(sh.pos) bi.style.objectPosition=sh.pos; b.appendChild(bi); L.appendChild(b); L._bg=b;
+    if(sh.video){ const v=mk("video","cn-vid"); Object.assign(v,{src:sh.video,muted:true,loop:true,playsInline:true,preload:"auto"}); v.setAttribute("playsinline",""); v.addEventListener("playing",()=>v.classList.add("on"),{once:true}); b.appendChild(v); L._vid=v } }   // 會動的 CG(載不到就看背景圖);鏡頭開始時才播
   if(sh.fx) L.appendChild(mk("div","cn-fx "+sh.fx,Array.from({length:sh.fx==="snow"?26:14},(_,i)=>`<i style="--i:${i};--x:${(i*37)%100}%;--d:${(i*7)%10}"></i>`).join("")));
-  L._figs=(sh.figs||[]).map(f=>{ const w=mk("div","cn-fig"); w.style.cssText=`left:${f.x}%;top:${f.top??10}%;height:${f.h??124}%;--c:${byId(f.id)?.c||"#fff"}`; const im=mk("img"); im.src=figSrc(f); im.alt=""; w.appendChild(im); L.appendChild(w); return [w,f] });
+  L._figs=(sh.figs||[]).map(f=>{ const w=mk("div","cn-fig"); w.style.cssText=`left:${f.x}%;top:${f.top??10}%;height:${f.h??124}%;--c:${byId(f.id)?.c||"#fff"}`; const im=mk("img"); im.alt=""; im.decoding="async"; im.src=figSrc(f); w.appendChild(im); L.appendChild(w); return [w,f] });
   if(sh.cap){ const c=mk("div","cn-cap "+(sh.cap.at||"b"),esc(sh.cap.t)); L.appendChild(c); L._cap=c }
   if(sh.plate){ const m=byId(sh.plate.id), r=ROLE[sh.plate.id]; const p=mk("div","cn-plate "+(sh.plate.side||"l"),`<b>${esc(m.n)}</b><em>${r[0]}</em><small>${r[1]}</small>`); p.style.setProperty("--c",m.c); L.appendChild(p); L._plate=p }
   if(sh.title){ const t=mk("div","cn-title",`<small>${esc(sh.title.small||"")}</small><b>${esc(sh.title.big)}</b>`); L.appendChild(t); L._title=t }
-  L._photos=(sh.photos||[]).map(ph=>{ const w=mk("div","cn-photo"); w.style.cssText=`left:${ph.x}%;top:${ph.y}%;width:${ph.w}%;--r:${ph.r||0}deg`; w.innerHTML=`<img src="${ph.src}" alt="">`; L.appendChild(w); return [w,ph] });
+  L._photos=(sh.photos||[]).map(ph=>{ const w=mk("div","cn-photo"); w.style.cssText=`left:${ph.x}%;top:${ph.y}%;width:${ph.w}%;--r:${ph.r||0}deg`; w.innerHTML=`<img src="${ph.src}" alt="" decoding="async">`; L.appendChild(w); return [w,ph] });
   if(sh.poster){ const p=mk("div","cn-poster",`<small>${esc(sh.poster.small||"")}</small><b>${esc(sh.poster.big)}</b><span>${esc(sh.poster.sub||"")}</span>`); L.appendChild(p); L._poster=p }
-  if(sh.flash) L.appendChild(mk("div","cn-flashes",Array.from({length:sh.flash},(_,i)=>`<i style="--i:${i}"></i>`).join("")));
   return L }
 function animShot(L,sh){ const D=sh.dur, A=[], rm=RM.matches;
+  if(sh.flash) L.appendChild(mk("div","cn-flashes",Array.from({length:sh.flash},(_,i)=>`<i style="--i:${i}"></i>`).join("")));   // 攝影棚閃光:CSS 動畫一放上就開始算時間,所以鏡頭開始時才放
+  if(L._vid) L._vid.play?.().catch(()=>{});
   if(L._bg&&!rm){ const k=sh.kb||[1.04,1.12,0,0,0,0]; A.push(L._bg.animate([{transform:`translate(${k[2]}%,${k[4]}%) scale(${k[0]})`},{transform:`translate(${k[3]}%,${k[5]}%) scale(${k[1]})`}],{duration:D+900,easing:"linear",fill:"both"})) }
   for(const [w,f] of L._figs){ const dl=f.delay||0, from=f.from||"fade", dx=from==="l"?-8:from==="r"?8:0, dy=from==="up"?4:0;
     w.style.opacity=0; A.push(w.animate(rm?[{opacity:0},{opacity:1}]:[{opacity:0,transform:`translate(-50%,0) translate(${dx}%,${dy}%)`},{opacity:1,transform:"translate(-50%,0) translate(0,0)"}],{duration:900,delay:dl,easing:"cubic-bezier(.2,.8,.25,1)",fill:"forwards"}));
@@ -38,25 +45,41 @@ function animShot(L,sh){ const D=sh.dur, A=[], rm=RM.matches;
   if(L._poster){ L._poster.style.opacity=0; A.push(L._poster.animate([{opacity:0,transform:"scale(1.06)"},{opacity:1,transform:"none",offset:.3},{opacity:1}],{duration:D,delay:150,easing:"ease-out",fill:"both"})) }
   if(L._title){ L._title.style.opacity=0; A.push(L._title.animate([{opacity:0,letterSpacing:".6em"},{opacity:1,letterSpacing:".32em",offset:.25},{opacity:1,offset:.8},{opacity:0}],{duration:D,delay:200,easing:"ease-out",fill:"both"})) }
   return A }
-/* 播放:script={shots:[...]};播完或略過都會呼叫 onEnd */
-window.cinePlay=async(script,onEnd)=>{ if(RUN) return; const root=mk("div","cine"); root.innerHTML=`<div class="cn-stage"></div><div class="cn-bar t"></div><div class="cn-bar b"></div><div class="cn-date"></div><button class="cn-skip" hidden>略過 ›</button>`;
-  $("#stage").appendChild(root); setPause("cine",true); const stage=root.querySelector(".cn-stage"); let alive=true, sk=null;
-  RUN={root,end:()=>{ if(!alive) return; alive=false; RUN=null; root.animate([{opacity:1},{opacity:0}],{duration:450,fill:"forwards"}).finished.then(()=>{ root.remove(); setPause("cine",false); onEnd?.() }) }};
+/* 準備鏡頭:做出元素、照順序一個一個解碼(h.P[i] = {L, ready}) */
+const decEls=L=>Promise.all([...L.querySelectorAll("img")].map(im=>(im.decode?im.decode():Promise.resolve()).catch(()=>{})));
+function prepper(script,h){ h=h&&h.script===script?h:{P:[],chain:Promise.resolve(),script};
+  h.get=i=>{ const sh=script.shots[i]; if(!sh) return null; if(!h.P[i]){ const L=shotEl(sh); h.P[i]={L,ready:h.chain=h.chain.then(()=>decEls(L))} } return h.P[i] };
+  return h }
+window.cinePrep=(script,n=2)=>{ const h=prepper(script); for(let i=0;i<n;i++) h.get(i); return h };   // 標題畫面閒著時先解前兩個鏡頭(mile.js)
+const WARM=1300;
+/* 播放:script={shots:[...], under?:()=>{}};播完或略過都會呼叫 onEnd。h:cinePrep 先準備好的 */
+window.cinePlay=async(script,onEnd,h)=>{ if(RUN) return; const root=mk("div","cine"); root.innerHTML=`<div class="cn-stage"></div><div class="cn-bar t"></div><div class="cn-bar b"></div><div class="cn-date"></div><button class="cn-skip" hidden>略過 ›</button>`;
+  const behind=!!document.getElementById("title");   // 從標題直接進來(新遊戲的第一天):標題在上面淡出,黑幕先就位,不會先露出地圖
+  root.style.opacity=behind?"1":"0";
+  $("#stage").appendChild(root); setPause("cine",true); const stage=root.querySelector(".cn-stage"); let alive=true, sk=null, under=false;
+  const doUnder=()=>{ if(under||!script.under) return; under=true; try{ script.under() }catch(e){ window.logErr?.("過場",e) } };
+  RUN={root,end:()=>{ if(!alive) return; alive=false; RUN=null; root.animate([{opacity:getComputedStyle(root).opacity},{opacity:0}],{duration:450,fill:"forwards"}).finished.then(()=>{ root.remove(); setPause("cine",false); onEnd?.() }) }};
   root.onclick=e=>{ const b=root.querySelector(".cn-skip"); if(e.target===b){ RUN?.end(); return } b.hidden=false; clearTimeout(sk); sk=setTimeout(()=>b.hidden=true,2600) };
-  // 先把所有圖解碼好
-  const srcs=new Set(); for(const sh of script.shots){ if(sh.bg) srcs.add(sh.bg); for(const f of sh.figs||[]) srcs.add(figSrc(f)); for(const ph of sh.photos||[]) srcs.add(ph.src) }
-  await Promise.race([Promise.all([...srcs].map(decode)),wait(2500)]);
-  root.animate([{opacity:0},{opacity:1}],{duration:500,fill:"forwards"});
+  h=prepper(script,h); h.get(0); h.get(1);
+  await Promise.race([h.P[0].ready,wait(2500)]); if(!alive) return;
+  if(!behind) root.animate([{opacity:0},{opacity:1}],{duration:500,fill:"forwards"});
   if(!RM.matches){ root.querySelector(".cn-bar.t").animate([{transform:"translateY(-100%)"},{transform:"none"}],{duration:900,easing:"ease-out",fill:"both"}); root.querySelector(".cn-bar.b").animate([{transform:"translateY(100%)"},{transform:"none"}],{duration:900,easing:"ease-out",fill:"both"}) }
-  let prev=null;
-  for(const sh of script.shots){ if(!alive) return; const L=shotEl(sh); stage.appendChild(L);
+  let prev=null; const N=script.shots.length;
+  for(let i=0;i<N;i++){ if(!alive) return; const sh=script.shots[i], p=h.get(i);
+    if(i>0) await Promise.race([p.ready,wait(1500)]); if(!alive) return;
+    const L=p.L; if(!L.isConnected){ L.style.opacity=".001"; stage.appendChild(L) }
     { const d=root.querySelector(".cn-date");   // 日期只在有寫的鏡頭出現,下一個鏡頭淡掉(不跟名牌疊在一起)
       if(sh.date){ d.innerHTML=`<b>${esc(sh.date[0])}</b><span>${esc(sh.date[1]||"")}</span>`; d.animate([{opacity:0,transform:"translateY(-.3em)"},{opacity:1,transform:"none"}],{duration:900,delay:300,fill:"both"}); d._on=1 }
       else if(d._on){ d._on=0; d.animate([{opacity:1},{opacity:0}],{duration:500,fill:"forwards"}) } }
     const tr=sh.trans||"fade", T=tr==="cut"?0:tr==="slow"?1400:700;
-    if(tr==="white"||tr==="black"){ const f=mk("div","cn-flash "+tr); root.appendChild(f); f.animate([{opacity:0},{opacity:1,offset:.45},{opacity:1,offset:.55},{opacity:0}],{duration:900,fill:"forwards"}).finished.then(()=>f.remove()); await wait(400) }
-    L.style.opacity=0; L.animate([{opacity:0},{opacity:1}],{duration:Math.max(1,T),fill:"forwards"}); animShot(L,sh);
-    if(prev){ const p=prev; setTimeout(()=>p.remove(),T+60) } prev=L;
+    if(i===N-1) doUnder();   // 最後的字卡:黑幕蓋上的那一刻,下一個畫面先在底下搭好(主執行緒的工作藏在全黑的那半秒)
+    if(tr==="white"||tr==="black"){ const f=mk("div","cn-flash "+tr); root.appendChild(f); f.animate([{opacity:0},{opacity:1,offset:.45},{opacity:1,offset:.55},{opacity:0}],{duration:900,fill:"forwards"}).finished.then(()=>f.remove()); await wait(400); if(!alive) return }
+    L.animate([{opacity:i===0&&behind?1:.001},{opacity:1}],{duration:Math.max(1,T),fill:"forwards"}); L.style.opacity=""; animShot(L,sh);
+    if(i===N-1&&under) setTimeout(()=>{ if(alive) root.classList.add("under") },Math.max(0,sh.dur-1300));   // 最後約 1.3 秒才讓底下的畫面開始畫(之前完全蓋住,不多畫)
+    if(prev){ const pv=prev; setTimeout(()=>pv.remove(),T+60) } prev=L; h.P[i]={L:null,ready:p.ready};
+    const nx=h.get(i+1), t0=performance.now();
+    if(nx) nx.ready.then(()=>setTimeout(()=>{ if(alive&&!nx.L.isConnected){ nx.L.style.opacity=".001"; stage.appendChild(nx.L) } },Math.max(0,t0+sh.dur-WARM-performance.now())));   // 下一個鏡頭先隱形放上去
+    if(nx) nx.ready.then(()=>h.get(i+2));
     await wait(sh.dur) }
   if(alive){ const d=root.querySelector(".cn-date"); d.animate([{opacity:1},{opacity:0}],{duration:500,fill:"forwards"}); await wait(400); RUN?.end() } };
 window.cineBusy=()=>!!RUN;

@@ -298,6 +298,7 @@ window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) re
         else blob=await composeMain(nu,pu,mm.fat);
         if(blob) o[e]=URL.createObjectURL(blob) }catch(err){ window.logErr?.("立繪合成",err) } }
     if(W) W.postMessage({free:bid}) })().finally(()=>LOADING.delete(k)) };   // 每一套各自一個 bid,同時載好幾套也不會拿錯底圖
+window.dynBusy=k=>LOADING.has(k);   // 2.0 第七個大腦:這一套的表情還在合成(回來時的迎接要等合成完才出場)
 
 /* ---- 立繪瘦身(2026-10-30,省雲端空間):舊格式是 12 張全身,改成 1 張全身+11 張頭部那一段;直接從現有的立繪裁,不用原圖、不重新去背 ---- */
 const refsOf=o=>new Set((JSON.stringify(o||{}).match(/blob:[0-9a-f]{8,}/g)||[]).map(x=>x.slice(5)));

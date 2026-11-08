@@ -153,6 +153,7 @@ window.preloadFontSlices=preloadFontSlices;
 
 /* 結束(自然播完或跳過):標題回到一般狀態,收掉開場用的圖層 */
 function endIntro(title){ if(!IN||IN.done) return; IN.done=true; setTimeout(preloadFontSlices,400);   // 其餘的字在開場結束後、標題畫面靜止時載(載入會讓文字重新排版,開場中載會頓)
+  setTimeout(()=>{ try{ window.audioWarm?.(); window.mileCineWarm?.() }catch(e){ logE(e) } },900);   // 2.0 第七個大腦:標題畫面閒著時先備好音訊、要播的過場前兩個鏡頭
   document.getElementById("stage")?.classList.remove("intro-solo");
   title.classList.remove("intro"); title.classList.add("played");
   for(const a of IN.anims){ try{ a.cancel() }catch(e){} }
@@ -223,7 +224,8 @@ window.introGo=(title,unpause)=>{
   if(IN&&!IN.done) endIntro(title);
   title.classList.add("leaving"); title.style.pointerEvents="none";
   try{ window.sfx?.("start") }catch(e){}
-  if(PREV_SEEN&&Date.now()-PREV_SEEN>=30*60e3) setTimeout(()=>window.welcomeBack?.(Date.now()-PREV_SEEN),1600);
+  const cineNext=!!window.mileCinePending?.();   // 2.0 第七個大腦:一開始就要播過場(新遊戲的上任第一天):白光直接接過場的黑幕,不跑被蓋住的地圖進場,也不先迎接
+  if(!cineNext&&PREV_SEEN&&Date.now()-PREV_SEEN>=30*60e3) setTimeout(()=>window.welcomeBack?.(Date.now()-PREV_SEEN),1600);
   const fast=RMQ.matches;
   const fl=el("i","tt-goflash"); title.appendChild(fl);
   if(!fast){ fl.animate([{opacity:0},{opacity:.9,offset:.22},{opacity:0}],{duration:700,easing:"ease-out",fill:"forwards"});
@@ -231,7 +233,8 @@ window.introGo=(title,unpause)=>{
   const a=title.animate([{opacity:1},{opacity:1,offset:fast?0:.2},{opacity:0}],{duration:fast?300:720,easing:"ease-in-out",fill:"forwards"});
   const rm=()=>{ title.classList.add("out"); title.remove() }; a.finished.then(rm,rm);
   try{ unpause?.() }catch(e){ logE(e) }
-  if(!fast) setTimeout(stageEnter,90);
+  if(cineNext){ try{ window.mileCineWarm?.() }catch(e){} setTimeout(()=>{ try{ window.mileTick?.() }catch(e){ logE(e) } },30) }
+  else if(!fast) setTimeout(stageEnter,90);
 };
 function stageEnter(){ try{
   const st=document.getElementById("stage"); if(!st) return; const OUT="cubic-bezier(.2,.75,.25,1)";
@@ -301,6 +304,14 @@ async function spriteOf(id,ex){
   if(of&&!window.DYN?.[of+"@"+id]){ try{ window.needDyn?.(of,id) }catch(e){}
     for(let i=0;i<8&&!window.DYN?.[of+"@"+id];i++) await wait(100) }
   return {of,src:spr(id,of,ex)} }
+
+/* 迎接要用的立繪:她現在那套衣服;這套的表情還在合成就等(最多約 3 秒),這套沒有立繪就用基本立繪 */
+async function welcSrcs(id,exs){ let of=null; try{ of=outfitAt(id,S.where?.[id]||"living",S.slot) }catch(e){}
+  if(!of) return exs.map(ex=>spr(id,null,ex));
+  const k=of+"@"+id; try{ window.needDyn?.(of,id) }catch(e){}
+  for(let t=0;t<30;t++){ const d=window.DYN?.[k], busy=!!window.dynBusy?.(k);
+    if(d&&(exs.every(e=>d[e])||!busy)) break; if(!d&&!busy&&t>=8) break; await wait(100) }
+  return exs.map(ex=>spr(id,of,ex)) }
 
 let EX=null;
 window.exitBusy=()=>!!EX;
@@ -496,7 +507,7 @@ const WL={
   {s:"歡迎回來!@laugh／……抱抱充電!@shy",d:"早安!今天也最最最喜歡代表!@laugh",f:"代表不在,我的電量只剩一格了啦……@sad／快幫我充電!@shy",l:"你回來了……@sad／不准再丟下我這麼久了!@shy"}],
 };
 const gapText=ms=>{ const h=ms/36e5; return h<1?`${Math.round(ms/6e4)} 分鐘`:h<24?`${Math.round(h)} 小時`:`${Math.floor(h/24)} 天${Math.round(h%24)?` ${Math.round(h%24)} 小時`:""}` };
-const busyUI=()=>!!document.querySelector("#title,#exitv,#welc,dialog[open],#visit.on,#facility:not(.hide),.bigev,.evbox,#cgView,#phone.on,#drawer.on,#songFac:not(.hide)");
+const busyUI=()=>!!document.querySelector("#title,.cine,#exitv,#welc,dialog[open],#visit.on,#facility:not(.hide),.bigev,.evbox,#cgView,#phone.on,#drawer.on,#songFac:not(.hide)");
 let WBX=null;
 window.welcBusy=()=>!!WBX;
 window.welcSkip=()=>WBX?.skip?.();
@@ -529,9 +540,14 @@ window.welcomeBack=async(gap)=>{
   const fig=q(".ex-fig"), body=q(".ex-body"), imgs=[...ov.querySelectorAll(".ex-a")], blink=q(".ex-blink");
   const W0=OVL?.[m.f]?.W||920, H0=OVL?.[m.f]?.H||2954, hh=(m.cm||165)/168;
   fig.style.cssText=`height:120cqw;aspect-ratio:${W0}/${H0};top:calc(-1cqw + ${(1-hh).toFixed(3)} * 120cqw)`;
-  let ss=null; try{ ss=await Promise.race([Promise.all(exs.map(ex=>spriteOf(id,ex))),wait(900).then(()=>null)]) }catch(e){}
-  imgs.forEach((im,i)=>{ im.src=ss?.[i]?.src||spr(id,null,exs[i]) });
-  try{ await Promise.race([Promise.all(imgs.map(im=>im.decode().catch(()=>{}))),wait(800)]) }catch(e){}
+  /* 2.0 第七個大腦(使用者回報「迎接常常破圖」):以前造型立繪最多等 0.8 秒、解碼也只等 0.8 秒,沒好就出場(半張、還沒解好的圖、表情一半是白 T);
+     現在等這套的表情合成完(最多約 3 秒)、每一張都解碼好才出場;造型立繪讀不到或解不開,整套換回基本立繪 */
+  let srcs=null; try{ srcs=await welcSrcs(id,exs) }catch(e){ logE(e) }
+  const base=exs.map(ex=>spr(id,null,ex)); if(!srcs) srcs=base;
+  const decAll=()=>Promise.race([Promise.all(imgs.map(im=>(im.decode?im.decode():Promise.resolve()).then(()=>im.naturalWidth>0,()=>false))).then(r=>r.every(Boolean)),wait(3000).then(()=>false)]);
+  imgs.forEach((im,i)=>{ im.src=srcs[i] });
+  let ok=await decAll();
+  if(!ok&&srcs.some((s,i)=>s!==base[i])){ imgs.forEach((im,i)=>{ im.src=base[i] }); ok=await decAll() }
   await stableFrames(500);
   const bi=OVL_IMG?.[m.f+"|blink"], o0=OVL?.[m.f];
   if(bi&&o0?.blink){ const [x,y,w,hb]=bi.naturalWidth>=o0.W*.98?[0,0,o0.W,o0.H]:o0.blink;
