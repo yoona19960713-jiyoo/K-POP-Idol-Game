@@ -1139,12 +1139,31 @@ $("#useBtn")&&($("#useBtn").onclick=()=>{ const el=$("#usePanel"); if(!el.classL
 /* 日常立繪更新(2026-10-27):只有還是舊版處理方式的立繪才提醒;更新完就不再出現 */
 async function outdatedSprites(){ const jobs=[]; if(!window.spriteOutdated) return jobs;
   for(const l of Object.values(ITEMS)){ if(!l||l.deleted||!(l.occasion==="練習"||l.occasion==="節日"||String(l.occasion).startsWith("日常"))) continue;
-    for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]&&await spriteOutdated(o,l)) jobs.push([l.code,slot]) }
+    for(const [slot,o] of Object.entries(l.members||{})) if(o?.img&&WMEM[slot]&&await spriteOutdated(o,l,slot)) jobs.push([l.code,slot]) }
   return jobs }
 let REPROC_BUSY=false;
 async function renderReproc(){ const row=$("#reprocRow"), note=$("#reprocNote"); if(!row||REPROC_BUSY) return;
   const jobs=await outdatedSprites(); row.hidden=note.hidden=!jobs.length;
-  if(jobs.length){ $("#reprocAll").textContent=`更新 ${jobs.length} 張舊版日常立繪`; note.textContent=`立繪處理改版過(手伸出去的姿勢會完整保留、去背與清晰度更好);這 ${jobs.length} 張還是舊的處理方式,按一次就會換成新版(更新過的不會再出現)。` } }
+  if(jobs.length){ $("#reprocAll").textContent=`更新 ${jobs.length} 張舊版日常立繪`; note.textContent=`立繪處理改版過(白色、淺色的衣服不會再被去背吃掉;手伸出去的姿勢會完整保留、去背與清晰度更好);這 ${jobs.length} 張還是舊的處理方式,按一次就會換成新版(更新過的不會再出現)。` } }
+/* ---- 流暢度檢測(2.0 第七個大腦):選單「製作者模式」裡的開關。畫面左下角的小字:現在每秒幾格、歸零後最低的一秒、
+   卡頓次數(一格超過 50 毫秒)、最長的一格、主執行緒長任務(超過 50 毫秒的工作)次數,和現在在哪個畫面。點一下歸零。
+   用來在實機(A55)上量真實的流暢度;關掉時完全不跑 ---- */
+const FPSM={on:false,el:null,raf:0,last:0,ts:[],min:99,jank:0,max:0,lt:0,ltMs:0,obs:null,upd:0};
+const FPS_NAME={visit:"對話",concert:"演唱會",spv:"打歌轉播・舞台預覽",cine:"過場",fac:"設施",tv:"打歌",song:"歌曲",maker:"製作者模式",title:"標題",bigev:"事件",card:"卡片",eval:"評價",cg:"CG",photo:"照片",welc:"迎接",mv:"MV",drawer:"選單",phone:"手機",meet:"會議",menu:"選單",exit:"離開"};
+function fpsReset(){ Object.assign(FPSM,{ts:[],min:99,jank:0,max:0,lt:0,ltMs:0,t0:performance.now()}) }
+function fpsWhere(){ const k=[...pausers].map(x=>FPS_NAME[x]).filter(Boolean); const w=k.length?k[k.length-1]:view==="map"?"地圖":view==="dorm"?"宿舍":view==="company"?"公司":view; return w+(WXK!=="clear"&&!k.length?(WXK==="rain"?"・雨":"・雪"):"") }
+function fpsFrame(t){ if(!FPSM.on) return; FPSM.raf=requestAnimationFrame(fpsFrame); const dt=FPSM.last?t-FPSM.last:0; FPSM.last=t;
+  if(dt>0&&dt<1000){ FPSM.ts.push(t); if(dt>50) FPSM.jank++; if(dt>FPSM.max) FPSM.max=dt }   // 超過 1 秒的是 App 在背景,不算
+  while(FPSM.ts.length&&FPSM.ts[0]<t-1000) FPSM.ts.shift();
+  if(t-FPSM.upd<500) return; FPSM.upd=t; const now=FPSM.ts.length; if(t-FPSM.t0>1500) FPSM.min=Math.min(FPSM.min,now);
+  FPSM.el.innerHTML=`<b style="color:${now>=55?"#9EF0B0":now>=40?"#FFE08A":"#FF9C9C"}">${now}</b> 格/秒 ・ 最低 ${FPSM.min===99?"–":FPSM.min} ・ 卡頓 ${FPSM.jank} ・ 最長 ${Math.round(FPSM.max)}ms ・ 長任務 ${FPSM.lt}(${Math.round(FPSM.ltMs)}ms)<br><small>${fpsWhere()} ・ 點一下歸零</small>` }
+function fpsSet(on){ FPSM.on=on; cancelAnimationFrame(FPSM.raf); FPSM.obs?.disconnect(); FPSM.obs=null; FPSM.el?.remove(); FPSM.el=null; if(!on) return;
+  const e=document.createElement("div"); e.id="fpsMeter"; e.style.cssText="position:fixed;left:6px;bottom:6px;z-index:2147483000;padding:4px 8px;border-radius:8px;background:rgba(10,8,16,.72);color:#EEE;font:600 11px/1.35 system-ui,sans-serif;letter-spacing:.02em;contain:layout paint;pointer-events:auto;user-select:none;max-width:70vw";
+  e.onclick=ev=>{ ev.stopPropagation(); fpsReset(); toast2("流暢度檢測已歸零") }; document.body.appendChild(e); FPSM.el=e; fpsReset(); FPSM.last=0; FPSM.upd=0;
+  try{ FPSM.obs=new PerformanceObserver(l=>{ for(const x of l.getEntries()){ FPSM.lt++; FPSM.ltMs+=x.duration } }); FPSM.obs.observe({entryTypes:["longtask"]}) }catch(e){}
+  FPSM.raf=requestAnimationFrame(fpsFrame) }
+$("#fpsSel")&&(()=>{ const s=$("#fpsSel"); let v="off"; try{ v=localStorage.getItem("kpopGame.fps")||"off" }catch(e){} s.value=v; if(v==="on") fpsSet(true);
+  s.onchange=()=>{ try{ localStorage.setItem("kpopGame.fps",s.value) }catch(e){} fpsSet(s.value==="on"); toast2(s.value==="on"?"流暢度檢測已打開(畫面左下角)":"流暢度檢測已關閉") } })();
 $("#hqcutSel")&&(()=>{ const s=$("#hqcutSel"); try{ s.value=localStorage.getItem("kpopGame.hqcut")||"auto" }catch(e){} s.onchange=()=>{ try{ localStorage.setItem("kpopGame.hqcut",s.value) }catch(e){} toast2(s.value==="off"?"高品質去背已關閉":window.hqCutOn?.()?"之後處理立繪會用高品質去背":"這台裝置目前不會用(自動只在電腦上用)") } })();   // 高品質去背(sprites.js)
 $("#reprocAll")&&($("#reprocAll").onclick=async()=>{ const b=$("#reprocAll"); if(!window.processSprites||REPROC_BUSY) return;
   const jobs=await outdatedSprites(); if(!jobs.length){ toast2("日常立繪都是新版了"); renderReproc(); return }

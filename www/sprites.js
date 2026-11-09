@@ -342,7 +342,20 @@ window.refsOf=refsOf;
 /* ---- 立繪處理版本(2026-10-27):目前是第 4 版(精準遮罩去背+2 倍輸出、臉用高清表情組)。
    新處理的會記 spriteV;以前處理、沒記版本的,看立繪高度判斷:2 倍輸出高約 2900px,舊版約 1480px。
    判斷只讀圖檔開頭的尺寸欄位(不解碼整張圖),結果記在這台裝置(kpopGame.sprOK),選單只在真的有舊版時才出現更新鍵 ---- */
-const SPRITE_V=5; window.SPRITE_V=SPRITE_V;   /* 5(2026-10-29):手伸出表情組的框時左右留邊,手不會被切掉 */
+const SPRITE_V=6; window.SPRITE_V=SPRITE_V;   /* 5(2026-10-29):手伸出表情組的框時左右留邊,手不會被切掉。6(2026-11-08):淺灰底上的白衣服、淺色衣服不會被清成透明 */
+/* 第 5 版處理過的:只有「身體深處有破洞」(白衣服被吃掉)的才算舊版。身體深處 = 白 T 立繪裡離輪廓 24px 以上(手臂太細不算),
+   破洞 = 那裡透明的超過 1%。檢查結果記在這台裝置(kpopGame.holeChk),不會每次打開選單都重查 */
+const CORE={}, HOLE_K="kpopGame.holeChk"; let HOLE=null;
+const holeGet=()=>HOLE||(HOLE=(()=>{try{return JSON.parse(localStorage.getItem(HOLE_K)||"{}")}catch(e){return {}}})());
+async function coreOf(f){ if(CORE[f]) return CORE[f]; const [cw,ch]=CROP[f], im=await loadImg(`assets/chara/${f}_neutral.webp`), c=canvas(cw,ch), x=c.getContext("2d",{willReadFrequently:true}); x.drawImage(im,0,0,cw,ch);
+  const d=x.getImageData(0,0,cw,ch).data, N=cw*ch, D=new Uint8Array(N).fill(255), q=new Int32Array(N); let h=0,t=0;
+  for(let p=0;p<N;p++) if(d[p*4+3]<128){ D[p]=0; q[t++]=p }
+  while(h<t){ const p=q[h++], xx=p%cw; for(const n of [xx>0?p-1:-1,xx<cw-1?p+1:-1,p-cw,p+cw]){ if(n<0||n>=N||D[n]!==255) continue; D[n]=D[p]+1; if(D[n]<40) q[t++]=n } }
+  const pts=[]; for(let p=0;p<N;p+=3) if(D[p]>24) pts.push(p); return CORE[f]={cw,ch,pts} }
+async function holey(u,f){ const C=await coreOf(f), im=await loadImg(u), K=Math.max(1,Math.round(im.naturalHeight/C.ch)), pad=Math.max(0,Math.round((im.naturalWidth/K-C.cw)/2));
+  const c=canvas(C.cw,C.ch), x=c.getContext("2d",{willReadFrequently:true}); x.drawImage(im,pad*K,0,C.cw*K,C.ch*K,0,0,C.cw,C.ch); const d=x.getImageData(0,0,C.cw,C.ch).data;
+  let n=0; for(const p of C.pts) if(d[p*4+3]<128) n++; return n/C.pts.length>.01 }
+window.__holey=holey;   // 測試用
 function imgSize(u){ try{ const b64=String(u).split(",")[1]||""; const bin=atob(b64.slice(0,80)), b=[...bin].map(c=>c.charCodeAt(0)), str=(i,n)=>String.fromCharCode(...b.slice(i,i+n));
   if(str(1,3)==="PNG") return {w:(b[16]<<24|b[17]<<16|b[18]<<8|b[19])>>>0,h:(b[20]<<24|b[21]<<16|b[22]<<8|b[23])>>>0};
   if(str(0,4)==="RIFF"&&str(8,4)==="WEBP"){ const k=str(12,4);
@@ -351,7 +364,10 @@ function imgSize(u){ try{ const b64=String(u).split(",")[1]||""; const bin=atob(
     if(k==="VP8X") return {w:1+(b[24]|b[25]<<8|b[26]<<16),h:1+(b[27]|b[28]<<8|b[29]<<16)} } }catch(e){} return null }
 const SOK_K="kpopGame.sprOK"; let SOK=null;
 const sokGet=()=>SOK||(SOK=new Set((()=>{try{return JSON.parse(localStorage.getItem(SOK_K)||"[]")}catch(e){return []}})()));
-window.spriteOutdated=async(o,lk)=>{ if(!o?.sprites) return false; if((o.spriteV||0)>=SPRITE_V) return false;
+window.spriteOutdated=async(o,lk,slot)=>{ if(!o?.sprites) return false; if((o.spriteV||0)>=SPRITE_V) return false;
+  if((o.spriteV||0)===5){ const ref=o.sprites.neutral, mid=WMEM[slot], f=mid&&byId(mid)?.f; if(!ref||!f) return false; const H=holeGet(); if(ref in H) return !!H[ref];
+    const u=await getBlob(ref); if(!u) return false; let bad=false; try{ bad=await holey(u,f) }catch(e){ return false }
+    H[ref]=bad?1:0; try{ localStorage.setItem(HOLE_K,JSON.stringify(H)) }catch(e){} return bad }
   if(lk?.pose&&lk.pose!=="stand") return true;   // 不是自然站姿的(揮手、比手勢…):舊的處理會把伸出去的手切掉,要重新處理
   const ref=o.sprites.neutral||Object.values(o.sprites)[0]; if(!ref) return false; const ok=sokGet(); if(ok.has(ref)) return false;
   const u=await getBlob(ref); if(!u) return false;   // 圖還沒下載到這台:先不算舊版,免得誤報
