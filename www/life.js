@@ -83,7 +83,7 @@ window.lifeOpener=(id,sn)=>{ try{
 window.lifeRemember=(id,c,sn,xp)=>{ try{ if(!sn||!byId(id)||(xp||0)<15||String(sn.code||"").startsWith("life-")) return; const lf=L(), a=lf.mem[id]=lf.mem[id]||[];
   if(a.some(x=>x.day===S.day)) return; a.push({day:S.day,ty:sn.type||"chat"}); if(a.length>8) a.splice(0,a.length-8) }catch(e){} };
 /* ⑦ 生日那天陪她聊天:額外好感(一次) */
-window.lifeAfterTalk=id=>{ try{ if(isBd(id)&&!used(id,"bdgift"+S.day)){ use(id,"bdgift"+S.day); const s=S.m[id]; s.xp=(s.xp||0)+80; s.heart=Math.min(100,(s.heart||0)+(rank(id)>=2?2:0)); s.mood=Math.min(100,s.mood+10); toast2(`陪${nm(id)}過生日:好感 +80${rank(id)>=2?"、心動 +2":""}`) } }catch(e){} };
+window.lifeAfterTalk=id=>{ try{ if(isBd(id)&&!used(id,"bdgift"+S.day)){ use(id,"bdgift"+S.day); const s=S.m[id]; s.xp=(s.xp||0)+80; s.heart=Math.min(100,(s.heart||0)+(rank(id)>=2?2:0)); s.mood=Math.min(100,s.mood+10); toast2(window.realMode?.()?`陪${nm(id)}過了生日`:`陪${nm(id)}過生日:好感 +80${rank(id)>=2?"、心動 +2":""}`) } }catch(e){} };
 
 /* ---------- 1.1 第 2 輪:記得你 recall(2026-11-02) ----------
    內容庫的 recall(長對話寫,格式見《改版1.0_新內容格式.md》7.2):她記得你做過的事,過幾天在對的房間、對的時間自己提起。

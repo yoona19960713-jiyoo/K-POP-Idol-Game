@@ -69,7 +69,7 @@ function shell(){
 function open(){ shell(); APP="home"; CHAT=null; $("#phone").classList.add("on"); setPause("phone",true); render() }
 function close(){ $("#phone").classList.remove("on"); setPause("phone",false); save() }
 function status(){ $("#pTime").textContent=hm(); const b=Math.max(8,Math.round(100-(S.min-360)/1440*88)); const e=$("#pBat"); e.style.width=b+"%"; e.classList.toggle("low",b<25) }   // 電量跟著一天的時間慢慢下降
-function pfx(t,c){const e=document.createElement("span"); e.style.setProperty("--c",c||"#E85C8A"); e.textContent=t; $("#pFx").appendChild(e); setTimeout(()=>e.remove(),2400)}
+function pfx(t,c){ if(window.realMode?.()&&/[+\-]\s*\d/.test(t)) return; const e=document.createElement("span"); e.style.setProperty("--c",c||"#E85C8A"); e.textContent=t; $("#pFx").appendChild(e); setTimeout(()=>e.remove(),2400)}
 /* 桌布:合照是橫的,直接鋪滿只會剩中間一人,所以用「完整合照 + 同一張模糊放大當底」;場景類照樣鋪滿 */
 const WALLS={title:"assets/bg/title.webp",group:"assets/bg/group_photo.webp",styling:"assets/bg/styling_evening.webp",night:"assets/scene/map_night.webp",portrait:"assets/bg/wall_group.webp"};
 const FIT={title:"group",group:"group"};

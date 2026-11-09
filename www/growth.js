@@ -54,7 +54,7 @@ window.gainFromChoice=(id,c)=>{ const s=S.m[id]; if(!s) return {xp:0,heart:0};
 window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; window.missSeen?.(id); const before=stageOfXp(id), {xp,heart}=gainFromChoice(id,c);   // 冷落的心情(miss.js)
   s.xp=(s.xp||0)+xp; s.heart=Math.min(100,(s.heart||0)+heart); s.trust=Math.round(xpToTrust(s.xp));
   if(c.mood>0) s.mood=clamp(s.mood+(+c.mood),0,100); if(c.stress<0) s.stress=clamp(s.stress+(+c.stress),0,100);   // 只套用好的方向
-  if(c.set){ S.flags[c.set]=(S.flags[c.set]||0)+1; const fa=S.flagAt=S.flagAt||{}; if(fa[c.set]==null) fa[c.set]=S.day }   // 1.1 第 2 輪:記得你要知道是哪一天設的
+  if(c.set){ S.flags[c.set]=(S.flags[c.set]||0)+1; const fa=S.flagAt=S.flagAt||{}; if(fa[c.set]==null) fa[c.set]=S.day; window.memRecord?.(c.set,id,c) }   // 1.1 第 2 輪:記得你要知道是哪一天設的
   const after=stageOfXp(id);
   if(show){ if(xp) show(id,`好感 +${xp}`); if(heart) show(id,`心動 +${heart}`); if(after!==before) show(id,`關係進展:${after}`) }
   if(after!==before){ toast2(`${byId(id).n}和你的關係變成「${after}」了`); window.feedback?.("m") }
@@ -229,3 +229,24 @@ window.timelineOnDayStart=()=>{ _ds?.(); if(S.day<DEBUT_DAY) return; const d=dat
   if(d.getMonth()===11&&d.getDate()===31&&S.festYear!==d.getFullYear()){ S.festYear=d.getFullYear(); setTimeout(festival,1200) }
   if(S.day===DEBUT_DAY+365) window.cgGroupUnlock?.("g_anniv1") };
 })();
+
+/* ---- 擬真第一階段 ①(2026-11-09):決定記憶 ----
+   選項設旗標(set)時,同時記下一筆記憶 S.memx[旗標]:哪天、哪個時段、在哪、當時在場的人(who)、知道的人(knows = 在場的人 + 選項 tell 指定的人)、
+   感覺 tone(溫暖、心動、好笑、心疼、驕傲)、重要程度 w(1~3,沒寫時有心動的選擇算 2)、細節 vars(之後提起時填進台詞)、來自哪段內容 src。
+   同一個旗標再設一次只加次數 n。舊存檔的旗標(成員代號開頭的,例如 trChaseVerse、grpBackstageHands)開檔時一次轉成記憶:
+   日期用 S.flagAt,知道的人 = 那位成員(grp = 五個人),conv:1 標記是轉換來的。只有記憶,不會自己傳開 ---- */
+(()=>{
+const MEM_ID=/^(ys|tr|hy|he|hr|grp)[A-Z]/, ALL=()=>M.map(m=>m.id);
+window.memRecord=(k,id,c={})=>{ try{ const X=S.memx=S.memx||{}; if(X[k]){ X[k].n=(X[k].n||1)+1; return X[k] }
+  const pres=(typeof V!=="undefined"&&V?.present?.length)?[...V.present]:[id], who=[...new Set([id,...pres])].filter(x=>byId(x));
+  const tell=(Array.isArray(c.tell)?c.tell:c.tell?[c.tell]:[]).filter(x=>byId(x));
+  return X[k]={day:S.day,slot:S.slot,room:(typeof V!=="undefined"&&(V?.room||V?.pid))||S.where?.[id]||null,who,knows:[...new Set([...who,...tell])],
+    tone:c.tone||null,w:Math.max(1,Math.min(3,+c.w||(+c.heart>0?2:1))),vars:c.memv||null,src:(typeof D!=="undefined"&&D?.sn?.code)||null,n:1} }catch(e){ window.logErr?.("記憶",e) } };
+window.memEnsure=()=>{ const X=S.memx=S.memx||{}, fa=S.flagAt||{}; let n=0;
+  for(const k of Object.keys(S.flags||{})){ if(X[k]||!MEM_ID.test(k)) continue; const p=k.match(MEM_ID)[1], who=p==="grp"?ALL():[p];
+    X[k]={day:fa[k]??S.day,slot:null,room:null,who,knows:[...who],tone:null,w:1,vars:null,src:null,n:+S.flags[k]||1,conv:1}; n++ }
+  return n };
+window.memKnows=(k,id)=>!!S.memx?.[k]?.knows?.includes(id);   // 這位成員知道這件事嗎(回想、日記用)
+window.memTell=(k,ids)=>{ const m=S.memx?.[k]; if(!m) return; for(const x of [].concat(ids)) if(byId(x)&&!m.knows.includes(x)) m.knows.push(x) };
+})();
+

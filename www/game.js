@@ -387,8 +387,24 @@ function pool({sp,room,slot,present,types,member}){
   return snips().filter(sn=>sn.at===sp&&(!sn.room||sn.room===room)&&types.includes(sn.type)&&(!sn.sl?.length||sn.sl.includes(slot))&&hourOk(sn)&&sn.who?.length
     &&sn.who.every(id=>present.includes(id))&&(!member||(sn.member||sn.who[0])===member)&&stageOk(sn)&&reqOk(sn)&&arcOk(sn)&&(!sn.period||sn.period===periodNow())&&(!sn.wx||sn.wx===wxNow())&&(!sn.season||sn.season===seasonOf(dateOf(S.day)))
     &&(S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(sn.cd||4))&&sn.nodes?.start)}
+/* 擬真第一階段 ③(2026-11-09):最貼切的優先。地點、時段、天氣等必要條件由各自的篩選處理;這裡替每則算「貼切分」,
+   只在分數最高的那一層(最高分減 1 以內)裡照原本的權重挑。記憶 +4、近況 +3、指定成員 +3、天氣 +2、季節節日日期 +2、細到關係階段 +2、衣服類別 +1;
+   prefer 是「偏好條件」:符合才加分,不符合也照樣能出現 */
+function wearCatNow(id){ try{ const of=outfitAt(id,S.where?.[id],S.slot); return of?String(ITEMS[of]?.occasion||""):"" }catch(e){ return "" } }
+function salience(sn){ let s=0; const P=sn.prefer||{}, id=sn.member||sn.who?.[0];
+  if(sn.need?.flag||sn.need?.mem||(P.mem&&(S.flags?.[P.mem]||S.memx?.[P.mem]))) s+=4;
+  if(sn.req) s+=3;
+  if(sn.member||sn.who?.length===1) s+=3;
+  if(sn.wx||(P.wx&&P.wx===wxNow())) s+=2;
+  if(sn.season||sn.date||(P.season&&P.season===seasonOf(dateOf(S.day)))) s+=2;
+  if((sn.stage&&sn.stage!=="*")||(P.stage&&id&&P.stage===stageOf(id))) s+=2;
+  if(P.wear&&id&&wearCatNow(id).includes(P.wear)) s+=1;
+  return s }
+window.salience=salience;
 /* 近況片段(有出場條件)只在情境成立時出現,出現時權重 ×3;連續劇情的下一段 ×4,讓故事接得上 */
-function pickW(list,r=Math.random){if(!list.length) return null; const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)*(sn.req?3:1)*(+sn.part>1&&S.seen[sn.code]==null?4:1)); let x=r()*w.reduce((a,b)=>a+b,0);
+function pickW(list,r=Math.random){if(!list.length) return null;
+  if(list.length>1){ const sc=list.map(salience), top=Math.max(...sc); if(sc.some(v=>v<top-1)) list=list.filter((sn,i)=>sc[i]>=top-1) }
+  const w=list.map(sn=>(sn.w||3)*(S.seen[sn.code]==null?2:1)*(sn.req?3:1)*(+sn.part>1&&S.seen[sn.code]==null?4:1)); let x=r()*w.reduce((a,b)=>a+b,0);
   for(let i=0;i<list.length;i++){x-=w[i];if(x<=0) return list[i]} return list[list.length-1]}
 
 /* ---------- 衣櫃 ---------- */
@@ -988,7 +1004,9 @@ function applyChoice(c){
   if(c.bw&&c.bv&&window.addBond&&byId(c.bw)) addBond([id,c.bw],c.bv);   // 這個選擇讓兩位成員之間的默契改變
   if(xp>0&&V&&(V.room==="practice"||V.room==="studio")) coachGrowth(id,V.room);
   save(!V?.test)}
-function fx(id,t){const m=byId(id),e=document.createElement("span");e.style.setProperty("--c",m?.c||"#E85C8A");e.textContent=`${m?.n||""} ${t}`;$("#fx").appendChild(e);setTimeout(()=>e.remove(),2700)}
+/* 擬真第一階段 ⑦:擬真模式(預設開)不跳「好感 +15」「信任 +1」這類數字,關係的變化從她的行為感覺;數字還在,成員檔案頁看得到 */
+window.realMode=()=>{ try{ return localStorage.getItem("kpopGame.real")!=="off" }catch(e){ return true } };
+function fx(id,t){ if(window.realMode()&&/[+\-]\s*\d/.test(t)) return; const m=byId(id),e=document.createElement("span");e.style.setProperty("--c",m?.c||"#E85C8A");e.textContent=`${m?.n||""} ${t}`;$("#fx").appendChild(e);setTimeout(()=>e.remove(),2700)}
 /* Auto 與 Log */
 function queueAuto(){if(!auto||!D) return; clearTimeout(autoT); const n=($("#vtext").textContent||"").length; autoT=setTimeout(()=>{if(auto&&D&&!$("#vopts .choice")) step()},(1100+n*45)*(RD_AU[RD.auto]||1))}
 function stopAutoTimer(){clearTimeout(autoT)}
@@ -1162,6 +1180,8 @@ function fpsSet(on){ FPSM.on=on; cancelAnimationFrame(FPSM.raf); FPSM.obs?.disco
   e.onclick=ev=>{ ev.stopPropagation(); fpsReset(); toast2("流暢度檢測已歸零") }; document.body.appendChild(e); FPSM.el=e; fpsReset(); FPSM.last=0; FPSM.upd=0;
   try{ FPSM.obs=new PerformanceObserver(l=>{ for(const x of l.getEntries()){ FPSM.lt++; FPSM.ltMs+=x.duration } }); FPSM.obs.observe({entryTypes:["longtask"]}) }catch(e){}
   FPSM.raf=requestAnimationFrame(fpsFrame) }
+$("#realSel")&&(()=>{ const s=$("#realSel"); s.value=window.realMode()?"on":"off";
+  s.onchange=()=>{ try{ localStorage.setItem("kpopGame.real",s.value) }catch(e){} toast2(s.value==="on"?"擬真模式:不再跳出好感、信任的數字":"擬真模式已關閉:會顯示好感、信任的變化") } })();
 $("#fpsSel")&&(()=>{ const s=$("#fpsSel"); let v="off"; try{ v=localStorage.getItem("kpopGame.fps")||"off" }catch(e){} s.value=v; if(v==="on") fpsSet(true);
   s.onchange=()=>{ try{ localStorage.setItem("kpopGame.fps",s.value) }catch(e){} fpsSet(s.value==="on"); toast2(s.value==="on"?"流暢度檢測已打開(畫面左下角)":"流暢度檢測已關閉") } })();
 $("#hqcutSel")&&(()=>{ const s=$("#hqcutSel"); try{ s.value=localStorage.getItem("kpopGame.hqcut")||"auto" }catch(e){} s.onchange=()=>{ try{ localStorage.setItem("kpopGame.hqcut",s.value) }catch(e){} toast2(s.value==="off"?"高品質去背已關閉":window.hqCutOn?.()?"之後處理立繪會用高品質去背":"這台裝置目前不會用(自動只在電腦上用)") } })();   // 高品質去背(sprites.js)
@@ -1206,7 +1226,7 @@ async function boot(){
   if(window.growthInit) growthInit();
   window.sandboxApply?.();   // 1.2 第 5 包:試玩存檔第一次載入時跳到選的那一天
   if(!Object.keys(S.where).length||Object.values(S.where).includes("bedroom")) assign();
-  ensureWear(true); renderAll();
+  ensureWear(true); try{ window.memEnsure?.() }catch(e){ logErr("記憶",e) } renderAll();
   $("#boot").classList.add("done");
   last=performance.now(); setInterval(()=>{ tick(); runTasks() },250);
   setTimeout(()=>checkUpdate(false),3000);
