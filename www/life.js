@@ -157,7 +157,7 @@ window.walkinAt=pid=>{ try{ const w=WK(); if(w.n>=2) return null; const key=pid+
 window.walkinScene=pid=>{ const sn=window.walkinAt(pid); if(!sn) return null; const id=sn.member||sn.who?.[0];
   return {play:()=>{ const w=WK(); w.n++; w.pick[pid+":"+Math.floor(S.min/60)]="-"; V?.talked?.add(id); window.missSeen?.(id); play(sn,()=>menu(),"talk") }} };
 
-window.__recallOk=recallOk; window.__needDay=needDay;   // 測試用
+window.__recallOk=recallOk; window.__needDay=needDay; window.__walkinOk=walkinOk;   // 測試用
 window.recallDebug=()=>({flagAt:{...flagAt()},done:{...RC().done},today:{n:RC().n,ids:[...RC().ids]}});   // 測試用
 
 /* ---------- ⑥ 台詞帶動作 ---------- */
