@@ -113,7 +113,7 @@ function needDay(sn){ const nd=sn.need||{}, id=sn.member||sn.who?.[0];
 function recallOk(sn,id,room,any){ if(sn.type!=="recall"||(sn.member||sn.who?.[0])!==id||RC().done[sn.code]!=null||!sn.nodes?.start) return false;
   if(!any){ if(sn.room?sn.room!==room:(sn.at&&DYR().ROOM_AT?.[room]&&sn.at!==DYR().ROOM_AT[room])) return false;
     const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; if(h?!(t>=+h[0]&&t<+h[1]):(sn.sl?.length&&!sn.sl.includes(S.slot))) return false }
-  if(sn.band&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
+  if(sn.band&&sn.band!=="*"&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
   if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
   if(sn.turn){ const t=S.stageAt?.[id+":"+sn.turn]; if(t==null||stageOf(id)!==sn.turn||S.day-t>14) return false; if(!sn.need||!Object.keys(sn.need).length) return true }   // 關係轉折:剛升到這個階段的 14 天內
   const d0=needDay(sn); if(d0==null) return false; const an=sn.need?.anniv, w=Array.isArray(sn.wait)?sn.wait:an==="memyear"?[362,1e9]:an==="bday"?[0,1e9]:[2,10], dd=S.day-d0; return dd>=+w[0]&&dd<=+w[1] }
@@ -147,7 +147,7 @@ window.recallKey=()=>{ try{ return annivNow().map(([id,sn])=>id+sn.code).join(",
 const WK=()=>{ const w=S.walkin=S.walkin||{day:-1,n:0,pick:{}}; if(w.day!==S.day){ w.day=S.day; w.n=0; w.pick={} } return w };
 function walkinOk(sn,pid){ const id=sn.member||sn.who?.[0]; if(sn.type!=="walkin"||!byId(id)||sn.room!==pid||!sn.nodes?.start) return false;
   for(const x of new Set([id,...(sn.who||[])])) if(S.where?.[x]!==pid) return false;
-  if(!hourIn(sn)||window.sickIs?.(id)) return false; if(sn.band&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
+  if(!hourIn(sn)||window.sickIs?.(id)) return false; if(sn.band&&sn.band!=="*"&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
   if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
   if(sn.need&&Object.keys(sn.need).length&&needDay(sn)==null) return false;
   return S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(+sn.cd||30) }

@@ -238,14 +238,22 @@ window.timelineOnDayStart=()=>{ _ds?.(); if(S.day<DEBUT_DAY) return; const d=dat
    日期用 S.flagAt,知道的人 = 那位成員(grp = 五個人),conv:1 標記是轉換來的。只有記憶,不會自己傳開 ---- */
 (()=>{
 const MEM_ID=/^(ys|tr|hy|he|hr|grp)[A-Z]/, ALL=()=>M.map(m=>m.id);
-window.memRecord=(k,id,c={})=>{ try{ const X=S.memx=S.memx||{}; if(X[k]){ X[k].n=(X[k].n||1)+1; return X[k] }
+/* 2026-11-09 ⑦ 舊旗標校對(W-P-20261109-01-⑦-1 A 表):assets/data/mem_meta.json = 每個旗標的 tone、w,和不合命名規則的舊旗標改名對照(alias)。
+   舊內容的選項沒有寫 tone、w 時照表;舊存檔轉成的記憶照表補;不合規則的舊旗標另外用新名字記一份,新內容的 need.mem 就能用 */
+window.MEM_META=null; window.MEM_ALIAS={};
+fetch("assets/data/mem_meta.json").then(r=>r.ok?r.json():null).then(o=>{ if(!o) return; window.MEM_META=o.meta||{}; window.MEM_ALIAS=o.alias||{}; try{ window.memEnsure?.() }catch(e){} }).catch(e=>window.logErr?.("記憶表",e));
+window.memRecord=(k,id,c={})=>{ try{ const al=window.MEM_ALIAS?.[k]; if(al){ S.flags[al]=(S.flags[al]||0)+1; const fa=S.flagAt=S.flagAt||{}; if(fa[al]==null) fa[al]=S.day; k=al }
+  const mt=window.MEM_META?.[k]; if(mt&&c.tone==null&&c.w==null) c={...c,tone:mt[0],w:mt[1]};
+  const X=S.memx=S.memx||{}; if(X[k]){ X[k].n=(X[k].n||1)+1; return X[k] }
   const pres=(typeof V!=="undefined"&&V?.present?.length)?[...V.present]:[id], who=[...new Set([id,...pres])].filter(x=>byId(x));
   const tell=(Array.isArray(c.tell)?c.tell:c.tell?[c.tell]:[]).filter(x=>byId(x));
   return X[k]={day:S.day,slot:S.slot,room:(typeof V!=="undefined"&&(V?.room||V?.pid))||S.where?.[id]||null,who,knows:c.secret?[...who]:[...new Set([...who,...tell])],...(c.secret?{secret:true}:{}),
     tone:c.tone||null,w:Math.max(1,Math.min(3,+c.w||(+c.heart>0?2:1))),vars:c.memv||null,src:(typeof D!=="undefined"&&D?.sn?.code)||null,said:String(c.t||"").slice(0,40)||null,n:1} }catch(e){ window.logErr?.("記憶",e) } };
-window.memEnsure=()=>{ const X=S.memx=S.memx||{}, fa=S.flagAt||{}; let n=0;
-  for(const k of Object.keys(S.flags||{})){ if(X[k]||!MEM_ID.test(k)) continue; const p=k.match(MEM_ID)[1], who=p==="grp"?ALL():[p];
-    X[k]={day:fa[k]??S.day,slot:null,room:null,who,knows:[...who],tone:null,w:1,vars:null,src:null,n:+S.flags[k]||1,conv:1}; n++ }
+window.memEnsure=()=>{ const X=S.memx=S.memx||{}, fa=S.flagAt=S.flagAt||{}, AL=window.MEM_ALIAS||{}, MT=window.MEM_META||{}; let n=0;
+  for(const [a,b] of Object.entries(AL)) if(S.flags?.[a]&&!S.flags[b]){ S.flags[b]=S.flags[a]; if(fa[b]==null&&fa[a]!=null) fa[b]=fa[a] }   // 不合規則的舊旗標:用新名字也記一份
+  for(const k of Object.keys(S.flags||{})){ if(X[k]||!MEM_ID.test(k)) continue; const p=k.match(MEM_ID)[1], who=p==="grp"?ALL():[p], mt=MT[k];
+    X[k]={day:fa[k]??S.day,slot:null,room:null,who,knows:[...who],tone:mt?.[0]||null,w:mt?.[1]||1,vars:null,src:null,n:+S.flags[k]||1,conv:1}; n++ }
+  for(const [k,m] of Object.entries(X)){ const mt=MT[k]; if(m.conv&&mt&&!m.metaOk){ m.tone=mt[0]; m.w=mt[1]; m.metaOk=1 } }   // 轉換來的記憶照 ⑦ 的表補感覺與重要程度
   const SA=S.stageAt=S.stageAt||{}, SI=S.stageAtInit=S.stageAtInit||{}; for(const m of M){ const st=stageOf(m.id), kk=m.id+":"+st; if(SA[kk]==null){ SA[kk]=S.day; SI[kk]=1 } }   // 舊存檔:現在的階段從今天算(相簿不列這筆)
   return n };
 window.memKnows=(k,id)=>!!S.memx?.[k]?.knows?.includes(id);   // 這位成員知道這件事嗎(回想、日記用)
@@ -271,7 +279,7 @@ const fillOne=(t,k)=>k&&window.memFill?window.memFill({code:"_",nodes:{start:{L:
 function diaryList(id){ const X=S.memx||{}, P=S.diaryPick=S.diaryPick||{}, out=[], lib=snips().filter(sn=>sn.type==="diary"&&sn.member===id), bd=window.DAILY?.bandOf?.(stageOf(id));
   for(const [k,m] of Object.entries(X)){ if((m.w||1)<2||!m.knows?.includes(id)||(m.secret&&!m.who?.includes(id))) continue;
     const pk=id+":"+k; let sn=P[pk]&&lib.find(x=>x.code===P[pk]);
-    if(!sn){ const own=lib.filter(x=>x.need?.mem===k), gen=lib.filter(x=>!x.need?.mem&&(!m.tone||x.tone===m.tone)&&(!x.band||x.band===bd)), L=own.length?own:gen;
+    if(!sn){ const own=lib.filter(x=>x.need?.mem===k), gen=lib.filter(x=>!x.need?.mem&&(!m.tone||x.tone===m.tone)&&(!x.band||x.band==="*"||x.band===bd)), L=own.length?own:gen;
       if(L.length){ sn=L[Math.floor(rng(seedOf(m.day,k,id))()*L.length)]; P[pk]=sn.code } }
     const raw=sn?.text||sn?.nodes?.start?.L?.[0]?.[1]||DIARY_FB[m.tone]||DIARY_FB.溫暖;
     out.push({day:m.day,tone:m.tone,text:fillOne(raw,k),k}) }
