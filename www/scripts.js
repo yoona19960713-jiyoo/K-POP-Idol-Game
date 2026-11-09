@@ -182,6 +182,7 @@ const WORLD_PERIOD={
  轉型期:"2020 年起新冠疫情,演唱會全停、打歌無觀眾錄影、線上演唱會;粉絲通訊 Pocket 上線、Clip 舞蹈挑戰是宣傳主力。NEOVERSE(2020 年 11 月)、2022 年 SERAPH、NEW DAY 出道。2022 年疫情解封、巡演回歸,也是第一份七年合約到期的時候。"};
 
 /* ---------- 格式檢查 ---------- */
+window.__analyse=sn=>analyse(sn);   // 測試用
 function analyse(sn){
   const w=[]; const N=sn.nodes||{}; if(!N.start&&!(sn.type==="overhear"&&sn.hear?.length)) return {depth:0,branch:0,warn:["沒有 start 節點"]};
   const ids=new Set(MB.map(m=>m.id));
@@ -196,7 +197,7 @@ function analyse(sn){
   // 品質檢查:太長的台詞、解說情緒的套話、整句重複
   const CLICHE=["心裡暖暖的","謝謝你一直陪著我","其實我想說的是","你讓我覺得很溫暖","有你真好","我會一直陪在你身邊"], seenT=new Set();
   for(const [k,n] of Object.entries(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>c.r||[])].filter(l=>l[0]!=="@")){ const t=String(l[1]||"");
-    if(t.length>60) w.push(`節點 ${k} 有一句台詞超過 60 字`);
+    if(t.length>60&&sn.type!=="diary"&&sn.type!=="weekly") w.push(`節點 ${k} 有一句台詞超過 60 字`);   // 日記、每週整理是一整段文字(60~140 字)
     const cl=CLICHE.find(x=>t.includes(x)); if(cl) w.push(`節點 ${k} 用了套話「${cl}」`);
     if(t.length>6&&seenT.has(t)) w.push(`節點 ${k} 有重複的台詞`); seenT.add(t) }
   const depth=(k,seen)=>{if(seen.has(k)||!N[k])return 0; seen.add(k); let m=0; for(const c of N[k].C||[]) m=Math.max(m,1+(c.next?depth(c.next,new Set(seen)):0)); return m};
@@ -204,7 +205,9 @@ function analyse(sn){
   if(sn.type==="long"||sn.type==="pairlong"){ if(d<8) w.push(`最長只有 ${d} 個來回,長對話要 8~10 個`); if(d>11) w.push(`最長 ${d} 個來回,超過 10 個`); if(branch<2) w.push(`只有 ${branch} 個分岔點,長對話至少要 2 個`) }
   if(sn.type==="away"&&(N.start.C||[]).length) w.push("你不在場時的片段不應該有選項");
   if(sn.dupOf) w.push(`和內容庫裡的「${String(sn.dupOf).slice(0,16)}」太像`);
-  const badV=[...JSON.stringify([sn.sc||"",N]).matchAll(/\{([^{}\s"]{1,8})\}/g)].map(m=>m[1]).find(v=>!VARS_ALL.includes(v)); if(badV) w.push(`用了不認得的變數 {${badV}}`);
+  /* 擬真第一階段(2026-11-09):{mem.ago} 這類記憶細節由遊戲演的時候填;每週整理另外有 {member}、{work} */
+  const okV=v=>VARS_ALL.includes(v)||/^mem\.[A-Za-z][A-Za-z0-9_]{0,15}$/.test(v)||(sn.type==="weekly"&&(v==="member"||v==="work"));
+  const badV=[...JSON.stringify([sn.sc||"",N]).matchAll(/\{([^{}\s"]{1,20})\}/g)].map(m=>m[1]).find(v=>!okV(v)); if(badV) w.push(`用了不認得的變數 {${badV}}`);
   if(sn.type==="event"&&EVENTS[sn.ev]?.card&&((N.start.C||[]).length||(N.start.L||[]).some(l=>!l[0]))) w.push("事件卡只能有成員台詞,不要旁白與選項");
   if(NEWK.has(sn.type)||sn.type==="event") analyse10(sn,w);   // 改版 1.0 的新種類與里程碑事件
   return {depth:d,branch,warn:w};
@@ -375,7 +378,7 @@ function analyse10(sn,w){ const N=sn.nodes||{}, ps=paths10(N), dc=dirCount(N), s
   if(["casual","night","act"].includes(sn.type)&&!(sn.band in DY.BANDS)&&!(sn.type==="act"&&sn.member==="all")) w.push("沒有關係段落 band");
   if(sn.stage&&sn.band&&DY.BANDS[sn.band]&&!DY.BANDS[sn.band].includes(sn.stage)) w.push(`stage ${sn.stage} 不在 ${sn.band} 段裡`);
   for(const n of Object.values(N)) for(const c of n.C||[]) if(c.set&&!FLAG_RE.test(c.set)) w.push(`旗標 ${c.set} 要用成員代號開頭的駝峰`);
-  if(NEWK.has(sn.type)) for(const n of Object.values(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>[[0,c.t],...(c.r||[])])]) if(l[0]!=="@"&&String(l[1]||"").length>45){ w.push("有一句超過 45 字"); break }
+  if(NEWK.has(sn.type)&&sn.type!=="diary"&&sn.type!=="weekly") for(const n of Object.values(N)) for(const l of [...(n.L||[]),...(n.C||[]).flatMap(c=>[[0,c.t],...(c.r||[])])]) if(l[0]!=="@"&&String(l[1]||"").length>45){ w.push("有一句超過 45 字"); break }
   if(sn.type==="promo"){ if(!PROMO_EV[sn.ev]) w.push(`宣傳期的 ev ${sn.ev||"(空白)"} 不對`); if(sn.period==="練習生期") w.push("宣傳期劇情不能標練習生期");
     if(String(sn.ev).startsWith("comfort_")&&!(sn.member in Object.fromEntries(MB.map(m=>[m.id,1])))) w.push("安慰要寫是哪一位(member)") }
   if(sn.type==="casual"){ const L=N.start?.L||[];

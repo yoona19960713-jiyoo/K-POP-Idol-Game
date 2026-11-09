@@ -925,14 +925,15 @@ function backOut(){ if(!V||V.test||V.event) return; const free=V.talked.size===0
 
 /* ---- 試玩(製作者模式用):不花時間、不改存檔 ---- */
 window.testPlay=function(sn,onDone){
-  if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen});
+  if(V) return; const backup=JSON.stringify({m:S.m,flags:S.flags,seen:S.seen,memx:S.memx||{},flagAt:S.flagAt||{},diaryPick:S.diaryPick||{}});   // 擬真:試玩時選的選項不會留下記憶
+  sn=window.memPreview?.(sn)||sn;   // {mem.ago}、{member} 這類:有那筆記憶就用,沒有就填「幾個月前」「那裡」
   const roomOf={practice:"practice",dorm:"living",studio:"studio",office:"office",styling:"styling",out:"store",phone:"bed_"+((sn.who||[])[0]||"ys")};
   const room=PL[sn.room]?sn.room:sn.at==="phone"?"bed_"+((sn.who||[])[0]||"ys"):(roomOf[sn.at]||"practice");
   if(sn.hear?.length) sn=window.ovhMerge?.(sn)||{...sn,nodes:{start:{L:sn.hear,C:[]}}};   // 1.1 的成員之間(旁聽):旁聽+加入接成一段
   V={pid:room,room,present:(sn.who||[]).filter(id=>byId(id)),talked:new Set(),summoned:null,test:true}; logLines=[]; setBack();
   $("#vbg").style.backgroundImage=`url(${seasonArt("bg",room,SLOTS[S.slot].light)})`; $("#vtitle").textContent="試玩"; $("#vsub").textContent="不花時間,也不會影響存檔";
   drawPeople(); $("#visit").classList.add("on"); setPause("visit",true); $("#vopts").innerHTML="";
-  play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; save();
+  play({...sn,code:"test"},()=>{ const o=JSON.parse(backup); S.m=o.m; S.flags=o.flags; S.seen=o.seen; S.memx=o.memx; S.flagAt=o.flagAt; S.diaryPick=o.diaryPick; save();
     $("#vopts").innerHTML=`<button class="vopt" id="testEnd">試玩結束<small>回到製作者模式</small></button>`;
     $("#testEnd").onclick=()=>{ stageReset(); $("#visit").classList.remove("on"); $("#vlog").classList.remove("on"); setPause("visit",false); V=null; stopAuto(); onDone&&onDone() } });
 };

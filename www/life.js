@@ -133,6 +133,11 @@ function memFill(sn,k){ const V0=window.memVars(k), rep=t=>typeof t==="string"?t
   const nodes={}; for(const [kk,n] of Object.entries(sn.nodes||{})) nodes[kk]={...n,L:L(n.L),C:(n.C||[]).map(c=>({...c,t:rep(c.t),...(c.r?{r:L(c.r)}:{})}))};
   return {...sn,sc:rep(sn.sc),nodes,text:rep(sn.text)} }
 window.memFill=memFill;
+/* 製作者模式試玩用:有那筆記憶就照記憶填,沒有就填通用的詞;每週整理的 {member}、{work} 也填 */
+window.memPreview=sn=>{ try{ const k=sn.need?.mem; let o=k&&S.memx?.[k]?memFill(sn,k):sn; const P={ago:"幾個月前",date:"那一天",room:"那裡",slot:"那時候"};
+  const rep=t=>typeof t==="string"?t.replace(/\{mem\.([A-Za-z0-9_]+)\}/g,(x,kk)=>P[kk]||"那個").replace(/\{member\}/g,byId(sn.member)?.n||M[0].n).replace(/\{work\}/g,"練習"):t, Lx=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
+  const nodes={}; for(const [kk,n] of Object.entries(o.nodes||{})) nodes[kk]={...n,L:Lx(n.L),C:(n.C||[]).map(c=>({...c,t:rep(c.t),...(c.r?{r:Lx(c.r)}:{})}))};
+  return {...o,sc:rep(o.sc),nodes,text:rep(o.text)} }catch(e){ return sn } };
 /* 1.1 第 3 輪:
    ① recallPending(id):今天已經「成立」的(天數、關係、日期都對),先不管房間和時間——深夜事件挑人時用(她有一段要在頂樓、廚房說的話,今晚就比較會是她)。
    ② 紀念日(need.anniv)那幾天,到了寫好的時間,她會在那個房間等你(像約好的一樣,蓋過作息表),紀念日的話不會因為剛好不在那裡就錯過。 */
