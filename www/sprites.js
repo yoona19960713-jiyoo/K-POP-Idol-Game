@@ -160,6 +160,11 @@ async function fuseWithPrior(B,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD){
       const pp=locate(id.data,w,h,nD,cw,ch,face), c2=canvas(cw,ch), x2=c2.getContext("2d",{willReadFrequently:true});
       x2.drawImage(c,-pp.x,-pp.y); P=x2.getImageData(0,0,cw,ch).data }catch(e){ P=nD } }
   const BGT=Math.max(8,(Bf.tb||10)*1.1);
+  /* 2.0 第七個大腦:底模身體裡面多深(離身體邊緣幾 px)。新造型露出底色只會在身體邊緣(衣服比白 T 窄的地方);
+     身體深處的淺色衣服就算跟底色只差一點點(淺灰底上的白衣服陰影),也不當成底色,除非幾乎完全一樣、而且沒有顏色 */
+  const DP=new Uint8Array(cw*ch).fill(255); { const q=new Int32Array(cw*ch); let h=0,t=0;
+    for(let p=0;p<cw*ch;p++) if(P[p*4+3]<128){ DP[p]=0; q[t++]=p }
+    while(h<t){ const p=q[h++], x=p%cw; for(const n of [x>0?p-1:-1,x<cw-1?p+1:-1,p-cw,p+cw]){ if(n<0||n>=cw*ch||DP[n]!==255) continue; DP[n]=DP[p]+1; if(DP[n]<60) q[t++]=n } } }
   for(let y=0;y<ch;y++){ const Y=y+pos.y; for(let x=0;x<cw;x++){ const X=x+pos.x, i=(y*cw+x)*4;
     if(X<0||Y<0||X>=W||Y>=H){B[i+3]=0;continue}
     const q=Y*W+X, j=q*4, r=rawD[j],g=rawD[j+1],b=rawD[j+2], br=Bf[q*3],bg=Bf[q*3+1],bb=Bf[q*3+2];
@@ -167,7 +172,8 @@ async function fuseWithPrior(B,rawD,Bf,W,H,pos,cw,ch,f,face,pose,nD){
     /* 2.0 第七個大腦(使用者回報白衣服被吃掉):以前「離底色 30 以內、彩度 18 以下」就當底色,淺灰底上的白衣服、淺色衣服整片變透明。
        現在只有「跟底色一樣近」(去背量到的雜訊門檻)才算底色;灰色影子只在畫面最下面兩成(腳下的影子)才算 */
     const R=Bf.row, dr=R?Math.hypot(r-R[Y*3],g-R[Y*3+1],b-R[Y*3+2]):db;   // 身體裡面:用邊緣的每列底色比(不受誤吃的衣服影響)
-    const bgLike=(Math.max(db,P[i+3]>=200?dr-4:0)<BGT&&chr<12)||(Y>H*.8&&chr<14&&L<bL-4&&L>bL-70);
+    const deep=DP[y*cw+x]>16, bc=R?Math.max(R[Y*3],R[Y*3+1],R[Y*3+2])-Math.min(R[Y*3],R[Y*3+1],R[Y*3+2]):2;   // 身體深處;底色本身的彩度(灰底可能偏冷或偏暖)
+    const bgLike=deep?(Math.max(db,dr)<BGT*.6&&chr<Math.min(5,bc+3)):(Math.max(db,P[i+3]>=200?dr-4:0)<BGT&&chr<Math.min(12,bc+5))||(Y>H*.8&&chr<14&&L<bL-4&&L>bL-70);   // 比底色多一點顏色(白衣服陰影常帶紫灰)就不是底色
     const Pa=P[i+3], diff=Math.abs(r-P[i])+Math.abs(g-P[i+1])+Math.abs(b-P[i+2]);
     let a, cr=B[i],cg=B[i+1],cb=B[i+2];
     if(Pa>=8&&diff<45){ a=Pa; cr=r;cg=g;cb=b;                        // 同一張畫:用底模的透明度,並扣掉邊緣的灰
