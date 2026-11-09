@@ -98,6 +98,14 @@ const dayIdx=d=>Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-d
 const ANNIV={met100:99,met200:199,met300:299,met500:499,met1000:999,half:"2016-07-13",debut:"2017-01-13",debut100:["2017-01-13",99]};
 function annivDay(k){ const v=ANNIV[k]??k; if(typeof v==="number") return v; const [ds,plus]=Array.isArray(v)?v:[v,0]; const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ds)); return m?dayIdx(new Date(+m[1],+m[2]-1,+m[3]))+plus:null }
 function needDay(sn){ const nd=sn.need||{}, id=sn.member||sn.who?.[0];
+  /* 擬真第一階段 ②(2026-11-09):need.mem 要她「知道」這件事(在場或被代表告訴;保密的事只有當時在場的人);heard 只在她是被告訴的;
+     同一筆記憶最多被提起 3 次、間隔 30 天;anniv memyear = 那件事滿一年(每年)前後 3 天,bday = 她生日那天 */
+  if(nd.mem){ const m=S.memx?.[nd.mem]; if(!m||!m.knows?.includes(id)) return null; if(m.secret&&!m.who?.includes(id)) return null; if(sn.heard&&m.who?.includes(id)) return null;
+    const rc=m.recalls||[]; if(rc.length>=3||(rc.length&&S.day-rc[rc.length-1]<30)) return null;
+    if(nd.anniv==="memyear"){ const dd=S.day-m.day, r=dd%365; if(dd<362||!(r<=3||r>=362)) return null }
+    if(nd.anniv==="bday"&&!isBd(id)) return null;
+    return m.day }
+  if(nd.anniv==="bday") return isBd(id)?S.day:null;
   if(nd.flag) return flagAt()[nd.flag]??null;
   if(nd.act){ const e=(S.actLog||[]).find(x=>x.k===nd.act&&(!x.id||x.id===id)); return e?e.d:null }
   if(nd.anniv!=null){ const d=annivDay(nd.anniv); return d!=null&&S.day>=d?d:null }
@@ -107,12 +115,24 @@ function recallOk(sn,id,room,any){ if(sn.type!=="recall"||(sn.member||sn.who?.[0
     const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; if(h?!(t>=+h[0]&&t<+h[1]):(sn.sl?.length&&!sn.sl.includes(S.slot))) return false }
   if(sn.band&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
   if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
-  const d0=needDay(sn); if(d0==null) return false; const w=Array.isArray(sn.wait)?sn.wait:[2,10], dd=S.day-d0; return dd>=+w[0]&&dd<=+w[1] }
+  if(sn.turn){ const t=S.stageAt?.[id+":"+sn.turn]; if(t==null||stageOf(id)!==sn.turn||S.day-t>14) return false; if(!sn.need||!Object.keys(sn.need).length) return true }   // 關係轉折:剛升到這個階段的 14 天內
+  const d0=needDay(sn); if(d0==null) return false; const an=sn.need?.anniv, w=Array.isArray(sn.wait)?sn.wait:an==="memyear"?[362,1e9]:an==="bday"?[0,1e9]:[2,10], dd=S.day-d0; return dd>=+w[0]&&dd<=+w[1] }
 /* 準備好的那一則(快過期的先);room 是代表現在所在的房間 */
 window.recallReady=(id,room)=>{ try{ const r=RC(); if(!byId(id)||r.n>=2||r.ids.includes(id)||window.sickIs?.(id)) return null; /* 生病那天先不提 */ room=room||S.where[id];
   const L=snips().filter(sn=>recallOk(sn,id,room)); if(!L.length) return null;
   const end=sn=>needDay(sn)+(Array.isArray(sn.wait)?+sn.wait[1]:10); L.sort((a,b)=>end(a)-end(b)); return L[0] }catch(e){ window.logErr?.("記得你",e); return null } };
-window.recallTake=(id,room)=>{ const sn=window.recallReady(id,room); if(!sn) return null; const r=RC(); r.done[sn.code]=S.day; r.n++; r.ids.push(id); return sn };
+window.recallTake=(id,room)=>{ const sn=window.recallReady(id,room); if(!sn) return null; const r=RC(); r.done[sn.code]=S.day; r.n++; r.ids.push(id);
+  const k=sn.need?.mem, m=k&&S.memx?.[k]; if(m){ (m.recalls=m.recalls||[]).push(S.day); return memFill(sn,k) } return sn };
+/* 台詞裡的 {mem.ago}、{mem.date}、{mem.room}、{mem.slot}、{mem.<memv 的 key>}:換成那筆記憶的細節 */
+const NUMZ=["零","一","兩","三","四","五","六","七","八","九","十","十一","十二"];
+window.memVars=k=>{ const m=S.memx?.[k]; if(!m) return {}; const d=dateOf(m.day), dd=S.day-m.day, mo=d.getMonth()+1;
+  const sea=mo>=3&&mo<=5?"春天":mo<=8&&mo>=6?"夏天":mo>=9&&mo<=11?"秋天":"冬天", yd=dateOf(S.day).getFullYear()-d.getFullYear();
+  const ago=dd<=1?"昨天":dd<7?"前幾天":dd<14?"上週":dd<30?`${NUMZ[Math.round(dd/7)]}週前`:dd<45?"一個月前":dd<330?`${NUMZ[Math.min(11,Math.round(dd/30))]}個月前`:yd<=1?`去年${sea}`:yd===2?`前年${sea}`:`${NUMZ[Math.min(12,yd)]}年前的${sea}`;
+  return {ago,date:`${mo}月${d.getDate()}日`,room:PL[m.room]?.n||"那裡",slot:SLOTS[m.slot]?.n||"那時候",...(m.vars||{})} };
+function memFill(sn,k){ const V0=window.memVars(k), rep=t=>typeof t==="string"?t.replace(/\{mem\.([A-Za-z0-9_]+)\}/g,(x,key)=>V0[key]!=null?String(V0[key]):x):t, L=a=>(a||[]).map(l=>[l[0],rep(l[1]),...l.slice(2)]);
+  const nodes={}; for(const [kk,n] of Object.entries(sn.nodes||{})) nodes[kk]={...n,L:L(n.L),C:(n.C||[]).map(c=>({...c,t:rep(c.t),...(c.r?{r:L(c.r)}:{})}))};
+  return {...sn,sc:rep(sn.sc),nodes,text:rep(sn.text)} }
+window.memFill=memFill;
 /* 1.1 第 3 輪:
    ① recallPending(id):今天已經「成立」的(天數、關係、日期都對),先不管房間和時間——深夜事件挑人時用(她有一段要在頂樓、廚房說的話,今晚就比較會是她)。
    ② 紀念日(need.anniv)那幾天,到了寫好的時間,她會在那個房間等你(像約好的一樣,蓋過作息表),紀念日的話不會因為剛好不在那裡就錯過。 */
@@ -121,6 +141,23 @@ const hourIn=sn=>{ const h=Array.isArray(sn.hour)?sn.hour:null, t=S.min/60; retu
 function annivNow(){ const out=[]; for(const m of M){ const sn=window.recallPending(m.id).find(x=>x.need?.anniv!=null&&x.room&&PL[x.room]?.open.includes(S.slot)&&hourIn(x)&&!(x.room.startsWith("bed_")&&x.room!=="bed_"+m.id)); if(sn) out.push([m.id,sn]) } return out }
 window.recallWhere=()=>{ try{ for(const [id,sn] of annivNow()){ S.where[id]=sn.room; if(S.doing) S.doing[id]="等你" } }catch(e){ window.logErr?.("記得你・紀念日",e) } };
 window.recallKey=()=>{ try{ return annivNow().map(([id,sn])=>id+sn.code).join(",") }catch(e){ return "" } };
+/* ---------- 擬真第一階段 ④(2026-11-09):等你處理的狀況 walkin ----------
+   代表走進那個房間、那個時間,她剛好在那裡、條件都對,就先演這段(怎麼處理由代表選;選項設的旗標記成記憶)。代表沒走進去就安靜過去,沒有任何後果。
+   每個遊戲小時、每個房間決定一次有沒有(45%),一天最多 2 個,同一個狀況冷卻 cd 天(預設 30)。剖面圖上那個房間有很淡的提示(walkinAt 給 game.js 畫) */
+const WK=()=>{ const w=S.walkin=S.walkin||{day:-1,n:0,pick:{}}; if(w.day!==S.day){ w.day=S.day; w.n=0; w.pick={} } return w };
+function walkinOk(sn,pid){ const id=sn.member||sn.who?.[0]; if(sn.type!=="walkin"||!byId(id)||sn.room!==pid||!sn.nodes?.start) return false;
+  for(const x of new Set([id,...(sn.who||[])])) if(S.where?.[x]!==pid) return false;
+  if(!hourIn(sn)||window.sickIs?.(id)) return false; if(sn.band&&sn.band!==DYR().bandOf?.(stageOf(id))) return false; if(!stageOk(sn)||!reqOk(sn)) return false;
+  if(sn.period&&sn.period!==periodNow()) return false; if(sn.wx&&sn.wx!==wxNow()) return false; if(sn.season&&sn.season!==seasonOf(dateOf(S.day))) return false; if(!dateOk(sn)) return false;
+  if(sn.need&&Object.keys(sn.need).length&&needDay(sn)==null) return false;
+  return S.seen[sn.code]==null||S.day-S.seen[sn.code]>=(+sn.cd||30) }
+window.walkinAt=pid=>{ try{ const w=WK(); if(w.n>=2) return null; const key=pid+":"+Math.floor(S.min/60), c=w.pick[key];
+  if(c!==undefined){ if(c==="-") return null; const sn=snips().find(x=>x.code===c); if(sn&&walkinOk(sn,pid)) return sn; w.pick[key]="-"; return null }
+  const r=rng(seedOf(S.day,key,"wk")); const L=r()<.45?snips().filter(sn=>walkinOk(sn,pid)):[]; const sn=L.length?pickW(L,r):null; w.pick[key]=sn?sn.code:"-"; return sn }catch(e){ window.logErr?.("等你處理的狀況",e); return null } };
+window.walkinScene=pid=>{ const sn=window.walkinAt(pid); if(!sn) return null; const id=sn.member||sn.who?.[0];
+  return {play:()=>{ const w=WK(); w.n++; w.pick[pid+":"+Math.floor(S.min/60)]="-"; V?.talked?.add(id); window.missSeen?.(id); play(sn,()=>menu(),"talk") }} };
+
+window.__recallOk=recallOk; window.__needDay=needDay;   // 測試用
 window.recallDebug=()=>({flagAt:{...flagAt()},done:{...RC().done},today:{n:RC().n,ids:[...RC().ids]}});   // 測試用
 
 /* ---------- ⑥ 台詞帶動作 ---------- */

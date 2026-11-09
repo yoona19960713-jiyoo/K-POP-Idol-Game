@@ -335,13 +335,16 @@ ${JSON.stringify({snippets:[ex]})}
    定義在 daily.js(window.DAILY),格式說明《改版1.0_新內容格式.md》;規則和 pack_scripts.py 第三版一致
    ===================================================================== */
 const DY=window.DAILY;
-const NEWK=new Set(["casual","night","act","overhear","recall","promo"]);
+const NEWK=new Set(["casual","night","act","overhear","recall","promo","walkin","diary","weekly"]);
 TYPES.casual={n:"隨口互動",kind:"casual",len:"1~3 句",places:["practice","dorm","studio","office","styling","out"],target:9,batch:6};
 TYPES.night={n:"深夜",kind:"night",len:"8~16 句、2~4 個選擇點(訊息 3~8 句)",places:["dorm","out","phone"],target:4,batch:3};
 TYPES.act={n:"日常活動",kind:"act",len:"三段、3~5 個選擇點、12~28 句",places:["practice","dorm","studio","office","styling","out"],target:2,batch:2};
 TYPES.overhear={n:"成員之間(旁聽)",kind:"overhear",len:"旁聽 4~8 句+加入後 2~3 個選擇點",places:["practice","dorm","studio","styling","out"],target:10,batch:3};   // 1.1 第 1 輪開始自動生產;目標依地點(DAILY.OVH_T)
 TYPES.recall={n:"記得你",kind:"later",len:"",places:[],target:0,batch:0};
-TYPES.promo={n:"宣傳期",kind:"later",len:"",places:[],target:0,batch:0};   // 2.0 第六個大腦:宣傳期劇情(⑦ 寫,不自動生產)
+TYPES.promo={n:"宣傳期",kind:"later",len:"",places:[],target:0,batch:0};
+TYPES.walkin={n:"等你處理的狀況",kind:"later",len:"",places:[],target:0,batch:0};   // 擬真第一階段(2026-11-09,⑦ 寫,不自動生產)
+TYPES.diary={n:"成員日記",kind:"later",len:"",places:[],target:0,batch:0};
+TYPES.weekly={n:"每週整理",kind:"later",len:"",places:[],target:0,batch:0};   // 2.0 第六個大腦:宣傳期劇情(⑦ 寫,不自動生產)
 const PROMO_EV={fansign:"簽售會",radio:"深夜廣播",magazine:"雜誌拍攝",variety:"綜藝錄影",comfort_crack:"安慰・高音破了",comfort_slip:"安慰・跳錯"};
 const BAND_W={A:1,B:.85,C:.2};   // 自動生產的急迫度:新遊戲從戒備開始,C 段(戀人以上)要出道後才用得到
 const bandTop=b=>DY.rank((DY.BANDS[b]||["戒備"]).slice(-1)[0]);

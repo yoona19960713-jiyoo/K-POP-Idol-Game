@@ -1099,6 +1099,28 @@ h3.msep{margin-top:calc(2.2*var(--u));padding-top:calc(1*var(--u));border-top:ca
 /* 會動的 CG(2026-10-30) */
 .cgimg .cgvid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s ease;pointer-events:none}
 .cgimg .cgvid.on{opacity:1}
+/* 擬真第一階段 ⑥(2026-11-09):成員抽屜的日記、相簿按鈕;日記、相簿面板 */
+.mcard .mrow{display:flex;gap:calc(.4*var(--u));margin-top:calc(.5*var(--u))}
+.mlink{font:600 max(calc(.78*var(--u)),9px)/1 var(--sans,inherit);padding:calc(.45*var(--u)) calc(.9*var(--u));border-radius:calc(2*var(--u));border:calc(.08*var(--u)) solid color-mix(in srgb,var(--c,#E85C8A) 55%,transparent);background:color-mix(in srgb,var(--c,#E85C8A) 14%,rgba(255,255,255,.55));color:var(--glassInk,#3a2a33);cursor:pointer}
+.mlink.album{display:block;width:100%;margin:calc(.8*var(--u)) 0 calc(.4*var(--u));padding:calc(.7*var(--u));font-size:max(calc(.9*var(--u)),10px);--c:#C9A227}
+.memcard{width:calc(58*var(--u));max-height:calc(100% - 2*var(--u))}
+.memcard h4{margin:calc(1*var(--u)) 0 calc(.4*var(--u));font-size:max(calc(.85*var(--u)),10px);letter-spacing:.12em;color:#F3D9A4}
+.memcard h5{margin:calc(.8*var(--u)) 0 calc(.3*var(--u));font-size:max(calc(.75*var(--u)),9px);opacity:.75;font-weight:600}
+.memcard .dlist,.memcard .alb{display:flex;flex-direction:column;gap:calc(.7*var(--u));max-height:calc(26*var(--u));overflow-y:auto;overscroll-behavior:contain;padding-right:calc(.4*var(--u));margin:calc(.6*var(--u)) 0 calc(1*var(--u))}
+.memcard .dent,.memcard .aent{border-left:calc(.25*var(--u)) solid var(--tc,#E85C8A);padding:calc(.2*var(--u)) 0 calc(.2*var(--u)) calc(.8*var(--u))}
+.memcard .dent b,.memcard .aent b{font:600 max(calc(.72*var(--u)),9px)/1.2 var(--num,inherit);opacity:.8}
+.memcard .dent i{margin-left:calc(.5*var(--u));font-style:normal;font-size:max(calc(.68*var(--u)),8px);padding:calc(.1*var(--u)) calc(.45*var(--u));border-radius:calc(1*var(--u));background:color-mix(in srgb,var(--tc) 35%,transparent)}
+.memcard .dent p{margin:calc(.3*var(--u)) 0 0;font-size:max(calc(.9*var(--u)),10px);line-height:1.7;font-family:var(--hand,var(--serif,inherit))}
+.memcard .aent p{margin:calc(.25*var(--u)) 0 0;font-size:max(calc(.82*var(--u)),9px);line-height:1.6}
+.memcard .aent small{margin-right:calc(.5*var(--u));opacity:.7}
+.memcard .aent.turn{--tc:#F3D9A4}
+.memcard .aface{display:inline-grid;place-items:center;width:calc(1.3*var(--u));height:calc(1.3*var(--u));margin-right:calc(.25*var(--u));border-radius:50%;background:var(--c);color:#fff;font-size:max(calc(.65*var(--u)),8px);vertical-align:middle}
+.memcard .dcover{position:relative;width:calc(11*var(--u));aspect-ratio:3/4;margin:calc(.6*var(--u)) auto;border-radius:calc(.5*var(--u)) calc(1*var(--u)) calc(1*var(--u)) calc(.5*var(--u));background:linear-gradient(135deg,color-mix(in srgb,var(--c) 85%,#fff),color-mix(in srgb,var(--c) 70%,#000));box-shadow:inset calc(.6*var(--u)) 0 0 rgba(0,0,0,.18),0 calc(.5*var(--u)) calc(1.4*var(--u)) rgba(0,0,0,.4);display:grid;place-content:center;text-align:center;color:#fff}
+.memcard .dcover span{font:700 max(calc(1.1*var(--u)),12px)/1.2 var(--serif,inherit);letter-spacing:.15em}
+.memcard .dcover em{font-style:normal;font-size:max(calc(.6*var(--u)),8px);letter-spacing:.4em;opacity:.8;margin-top:calc(.4*var(--u))}
+.memcard .ddates{display:flex;flex-wrap:wrap;gap:calc(.3*var(--u)) calc(.7*var(--u));justify-content:center;font-size:max(calc(.7*var(--u)),8px);opacity:.8;max-height:calc(5*var(--u));overflow:hidden}
+.memcard .dnote{text-align:center;font-size:max(calc(.75*var(--u)),9px);opacity:.75;margin:calc(.6*var(--u)) 0 calc(1*var(--u))}
+
 
 /* ===== 對話介面的精緻化(D8/D9,2026-10-24):香檳金細線、星形飾點、按下回饋。整檔拿掉即可還原 ===== */
 
@@ -2007,6 +2029,14 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 .lbin p b{color:var(--c);margin-right:.6em}
 .lbin small{display:block;text-align:right;font-size:10px;color:#8A7460}
 @media (prefers-reduced-motion:reduce){.lbub{animation:none}}
+/* 擬真第一階段 ④(2026-11-09):等你處理的狀況。剖面圖上那個房間很淡的提示:燈還亮著(暖黃)、有聲音(淡藍)、門半開(淡白),慢慢明暗 */
+#rooms .wkhint{position:absolute;width:5.5cqw;aspect-ratio:1;border-radius:50%;translate:-50% -50%;pointer-events:none;z-index:2;
+  background:radial-gradient(circle,rgba(255,224,150,.55) 0,rgba(255,224,150,.18) 40%,rgba(255,224,150,0) 70%);animation:wkGlow 3.8s ease-in-out infinite;will-change:opacity}
+#rooms .wkhint.sound{background:radial-gradient(circle,rgba(190,215,255,.5) 0,rgba(190,215,255,.16) 40%,rgba(190,215,255,0) 70%)}
+#rooms .wkhint.door{background:radial-gradient(circle,rgba(255,255,255,.42) 0,rgba(255,255,255,.12) 40%,rgba(255,255,255,0) 70%)}
+@keyframes wkGlow{0%,100%{opacity:.35}50%{opacity:.85}}
+@media (prefers-reduced-motion:reduce){#rooms .wkhint{animation:none;opacity:.6}}
+
 /* ===== 點成員的互動面板(改版 1.0 第 3 輪;meet.js)===== */
 #meet{position:absolute;inset:0;z-index:36;--u:max(1cqw,7.4px);--gl:#E9D29A;--gd:#B8955A;color:#2B2030}
 #meet .mt-veil{position:absolute;inset:0;background:radial-gradient(120% 95% at 16% 100%,color-mix(in srgb,var(--pm) 26%,transparent),transparent 62%),linear-gradient(180deg,rgba(18,10,22,.34),rgba(18,10,22,.68))}

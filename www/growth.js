@@ -55,7 +55,7 @@ window.applyGain=(id,c,show)=>{ const s=S.m[id]; if(!s) return 0; window.missSee
   s.xp=(s.xp||0)+xp; s.heart=Math.min(100,(s.heart||0)+heart); s.trust=Math.round(xpToTrust(s.xp));
   if(c.mood>0) s.mood=clamp(s.mood+(+c.mood),0,100); if(c.stress<0) s.stress=clamp(s.stress+(+c.stress),0,100);   // 只套用好的方向
   if(c.set){ S.flags[c.set]=(S.flags[c.set]||0)+1; const fa=S.flagAt=S.flagAt||{}; if(fa[c.set]==null) fa[c.set]=S.day; window.memRecord?.(c.set,id,c) }   // 1.1 第 2 輪:記得你要知道是哪一天設的
-  const after=stageOfXp(id);
+  const after=stageOfXp(id); if(after!==before){ (S.stageAt=S.stageAt||{})[id+":"+after]=S.day }   // 擬真 ②:關係轉折的回想要知道哪天升上來的
   if(show){ if(xp) show(id,`好感 +${xp}`); if(heart) show(id,`心動 +${heart}`); if(after!==before) show(id,`關係進展:${after}`) }
   if(after!==before){ toast2(`${byId(id).n}和你的關係變成「${after}」了`); window.feedback?.("m") }
   return xp };
@@ -240,13 +240,73 @@ const MEM_ID=/^(ys|tr|hy|he|hr|grp)[A-Z]/, ALL=()=>M.map(m=>m.id);
 window.memRecord=(k,id,c={})=>{ try{ const X=S.memx=S.memx||{}; if(X[k]){ X[k].n=(X[k].n||1)+1; return X[k] }
   const pres=(typeof V!=="undefined"&&V?.present?.length)?[...V.present]:[id], who=[...new Set([id,...pres])].filter(x=>byId(x));
   const tell=(Array.isArray(c.tell)?c.tell:c.tell?[c.tell]:[]).filter(x=>byId(x));
-  return X[k]={day:S.day,slot:S.slot,room:(typeof V!=="undefined"&&(V?.room||V?.pid))||S.where?.[id]||null,who,knows:[...new Set([...who,...tell])],
-    tone:c.tone||null,w:Math.max(1,Math.min(3,+c.w||(+c.heart>0?2:1))),vars:c.memv||null,src:(typeof D!=="undefined"&&D?.sn?.code)||null,n:1} }catch(e){ window.logErr?.("記憶",e) } };
+  return X[k]={day:S.day,slot:S.slot,room:(typeof V!=="undefined"&&(V?.room||V?.pid))||S.where?.[id]||null,who,knows:c.secret?[...who]:[...new Set([...who,...tell])],...(c.secret?{secret:true}:{}),
+    tone:c.tone||null,w:Math.max(1,Math.min(3,+c.w||(+c.heart>0?2:1))),vars:c.memv||null,src:(typeof D!=="undefined"&&D?.sn?.code)||null,said:String(c.t||"").slice(0,40)||null,n:1} }catch(e){ window.logErr?.("記憶",e) } };
 window.memEnsure=()=>{ const X=S.memx=S.memx||{}, fa=S.flagAt||{}; let n=0;
   for(const k of Object.keys(S.flags||{})){ if(X[k]||!MEM_ID.test(k)) continue; const p=k.match(MEM_ID)[1], who=p==="grp"?ALL():[p];
     X[k]={day:fa[k]??S.day,slot:null,room:null,who,knows:[...who],tone:null,w:1,vars:null,src:null,n:+S.flags[k]||1,conv:1}; n++ }
+  const SA=S.stageAt=S.stageAt||{}, SI=S.stageAtInit=S.stageAtInit||{}; for(const m of M){ const st=stageOf(m.id), kk=m.id+":"+st; if(SA[kk]==null){ SA[kk]=S.day; SI[kk]=1 } }   // 舊存檔:現在的階段從今天算(相簿不列這筆)
   return n };
 window.memKnows=(k,id)=>!!S.memx?.[k]?.knows?.includes(id);   // 這位成員知道這件事嗎(回想、日記用)
 window.memTell=(k,ids)=>{ const m=S.memx?.[k]; if(!m) return; for(const x of [].concat(ids)) if(byId(x)&&!m.knows.includes(x)) m.knows.push(x) };
+})();
+
+/* ---- 擬真第一階段 ⑥(2026-11-09):成員日記、我們的相簿、每週整理 ----
+   日記:她知道的、重要程度 2 以上的記憶,一筆一篇(專屬日記 need.mem 優先,沒有就挑同感覺的通用日記,再沒有用內建的一句);挑到哪篇記在 S.diaryPick,之後不會變。
+   到心動階段她才讓代表看,之前只看得到封面和日期(使用者 11/09 定案)。保密的事只會寫在當時在場的人自己的日記裡。
+   相簿:全部的記憶依時間排,加上關係轉折;「最有故事的時刻」用固定規則挑:每位成員的第一筆、重要程度 3、心動。
+   每週整理:週日 21:00 以後,畫面空著時一張卡片(週句型 weekly,沒有就用內建的),一週一次 ---- */
+(()=>{
+const TONE_C={溫暖:"#E8A13C",心動:"#E85C8A",好笑:"#4FAF83",心疼:"#7A8FD6",驕傲:"#C9A227"};
+const DIARY_FB={溫暖:"{mem.slot}在{mem.room}的那件事,一整天都在心裡暖暖的。想記下來,以後翻到的時候也能想起來。",
+  心動:"這頁不給任何人看。{mem.room}那時候,心跳快得連自己都嚇一跳。……就先寫到這裡。",
+  好笑:"想到{mem.room}那時候的事就忍不住笑。今天就記這個,當作獎勵自己。",
+  心疼:"今天有點難過,可是有人在。{mem.room}那時候,代表沒有走開。我想記住這件事。",
+  驕傲:"今天的自己,我想好好記住。{mem.room}那時候,我做到了。"};
+const WEEKLY_FB={open:"一週又過去了。",best:"這週最亮的一刻,是{mem.slot}的{mem.room},和{member}一起。",work:"這週的工作:{work}。",member:"{member}這週好像特別有精神。",close:"下週也一起加油吧。"};
+const rk=s=>(window.STAGE_RANK||[]).indexOf(s), canRead=id=>rk(stageOf(id))>=rk("心動");
+const fmt=d=>{ const t=dateOf(d); return `${t.getFullYear()} 年 ${t.getMonth()+1} 月 ${t.getDate()} 日` };
+const fillOne=(t,k)=>k&&window.memFill?window.memFill({code:"_",nodes:{start:{L:[["",t]],C:[]}}},k).nodes.start.L[0][1]:t;
+function diaryList(id){ const X=S.memx||{}, P=S.diaryPick=S.diaryPick||{}, out=[], lib=snips().filter(sn=>sn.type==="diary"&&sn.member===id), bd=window.DAILY?.bandOf?.(stageOf(id));
+  for(const [k,m] of Object.entries(X)){ if((m.w||1)<2||!m.knows?.includes(id)||(m.secret&&!m.who?.includes(id))) continue;
+    const pk=id+":"+k; let sn=P[pk]&&lib.find(x=>x.code===P[pk]);
+    if(!sn){ const own=lib.filter(x=>x.need?.mem===k), gen=lib.filter(x=>!x.need?.mem&&(!m.tone||x.tone===m.tone)&&(!x.band||x.band===bd)), L=own.length?own:gen;
+      if(L.length){ sn=L[Math.floor(rng(seedOf(m.day,k,id))()*L.length)]; P[pk]=sn.code } }
+    const raw=sn?.text||sn?.nodes?.start?.L?.[0]?.[1]||DIARY_FB[m.tone]||DIARY_FB.溫暖;
+    out.push({day:m.day,tone:m.tone,text:fillOne(raw,k),k}) }
+  return out.sort((a,b)=>b.day-a.day) }
+function panel(tag,title,html,cls=""){ const el=document.createElement("div"); el.className="bigev memp";
+  el.innerHTML=`<div class="bg-veil"></div><div class="bigcard memcard ${cls}"><small>${tag}</small><h2>${title}</h2>${html}<button class="fbtn pri cardOk">闔上</button></div>`;
+  $("#stage").appendChild(el); setPause("card",true); el.querySelector(".cardOk").onclick=()=>{ el.classList.add("out"); setPause("card",false); setTimeout(()=>el.remove(),500) } }
+const closeDrawer=()=>{ $("#drawer")?.classList.remove("on"); setPause("drawer",false) };
+window.diaryOpen=id=>{ try{ closeDrawer(); const m=byId(id), L=diaryList(id);
+  const html=!L.length?`<p class="lead">還是空白的。和她一起留下一些回憶吧。</p>`
+    :canRead(id)?`<div class="dlist">${L.map(e=>`<div class="dent" style="--tc:${TONE_C[e.tone]||m.c}"><b>${fmt(e.day)}</b>${e.tone?`<i>${e.tone}</i>`:""}<p>${esc(e.text)}</p></div>`).join("")}</div>`
+    :`<p class="lead">「這本……還不能給你看。」</p><div class="dcover" style="--c:${m.c}"><span>${esc(m.n)}</span><em>DIARY</em></div><div class="ddates">${L.map(e=>`<span>${fmt(e.day)}</span>`).join("")}</div><p class="dnote">到心動的時候,她才會讓你翻開。</p>`;
+  panel("DIARY",`${esc(m.n)}的日記`,html,"diary") }catch(e){ window.logErr?.("日記",e) } };
+function stars(){ const X=S.memx||{}, first={}; for(const [k,m] of Object.entries(X)) for(const id of m.who||[]) if(!first[id]||X[first[id]].day>m.day) first[id]=k; return new Set(Object.values(first)) }
+window.albumOpen=()=>{ try{ closeDrawer(); const X=S.memx||{}, F=stars(), SI=S.stageAtInit||{};
+  const ev=Object.entries(X).map(([k,m])=>({day:m.day,k,m,score:(m.w||1)*2+(F.has(k)?2:0)+(m.tone==="心動"?1:0)}));
+  for(const [kk,d] of Object.entries(S.stageAt||{})){ if(SI[kk]) continue; const [id,st]=kk.split(":"); if(!byId(id)||!["信任","夥伴","心動","戀人"].includes(st)) continue; ev.push({day:d,turn:[id,st],score:st==="心動"||st==="戀人"?6:3}) }
+  if(!ev.length){ panel("ALBUM","我們的相簿",`<p class="lead">還沒有照片。一起做的決定,都會留在這裡。</p>`,"album"); return }
+  const face=id=>{ const m=byId(id); return m?`<span class="aface" style="--c:${m.c}" title="${m.n}">${m.n[0]}</span>`:"" };
+  const row=e=>e.turn?`<div class="aent turn"><b>${fmt(e.day)}</b><p>${face(e.turn[0])}${esc(byId(e.turn[0]).n)}和你的關係,變成了「${e.turn[1]}」。</p></div>`
+    :`<div class="aent" style="--tc:${TONE_C[e.m.tone]||"#B9A6C9"}"><b>${fmt(e.day)}${e.m.w>=3||F.has(e.k)?" ★":""}</b><p>${(e.m.who||[]).map(face).join("")}${e.m.room?`<small>${esc(PL[e.m.room]?.n||"")}${e.m.slot!=null?"・"+SLOTS[e.m.slot].n:""}</small>`:""}${e.m.said?`「${esc(e.m.said)}」`:esc((e.m.who||[]).map(i=>byId(i)?.n).filter(Boolean).join("、"))+"記得的那件事"}</p></div>`;
+  const top=[...ev].sort((a,b)=>b.score-a.score||b.day-a.day).slice(0,5), all=[...ev].sort((a,b)=>b.day-a.day);
+  let html=`<h4>最有故事的時刻</h4>${top.map(row).join("")}<h4>全部</h4>`, ym="";
+  for(const e of all){ const t=dateOf(e.day), y=`${t.getFullYear()} 年 ${t.getMonth()+1} 月`; if(y!==ym){ ym=y; html+=`<h5>${y}</h5>` } html+=row(e) }
+  panel("ALBUM","我們的相簿",`<div class="alb">${html}</div>`,"album") }catch(e){ window.logErr?.("相簿",e) } };
+function wline(part,vars,k){ const L=snips().filter(sn=>sn.type==="weekly"&&sn.part===part), r=rng(seedOf(S.day,"weekly",part));
+  let t=L.length?(L[Math.floor(r()*L.length)].text||WEEKLY_FB[part]):WEEKLY_FB[part]; t=t.replace(/\{member\}/g,vars.member||"大家").replace(/\{work\}/g,vars.work||"練習"); return esc(fillOne(t,k)) }
+function weeklyCheck(){ try{ if(paused()||(typeof V!=="undefined"&&V)||(typeof D!=="undefined"&&D)) return; if(dateOf(S.day).getDay()!==0||S.min<21*60) return;
+  const W=S.weekly=S.weekly||{}; if(W.last===S.day||document.querySelector(".bigev:not(.out),.cine,#welc,#exitv")) return; W.last=S.day;
+  const X=Object.entries(S.memx||{}).filter(([k,m])=>S.day-m.day>=0&&S.day-m.day<7).sort((a,b)=>(b[1].w||1)-(a[1].w||1)||b[1].day-a[1].day), best=X[0];
+  const work=[...new Set((S.evLog||[]).filter(e=>S.day-e.day>=0&&S.day-e.day<7).map(e=>({win:"拿下一位",concert:"演唱會",promo:"打歌"}[e.k])).filter(Boolean))].join("、")||(S.debuted?"練習與行程":"練習");
+  const bm=best?byId(best[1].who?.[0]):null, mm=M[Math.floor(rng(seedOf(S.day,"weeklym"))()*M.length)];
+  const lead=[wline("open",{}),best?wline("best",{member:bm?.n},best[0]):"",wline("work",{work}),wline("member",{member:mm.n}),wline("close",{})].filter(Boolean).join("<br>");
+  const gname=typeof STORY_VARS!=="undefined"&&STORY_VARS["團名"]?.()||"我們";
+  window.showCard?.({tag:"WEEKLY",title:`這週的${/^[A-Za-z0-9]/.test(String(gname))?" ":""}${esc(String(gname))}`,lead}) }catch(e){ window.logErr?.("每週整理",e) } }
+window.weeklyCheck=weeklyCheck;
+every(2000,weeklyCheck);
 })();
 

@@ -326,7 +326,7 @@ const STORY_REQ={after_concert:()=>sinceDays(lastConcert())<=7, after_win:()=>si
   pre_comeback:()=>S.comeback!=null&&S.comeback-S.day>=0&&S.comeback-S.day<=14, xmas:()=>{ const x=mdNow(); return x>=1218&&x<=1226 }, newyear:()=>{ const x=mdNow(); return x>=1229||x<=103 }};
 window.STORY_VARS=Object.keys(STORY_VARS); window.STORY_REQ=Object.keys(STORY_REQ);
 const VAR_RE=/\{([^{}\s"]{1,8})\}/g, varCache=new WeakMap();
-function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stringify([sn.sc||"",sn.nodes||{}]).matchAll(VAR_RE)].map(m=>m[1]))]; varCache.set(sn,v) } return v }
+function varsOf(sn){ let v=varCache.get(sn); if(!v){ v=[...new Set([...JSON.stringify([sn.sc||"",sn.nodes||{}]).matchAll(VAR_RE)].map(m=>m[1]))].filter(k=>!k.startsWith("mem.")); varCache.set(sn,v) } return v }   // {mem.*} 是記憶的細節,演的時候由 life.js 的 memFill 填(擬真第一階段)
 /* 連續劇情:第 N 段要等第 N-1 段看過、隔一天以上才會出現 */
 function arcOk(sn){ if(!sn.arc||!(+sn.part>1)) return true; const prev=snips().find(x=>x.arc===sn.arc&&+x.part===+sn.part-1), d=prev&&S.seen[prev.code]; return d!=null&&S.day-d>=1 }
 /* 舞台指示(劇本裡的 ["@","bg:kitchen"] 這類):換背景、成員進場離場;sfx 先記著給之後的聲音系統 */
@@ -624,7 +624,8 @@ function renderInside(){if(view==="map") return; const B=INSIDE[view];
       const X=x+w*fx/100, H=rm.h*m.cm/168, of=outfitAt(m.id,rm.pid,S.slot); fpos[m.id]=[X,rm.feet-H];
       if(open&&!p.facOnly) hits+=`<button class="fighit" data-meet="${m.id}" data-pid="${rm.pid}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%;width:${(H*.2).toFixed(2)}%" aria-label="${m.n}"></button>`;   // 點成員 → 互動面板(meet.js)
       return `<span class="shadowfoot" style="left:${X}%;top:${rm.feet}%;width:${H*.32}cqw"></span><img class="fig${FIG_FADE?" fadein":""}" alt="${m.n}" src="${spr(m.id,of,window.sickIs?.(m.id)?"tired":"neutral")}" style="left:${X}%;top:${rm.feet-H}%;height:${H}%">`}).join("");
-    const ob=oc?((A,B)=>A&&B?`<span class="ovbub" style="left:${((A[0]+B[0])/2).toFixed(2)}%;top:${(Math.min(A[1],B[1])-1.2).toFixed(2)}%;--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:"")(fpos[oc.a],fpos[oc.b]):"";
+    const wk=open&&!p.facOnly&&!oc?window.walkinAt?.(rm.pid):null, wh=wk&&wk.hint!=="none"?`<span class="wkhint ${["sound","door"].includes(wk.hint)?wk.hint:"light"}" style="left:${(x+w/2).toFixed(2)}%;top:${(y+h*.32).toFixed(2)}%" aria-hidden="true"></span>`:"";   // 擬真 ④:很淡的提示
+    const ob=wh+(oc?((A,B)=>A&&B?`<span class="ovbub" style="left:${((A[0]+B[0])/2).toFixed(2)}%;top:${(Math.min(A[1],B[1])-1.2).toFixed(2)}%;--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:"")(fpos[oc.a],fpos[oc.b]):"");
     return `${figs}${ob}<button class="room${!open?" closed":""}${vis?" visited":""}${dis&&!rm.fac?" dis":""}${rm.fac?" hasfac":""}" data-pid="${rm.pid}" ${rm.fac?`data-both="${rm.fac}"`:""} style="left:${x}%;top:${y}%;width:${w}%;height:${h}%" ${dis&&!rm.fac?`aria-disabled="true" data-why="${st}"`:""} aria-label="${rm.fl} ${rm.n},${st}${rm.fac?",也可以使用設施":""}">
       <span class="hl"></span><span class="rp${rm.lp==="r"?" r":""}${rm.r[1]<15?" b":""}"><span class="fl">${rm.fl}</span><span><span class="rn">${rm.n}</span><br><span class="rs">${st}</span></span>${rm.noFig&&ppl.length?facesHTML(ppl):""}${rm.noFig&&oc?`<span class="ovbub inplate" style="--a:${byId(oc.a).c};--b:${byId(oc.b).c}" aria-hidden="true"><i></i><i></i><i></i></span>`:""}</span>
       ${!open?`<span class="lockc">${openText(p)}</span>`:""}</button>${hits}`}).join("");
@@ -680,8 +681,11 @@ function renderDrawer(){
       <div class="bars"><span>心情</span><div class="bar"><i style="--v:${s.mood}%;--bc:#E8A13C"></i></div><span>壓力</span><div class="bar"><i style="--v:${s.stress}%;--bc:#8C6FD0"></i></div></div>
       ${(()=>{const nx=window.nextStageInfo?.(m.id); return nx?`<div class="rel"><span>距離「${nx.name}」</span><div class="bar"><i style="--v:${Math.round(nx.p*100)}%;--bc:${STAGE_C[nx.name]||m.c}"></i></div>${nx.extra?`<small>${nx.extra}</small>`:""}</div>`:`<div class="rel"><span>關係已經到最深了</span></div>`})()}
       ${S.skill?`<div class="skl">${Object.entries(SKILL_NAMES).filter(([k])=>!(k==="kor"&&S.skill[m.id].kor>=100)).map(([k,n])=>`<span>${n}<b>${Math.round(S.skill[m.id][k])}</b></span>`).join("")}</div>`:""}
-      ${S.bond?`<div class="bond">${M.filter(o=>o.id!==m.id).map(o=>({o,v:bondOf(m.id,o.id)})).sort((a,b)=>b.v-a.v).slice(0,2).map(({o,v})=>`<span style="--c:${o.c}">和${o.n}默契 ${Math.round(v)}</span>`).join("")}</div>`:""}</div></div>`}).join("")
+      ${S.bond?`<div class="bond">${M.filter(o=>o.id!==m.id).map(o=>({o,v:bondOf(m.id,o.id)})).sort((a,b)=>b.v-a.v).slice(0,2).map(({o,v})=>`<span style="--c:${o.c}">和${o.n}默契 ${Math.round(v)}</span>`).join("")}</div>`:""}
+      <div class="mrow"><button class="mlink" data-diary="${m.id}">${m.n}的日記</button></div></div></div>`}).join("")
+    +`<button class="mlink album" id="albumBtn">我們的相簿</button>`
     +`<h4>你不在場時</h4>${S.absent.length?S.absent.map(a=>`<p class="ab">${a}</p>`).join(""):`<p class="ab" style="opacity:.7">上個時段沒有特別的事。</p>`}`}
+$("#drawerBody").addEventListener("click",e=>{ const d=e.target.closest("[data-diary]"); if(d){ e.stopPropagation(); window.diaryOpen?.(d.dataset.diary); return } if(e.target.closest("#albumBtn")){ e.stopPropagation(); window.albumOpen?.() } },true);   // 擬真 ⑥:日記、相簿
 $("#memBtn").onclick=()=>{renderDrawer();$("#drawer").classList.add("on");setPause("drawer",true)};
 $("#drawerX").onclick=()=>{$("#drawer").classList.remove("on");setPause("drawer",false)};
 function renderAll(){$("#stage").dataset.time=L(); ensureWear(); renderHud(); renderWorld(); renderInside(); FIG_FADE=false; renderWhere(); renderNews(); wxUpdate();
@@ -790,6 +794,7 @@ function visit(pid,o={}){
     play(ns.sn,()=>{ ns.done(); menu() }); return }
   if(!o.talk){ const se=window.sickEntry?.(pid); if(se){ play(se,menu,"entry"); return } }   // 1.1 第 3 輪第 2 包:她生病那天,房間裡大家照顧她的痕跡(sick.js)
   if(!o.talk){ const oh=window.ovhScene?.(pid); if(oh){ oh.play(); return } }   // 成員之間:她們在聊天,先旁聽(ovh.js)
+  if(!o.talk){ const wk=window.walkinScene?.(pid); if(wk){ wk.play(); return } }   // 擬真 ④:等你處理的狀況(life.js)
   if(o.talk&&ppl.includes(o.talk)){ narr(`你走到${byId(o.talk).n}身邊。`); talk(o.talk); return }
   if(pid==="office"){narr(wxLine(pid)+SCN.office); menu(); return}
   const byTime=v=>Array.isArray(v)?(v[S.slot]||v.find(Boolean)):v;
