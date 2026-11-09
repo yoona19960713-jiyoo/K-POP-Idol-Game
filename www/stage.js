@@ -230,7 +230,7 @@ function applyResult(r){
   for(const m of M){ if(m.id!==p.cam&&top&&top[0]!==m.id&&top[1]>=4) S.m[m.id].mood=Math.max(0,S.m[m.id].mood-3) }
   if(r.endViral) S.m[p.end].pop+=6;
   r.mistakes.forEach(m=>{S.m[m.id].mood-=8}); (r.dmiss||[]).forEach(m=>{S.m[m.id].mood-=5}); if(r.caught) M.forEach(m=>S.m[m.id].mood-=4);
-  if(r.win){S.wins++; M.forEach(m=>S.m[m.id].mood=Math.min(100,S.m[m.id].mood+8))}
+  if(r.win){S.wins++; M.forEach(m=>S.m[m.id].mood=Math.min(100,S.m[m.id].mood+8)); window.pubAdd?.("win",{title:S.promo?.title||null,wins:S.wins})}   // 擬真 ⑤:一位也是世界記得的事
   // 隔天恢復一點,偶爾生病或受傷
   /* 2.0 第六個大腦:週日那場之後是週一休息,體力、喉嚨多回一些(以前沒有,整個宣傳期每場 −2,沒去的後半段掉到 B、C) */
   const monRest=r.i%6===5;

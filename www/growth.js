@@ -151,6 +151,7 @@ window.albumName=(k,short)=>{ const a=window.albumList().find(x=>x.key===k); if(
 function startPromo(kind){ const sum=window.songSummary?songSummary():null;
   S.promo={start:S.day,kind,title:sum?.title?.name||"出道曲",release:sum?.release||"",tracks:sum?.tracks||[],n:(S.promoHist||[]).length+1}; window.songsArchive?.(S.promo.n);   // 這張專輯存進專輯紀錄   // tracks:演唱會歌單可以選收錄曲
   S.promoHist=[...(S.promoHist||[]),{...S.promo}]; window.logEvent?.("promo",{title:S.promo.title}); save(true);
+  try{ const t=sum?.title||{}; window.pubAdd?.("release",{n:S.promo.n,title:S.promo.title,release:S.promo.release,tracks:S.promo.tracks,center:t.center||null,killer:t.killer||null,kp:t.dance?.kp?.lead||null,hook:t.dance?.hookName||null}) }catch(e){}   // 擬真 ⑤:公開的決定
   window.stageNewPromo?.(S.promo) }
 function bigEvent(kind){ setTimeout(()=>window.feedback?.("l"),600); if(kind==="debut") window.cgGroupUnlock?.("g_debut");
   const deb=kind==="debut", m=M, sum=window.songSummary?songSummary():null;
@@ -293,7 +294,10 @@ window.albumOpen=()=>{ try{ closeDrawer(); const X=S.memx||{}, F=stars(), SI=S.s
   const row=e=>e.turn?`<div class="aent turn"><b>${fmt(e.day)}</b><p>${face(e.turn[0])}${esc(byId(e.turn[0]).n)}和你的關係,變成了「${e.turn[1]}」。</p></div>`
     :`<div class="aent" style="--tc:${TONE_C[e.m.tone]||"#B9A6C9"}"><b>${fmt(e.day)}${e.m.w>=3||F.has(e.k)?" ★":""}</b><p>${(e.m.who||[]).map(face).join("")}${e.m.room?`<small>${esc(PL[e.m.room]?.n||"")}${e.m.slot!=null?"・"+SLOTS[e.m.slot].n:""}</small>`:""}${e.m.said?`「${esc(e.m.said)}」`:esc((e.m.who||[]).map(i=>byId(i)?.n).filter(Boolean).join("、"))+"記得的那件事"}</p></div>`;
   const top=[...ev].sort((a,b)=>b.score-a.score||b.day-a.day).slice(0,5), all=[...ev].sort((a,b)=>b.day-a.day);
-  let html=`<h4>最有故事的時刻</h4>${top.map(row).join("")}<h4>全部</h4>`, ym="";
+  let html=`<h4>最有故事的時刻</h4>${top.map(row).join("")}`, ym="";
+  { const nowD=dateOf(S.day), ys=[...new Set(ev.map(e=>dateOf(e.day).getFullYear()))].filter(y=>y<nowD.getFullYear()||nowD.getMonth()===11).sort((a,b)=>b-a);   // 年終相簿:每一年的五個瞬間
+    for(const y of ys){ const T=ev.filter(e=>dateOf(e.day).getFullYear()===y).sort((a,b)=>b.score-a.score||a.day-b.day).slice(0,5).sort((a,b)=>a.day-b.day); if(T.length) html+=`<h4>${y} 年的${["","一","兩","三","四","五"][T.length]}個瞬間</h4>${T.map(row).join("")}` } }
+  html+=`<h4>全部</h4>`;
   for(const e of all){ const t=dateOf(e.day), y=`${t.getFullYear()} 年 ${t.getMonth()+1} 月`; if(y!==ym){ ym=y; html+=`<h5>${y}</h5>` } html+=row(e) }
   panel("ALBUM","我們的相簿",`<div class="alb">${html}</div>`,"album") }catch(e){ window.logErr?.("相簿",e) } };
 function wline(part,vars,k){ const L=snips().filter(sn=>sn.type==="weekly"&&sn.part===part), r=rng(seedOf(S.day,"weekly",part));
@@ -308,5 +312,49 @@ function weeklyCheck(){ try{ if(paused()||(typeof V!=="undefined"&&V)||(typeof D
   window.showCard?.({tag:"WEEKLY",title:`這週的${/^[A-Za-z0-9]/.test(String(gname))?" ":""}${esc(String(gname))}`,lead}) }catch(e){ window.logErr?.("每週整理",e) } }
 window.weeklyCheck=weeklyCheck;
 every(2000,weeklyCheck);
+})();
+
+/* ---- 擬真第一階段 ⑤(2026-11-09):世界的記憶 ----
+   粉絲與媒體只知道公開的事:出道、每次發行(主打歌、專輯、center、KEY POINT 領舞)、音樂節目一位、演唱會。
+   S.pubx 記發行與一位(growth.js startPromo、stage.js);舊存檔的發行從 S.promoHist、演唱會從 S.concerts 補。手機的「新聞」「粉絲站」照這些組句子;
+   粉絲站每 30 天有一篇「回顧整理文」,提起兩個月以前的公開決定(口氣正面,沒有懲罰) ---- */
+(()=>{
+window.pubAdd=(k,d)=>{ try{ (S.pubx=S.pubx||[]).push({k,day:S.day,...d}); save(true) }catch(e){ window.logErr?.("世界的記憶",e) } };
+const nm=id=>byId(id)?.n||"", G=()=>{ const g=typeof STORY_VARS!=="undefined"&&STORY_VARS["團名"]?.(); return g?String(g):"她們" };
+const sp=(a,b)=>/[A-Za-z0-9]$/.test(a)||/^[A-Za-z0-9]/.test(b)?a+" "+b:a+b;
+const venue=k=>{ try{ return window.concertVenue?.(k)?.n||k||"" }catch(e){ return k||"" } };
+window.pubList=()=>{ const L=[...(S.pubx||[])], rel=new Set(L.filter(x=>x.k==="release").map(x=>x.n));
+  for(const p of S.promoHist||[]) if(p.start!=null&&!rel.has(p.n)) L.push({k:"release",day:p.start,n:p.n,title:p.title,release:p.release,tracks:p.tracks});
+  for(const c of S.concerts||[]) if(c.day!=null) L.push({k:"concert",day:c.day,ctitle:c.title,venue:c.venue,att:c.att,sold:c.sold});
+  if(S.debuted&&typeof DEBUT_DAY!=="undefined"&&S.day>=DEBUT_DAY&&!L.some(x=>x.k==="debut"||(x.k==="release"&&x.n===1))) L.push({k:"debut",day:DEBUT_DAY});   // 出道的發行已經寫了,就不再另外列
+  return L.filter(x=>x.day<=S.day).sort((a,b)=>b.day-a.day) };
+window.newsOf=x=>{ const g=G();
+  if(x.k==="release") return {head:sp(g,`${x.n>1?"回歸":"出道"}!${x.release?`《${x.release}》`:""}主打歌〈${x.title||"主打歌"}〉公開`),
+    body:[x.center?`由${nm(x.center)}擔任 center`:"",x.kp&&x.hook?`${nm(x.kp)}領舞的「${x.hook}」一公開就被大量轉傳`:"",x.tracks?.length>1?`這張共收錄 ${x.tracks.length} 首歌`:""].filter(Boolean).join(",")};
+  if(x.k==="win") return {head:sp(g,`〈${x.title||"主打歌"}〉拿下音樂節目一位`),body:`這是她們的第 ${x.wins||1} 座一位`};
+  if(x.k==="concert") return {head:sp(g,sp(`演唱會《${x.ctitle||"演唱會"}》在${venue(x.venue)}`,"圓滿落幕")),body:[x.att?`${Number(x.att).toLocaleString()} 名觀眾到場`:"",x.sold?"門票全數售完":""].filter(Boolean).join(",")};
+  if(x.k==="debut") return {head:sp(g,"正式出道"),body:"五位成員在出道舞台上,第一次聽見台下喊出她們的名字"};
+  return null };
+const USERS=["每天都在聽","練習生時期就入坑","日和的腔調守護會","泰梨的饒舌筆記","河嵐的高音計數器","夏恩的便當粉","藝瑟隊長我愛妳","五人五色","手燈收藏家","深夜循環中"];
+const agoTxt=d=>{ const dd=S.day-d; return dd<330?`${Math.max(2,Math.round(dd/30))} 個月前`:`${Math.max(1,Math.round(dd/365))} 年前` };
+function fanText(x,r){ const pick=a=>a.filter(Boolean)[Math.floor(r()*a.filter(Boolean).length)];
+  if(x.k==="release") return pick([`〈${x.title}〉已經循環第 ${30+Math.floor(r()*170)} 次了。`,x.center&&`讓${nm(x.center)}站 center 的決定,真的太對了。`,x.kp&&x.hook&&`${nm(x.kp)}的「${x.hook}」我已經看了一百遍。`,x.tracks?.length>2&&`《${x.release||x.title}》的收錄曲順序很有心,〈${x.tracks[1]}〉接〈${x.tracks[2]}〉那裡直接哭。`]);
+  if(x.k==="win") return pick([`一位!!!〈${x.title||"主打歌"}〉一位!!!`,`第 ${x.wins||1} 座一位,我們一起做到了。`]);
+  if(x.k==="concert") return pick([`《${x.ctitle}》的安可,我會記一輩子。`,`從看台往下看,《${x.ctitle}》的手燈海真的好漂亮。`]);
+  if(x.k==="debut") return "出道舞台第一次喊應援口號,喊到聲音都啞了。";
+  return "" }
+function recapText(x){ const a=agoTxt(x.day);
+  if(x.k==="release"&&x.center) return `【整理】回頭看${a}的〈${x.title}〉:讓${nm(x.center)}站 center,那時候有人意外,現在大家都說是神來一筆。`;
+  if(x.k==="release"&&x.kp&&x.hook) return `【整理】${a}的〈${x.title}〉,${nm(x.kp)}領舞的「${x.hook}」到現在還是挑戰影片的固定曲目。`;
+  if(x.k==="release") return `【整理】${a}的〈${x.title}〉,現在聽還是會起雞皮疙瘩。`;
+  if(x.k==="concert") return `【整理】${a}的《${x.ctitle}》,那天的歌單現在看還是排得好好。`;
+  if(x.k==="win") return `【整理】${a},〈${x.title||"主打歌"}〉拿到一位的那個安可舞台,誰能忘。`;
+  return `【整理】${a},她們正式出道的那天。` }
+window.fanPosts=()=>{ const P=window.pubList(), out=[], fans=+(S.stats?.fans||0);
+  for(const x of P.slice(0,40)){ const r=rng(seedOf(x.day,x.k,x.n||x.wins||0,"fan")), n=1+Math.floor(r()*2);
+    for(let i=0;i<n;i++){ const t=fanText(x,r); if(t) out.push({day:Math.min(S.day,x.day+i),user:USERS[Math.floor(r()*USERS.length)],text:t,likes:Math.round((40+r()*600)*(1+fans/40))}) } }
+  const old=P.filter(x=>S.day-x.day>=60);
+  if(old.length){ const r=rng(seedOf(Math.floor(S.day/30),"recap")), x=old[Math.floor(r()*old.length)]; out.push({day:S.day-(S.day%30),user:USERS[Math.floor(r()*USERS.length)],text:recapText(x),likes:Math.round((300+r()*900)*(1+fans/40)),recap:true}) }
+  const seen=new Set(); return out.filter(p=>{ const k=p.day+p.text; if(seen.has(k)) return false; seen.add(k); return true }).sort((a,b)=>b.day-a.day||(b.recap?1:0)-(a.recap?1:0)) };
 })();
 

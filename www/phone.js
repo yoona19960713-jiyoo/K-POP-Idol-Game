@@ -78,7 +78,7 @@ const wallHTML=k=>{const src=WALLS[k]||WALLS.title; return FIT[k]==="group"
   :k==="portrait"?`<div class="pwall dark"></div><div class="pwall portrait" style="background-image:url(${src})"></div>`
   :`<div class="pwall" style="background-image:url(${src})"></div>`};
 function render(){ status(); const B=$("#pBody"); B.className="pbody app-"+APP;
-  B.innerHTML=APP==="home"?home():APP==="chats"?chats():APP==="chat"?chat():APP==="sched"?sched():APP==="star"?star():APP==="set"?settings():APP==="album"&&window.cgAlbumHTML?cgAlbumHTML():"";
+  B.innerHTML=APP==="home"?home():APP==="news"?newsApp():APP==="fan"?fanApp():APP==="chats"?chats():APP==="chat"?chat():APP==="sched"?sched():APP==="star"?star():APP==="set"?settings():APP==="album"&&window.cgAlbumHTML?cgAlbumHTML():"";
   bind(B); if(APP==="album"&&window.cgAlbumBind) cgAlbumBind(B,render); if(APP==="chat"){const L=$("#pLog"); if(L) L.scrollTop=L.scrollHeight} }
 
 /* ---------- 主畫面 ---------- */
@@ -93,6 +93,8 @@ function home(){ const p=ph(), d=dateOf(S.day), WDN=["日","一","二","三","�
       ${icon("sched","行程",`<svg viewBox="0 0 24 24"><rect x="3.6" y="5" width="16.8" height="15.4" rx="2.4"/><path d="M3.6 9.6h16.8M8.4 3.2v3.6M15.6 3.2v3.6"/><path class="f" d="M12 11.6l.85 2.15 2.15.85-2.15.85L12 17.6l-.85-2.15-2.15-.85 2.15-.85z"/></svg>`,0,"linear-gradient(160deg,#FFE4A8 0%,#F4AE4C 52%,#C9721E 100%)")}
       ${icon("star","STARLOG",'<svg viewBox="0 0 24 24"><path class="f" d="M12 2.6C12.8 9 15 11.2 21.4 12 15 12.8 12.8 15 12 21.4 11.2 15 9 12.8 2.6 12 9 11.2 11.2 9 12 2.6Z"/><path class="f" d="M19 2.8l.5 1.4 1.4.5-1.4.5-.5 1.4-.5-1.4-1.4-.5 1.4-.5z"/></svg>',feedN,"linear-gradient(160deg,#ABF1E7 0%,#3FB7AE 52%,#1D767A 100%)")}
       ${icon("album","相簿",'<svg viewBox="0 0 24 24"><rect x="3.4" y="4.8" width="17.2" height="14.4" rx="2.4"/><path d="M3.8 16.6l4.8-4.4 3.6 3.1 3-2.5 5 4.2"/><path class="f" d="M15.6 7.4c-1.5-.9-2.1-1.6-2.1-2.3 0-.6.5-1 1-1 .5 0 .8.3 1.1.7.3-.4.6-.7 1.1-.7.5 0 1 .4 1 1 0 .7-.6 1.4-2.1 2.3z" transform="translate(-6.2 3.4)"/></svg>',window.cgNewCount?cgNewCount():0,"linear-gradient(160deg,#FFC6D4 0%,#E8566E 52%,#A3122B 100%)")}
+      ${icon("news","新聞",'<svg viewBox="0 0 24 24"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.2"/><path d="M6.6 8.6h6.2M6.6 12h10.8M6.6 15.2h10.8"/><rect class="f" x="14.4" y="7.6" width="3" height="2.4" rx=".5"/></svg>',0,"linear-gradient(160deg,#E3E7EE 0%,#8C97A8 52%,#4C5566 100%)")}
+      ${icon("fan","粉絲站",'<svg viewBox="0 0 24 24"><path d="M12 20.2c-5.6-3.6-8.6-6.8-8.6-10.2a4.4 4.4 0 0 1 8.6-1.4 4.4 4.4 0 0 1 8.6 1.4c0 3.4-3 6.6-8.6 10.2z"/><path class="f" d="M12 9.6l.7 1.6 1.7.2-1.3 1.1.4 1.7-1.5-.9-1.5.9.4-1.7-1.3-1.1 1.7-.2z"/></svg>',0,"linear-gradient(160deg,#FFD0DE 0%,#F0789E 52%,#B83A68 100%)")}
       ${icon("set","設定",'<svg viewBox="0 0 24 24"><path d="M18.98 9.87 L21.30 10.61 L21.30 13.39 L18.98 14.13 L18.45 15.43 L19.56 17.59 L17.59 19.56 L15.43 18.45 L14.13 18.98 L13.39 21.30 L10.61 21.30 L9.87 18.98 L8.57 18.45 L6.41 19.56 L4.44 17.59 L5.55 15.43 L5.02 14.13 L2.70 13.39 L2.70 10.61 L5.02 9.87 L5.55 8.57 L4.44 6.41 L6.41 4.44 L8.57 5.55 L9.87 5.02 L10.61 2.70 L13.39 2.70 L14.13 5.02 L15.43 5.55 L17.59 4.44 L19.56 6.41 L18.45 8.57Z"/><circle cx="12" cy="12" r="3.1"/></svg>',0,"linear-gradient(160deg,#E6E9F0 0%,#A3AAB8 52%,#666D7E 100%)")}
     </div>
     <div class="pdock"><span>看手機不花行動,時間會暫停</span></div>`}
@@ -198,6 +200,13 @@ function star(){ const p=ph(); p.feed.forEach(f=>f.seen=true); if(fillPhotos()) 
       ${f.choice?(()=>{const sn=snipBy(f.code),n=sn?.nodes?.[f.choice]; return n?.C?.length?`<div class="popts in">${n.C.map((c,j)=>`<button data-cmt="${i}:${j}">${esc(stripQ(c.t))}</button>`).join("")}</div>`:""})():""}
       ${f.reply?`<p class="pmy">你:${esc(f.reply)}</p>`:""}${(f.r||[]).map(l=>`<p class="pfan"><b style="color:${byId(l[0])?.c}">${byId(l[0])?.n||""}</b> ${esc(l[1])}</p>`).join("")}</article>`}).join("")
     :`<p class="pempty">還沒有貼文。成員會不定時發文或開直播。</p>`}</div>`}
+
+/* ---------- 擬真第一階段 ⑤:新聞、粉絲站(只寫公開的事:發行、center、KEY POINT、一位、演唱會、出道)---------- */
+const ymd=d=>{ const t=dateOf(d); return `${t.getFullYear()}.${t.getMonth()+1}.${t.getDate()}` };
+function newsApp(){ const L=(window.pubList?.()||[]).map(x=>({x,n:window.newsOf?.(x)})).filter(o=>o.n);
+  return head("新聞")+`<div class="pscroll pnews">${L.length?L.map(({x,n})=>`<article class="pnewsi"><small>${ymd(x.day)}</small><h5>${esc(n.head)}</h5>${n.body?`<p>${esc(n.body)}。</p>`:""}</article>`).join(""):`<p class="pempty">出道之後,媒體就會開始寫她們的消息。</p>`}</div>` }
+function fanApp(){ const L=window.fanPosts?.()||[];
+  return head("粉絲站")+`<div class="pscroll pfans">${L.length?L.slice(0,60).map(p=>`<article class="pfanp${p.recap?" recap":""}"><header><b>${esc(p.user)}</b><small>${ymd(p.day)}</small></header><p>${esc(p.text)}</p><footer>♡ ${p.likes.toLocaleString()}</footer></article>`).join(""):`<p class="pempty">還沒有粉絲。出道之後,這裡會熱鬧起來。</p>`}</div>` }
 
 /* ---------- 設定 ---------- */
 function settings(){ const p=ph();

@@ -993,6 +993,18 @@ h3.msep{margin-top:calc(2.2*var(--u));padding-top:calc(1*var(--u));border-top:ca
 .snapd{position:absolute;right:5%;bottom:4%;z-index:1;font:normal 700 max(.85cqw,10px)/1 var(--num);letter-spacing:.14em;color:#FF9A3C;text-shadow:0 0 .45em rgba(255,120,40,.75)}
 .slview .snapimg.big{width:44cqw;height:44cqw;max-width:min(86vw,72vh);max-height:72vh;border-radius:1.2cqw;box-shadow:0 1.6cqw 4cqw rgba(0,0,0,.55),0 0 0 .1cqw rgba(255,255,255,.12)}
 .slview .snapimg.big .snapd{font-size:max(1.3cqw,13px)}
+/* 擬真第一階段 ⑤(2026-11-09):新聞、粉絲站 */
+.pnews .pnewsi{background:#fff;border-radius:1cqw;padding:.9cqw 1.1cqw;margin:0 0 .8cqw;box-shadow:0 .15cqw .5cqw rgba(60,30,50,.08)}
+.pnews .pnewsi small{font-size:max(.7cqw,8px);color:#9A8FA0;letter-spacing:.04em}
+.pnews .pnewsi h5{margin:.3cqw 0 .35cqw;font-size:max(.98cqw,10.5px);line-height:1.45;color:#2E2230}
+.pnews .pnewsi p{margin:0;font-size:max(.82cqw,9px);line-height:1.6;color:#5A4D5E}
+.pfans .pfanp{background:#fff;border-radius:1cqw;padding:.8cqw 1cqw;margin:0 0 .7cqw;border-left:.3cqw solid #F0789E}
+.pfans .pfanp.recap{border-left-color:#C9A227;background:#FFFBF0}
+.pfans .pfanp header{display:flex;justify-content:space-between;gap:.6cqw;font-size:max(.75cqw,8.5px);color:#9A8FA0}
+.pfans .pfanp header b{color:#B83A68;font-weight:700}
+.pfans .pfanp p{margin:.35cqw 0 .3cqw;font-size:max(.9cqw,10px);line-height:1.6;color:#2E2230}
+.pfans .pfanp footer{font-size:max(.72cqw,8px);color:#B07A92}
+
 
 /* ===== 抽屜:關係進度、能力、默契 ===== */
 .mcard .rel{display:grid;grid-template-columns:auto 1fr;gap:calc(.2*var(--u)) calc(.6*var(--u));align-items:center;margin-top:calc(.5*var(--u));font-size:max(calc(.8*var(--u)),9px);color:var(--glassSoft)}
@@ -2030,12 +2042,12 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 .lbin small{display:block;text-align:right;font-size:10px;color:#8A7460}
 @media (prefers-reduced-motion:reduce){.lbub{animation:none}}
 /* 擬真第一階段 ④(2026-11-09):等你處理的狀況。剖面圖上那個房間很淡的提示:燈還亮著(暖黃)、有聲音(淡藍)、門半開(淡白),慢慢明暗 */
-#rooms .wkhint{position:absolute;width:5.5cqw;aspect-ratio:1;border-radius:50%;translate:-50% -50%;pointer-events:none;z-index:2;
-  background:radial-gradient(circle,rgba(255,224,150,.55) 0,rgba(255,224,150,.18) 40%,rgba(255,224,150,0) 70%);animation:wkGlow 3.8s ease-in-out infinite;will-change:opacity}
-#rooms .wkhint.sound{background:radial-gradient(circle,rgba(190,215,255,.5) 0,rgba(190,215,255,.16) 40%,rgba(190,215,255,0) 70%)}
-#rooms .wkhint.door{background:radial-gradient(circle,rgba(255,255,255,.42) 0,rgba(255,255,255,.12) 40%,rgba(255,255,255,0) 70%)}
-@keyframes wkGlow{0%,100%{opacity:.35}50%{opacity:.85}}
-@media (prefers-reduced-motion:reduce){#rooms .wkhint{animation:none;opacity:.6}}
+#rooms .wkhint{position:absolute;width:6.5cqw;aspect-ratio:1;border-radius:50%;translate:-50% -50%;pointer-events:none;z-index:2;mix-blend-mode:screen;
+  background:radial-gradient(circle,rgba(255,214,120,.95) 0,rgba(255,214,120,.45) 22%,rgba(255,214,120,.12) 48%,rgba(255,214,120,0) 70%);animation:wkGlow 3.8s ease-in-out infinite;will-change:opacity}
+#rooms .wkhint.sound{background:radial-gradient(circle,rgba(170,205,255,.95) 0,rgba(170,205,255,.45) 22%,rgba(170,205,255,.12) 48%,rgba(170,205,255,0) 70%)}
+#rooms .wkhint.door{background:radial-gradient(circle,rgba(255,255,255,.9) 0,rgba(255,255,255,.4) 22%,rgba(255,255,255,.1) 48%,rgba(255,255,255,0) 70%)}
+@keyframes wkGlow{0%,100%{opacity:.45}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#rooms .wkhint{animation:none;opacity:.75}}
 
 /* ===== 點成員的互動面板(改版 1.0 第 3 輪;meet.js)===== */
 #meet{position:absolute;inset:0;z-index:36;--u:max(1cqw,7.4px);--gl:#E9D29A;--gd:#B8955A;color:#2B2030}
