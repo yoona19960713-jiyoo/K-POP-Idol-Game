@@ -339,9 +339,13 @@ window.pubList=()=>{ const L=[...(S.pubx||[])], rel=new Set(L.filter(x=>x.k==="r
   return L.filter(x=>x.day<=S.day).sort((a,b)=>b.day-a.day) };
 /* ⑦ 寫的句型(type news、fan,kind 對應公開紀錄):有就用,沒有用內建的。變數:{團名}{歌名}{專輯}{center}{kp}{hook}{收錄2}{收錄3}{座數}{演唱會}{場館}{觀眾}{ago} */
 const PUBK={release:x=>true,center:x=>!!x.center,kp:x=>!!(x.kp&&x.hook),tracks:x=>(x.tracks?.length||0)>=3,win:x=>true,concert:x=>true,debut:x=>true};
-const pubVars=x=>({團名:G(),歌名:x.title||"主打歌",專輯:x.release||x.title||"",center:nm(x.center),kp:nm(x.kp),hook:x.hook||"",收錄2:x.tracks?.[1]||"",收錄3:x.tracks?.[2]||"",座數:String(x.wins||1),演唱會:x.ctitle||"",場館:venue(x.venue),觀眾:x.att?Number(x.att).toLocaleString():"",ago:agoTxt(x.day)});
+const fanNm=x=>{ const v=typeof STORY_VARS!=="undefined"&&STORY_VARS["粉絲名"]?.(); return v&&x.day>=(typeof DEBUT_DAY!=="undefined"?DEBUT_DAY+32:0)?String(v):null };   // 粉絲名 2017/02/14 才公布:之前的紀錄不用
+const pubVars=x=>({團名:G(),粉絲名:fanNm(x),歌名:x.title||"主打歌",專輯:x.release||x.title||"",center:nm(x.center),kp:nm(x.kp),hook:x.hook||"",收錄2:x.tracks?.[1]||"",收錄3:x.tracks?.[2]||"",座數:String(x.wins||1),演唱會:x.ctitle||"",場館:venue(x.venue),觀眾:x.att?Number(x.att).toLocaleString():"",ago:agoTxt(x.day)});
 const fillPub=(t,x)=>{ const V0=pubVars(x); return String(t||"").replace(/\{([^{}\s]{1,8})\}/g,(m,k)=>V0[k]!=null&&V0[k]!==""?V0[k]:m).replace(/([A-Za-z0-9])([\u3400-\u9fff])/g,"$1 $2").replace(/([\u3400-\u9fff])([A-Za-z0-9])/g,"$1 $2") };
-const libPick=(type,kinds,x,r)=>{ const L=snips().filter(sn=>sn.type===type&&kinds.includes(sn.kind)&&PUBK[sn.kind]?.(x)); if(!L.length) return null; return L[Math.floor(r()*L.length)] };
+/* only:這句只給某位成員(center 是她、或 KEY POINT 是她領舞時才挑,而且優先);用了 {粉絲名} 的句子,粉絲名公布以前不挑 */
+const libPick=(type,kinds,x,r)=>{ const ok=sn=>{ if(sn.only&&!((sn.kind==="center"&&x.center===sn.only)||(sn.kind==="kp"&&x.kp===sn.only))) return false; if(/\{粉絲名\}/.test((sn.text||"")+(sn.head||""))&&!fanNm(x)) return false; return true };
+  const L=snips().filter(sn=>sn.type===type&&kinds.includes(sn.kind)&&PUBK[sn.kind]?.(x)&&ok(sn)); if(!L.length) return null;
+  const own=L.filter(sn=>sn.only); const P=own.length&&r()<.7?own:L; return P[Math.floor(r()*P.length)] };
 window.newsOf=x=>{ const g=G();
   { const sn=libPick("news",x.k==="release"?["release"]:[x.k],x,rng(seedOf(x.day,x.k,"news"))); if(sn) return {head:fillPub(sn.head||sn.nodes?.start?.L?.[0]?.[1],x),body:fillPub(sn.text||"",x).replace(/。$/,"")} }
   if(x.k==="release") return {head:sp(g,`${x.n>1?"回歸":"出道"}!${x.release?`《${x.release}》`:""}主打歌〈${x.title||"主打歌"}〉公開`),
@@ -361,7 +365,7 @@ function fanText(x,r){ const pick=a=>a.filter(Boolean)[Math.floor(r()*a.filter(B
   return "" }
 function recapText(x){ const a=agoTxt(x.day);
   { const L=snips().filter(sn=>sn.type==="fan"&&sn.kind==="recap"&&(!sn.on||sn.on===x.k)&&(!sn.needc||x.center)); if(L.length){ const sn=L[Math.floor(rng(seedOf(x.day,"recapl"))()*L.length)]; return "【整理】"+fillPub(sn.text||sn.nodes?.start?.L?.[0]?.[1],x).replace(/^【整理】/,"") } }
-  if(x.k==="release"&&x.center) return `【整理】回頭看${a}的〈${x.title}〉:讓${nm(x.center)}站 center,那時候有人意外,現在大家都說是神來一筆。`;
+  if(x.k==="release"&&x.center) return `【整理】回頭看 ${a}的〈${x.title}〉:讓${nm(x.center)}站 center,那時候有人意外,現在大家都說是神來一筆。`;
   if(x.k==="release"&&x.kp&&x.hook) return `【整理】${a}的〈${x.title}〉,${nm(x.kp)}領舞的「${x.hook}」到現在還是挑戰影片的固定曲目。`;
   if(x.k==="release") return `【整理】${a}的〈${x.title}〉,現在聽還是會起雞皮疙瘩。`;
   if(x.k==="concert") return `【整理】${a}的《${x.ctitle}》,那天的歌單現在看還是排得好好。`;

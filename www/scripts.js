@@ -206,7 +206,7 @@ function analyse(sn){
   if(sn.type==="away"&&(N.start.C||[]).length) w.push("你不在場時的片段不應該有選項");
   if(sn.dupOf) w.push(`和內容庫裡的「${String(sn.dupOf).slice(0,16)}」太像`);
   /* 擬真第一階段(2026-11-09):{mem.ago} 這類記憶細節由遊戲演的時候填;每週整理另外有 {member}、{work} */
-  const PUBV=["團名","歌名","專輯","center","kp","hook","收錄2","收錄3","座數","演唱會","場館","觀眾","ago"];
+  const PUBV=["團名","粉絲名","歌名","專輯","center","kp","hook","收錄2","收錄3","座數","演唱會","場館","觀眾","ago"];
   const okV=v=>VARS_ALL.includes(v)||/^mem\.[A-Za-z][A-Za-z0-9_]{0,15}$/.test(v)||(sn.type==="weekly"&&(v==="member"||v==="work"))||((sn.type==="fan"||sn.type==="news")&&PUBV.includes(v));
   const badV=[...JSON.stringify([sn.sc||"",N]).matchAll(/\{([^{}\s"]{1,20})\}/g)].map(m=>m[1]).find(v=>!okV(v)); if(badV) w.push(`用了不認得的變數 {${badV}}`);
   if(sn.type==="event"&&EVENTS[sn.ev]?.card&&((N.start.C||[]).length||(N.start.L||[]).some(l=>!l[0]))) w.push("事件卡只能有成員台詞,不要旁白與選項");
