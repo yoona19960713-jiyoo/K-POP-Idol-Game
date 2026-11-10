@@ -405,7 +405,12 @@ window.addEventListener("hashchange",takeImport);
 
 /* ---------- OpenAI 生圖 ---------- */
 const OAI_KEY="kpopGame.openai";
-const oai=()=>{try{return {model:"gpt-image-2",quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}"),model:"gpt-image-2"}}catch(e){return {model:"gpt-image-2",quality:"medium"}}};
+/* 2026-11-11:OpenAI 通知 gpt-image-2 在 2027/02/10 停用,換成 GPT Image 2.6(Sunburst 重細節與連續修改的一致性、Flare 較快)。
+   使用者在選單選模型(預設先維持 gpt-image-2,試過 2.6 滿意再換);2.6 可以直接輸出透明背景(試用開關,預設關)。失敗不會自動換模型 */
+const OAI_MODELS={"gpt-image-2":"gpt-image-2(2027/02/10 停用)","gpt-image-2.6-sunburst":"GPT Image 2.6 Sunburst","gpt-image-2.6-flare":"GPT Image 2.6 Flare"};
+const G2_END=Date.UTC(2027,1,10);
+const oai=()=>{try{const o={model:"gpt-image-2",quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}")}; if(!OAI_MODELS[o.model]) o.model="gpt-image-2"; return o}catch(e){return {model:"gpt-image-2",quality:"medium"}}};
+const is26=m=>/^gpt-image-2\.6/.test(m||"");
 const setOai=o=>localStorage.setItem(OAI_KEY,JSON.stringify({...oai(),...o}));
 const OAI_PRICE={low:.02,medium:.06,high:.22};
 const QN={low:"低",medium:"中",high:"高"};   // 每張約略費用(直圖+參考圖),只用來估算
@@ -422,10 +427,12 @@ const hasPoseBase=(slot,pose)=>!!WMETA.find(x=>x.id===slot)?.poses?.[pose]||!!po
    萬一這個模型不收這個參數,就照舊拿最高品質的圖,收到後在遊戲裡自己壓成品質 90(只在真的變小時才換) */
 const OAI_COMP=90, NOCOMP_K="kpopGame.oaiNoComp";
 const oaiNoComp=()=>{ try{ return localStorage.getItem(NOCOMP_K)==="1" }catch(e){ return false } };
+window.__oaiEdit=(...a)=>oaiEdit(...a); window.__oai=()=>oai();   // 測試用
 async function oaiEdit(prompt,baseURL,model,quality){
   const o=oai(); if(!o.key) throw {code:"no_key"};
   const noComp=oaiNoComp(), fd=new FormData(); fd.append("model",model); fd.append("prompt",prompt); fd.append("image[]",await toPng(baseURL),"base.png");
   fd.append("size","1024x1536"); fd.append("quality",quality||o.quality||"medium"); fd.append("n","1"); fd.append("output_format","webp"); if(!noComp) fd.append("output_compression",String(OAI_COMP));
+  if(is26(model)&&o.bg==="transparent"&&!/white T-shirt and shorts/.test(prompt)) fd.append("background","transparent");   // 2.6 試用:直接透明背景(姿勢底模照舊灰底)
   let r; try{ r=await fetch("https://api.openai.com/v1/images/edits",{method:"POST",headers:{Authorization:"Bearer "+o.key},body:fd}) }catch(e){throw {code:"network"}}
   const j=await r.json().catch(()=>({}));
   if(!r.ok&&!noComp&&r.status===400&&/output_compression/i.test(String(j?.error?.message||"")+String(j?.error?.param||""))){ try{ localStorage.setItem(NOCOMP_K,"1") }catch(e){} return oaiEdit(prompt,baseURL,model,quality) }
@@ -455,7 +462,7 @@ async function squeezeImg(u,q=OAI_COMP/100){ const W=sqWorker();
   const out=c.toDataURL("image/webp",q); if(!out.startsWith("data:image/webp")) throw new Error("這個瀏覽器不能壓 webp"); return out }
 window.squeezeImg=squeezeImg;
 const OAI_ERR={no_key:"還沒設定 OpenAI 金鑰(選單 → AI 生圖)",bad_key:"OpenAI 金鑰不正確",quota:"OpenAI 帳戶額度不足,請到 OpenAI 儲值",rate:"太頻繁了,稍等再試",
-  blocked:"被 OpenAI 的安全審查擋下,可以改一下服裝描述再試",bad_model:"gpt-image-2 目前不能用(不會自動改用其他模型)",verify:"這個模型需要先在 OpenAI 完成組織驗證",network:"連不上 OpenAI",server:"OpenAI 回傳錯誤"};
+  blocked:"被 OpenAI 的安全審查擋下,可以改一下服裝描述再試",bad_model:"這個模型目前不能用(不會自動改用其他模型;gpt-image-2 在 2027/02/10 停用後,請到選單改用 GPT Image 2.6)",verify:"這個模型需要先在 OpenAI 完成組織驗證",network:"連不上 OpenAI",server:"OpenAI 回傳錯誤"};
 
 /* 工作佇列:每一筆是 一套造型 × 一位成員 */
 let JOBS=[];        // {id,code,slot,state:"wait"|"run"|"done"|"err",err}
@@ -470,12 +477,13 @@ function todoList(){ const out=[];
   return out }
 async function runQueue(){
   if(RUNNING) return; RUNNING=true; STOP=false; renderFacility();
-  const o=oai(), model="gpt-image-2";   // 只用 gpt-image-2:1.5 的畫風、臉、身材都會跑掉,失敗就停下來,不自動換模型
+  const o=oai(), model=o.model||"gpt-image-2";   // 用選單選的模型(1.5 的畫風、臉、身材都會跑掉,所以沒有 1.5);失敗就停下來,不自動換模型
   while(!STOP){ const job=JOBS.find(j=>j.state==="wait"); if(!job) break; job.state="run"; renderFacility();
     try{ const lk=ITEMS[job.code], base=await baseFor(job.slot,lk.pose);
       if(!base) throw {code:"no_base"};
       const q=job.q||o.quality||"medium", note=String(job.note||"").trim();
-      const prompt=wLookPrompt(lk,job.slot)+(note?`\n\nRevision request from the designer (apply it while keeping the same member, face, body, pose and overall outfit concept): ${note}`:"");
+      const tp=is26(model)&&o.bg==="transparent";   // 透明背景試用:把「灰底照舊」改成「透明背景」
+      const prompt=(tp?wLookPrompt(lk,job.slot).replace("lighting and plain light gray background completely identical.","and lighting completely identical. Put her on a fully transparent background (no floor, no shadow), with clean natural edges around her hair."):wLookPrompt(lk,job.slot))+(note?`\n\nRevision request from the designer (apply it while keeping the same member, face, body, pose and overall outfit concept): ${note}`:"");
       const img=await oaiEdit(prompt,base,model,q), used=model;
       PENDING[job.id]={code:job.code,slot:job.slot,img,iq:1,model:used,quality:q,note:note||undefined,at:Date.now()};   // iq:這張已經是壓縮過的原圖 await IDB.set("pending",PENDING); job.state="done";
     }catch(e){ job.state="err"; job.err=e.code==="no_base"?"還沒有這位成員的生圖底模(造型室 → 成員底模)":(OAI_ERR[e.code]||"失敗")+(e.msg?`:${String(e.msg).slice(0,80)}`:"");
@@ -936,8 +944,12 @@ function oaiSettingsInit(){
   // 出圖品質:三顆按鈕,點了立刻生效(以前是下拉選單,看不出能選)
   document.querySelectorAll("#oaiQSeg [data-q]").forEach(b=>{ const on=b.dataset.q===(o.quality||"medium"); b.setAttribute("aria-checked",on); b.classList.toggle("pri",on);
     b.onclick=()=>{ setOai({quality:b.dataset.q}); oaiSettingsInit(); toast2(`出圖品質:${QN[b.dataset.q]}`); if(document.querySelector(".fdesk")) renderFacility() } });
+  document.querySelectorAll("#oaiMSeg [data-m]").forEach(b=>{ const on=b.dataset.m===o.model; b.setAttribute("aria-checked",on); b.classList.toggle("pri",on);
+    b.onclick=()=>{ setOai({model:b.dataset.m}); oaiSettingsInit(); toast2(`生圖模型:${OAI_MODELS[b.dataset.m]}`); if(document.querySelector(".fdesk")) renderFacility() } });
+  { const bs=$("#oaiBgSel"); if(bs){ bs.value=o.bg==="transparent"?"transparent":"gray"; bs.disabled=!is26(o.model); bs.onchange=()=>{ setOai({bg:bs.value}); toast2(bs.value==="transparent"?"透明背景(試用):2.6 直接輸出透明背景,不用再去背":"背景:淺灰底(照舊)") } } }
+  { const n=$("#oaiModelNote"); if(n){ const left=Math.ceil((G2_END-Date.now())/864e5); n.textContent=o.model==="gpt-image-2"?(left>0?`gpt-image-2 還能用 ${left} 天(2027/02/10 停用)。建議先用 2.6 Sunburst 生一兩套試試,滿意再換。`:"gpt-image-2 已經停用,請改選 GPT Image 2.6。"):is26(o.model)?"GPT Image 2.6:Sunburst 細節最好、連續修改最一致;Flare 比較快。費用依 OpenAI 計價,下面的每張價格只是估算。":"" } }
   $("#oaiKey").onfocus=e=>{ if(e.target.value.startsWith("•")) e.target.value="" };
-  $("#oaiSave").onclick=()=>{ const k=$("#oaiKey").value.trim(); const patch={model:"gpt-image-2",quality:oai().quality||"medium"};
+  $("#oaiSave").onclick=()=>{ const k=$("#oaiKey").value.trim(); const patch={quality:oai().quality||"medium"};
     if(k&&!k.startsWith("•")){ if(!/^sk-/.test(k)){toast2("OpenAI 金鑰通常是 sk- 開頭,請再確認");return} patch.key=k }
     setOai(patch); oaiSettingsInit(); toast2("AI 生圖設定已儲存") };
   $("#oaiClear").onclick=()=>{ const x=oai(); delete x.key; localStorage.setItem(OAI_KEY,JSON.stringify(x)); oaiSettingsInit(); toast2("已清除 OpenAI 金鑰") };

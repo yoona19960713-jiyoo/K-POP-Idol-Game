@@ -2970,7 +2970,10 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
     <div id="oaiBox">
       <div class="row"><input type="text" id="oaiKey" placeholder="OpenAI API 金鑰(sk-…)" autocomplete="off"></div>
       <div class="row qrow"><span class="qlbl">出圖品質</span><div class="seg" id="oaiQSeg" role="radiogroup" aria-label="出圖品質"><button class="b" data-q="low" role="radio">低<small>約 US$0.02/張</small></button><button class="b" data-q="medium" role="radio">中<small>約 US$0.06/張</small></button><button class="b" data-q="high" role="radio">高<small>約 US$0.22/張</small></button></div></div>
-      <p class="hint">點了就生效,設計工作台裡也可以切換。模型 gpt-image-2;高品質細節最好,但每張約貴 3~4 倍、生得比較慢。</p>
+      <p class="hint">點了就生效,設計工作台裡也可以切換。高品質細節最好,但每張約貴 3~4 倍、生得比較慢。</p>
+      <div class="row qrow"><span class="qlbl">生圖模型</span><div class="seg" id="oaiMSeg" role="radiogroup" aria-label="生圖模型"><button class="b" data-m="gpt-image-2" role="radio">gpt-image-2<small>2027/02/10 停用</small></button><button class="b" data-m="gpt-image-2.6-sunburst" role="radio">2.6 Sunburst<small>細節、一致性最好</small></button><button class="b" data-m="gpt-image-2.6-flare" role="radio">2.6 Flare<small>比較快</small></button></div></div>
+      <p class="hint" id="oaiModelNote"></p>
+      <div class="row"><select id="oaiBgSel"><option value="gray">背景:淺灰底,收下時由遊戲去背(照舊)</option><option value="transparent">背景:透明(只有 2.6 可選,試用)</option></select></div>
       <div class="row"><button class="b pri" id="oaiSave">儲存</button><button class="b" id="oaiClear">清除金鑰</button></div>
     </div>
 
