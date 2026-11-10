@@ -181,7 +181,11 @@ function perform(){ syncSkill();
       if(q>=65){ kpRes=1; social+=6 } else if(q<35){ kpRes=-1; social-=3 } } }
   // 一位計分
   const decay=[0,.92,1,.9,.78,.72][Math.min(5,wk)];
-  const us={digital:SONG.score*decay,sales:70,views:Math.min(100,views/3.4),social:Math.min(100,social*.95),stage};
+  /* 2026-11-10(使用者決定:擬真,但準備得非常好就大爆——怪物新人):知名度(粉絲,420 萬滿)影響銷量;知名度加上這次回歸的話題度(S.hype)決定音源、觀看、話題的觸及。
+     話題度只靠「真的準備得好」累積:挑戰流行 +13、舞台 S +2.5、KEY POINT 成功 +1、Ending 瘋傳 +1,每場留 81%。
+     模擬(/tmp/mc.py 的設定):準備普通出道期 0 次一位;準備良好約 1~3 次、第二次回歸約 10 次;準備得非常好出道期約 11~15 次(之後幾乎場場一位) */
+  const fame=Math.min(1,(window.fansNow?.()||0)/420), reach=Math.min(1,fame+(S.hype||0)/65);
+  const us={digital:SONG.score*decay*(.6+.4*reach),sales:21+74*fame,views:Math.min(100,views*(.45+.55*reach)/3.4),social:Math.min(100,social*(.45+.55*reach)*.95),stage};
   const RV=rivalOf(i,S.promoStart), pw=RV.pw||1;
   const rv={digital:Math.min(100,(79+rnd()*12)*([0,1,.96,.88,.78,.74][Math.min(5,wk)])*pw),sales:Math.min(100,82*pw),views:Math.min(100,(58+rnd()*24)*pw),social:Math.min(100,(52+rnd()*28)*pw),stage:Math.min(100,(70+rnd()*14)*pw)};
   const pts=o=>Math.round(Object.entries(sh.w).reduce((x,[k,w])=>x+o[k]*w,0)*100);
@@ -209,6 +213,7 @@ function perform(){ syncSkill();
     rival:{n:RV.n,song:RV.songName},looks:{...p.looks},bside:p.bside||"",end:p.end||(byId(SONG.center)?SONG.center:"he"),cam:p.cam,ver:p.ver,rest:{...p.rest}};
 }
 function applyResult(r){
+  S.hype=(S.hype||0)*.81+(r.viral?13:0)+(r.grade==="S"?2.5:0)+(r.kpRes>0?1:0)+(r.endViral?1:0);   // 這次回歸的話題度(2026-11-10)
   const p=S.plan, V=VERS[p.ver];
   if(window.growthOnShow) growthOnShow(M.filter(m=>!p.rest[m.id]).map(m=>m.id));
   window.choreoAfterShow?.(M.filter(m=>!p.rest[m.id]).map(m=>m.id));   // 上台也是練習

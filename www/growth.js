@@ -181,6 +181,7 @@ window.gameState=()=>S;
 (()=>{
 const st=()=>{ S.stats=S.stats||{fans:0,wins:0,winsByYear:{},firstWin:false,awards:[]}; return S.stats };
 const yr=()=>dateOf(S.day).getFullYear();
+window.fansNow=()=>+st().fans||0;   // 打歌一位計分用(stage.js)
 window.fansText=()=>{ const f=st().fans; return f>=10000?`${(f/10000).toFixed(1)} 億`:f>=1?`${Math.round(f)} 萬`:"還沒有粉絲" };
 /* 待機室每一場打歌的結果 */
 window.onShowResult=r=>{ const s=st(), promo=window.promoActive?.(); if(!promo) return null;   // 練習模式不算
@@ -219,7 +220,7 @@ function awards(){ const s=st(), y=yr(), w=s.winsByYear[y]||0, debutYear=dateOf(
   card({tag:`ASIA MUSIC AWARDS ・ ${y}`,bg:"assets/bg/ev_awards.webp",title:got.length?`拿下 ${got.length} 個獎`:"第一次站上頒獎典禮",
     lead:got.length?`今年的${window.groupName?.()||"完美女團"}拿下了:${got.join("、")}。${got.some(g=>g.includes("大賞"))?"出道第一年就拿下大賞,整個會場都在喊她們的名字。":""}`:"這一年雖然沒有拿獎,但能站在這個舞台上表演,已經是很多團體夢寐以求的事。",
     stats:[["今年一位",`${w} 次`],["粉絲總數",fansText()]],
-    lines:got.length?[["ys","代表……這座獎,是我們六個人一起拿的。","sad"],["hr","我要把獎盃帶回濟州給外婆看!","laugh"]]:[["he","明年,我們一定會拿到。","smile"]],ok:"一起拍張照"}) }
+    lines:got.length?[["ys","代表……這座獎,是我們六個人一起拿的。","sad"],["hr","我要把獎盃帶回濟州給奶奶看!","laugh"]]:[["he","明年,我們一定會拿到。","smile"]],ok:"一起拍張照"}) }
 function festival(){ const y=yr(); window.cgGroupUnlock?.("g_newyear");
   card({tag:`YEAR-END FESTIVAL ・ ${y}`,bg:"assets/bg/ev_festival.webp",title:"年末歌謠大祭典",lead:"年末歌謠祭的舞台一結束,五個人沒有回宿舍,套上羽絨外套就拉著你跑到下雪的漢江邊——她們說,今年的倒數,想跟代表一起數。",
     lines:[["tr","……新年快樂,代表。明年也請多指教。","shy"],["hy","来年もよろしくね!明年也要在一起喔!","laugh"]],ok:"新年快樂"}) }
@@ -267,7 +268,7 @@ window.memTell=(k,ids)=>{ const m=S.memx?.[k]; if(!m) return; for(const x of [].
    每週整理:週日 21:00 以後,畫面空著時一張卡片(週句型 weekly,沒有就用內建的),一週一次 ---- */
 (()=>{
 const TONE_C={溫暖:"#E8A13C",心動:"#E85C8A",好笑:"#4FAF83",心疼:"#7A8FD6",驕傲:"#C9A227"};
-const DIARY_FB={溫暖:"{mem.slot}在{mem.room}的那件事,一整天都在心裡暖暖的。想記下來,以後翻到的時候也能想起來。",
+const DIARY_FB={溫暖:"{mem.room}的那件事,一整天都還記得。想記下來,以後翻到的時候也能想起來。",
   心動:"這頁不給任何人看。{mem.room}那時候,心跳快得連自己都嚇一跳。……就先寫到這裡。",
   好笑:"想到{mem.room}那時候的事就忍不住笑。今天就記這個,當作獎勵自己。",
   心疼:"今天有點難過,可是有人在。{mem.room}那時候,代表沒有走開。我想記住這件事。",
@@ -336,7 +337,13 @@ window.pubList=()=>{ const L=[...(S.pubx||[])], rel=new Set(L.filter(x=>x.k==="r
   for(const c of S.concerts||[]) if(c.day!=null) L.push({k:"concert",day:c.day,ctitle:c.title,venue:c.venue,att:c.att,sold:c.sold});
   if(S.debuted&&typeof DEBUT_DAY!=="undefined"&&S.day>=DEBUT_DAY&&!L.some(x=>x.k==="debut"||(x.k==="release"&&x.n===1))) L.push({k:"debut",day:DEBUT_DAY});   // 出道的發行已經寫了,就不再另外列
   return L.filter(x=>x.day<=S.day).sort((a,b)=>b.day-a.day) };
+/* ⑦ 寫的句型(type news、fan,kind 對應公開紀錄):有就用,沒有用內建的。變數:{團名}{歌名}{專輯}{center}{kp}{hook}{收錄2}{收錄3}{座數}{演唱會}{場館}{觀眾}{ago} */
+const PUBK={release:x=>true,center:x=>!!x.center,kp:x=>!!(x.kp&&x.hook),tracks:x=>(x.tracks?.length||0)>=3,win:x=>true,concert:x=>true,debut:x=>true};
+const pubVars=x=>({團名:G(),歌名:x.title||"主打歌",專輯:x.release||x.title||"",center:nm(x.center),kp:nm(x.kp),hook:x.hook||"",收錄2:x.tracks?.[1]||"",收錄3:x.tracks?.[2]||"",座數:String(x.wins||1),演唱會:x.ctitle||"",場館:venue(x.venue),觀眾:x.att?Number(x.att).toLocaleString():"",ago:agoTxt(x.day)});
+const fillPub=(t,x)=>{ const V0=pubVars(x); return String(t||"").replace(/\{([^{}\s]{1,8})\}/g,(m,k)=>V0[k]!=null&&V0[k]!==""?V0[k]:m).replace(/([A-Za-z0-9])([\u3400-\u9fff])/g,"$1 $2").replace(/([\u3400-\u9fff])([A-Za-z0-9])/g,"$1 $2") };
+const libPick=(type,kinds,x,r)=>{ const L=snips().filter(sn=>sn.type===type&&kinds.includes(sn.kind)&&PUBK[sn.kind]?.(x)); if(!L.length) return null; return L[Math.floor(r()*L.length)] };
 window.newsOf=x=>{ const g=G();
+  { const sn=libPick("news",x.k==="release"?["release"]:[x.k],x,rng(seedOf(x.day,x.k,"news"))); if(sn) return {head:fillPub(sn.head||sn.nodes?.start?.L?.[0]?.[1],x),body:fillPub(sn.text||"",x).replace(/。$/,"")} }
   if(x.k==="release") return {head:sp(g,`${x.n>1?"回歸":"出道"}!${x.release?`《${x.release}》`:""}主打歌〈${x.title||"主打歌"}〉公開`),
     body:[x.center?`由${nm(x.center)}擔任 center`:"",x.kp&&x.hook?`${nm(x.kp)}領舞的「${x.hook}」一公開就被大量轉傳`:"",x.tracks?.length>1?`這張共收錄 ${x.tracks.length} 首歌`:""].filter(Boolean).join(",")};
   if(x.k==="win") return {head:sp(g,`〈${x.title||"主打歌"}〉拿下音樂節目一位`),body:`這是她們的第 ${x.wins||1} 座一位`};
@@ -346,12 +353,14 @@ window.newsOf=x=>{ const g=G();
 const USERS=["每天都在聽","練習生時期就入坑","日和的腔調守護會","泰梨的饒舌筆記","河嵐的高音計數器","夏恩的便當粉","藝瑟隊長我愛妳","五人五色","手燈收藏家","深夜循環中"];
 const agoTxt=d=>{ const dd=S.day-d; return dd<330?`${Math.max(2,Math.round(dd/30))} 個月前`:`${Math.max(1,Math.round(dd/365))} 年前` };
 function fanText(x,r){ const pick=a=>a.filter(Boolean)[Math.floor(r()*a.filter(Boolean).length)];
+  { const sn=libPick("fan",x.k==="release"?["release","center","kp","tracks"]:[x.k],x,r); if(sn&&r()<.8) return fillPub(sn.text||sn.nodes?.start?.L?.[0]?.[1],x) }
   if(x.k==="release") return pick([`〈${x.title}〉已經循環第 ${30+Math.floor(r()*170)} 次了。`,x.center&&`讓${nm(x.center)}站 center 的決定,真的太對了。`,x.kp&&x.hook&&`${nm(x.kp)}的「${x.hook}」我已經看了一百遍。`,x.tracks?.length>2&&`《${x.release||x.title}》的收錄曲順序很有心,〈${x.tracks[1]}〉接〈${x.tracks[2]}〉那裡直接哭。`]);
   if(x.k==="win") return pick([`一位!!!〈${x.title||"主打歌"}〉一位!!!`,`第 ${x.wins||1} 座一位,我們一起做到了。`]);
   if(x.k==="concert") return pick([`《${x.ctitle}》的安可,我會記一輩子。`,`從看台往下看,《${x.ctitle}》的手燈海真的好漂亮。`]);
   if(x.k==="debut") return "出道舞台第一次喊應援口號,喊到聲音都啞了。";
   return "" }
 function recapText(x){ const a=agoTxt(x.day);
+  { const L=snips().filter(sn=>sn.type==="fan"&&sn.kind==="recap"&&(!sn.on||sn.on===x.k)&&(!sn.needc||x.center)); if(L.length){ const sn=L[Math.floor(rng(seedOf(x.day,"recapl"))()*L.length)]; return "【整理】"+fillPub(sn.text||sn.nodes?.start?.L?.[0]?.[1],x).replace(/^【整理】/,"") } }
   if(x.k==="release"&&x.center) return `【整理】回頭看${a}的〈${x.title}〉:讓${nm(x.center)}站 center,那時候有人意外,現在大家都說是神來一筆。`;
   if(x.k==="release"&&x.kp&&x.hook) return `【整理】${a}的〈${x.title}〉,${nm(x.kp)}領舞的「${x.hook}」到現在還是挑戰影片的固定曲目。`;
   if(x.k==="release") return `【整理】${a}的〈${x.title}〉,現在聽還是會起雞皮疙瘩。`;
@@ -360,7 +369,7 @@ function recapText(x){ const a=agoTxt(x.day);
   return `【整理】${a},她們正式出道的那天。` }
 window.fanPosts=()=>{ const P=window.pubList(), out=[], fans=+(S.stats?.fans||0);
   for(const x of P.slice(0,40)){ const r=rng(seedOf(x.day,x.k,x.n||x.wins||0,"fan")), n=1+Math.floor(r()*2);
-    for(let i=0;i<n;i++){ const t=fanText(x,r); if(t) out.push({day:Math.min(S.day,x.day+i),user:USERS[Math.floor(r()*USERS.length)],text:t,likes:Math.round((40+r()*600)*(1+fans/40))}) } }
+    const used=new Set(); for(let i=0;i<n;i++){ let t=fanText(x,r); for(let j=0;j<4&&used.has(t);j++) t=fanText(x,r); if(t&&!used.has(t)){ used.add(t); out.push({day:Math.min(S.day,x.day+i),user:USERS[Math.floor(r()*USERS.length)],text:t,likes:Math.round((40+r()*600)*(1+fans/40))}) } } }   // 同一筆公開紀錄的兩篇不會一樣
   const old=P.filter(x=>S.day-x.day>=60);
   if(old.length){ const r=rng(seedOf(Math.floor(S.day/30),"recap")), x=old[Math.floor(r()*old.length)]; out.push({day:S.day-(S.day%30),user:USERS[Math.floor(r()*USERS.length)],text:recapText(x),likes:Math.round((300+r()*900)*(1+fans/40)),recap:true}) }
   const seen=new Set(); return out.filter(p=>{ const k=p.day+p.text; if(seen.has(k)) return false; seen.add(k); return true }).sort((a,b)=>b.day-a.day||(b.recap?1:0)-(a.recap?1:0)) };
