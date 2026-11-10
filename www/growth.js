@@ -343,7 +343,9 @@ const fanNm=x=>{ const v=typeof STORY_VARS!=="undefined"&&STORY_VARS["粉絲名"
 const pubVars=x=>({團名:G(),粉絲名:fanNm(x),歌名:x.title||"主打歌",專輯:x.release||x.title||"",center:nm(x.center),kp:nm(x.kp),hook:x.hook||"",收錄2:x.tracks?.[1]||"",收錄3:x.tracks?.[2]||"",座數:String(x.wins||1),演唱會:x.ctitle||"",場館:venue(x.venue),觀眾:x.att?Number(x.att).toLocaleString():"",ago:agoTxt(x.day)});
 const fillPub=(t,x)=>{ const V0=pubVars(x); return String(t||"").replace(/\{([^{}\s]{1,8})\}/g,(m,k)=>V0[k]!=null&&V0[k]!==""?V0[k]:m).replace(/([A-Za-z0-9])([\u3400-\u9fff])/g,"$1 $2").replace(/([\u3400-\u9fff])([A-Za-z0-9])/g,"$1 $2") };
 /* only:這句只給某位成員(center 是她、或 KEY POINT 是她領舞時才挑,而且優先);用了 {粉絲名} 的句子,粉絲名公布以前不挑 */
-const libPick=(type,kinds,x,r)=>{ const ok=sn=>{ if(sn.only&&!((sn.kind==="center"&&x.center===sn.only)||(sn.kind==="kp"&&x.kp===sn.only))) return false; if(/\{粉絲名\}/.test((sn.text||"")+(sn.head||""))&&!fanNm(x)) return false; return true };
+const libPick=(type,kinds,x,r)=>{ const V0=pubVars(x); const ok=sn=>{ if(sn.only&&!((sn.kind==="center"&&x.center===sn.only)||(sn.kind==="kp"&&x.kp===sn.only))) return false;
+    for(const m of ((sn.text||"")+(sn.head||"")).matchAll(/\{([^{}\s]{1,8})\}/g)) if(V0[m[1]]==null||V0[m[1]]==="") return false;   // 用到的變數這筆紀錄沒有(例如舊的發行沒記專輯、粉絲名還沒公布)就不挑這句
+    return true };
   const L=snips().filter(sn=>sn.type===type&&kinds.includes(sn.kind)&&PUBK[sn.kind]?.(x)&&ok(sn)); if(!L.length) return null;
   const own=L.filter(sn=>sn.only); const P=own.length&&r()<.7?own:L; return P[Math.floor(r()*P.length)] };
 window.newsOf=x=>{ const g=G();
