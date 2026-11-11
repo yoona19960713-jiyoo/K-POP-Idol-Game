@@ -1181,7 +1181,7 @@ function fpsFrame(t){ if(!FPSM.on) return; FPSM.raf=requestAnimationFrame(fpsFra
   if(dt>0&&dt<1000){ FPSM.ts.push(t); if(dt>50) FPSM.jank++; if(dt>FPSM.max) FPSM.max=dt }   // 超過 1 秒的是 App 在背景,不算
   while(FPSM.ts.length&&FPSM.ts[0]<t-1000) FPSM.ts.shift();
   if(t-FPSM.upd<500) return; FPSM.upd=t; const now=FPSM.ts.length; if(t-FPSM.t0>1500) FPSM.min=Math.min(FPSM.min,now);
-  FPSM.el.innerHTML=`<b style="color:${now>=55?"#9EF0B0":now>=40?"#FFE08A":"#FF9C9C"}">${now}</b> 格/秒 ・ 最低 ${FPSM.min===99?"–":FPSM.min} ・ 卡頓 ${FPSM.jank} ・ 最長 ${Math.round(FPSM.max)}ms ・ 長任務 ${FPSM.lt}(${Math.round(FPSM.ltMs)}ms)<br><small>${fpsWhere()} ・ 點一下歸零</small>` }
+  FPSM.el.innerHTML=`<b style="color:${now>=55?"#9EF0B0":now>=40?"#FFE08A":"#FF9C9C"}">${now}</b> 格/秒 ・ 最低 ${FPSM.min===99?"–":FPSM.min} ・ 卡頓 ${FPSM.jank} ・ 最長 ${Math.round(FPSM.max)}ms ・ 長任務 ${FPSM.lt}(${Math.round(FPSM.ltMs)}ms)<br><small>${fpsWhere()} ・ 點一下歸零${FPSM.boot||(FPSM.boot=(()=>{ try{ const m=n=>performance.getEntriesByName(n)[0]?.startTime, a=m("intro-play"), b=m("title-ready"); return (a||b)?` ・ 啟動:開場動畫 ${a?(a/1000).toFixed(1):"–"} 秒、可以開始 ${b?(b/1000).toFixed(1):"–"} 秒`:" " }catch(e){ return " " } })())}</small>` }
 function fpsSet(on){ FPSM.on=on; cancelAnimationFrame(FPSM.raf); FPSM.obs?.disconnect(); FPSM.obs=null; FPSM.el?.remove(); FPSM.el=null; if(!on) return;
   const e=document.createElement("div"); e.id="fpsMeter"; e.style.cssText="position:fixed;left:6px;bottom:6px;z-index:2147483000;padding:4px 8px;border-radius:8px;background:rgba(10,8,16,.72);color:#EEE;font:600 11px/1.35 system-ui,sans-serif;letter-spacing:.02em;contain:layout paint;pointer-events:auto;user-select:none;max-width:70vw";
   e.onclick=ev=>{ ev.stopPropagation(); fpsReset(); toast2("流暢度檢測已歸零") }; document.body.appendChild(e); FPSM.el=e; fpsReset(); FPSM.last=0; FPSM.upd=0;
@@ -1267,7 +1267,7 @@ function titleReady(){
   const el=$("#title"); if(!el) {syncAll(false,true); return}
   setPause("title",true);
   const btn=$("#ttStart"), msg=$("#ttMsg"), sy=$("#ttSync");
-  btn.disabled=false; msg.textContent="點擊畫面開始";
+  btn.disabled=false; msg.textContent="點擊畫面開始"; try{ performance.mark("title-ready") }catch(e){}   // 流暢度檢測會顯示啟動花了幾秒
   if(syAuth()&&syCfg()){ sy.textContent="正在同步雲端…"; syncAll(false,true).then(()=>{sy.textContent="雲端同步完成"}).catch(()=>{sy.textContent="雲端同步失敗,可稍後在選單重試"}) }
   else sy.textContent=window.SANDBOX?"試玩存檔中・不會同步雲端":"離線遊玩・可在選單登入雲端同步";
   const go=()=>{ if(el.classList.contains("leaving")||el.classList.contains("out")) return;

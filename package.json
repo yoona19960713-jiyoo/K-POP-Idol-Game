@@ -10,6 +10,7 @@
     "@capacitor/haptics": "^6.0.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.1.2"
+    "@capacitor/cli": "^6.1.2",
+    "esbuild": "^0.24.0"
   }
 }
