@@ -52,6 +52,9 @@ jobs:
       - name: 安裝套件
         run: npm install --no-audit --no-fund
 
+      - name: 壓縮程式(啟動加速;只改這次打包用的檔,倉庫裡的原始檔不變)
+        run: node tools/bundle.mjs www "${{ github.run_number }}" || echo "::warning::程式壓縮失敗,這次用原始檔打包(遊戲照常可以玩)"
+
       - name: 建立 Android 專案
         run: |
           npx cap add android
