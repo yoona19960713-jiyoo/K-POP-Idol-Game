@@ -64,7 +64,34 @@ function resolve(){ const on=s=>{ const e=document.querySelector(s); return !!(e
   const v=typeof V!=="undefined"?V:null;   // game.js 的全域變數(不在 window 上)
   if(document.querySelector("#visit.on")) return ROOM[v?.room]||(String(v?.room||"").startsWith("bed")?"dorm":"map_day");
   const light=typeof SLOTS!=="undefined"&&typeof S!=="undefined"?SLOTS[S.slot]?.light:"day"; return light==="dawn"?"dawn":light==="night"?"map_night":"map_day" }   // 2026-11-01:清晨有自己的曲子(dawn),沒有就用晚上的
-every(1000,()=>{ try{ setScene(resolve()) }catch(e){window.logErr?.("audio",e)} });
+every(1000,()=>{ try{ setScene(resolve()); ambTick() }catch(e){window.logErr?.("audio",e)} });
+/* ---------- 環境音(2026-11-11 全面審視):不用素材檔,用雜訊加濾波即時合成 ----------
+   下雨天的雨聲、下雪天的風聲、夏天夜晚的蟲鳴。在地圖上最清楚;進到建築物、房間、對話時像隔著窗戶(變悶、變小聲);
+   標題、過場、演唱會、舞台、MV、回憶 CG、事件卡片時靜音。音量跟「音效」的滑桿走;選單可以關(kpopGame.amb)。聲音都是慢慢淡入淡出 */
+const AMB={out:null,lp:null,rain:null,wind:null,bug:null,on:{rain:0,wind:0,bug:0},ready:false};
+const ambOn=()=>{ try{ return localStorage.getItem("kpopGame.amb")!=="off" }catch(e){ return true } };
+function ambBuild(){ if(AMB.ready||!AC||!bus.sfx) return; AMB.ready=true;
+  const sr=AC.sampleRate, mk=(sec,fn)=>{ const b=AC.createBuffer(2,Math.floor(sr*sec),sr); for(let c=0;c<2;c++) fn(b.getChannelData(c),c); return b };
+  const loop=(buf,rate=1)=>{ const s=AC.createBufferSource(); s.buffer=buf; s.loop=true; s.playbackRate.value=rate; return s };
+  AMB.lp=AC.createBiquadFilter(); AMB.lp.type="lowpass"; AMB.lp.frequency.value=14000; AMB.out=AC.createGain(); AMB.out.gain.value=1; AMB.lp.connect(AMB.out); AMB.out.connect(bus.sfx);
+  const noise=mk(5,d=>{ for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1 });
+  { // 雨:細雨聲(高通+低通的雜訊)加上一點低沉的底
+    const g=AC.createGain(); g.gain.value=0; const a=loop(noise), hp=AC.createBiquadFilter(), l1=AC.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=900; l1.type="lowpass"; l1.frequency.value=7500; a.connect(hp); hp.connect(l1); l1.connect(g);
+    const b=loop(noise,.6), l2=AC.createBiquadFilter(), g2=AC.createGain(); l2.type="lowpass"; l2.frequency.value=320; g2.gain.value=.55; b.connect(l2); l2.connect(g2); g2.connect(g); g.connect(AMB.lp); a.start(); b.start(0,1.7); AMB.rain=g }
+  { // 風:低頻雜訊,濾波頻率慢慢起伏
+    const g=AC.createGain(); g.gain.value=0; const a=loop(noise,.5), bp=AC.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=380; bp.Q.value=.7; const lfo=AC.createOscillator(), lg=AC.createGain(); lfo.frequency.value=.09; lg.gain.value=170; lfo.connect(lg); lg.connect(bp.frequency);
+    const l2=AC.createOscillator(), lg2=AC.createGain(), am=AC.createGain(); am.gain.value=.7; l2.frequency.value=.05; lg2.gain.value=.3; l2.connect(lg2); lg2.connect(am.gain); a.connect(bp); bp.connect(am); am.connect(g); g.connect(AMB.lp); a.start(0,.8); lfo.start(); l2.start(); AMB.wind=g }
+  { // 夏夜的蟲鳴:高頻短促的鳴叫,一組一組;兩隻的音高、節奏稍微不同
+    const chirp=mk(6,(d,c)=>{ const f=c?4350:4120, T=c?.62:.55; for(let i=0;i<d.length;i++){ const t=i/sr, ph=t%T; let e=0; for(let k=0;k<3;k++){ const x=ph-k*.045; if(x>=0&&x<.028) e=Math.sin(Math.PI*x/.028)**2 } const sw=.6+.4*Math.sin(2*Math.PI*t/6*(c?2:1)); d[i]=Math.sin(2*Math.PI*f*t)*e*sw*.5 } });
+    const g=AC.createGain(); g.gain.value=0; const a=loop(chirp), hp=AC.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=3000; a.connect(hp); hp.connect(g); g.connect(AMB.lp); a.start(); AMB.bug=g } }
+function ambTick(){ if(!unlocked||!AC) return; if(!AMB.ready){ if(!ambOn()) return; IDLE(()=>{ try{ ambBuild() }catch(e){ window.logErr?.("環境音",e) } }); return }
+  const q=s=>document.querySelector(s), quiet=!ambOn()||document.hidden||q("#title,.cine,#exitv,#spv,.mvv,.mvp,.c2ed.songplay,#c2tap,#cnView,#cgView,.bigev:not(.out),#songFac:not(.hide),#facility:not(.hide),#stageFac:not(.hide)");
+  let wx="clear", night=false, summer=false; try{ wx=typeof wxNow==="function"?wxNow():"clear"; night=SLOTS[S.slot]?.light==="night"; const mo=dateOf(S.day).getMonth()+1; summer=mo>=6&&mo<=9 }catch(e){}
+  const indoor=!!q("#visit.on")||(typeof view!=="undefined"&&view!=="map"), k=quiet?0:indoor?.45:1;
+  const want={rain:wx==="rain"?.075*k:0, wind:wx==="snow"?.06*k:wx==="rain"?.02*k:0, bug:summer&&night&&wx==="clear"?.022*k:0};
+  const t=AC.currentTime; for(const n of ["rain","wind","bug"]) if(Math.abs(want[n]-AMB.on[n])>.0005){ AMB.on[n]=want[n]; AMB[n].gain.cancelScheduledValues(t); AMB[n].gain.setTargetAtTime(want[n],t,1.2) }
+  const fc=indoor?1500:14000; if(AMB.fc!==fc){ AMB.fc=fc; AMB.lp.frequency.setTargetAtTime(fc,t,.6) } }
+window.ambDebug=()=>({ready:AMB.ready,on:{...AMB.on},fc:AMB.fc});
 /* 第一次觸碰才能出聲(瀏覽器與 Android 的自動播放限制) */
 const unlock=()=>{ if(unlocked) return; unlocked=true; try{ ctx(); AC.resume?.() }catch(e){window.logErr?.("audio",e)} const k=curScene; curScene=""; if(k) setScene(k) };
 document.addEventListener("pointerdown",unlock,{once:false,passive:true});

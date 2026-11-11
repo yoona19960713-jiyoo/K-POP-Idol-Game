@@ -307,10 +307,19 @@ function composer(){ if(CW!==null) return CW; try{ if(typeof OffscreenCanvas==="
 const dataBlob=u=>{ const [h,b]=u.split(","),mime=h.match(/:(.*?);/)[1],bin=atob(b),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return new Blob([a],{type:mime}) };
 async function composeMain(baseU,patchU,at){ const ld=s=>new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=s}); const [b,p]=await Promise.all([ld(baseU),ld(patchU)]);
   const c=canvas(b.naturalWidth,b.naturalHeight),x=c.getContext("2d"); x.drawImage(b,0,0); x.drawImage(p,at[0],at[1]); return await new Promise(r=>c.toBlob(r,"image/webp",.9)) }
-window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) return; LOADING.add(k);
+/* 2026-11-11 全面審視:表情改成「要用到才合成」。以前每一套衣服一讀進來就把 11 種表情全部合成(每套約 11 張全身圖的編碼,佔工作執行緒和記憶體),
+   但地圖、剖面圖上的小人只用平常的表情。現在 needDyn(code,mid) 只讀平常那張;needDyn(code,mid,true)(對話、過場、迎接、要某個表情時)才合成其他表情 */
+const DYNFULL=new Set(), WANTFULL=new Set();
+window.needDyn=(code,mid,full)=>{ const k=code+"@"+mid;
+  if(LOADING.has(k)){ if(full) WANTFULL.add(k); return }
+  if(DYN[k]&&(!full||DYNFULL.has(k))) return;
+  LOADING.add(k);
   (async()=>{ const slot=Object.keys(WMEM).find(s=>WMEM[s]===mid), mm=ITEMS[code]?.members?.[slot], sp=mm?.sprites; if(!sp) return;
-    if(!mm.faces){ const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; rerender(); window.dynArrived?.(code,mid)} return }   // 舊的格式:12 張全身
-    const nu=await getBlob(sp.neutral); if(!nu) return; const o={neutral:toBlobURL(nu)}; DYN[k]=o; rerender(); window.dynArrived?.(code,mid);   // 2.0 第七個大腦:正在顯示的對話立繪換上這套(以前讀好前就畫的人整段都是白 T)
+    if(!mm.faces){ if(DYN[k]){ DYNFULL.add(k); return } const o={}; for(const e of EXS){ const u=await getBlob(sp[e]); if(u) o[e]=toBlobURL(u) } if(o.neutral){DYN[k]=o; DYNFULL.add(k); rerender(); window.dynArrived?.(code,mid)} return }   // 舊的格式:12 張全身
+    const nu=await getBlob(sp.neutral); if(!nu) return; let o=DYN[k];
+    if(!o){ o={neutral:toBlobURL(nu)}; DYN[k]=o; rerender(); window.dynArrived?.(code,mid) }   // 2.0 第七個大腦:正在顯示的對話立繪換上這套(以前讀好前就畫的人整段都是白 T)
+    if(!(full||WANTFULL.has(k))) return;   // 只要平常那張(地圖、剖面圖)
+    DYNFULL.add(k); WANTFULL.delete(k);
     const W=composer(), bid=++cwId; let first=true;
     for(const e of ORDER_EX){ const pu=mm.faces[e]&&await getBlob(mm.faces[e]); if(!pu) continue;
       try{ let blob;
@@ -318,7 +327,7 @@ window.needDyn=(code,mid)=>{ const k=code+"@"+mid; if(DYN[k]||LOADING.has(k)) re
         else blob=await composeMain(nu,pu,mm.fat);
         if(blob) o[e]=URL.createObjectURL(blob) }catch(err){ window.logErr?.("立繪合成",err) } }
     window.dynArrived?.(code,mid);   // 表情都合成好了:正在顯示的表情如果先用代替的,換成正確的
-    if(W) W.postMessage({free:bid}) })().finally(()=>LOADING.delete(k)) };   // 每一套各自一個 bid,同時載好幾套也不會拿錯底圖
+    if(W) W.postMessage({free:bid}) })().finally(()=>{ LOADING.delete(k); if(WANTFULL.has(k)&&!DYNFULL.has(k)) window.needDyn(code,mid,true); else WANTFULL.delete(k) }) };   // 每一套各自一個 bid,同時載好幾套也不會拿錯底圖
 window.dynBusy=k=>LOADING.has(k);   // 2.0 第七個大腦:這一套的表情還在合成(回來時的迎接要等合成完才出場)
 
 /* ---- 立繪瘦身(2026-10-30,省雲端空間):舊格式是 12 張全身,改成 1 張全身+11 張頭部那一段;直接從現有的立繪裁,不用原圖、不重新去背 ---- */
@@ -379,7 +388,7 @@ window.processSprites=async(code,slot,opts={})=>{
   const src=await getBlob(lk.members?.[slot]?.img); if(!src) throw new Error("這位成員還沒有圖");
   const r=await makeSprites(mid,src,lk.pose);
   lk.members[slot].sprites=r.sprites; lk.members[slot].faces=r.faces; lk.members[slot].fat=r.fat; lk.members[slot].spriteAt=Date.now(); lk.members[slot].spriteV=SPRITE_V; lk.updatedAt=Date.now();
-  const k=code+"@"+mid; delete DYN[k]; window.needDyn(code,mid);
+  const k=code+"@"+mid; delete DYN[k]; DYNFULL.delete(k); window.needDyn(code,mid,true);
   const ok=await saveDoc("items",lk); ensureWear(true); rerender();
   if(oldRefs.size) window.dropUnusedBlobs?.(oldRefs).catch(e=>window.logErr?.("刪除舊立繪",e));
   return {...r,ok};

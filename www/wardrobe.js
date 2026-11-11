@@ -906,7 +906,7 @@ async function openDetail(code,slot){
     delete (window.DYN||{})[code+"@"+midOf(slot)]; await saveDoc("items",lk2); ensureWear(true); toast2("已改回舊圖"); openDetail(code,slot); renderFacility() };
   const pb=$("#dProc"); if(pb) pb.onclick=async()=>{ pb.disabled=true; pb.textContent="處理中…(約幾秒)";
     try{ await processSprites(code,slot); const rd=await checkReplaces(code,true); toast2("已重新去背並做好換臉層"+(rd?`;被這套取代的 ${rd} 套舊造型已刪除`:"")); if(ITEMS[code]) openDetail(code,slot) }catch(e){ toast2("處理失敗:"+(e.message||"")); pb.disabled=false; pb.textContent="再試一次" } };
-  const box=$("#dSpr"); if(box&&o.sprites){ const mid=midOf(slot); window.needDyn&&needDyn(code,mid);
+  const box=$("#dSpr"); if(box&&o.sprites){ const mid=midOf(slot); window.needDyn&&needDyn(code,mid,true);
     const show=()=>{const d=window.DYN?.[code+"@"+mid]; if(d) box.innerHTML=["neutral","smile","laugh","sad","angry","shy"].map(e=>`<img src="${d[e]}" alt="">`).join(""); else setTimeout(show,400)}; show() }
   if(o.img){ const src=await getBlob(o.img); if(src&&fDetail?.code===code&&fDetail?.slot===slot){ $("#dImg").style.backgroundImage=`url(${src})`;
     if(!o.model&&$("#dModel")){ const im=new Image(); im.onload=()=>{const c=document.createElement("canvas");c.width=8;c.height=8;const x=c.getContext("2d");x.drawImage(im,0,0,8,8);const a=x.getImageData(0,0,1,1).data[3];

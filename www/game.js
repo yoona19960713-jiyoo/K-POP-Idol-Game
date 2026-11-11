@@ -440,7 +440,8 @@ const outfitName=(mid,id)=>id?(ITEMS[id]?.name||id):"白 T(基本服裝)";
 const EXPR_FB={tired:["sad","neutral"],surprise:["shy","smile","neutral"],pout:["shy","smile","neutral"],moved:["sad","smile","neutral"],serious:["neutral"],wink:["laugh","smile","neutral"]};
 function spr(mid,outfit,e){const f=byId(mid).f, ex=EXPR.includes(e)?e:"neutral";
   if(outfit){ // 造型室處理好的換衣立繪(DYN);還沒載入好時先穿白 T
-    const d=window.DYN?.[outfit+"@"+mid]; if(d) return d[ex]||(EXPR_FB[ex]||[]).map(k=>d[k]).find(Boolean)||d.neutral; window.needDyn&&needDyn(outfit,mid) }
+    const d=window.DYN?.[outfit+"@"+mid]; if(d){ if(ex!=="neutral"&&!d[ex]) window.needDyn?.(outfit,mid,true); return d[ex]||(EXPR_FB[ex]||[]).map(k=>d[k]).find(Boolean)||d.neutral }   // 要某個表情而還沒合成:這時才合成(合成好會自動換上)
+    window.needDyn&&needDyn(outfit,mid,ex!=="neutral") }
   return `assets/chara/${f}_${ex}.webp`}
 /* 立繪預載(2.0 第七個大腦):排隊一次一張。以前一進場景就同時要 5 人 × 12 張(60 張),第一天五人打招呼的開頭會卡 */
 const SPR_Q=[], SPR_HAD=new Set(); let sprQBusy=false;
@@ -1186,6 +1187,7 @@ function fpsSet(on){ FPSM.on=on; cancelAnimationFrame(FPSM.raf); FPSM.obs?.disco
   e.onclick=ev=>{ ev.stopPropagation(); fpsReset(); toast2("流暢度檢測已歸零") }; document.body.appendChild(e); FPSM.el=e; fpsReset(); FPSM.last=0; FPSM.upd=0;
   try{ FPSM.obs=new PerformanceObserver(l=>{ for(const x of l.getEntries()){ FPSM.lt++; FPSM.ltMs+=x.duration } }); FPSM.obs.observe({entryTypes:["longtask"]}) }catch(e){}
   FPSM.raf=requestAnimationFrame(fpsFrame) }
+$("#ambSel")&&(()=>{ const s=$("#ambSel"); try{ s.value=localStorage.getItem("kpopGame.amb")==="off"?"off":"on" }catch(e){} s.onchange=()=>{ try{ localStorage.setItem("kpopGame.amb",s.value) }catch(e){} toast2(s.value==="on"?"環境音:開":"環境音:關") } })();
 $("#realSel")&&(()=>{ const s=$("#realSel"); s.value=window.realMode()?"on":"off";
   s.onchange=()=>{ try{ localStorage.setItem("kpopGame.real",s.value) }catch(e){} toast2(s.value==="on"?"擬真模式:不再跳出好感、信任的數字":"擬真模式已關閉:會顯示好感、信任的變化") } })();
 $("#fpsSel")&&(()=>{ const s=$("#fpsSel"); let v="off"; try{ v=localStorage.getItem("kpopGame.fps")||"off" }catch(e){} s.value=v; if(v==="on") fpsSet(true);

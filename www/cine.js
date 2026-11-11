@@ -47,8 +47,8 @@ function animShot(L,sh){ const D=sh.dur, A=[], rm=RM.matches;
   return A }
 /* 準備鏡頭:做出元素、照順序一個一個解碼(h.P[i] = {L, ready}) */
 /* 2.0 第七個大腦:鏡頭裡的成員,等她那套衣服的立繪讀好再做這個鏡頭(以前讀好前就做,會穿白 T 出場),最多等 2.5 秒 */
-async function dynReady(sh){ const ks=[]; for(const f of sh.figs||[]){ let of=null; try{ of=f.outfit!==undefined?f.outfit:outfitAt(f.id,f.room||S.where[f.id],f.slot??S.slot) }catch(e){} if(of){ window.needDyn?.(of,f.id); ks.push(of+"@"+f.id) } }
-  for(let t=0;t<25&&ks.some(k=>!window.DYN?.[k]&&window.dynBusy?.(k));t++) await wait(100) }
+async function dynReady(sh){ const ks=[]; for(const f of sh.figs||[]){ let of=null; try{ of=f.outfit!==undefined?f.outfit:outfitAt(f.id,f.room||S.where[f.id],f.slot??S.slot) }catch(e){} if(of){ const ex=f.e&&f.e!=="neutral"?f.e:null; window.needDyn?.(of,f.id,!!ex); ks.push([of+"@"+f.id,ex]) } }
+  for(let t=0;t<25&&ks.some(([k,ex])=>(!window.DYN?.[k]||(ex&&!window.DYN[k][ex]))&&window.dynBusy?.(k));t++) await wait(100) }   // 鏡頭要的表情也等合成好
 const decEls=L=>Promise.all([...L.querySelectorAll("img")].map(im=>(im.decode?im.decode():Promise.resolve()).catch(()=>{})));
 function prepper(script,h){ h=h&&h.script===script?h:{P:[],chain:Promise.resolve(),script};
   h.get=i=>{ const sh=script.shots[i]; if(!sh) return null;

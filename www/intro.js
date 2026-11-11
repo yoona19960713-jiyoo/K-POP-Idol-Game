@@ -301,14 +301,14 @@ function pickLine(id){
 /* 她現在穿的衣服(依所在地點與時段;造型室處理好的立繪還沒讀進來時等一下,最多 0.8 秒) */
 async function spriteOf(id,ex){
   let of=null; try{ of=outfitAt(id,S.where?.[id]||"living",S.slot) }catch(e){}
-  if(of&&!window.DYN?.[of+"@"+id]){ try{ window.needDyn?.(of,id) }catch(e){}
+  if(of&&!window.DYN?.[of+"@"+id]){ try{ window.needDyn?.(of,id,true) }catch(e){}
     for(let i=0;i<8&&!window.DYN?.[of+"@"+id];i++) await wait(100) }
   return {of,src:spr(id,of,ex)} }
 
 /* 迎接要用的立繪:她現在那套衣服;這套的表情還在合成就等(最多約 3 秒),這套沒有立繪就用基本立繪 */
 async function welcSrcs(id,exs){ let of=null; try{ of=outfitAt(id,S.where?.[id]||"living",S.slot) }catch(e){}
   if(!of) return exs.map(ex=>spr(id,null,ex));
-  const k=of+"@"+id; try{ window.needDyn?.(of,id) }catch(e){}
+  const k=of+"@"+id; try{ window.needDyn?.(of,id,true) }catch(e){}
   for(let t=0;t<30;t++){ const d=window.DYN?.[k], busy=!!window.dynBusy?.(k);
     if(d&&(exs.every(e=>d[e])||!busy)) break; if(!d&&!busy&&t>=8) break; await wait(100) }
   return exs.map(ex=>spr(id,of,ex)) }
