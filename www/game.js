@@ -1227,7 +1227,7 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
    等所有程式檔都載入完(DOMContentLoaded)才開始。以前一開始就跑,手機上 IndexedDB 開得快時,growth.js 等還沒載入,
    養成的初始化(growthInit)和雲端同步的掛勾(歌曲、打歌、劇本)會被跳過 */
 async function boot(){
-  await IDB.open();
+  await Promise.all([IDB.open(),ALL_LOADED]);   // IndexedDB 先開;一定等所有程式檔都跑完才往下
   try{ const fb=window.SANDBOX?null:await IDB.get("saveFallback"); if(fb){ const o=JSON.parse(fb); if(o?.m&&(o.updatedAt||0)>(S.updatedAt||0)){ S=migrate(o); save(); toast2("已接回上次沒存成功的進度") } await IDB.set("saveFallback",null) } }catch(e){window.logErr?.("game",e)}
   SCRIPTS=await IDB.get("scripts")||{}; ITEMS=await IDB.get("items")||{}; WMEM=await IDB.get("wmem")||{}; WMETA=await IDB.get("wmeta")||[];
   await keepV0();
@@ -1249,8 +1249,12 @@ window.sandboxApply=()=>{ if(!window.SANDBOX) return; let m=null; try{ m=JSON.pa
   if(T>=DD) S.debuted=true;
   m.pending=false; localStorage.setItem("kpopGame.sandboxMeta",JSON.stringify(m)); save(true);
   if(T>DD) setTimeout(()=>{ document.querySelectorAll(".bigev").forEach(e=>e.remove()); setPause("bigev",false) },1500);   // 跳過出道當天的大事件卡
-  toast2(`試玩存檔:已經跳到 ${fmtGameDay?.(T)||T}`) };
-if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot,{once:true}); else boot();
+  toast2(`試玩存檔:已經跳到 ${window.fmtGameDay?.(T)||T}`) };
+/* 2026-11-15(2.0 第八個大腦):11/12 啟動加速把程式檔改成 defer 載入以後,執行到這裡時 readyState 已經是 interactive,
+   原本的寫法(loading 才等 DOMContentLoaded,不然馬上開機)會在後面的程式檔還沒跑之前就開機:growth.js 晚一點到,養成的初始化(growthInit)就被跳過,
+   試玩存檔跳日也會出錯(把 growth.js 延後 0.4 秒送的測試可以穩定重現)。改成一定等 DOMContentLoaded——defer 的程式檔全部跑完才會觸發。 */
+const ALL_LOADED=new Promise(r=>{ if(document.readyState==="complete") return r(); document.addEventListener("DOMContentLoaded",r,{once:true}); window.addEventListener("load",r,{once:true}) });
+boot();
 /* 改版 1.0:換成新遊戲時,改版前的存檔另外存一份(IndexedDB 的 saveV0 與「存檔備份」),新遊戲第一次開始時有一張「上任第一天」的卡 */
 async function keepV0(){ if(!V0_PENDING) return; const js=V0_PENDING; V0_PENDING=null;
   try{ const cur=await IDB.get("saveV0"); let ok=true; try{ ok=!cur||(JSON.parse(js).updatedAt||0)>=(JSON.parse(cur).updatedAt||0) }catch(e){}

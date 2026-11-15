@@ -371,6 +371,7 @@ function renderPlan(){
   B.querySelectorAll("[data-prod]").forEach(b=>b.onclick=()=>{cur().prod=b.dataset.prod;save();render()});
   $("#pChoreo")&&($("#pChoreo").oninput=e=>{cur().choreo=+e.target.value;save();e.target.previousElementSibling.querySelector(".num").textContent=e.target.value}); $("#pGoDance")&&($("#pGoDance").onclick=()=>open("choreo")); $("#pChoreo")&&($("#pChoreo").onchange=()=>render());
   $("#pGoRec").onclick=()=>open("recording");
+  const cd=$("#cbDate"); if(cd) cd.oninput=()=>{ const v=cd.value, bx=$("#cbRivBox"); if(v&&bx) bx.innerHTML=rivalsHTML(dayOfIso(v)) };
   const cs=$("#cbSet"); if(cs) cs.onclick=()=>{ const v=$("#cbDate").value; if(!v) return; const day=dayOfIso(v);
     if(day<GS().day+14){toast2("回歸日至少要在兩週以後");return} window.setComeback(day); render() };
   const cc=$("#cbClear"); if(cc) cc.onclick=()=>{ window.gameState().comeback=null; toast2("已取消回歸日"); render() };
@@ -382,9 +383,12 @@ function releaseBox(){ const G=window; if(!G.promoInfo) return "";
   if(dd>0) return `<h4>發行日</h4><div class="relbox"><b>出道日 ${G.fmtGameDay?G.fmtGameDay(window.DEBUT_DAY):"2017/1/13"}</b><span>${G.debutText()}・這張是出道作品,出道當天開始四週宣傳期</span></div>`;
   if(P?.active) return `<h4>發行日</h4><div class="relbox live"><b>宣傳期進行中</b><span>到 ${G.fmtGameDay(P.end)} 為止,結束後就能決定下一次回歸</span></div>`;
   const cb=GS().comeback, min=GS().day+14, sug=P?Math.max(min,P.end+42):min;
-  return `<h4>下一次回歸</h4><div class="relbox">${cb!=null?`<b>回歸日 ${G.fmtGameDay(cb)}</b><span>還有 ${cb-GS().day} 天。當天會舉行回歸 Showcase,接著四週宣傳期</span><div class="prow"><button class="pbtn ghost" id="cbClear">取消回歸日</button></div>`
+  return `<h4>下一次回歸</h4><div class="relbox">${cb!=null?`<b>回歸日 ${G.fmtGameDay(cb)}</b><span>還有 ${cb-GS().day} 天。當天會舉行回歸 Showcase,接著四週宣傳期</span>${rivalsHTML(cb)}<div class="prow"><button class="pbtn ghost" id="cbClear">取消回歸日</button></div>`
     :`<span>${P?`上一次宣傳期在 ${G.fmtGameDay(P.end)} 結束。`:""}建議留至少 6 週準備(${G.fmtGameDay(sug)} 以後),新歌和打歌服都準備好再回歸。</span>
-      <div class="prow"><input type="date" id="cbDate" min="${isoOf(min)}" value="${isoOf(sug)}"><button class="pbtn pri" id="cbSet">定為回歸日</button></div>`}</div>` }
+      <div class="prow"><input type="date" id="cbDate" min="${isoOf(min)}" value="${isoOf(sug)}"><button class="pbtn pri" id="cbSet">定為回歸日</button></div><div id="cbRivBox">${rivalsHTML(sug)}</div>`}</div>` }
+/* 那四週同期回歸的對手(2026-11-15 第 2 包之一):避開強敵還是正面對上,由代表決定 */
+function rivalsHTML(day){ const L=window.stageRivalsAt?.(day); if(!L?.length) return ""; const lv=p=>p>=1.05?["很強","s3"]:p>=1.01?["偏強","s2"]:p>=.99?["相當","s1"]:["較弱","s0"];
+  return `<div class="cbriv"><small>這四週同期回歸的對手</small>${L.map((r,i)=>`<span class="${lv(r.pw)[1]}" title="${esc(r.note||"")}"><i>${i+1} 週</i><b>${esc(r.n)}</b><em>${lv(r.pw)[0]}</em></span>`).join("")}</div>` }
 const GS=()=>window.gameState?window.gameState():{day:0};
 const isoOf=day=>{const d=dateOf(day);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const dayOfIso=v=>{const [y,m,d]=v.split("-").map(Number); return Math.round((new Date(y,m-1,d)-dateOf(0))/864e5)};

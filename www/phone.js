@@ -78,8 +78,8 @@ const wallHTML=k=>{const src=WALLS[k]||WALLS.title; return FIT[k]==="group"
   :k==="portrait"?`<div class="pwall dark"></div><div class="pwall portrait" style="background-image:url(${src})"></div>`
   :`<div class="pwall" style="background-image:url(${src})"></div>`};
 function render(){ status(); const B=$("#pBody"); B.className="pbody app-"+APP;
-  B.innerHTML=APP==="home"?home():APP==="news"?newsApp():APP==="fan"?fanApp():APP==="chats"?chats():APP==="chat"?chat():APP==="sched"?sched():APP==="star"?star():APP==="set"?settings():APP==="album"&&window.cgAlbumHTML?cgAlbumHTML():"";
-  bind(B); if(APP==="album"&&window.cgAlbumBind) cgAlbumBind(B,render); if(APP==="chat"){const L=$("#pLog"); if(L) L.scrollTop=L.scrollHeight} }
+  B.innerHTML=APP==="home"?home():APP==="news"?newsApp():APP==="fan"?fanApp():APP==="chats"?chats():APP==="chat"?chat():APP==="sched"?sched():APP==="star"?star():APP==="set"?settings():APP==="chart"&&window.chartAppHTML?chartAppHTML():APP==="album"&&window.cgAlbumHTML?cgAlbumHTML():"";
+  bind(B); if(APP==="album"&&window.cgAlbumBind) cgAlbumBind(B,render); if(APP==="chart"&&window.chartAppBind) chartAppBind(B,render); if(APP==="chat"){const L=$("#pLog"); if(L) L.scrollTop=L.scrollHeight} }
 
 /* ---------- 主畫面 ---------- */
 function icon(k,n,svg,badge,grad){return `<button class="papp" data-app="${k}"><span class="pico" style="background:${grad}">${svg}${badge?`<i class="pbadge">${badge>99?"99+":badge}</i>`:""}</span><small>${n}</small></button>`}
@@ -97,7 +97,7 @@ function home(){ const p=ph(), d=dateOf(S.day), WDN=["日","一","二","三","�
       ${icon("fan","粉絲站",'<svg viewBox="0 0 24 24"><path d="M12 20.2c-5.6-3.6-8.6-6.8-8.6-10.2a4.4 4.4 0 0 1 8.6-1.4 4.4 4.4 0 0 1 8.6 1.4c0 3.4-3 6.6-8.6 10.2z"/><path class="f" d="M12 9.6l.7 1.6 1.7.2-1.3 1.1.4 1.7-1.5-.9-1.5.9.4-1.7-1.3-1.1 1.7-.2z"/></svg>',0,"linear-gradient(160deg,#FFD0DE 0%,#F0789E 52%,#B83A68 100%)")}
       ${icon("set","設定",'<svg viewBox="0 0 24 24"><path d="M18.98 9.87 L21.30 10.61 L21.30 13.39 L18.98 14.13 L18.45 15.43 L19.56 17.59 L17.59 19.56 L15.43 18.45 L14.13 18.98 L13.39 21.30 L10.61 21.30 L9.87 18.98 L8.57 18.45 L6.41 19.56 L4.44 17.59 L5.55 15.43 L5.02 14.13 L2.70 13.39 L2.70 10.61 L5.02 9.87 L5.55 8.57 L4.44 6.41 L6.41 4.44 L8.57 5.55 L9.87 5.02 L10.61 2.70 L13.39 2.70 L14.13 5.02 L15.43 5.55 L17.59 4.44 L19.56 6.41 L18.45 8.57Z"/><circle cx="12" cy="12" r="3.1"/></svg>',0,"linear-gradient(160deg,#E6E9F0 0%,#A3AAB8 52%,#666D7E 100%)")}
     </div>
-    <div class="pdock"><span>看手機不花行動,時間會暫停</span></div>`}
+    ${window.chartDockHTML?.()||`<div class="pdock"><span>看手機不花行動,時間會暫停</span></div>`}`}   // 出道後這一條變成今天的音源榜名次,點了進「榜單」(chart.js)
 
 /* ---------- 訊息列表 ---------- */
 function head(title,back="home",right=""){return `<div class="phead"><button class="pback" data-go="${back}">‹</button><b>${title}</b><span>${right}</span></div>`}

@@ -627,6 +627,14 @@ details summary{font-size:max(calc(1*var(--u)),10px);color:var(--gold);cursor:po
 .stamp.inst{border-color:#8A7680;color:#8A7680}
 /* MV 室:依專輯分組(2026-10-29) */
 .pst-alb{margin:calc(1*var(--u)) 0 calc(.5*var(--u));font:700 max(calc(1.1*var(--u)),13px)/1.3 var(--serif);letter-spacing:.12em;color:#F3E4C2}
+/* 企劃室:選回歸日時先看那四週同期的對手(stage.js stageRivalsAt;2026-11-15 第 2 包之一)。這一欄很窄,一週一列 */
+.cbriv{display:grid;gap:calc(.3*var(--u));margin-top:calc(.7*var(--u))}
+.cbriv small{font:600 max(calc(.8*var(--u)),10px)/1.3 var(--sans);opacity:.7;letter-spacing:.08em}
+.cbriv span{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:calc(.6*var(--u));padding:calc(.4*var(--u)) calc(.7*var(--u));border-radius:calc(.5*var(--u));background:rgba(255,255,255,.55);border:1px solid rgba(120,90,110,.18);min-width:0}
+.cbriv span i{font:normal 600 max(calc(.72*var(--u)),9px)/1 var(--sans);opacity:.6;white-space:nowrap}
+.cbriv span b{min-width:0;font:700 max(calc(.86*var(--u)),10.5px)/1.25 var(--sans);letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbriv span em{font:normal 600 max(calc(.72*var(--u)),9px)/1 var(--sans);color:#7A6D82;white-space:nowrap}
+.cbriv span.s3 em{color:#C2306A}.cbriv span.s2 em{color:#C9721E}.cbriv span.s0 em{color:#2F8F6E}
 
 /* ===== 製作者模式:編輯部的稿紙桌(象牙稿紙、紅筆批註) ===== */
 .th-writer{--gold:#B0473F;--gold2:#E8C9B8;--ink:#2B2522;--soft:#857870;--paper:#FBF8F1}
@@ -1009,6 +1017,46 @@ h3.msep{margin-top:calc(2.2*var(--u));padding-top:calc(1*var(--u));border-top:ca
 .pfans .pfanp p{margin:.35cqw 0 .3cqw;font-size:max(.9cqw,10px);line-height:1.6;color:#2E2230}
 .pfans .pfanp footer{font-size:max(.72cqw,8px);color:#B07A92}
 
+/* ===== 榜單(chart.js;2026-11-15,2.0 第八個大腦第 2 包之一)。類別名不要用 .kv,會和待機室的撞 ===== */
+.pdock.pchw{display:flex;align-items:center;justify-content:space-between;gap:.8cqw;text-align:left;color:#fff;padding:.7cqw 1.1cqw;cursor:pointer;font-family:inherit}
+.pchw .t{min-width:0;display:flex;flex-direction:column;gap:.15cqw}.pchw .t small{font-size:max(.66cqw,8px);opacity:.82;letter-spacing:.16em}
+.pchw .t b{font:700 max(.95cqw,10.5px)/1.3 var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pchw .r{display:flex;align-items:baseline;gap:.4cqw;white-space:nowrap}.pchw .r b{font:800 max(1.2cqw,12.5px)/1 var(--num)}
+.pchw .r i{font:normal 700 max(.7cqw,8.5px)/1 var(--num);color:#FFD27A}.pchw .r i.dn{color:#C9D6FF}
+.pchart .ctabs{display:grid;grid-template-columns:repeat(3,1fr);gap:.4cqw;margin:0 0 .8cqw;background:#EDE5F0;border-radius:1.2cqw;padding:.3cqw}
+.pchart .ctabs button{font:700 max(.9cqw,10px)/1 var(--sans);padding:.75cqw 0;border-radius:1cqw;color:#7A6D82;letter-spacing:.08em}
+.pchart .ctabs button.on{background:#fff;color:#C2306A;box-shadow:0 .1cqw .4cqw rgba(60,30,50,.12)}
+.pchart .chero{position:relative;background:linear-gradient(150deg,#2B1B33,#4A2244 60%,#7A2B55);color:#fff;border-radius:1.2cqw;padding:1cqw 1.2cqw 1.1cqw;margin:0 0 .8cqw;overflow:hidden}
+.pchart .chero small{display:block;font:600 max(.68cqw,8px)/1.3 var(--num);letter-spacing:.16em;opacity:.7}
+.pchart .chero h4{margin:.25cqw 0 .1cqw;font:700 max(1.25cqw,13px)/1.25 var(--serif);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pchart .chero .who{font-size:max(.74cqw,8.5px);opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pchart .chero .big{display:flex;align-items:baseline;gap:.5cqw;margin:.45cqw 0 .15cqw}
+.pchart .chero .big b{font:800 max(2.5cqw,25px)/1 var(--num);letter-spacing:-.02em}
+.pchart .chero .big i{font:normal 600 max(.8cqw,9px)/1.2 var(--sans);opacity:.85}
+.pchart .chero .big em{margin-left:auto;font:normal 700 max(.78cqw,9px)/1 var(--sans);padding:.35cqw .7cqw;border-radius:1cqw;background:rgba(255,255,255,.16);white-space:nowrap}
+.pchart .chero .big em.up,.pchart .chero .big em.new{color:#FFD27A}.pchart .chero .big em.dn{color:#C9D6FF}
+.pchart .chero svg{display:block;width:100%;height:3.8cqw;margin:.2cqw 0 .3cqw}
+.pchart .chero .ckv{display:grid;grid-template-columns:repeat(3,1fr);gap:.3cqw;font-size:max(.7cqw,8px);opacity:.92;text-align:left;margin-top:.4cqw}
+.pchart .chero .ckv span{display:block}.pchart .chero .ckv b{display:block;font:700 max(.95cqw,10.5px)/1.3 var(--num)}
+.pchart h6{margin:.9cqw .2cqw .45cqw;font:700 max(.78cqw,9px)/1.2 var(--sans);color:#8B7F92;letter-spacing:.12em;display:flex;justify-content:space-between}
+.pchart .crow{display:grid;grid-template-columns:2.4cqw 1fr auto;align-items:center;gap:.6cqw;background:#fff;border-radius:.9cqw;padding:.62cqw .9cqw;margin:0 0 .4cqw}
+.pchart .crow .rk{font:800 max(1.1cqw,12px)/1 var(--num);color:#3A2E40;text-align:center}
+.pchart .crow .nm{min-width:0}.pchart .crow .nm b{display:block;font:700 max(.92cqw,10.5px)/1.3 var(--sans);color:#2E2230;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pchart .crow .nm span{display:block;font-size:max(.7cqw,8px);color:#9A8FA0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pchart .crow .mv{font:700 max(.72cqw,8.5px)/1 var(--num);color:#B3A8B8;min-width:2.2cqw;text-align:right;white-space:nowrap}
+.pchart .crow .mv.up{color:#E0457B}.pchart .crow .mv.dn{color:#5B7FD1}.pchart .crow .mv.new{color:#C98A1E}
+.pchart .crow.me{background:linear-gradient(90deg,#FFE9F1,#fff 70%);box-shadow:inset .25cqw 0 0 #E0457B}.pchart .crow.me .rk{color:#C2306A}
+.pchart .cgap{text-align:center;color:#C9BECF;font-size:max(.7cqw,8px);margin:.1cqw 0 .3cqw;letter-spacing:.3em}
+.pchart .cbars{display:grid;grid-template-columns:repeat(7,1fr);gap:.45cqw;align-items:end;height:5.4cqw;margin:.5cqw 0 .3cqw}
+.pchart .cbars i{display:block;border-radius:.4cqw .4cqw 0 0;background:linear-gradient(#FFD27A,#F0789E)}.pchart .cbars i.todo{background:rgba(255,255,255,.14)}
+.pchart .cdays{display:grid;grid-template-columns:repeat(7,1fr);gap:.45cqw;font:600 max(.62cqw,7.5px)/1 var(--num);text-align:center;opacity:.7}
+.pchart .ccmp{background:#fff;border-radius:.9cqw;padding:.7cqw .9cqw;margin:0 0 .4cqw}
+.pchart .ccmp header{display:flex;justify-content:space-between;gap:.6cqw;font-size:max(.78cqw,9px);color:#5A4D5E;margin:0 0 .35cqw}
+.pchart .ccmp header span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pchart .ccmp header b{font:700 max(.86cqw,9.5px)/1.2 var(--num);color:#2E2230;white-space:nowrap}
+.pchart .ccmp .bar{height:.7cqw;border-radius:.4cqw;background:#EFE8F2;overflow:hidden}.pchart .ccmp .bar i{display:block;height:100%;border-radius:.4cqw;background:#C9BECF}
+.pchart .ccmp.me .bar i{background:linear-gradient(90deg,#F0789E,#C2306A)}
+.pchart .ccmp header:last-child{margin:0}
+.pchart .cnote{font-size:max(.72cqw,8.5px);line-height:1.6;color:#8B7F92;margin:.5cqw .2cqw 0}
 
 /* ===== 抽屜:關係進度、能力、默契 ===== */
 .mcard .rel{display:grid;grid-template-columns:auto 1fr;gap:calc(.2*var(--u)) calc(.6*var(--u));align-items:center;margin-top:calc(.5*var(--u));font-size:max(calc(.8*var(--u)),9px);color:var(--glassSoft)}
@@ -3035,5 +3083,6 @@ dialog.set.sqzd{width:min(820px,96vw);max-height:96vh}
 <script src="concert.js"></script>
 <script src="refine.js"></script>
 <script src="gpick.js"></script>
+<script src="chart.js"></script>
 </body>
 </html>

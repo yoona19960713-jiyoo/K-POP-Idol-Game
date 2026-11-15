@@ -409,7 +409,8 @@ const OAI_KEY="kpopGame.openai";
    使用者在選單選模型(預設先維持 gpt-image-2,試過 2.6 滿意再換);2.6 可以直接輸出透明背景(試用開關,預設關)。失敗不會自動換模型 */
 const OAI_MODELS={"gpt-image-2":"gpt-image-2(2027/02/10 停用)","gpt-image-2.6-sunburst":"GPT Image 2.6 Sunburst","gpt-image-2.6-flare":"GPT Image 2.6 Flare"};
 const G2_END=Date.UTC(2027,1,10);
-const oai=()=>{try{const o={model:"gpt-image-2",quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}")}; if(!OAI_MODELS[o.model]) o.model="gpt-image-2"; return o}catch(e){return {model:"gpt-image-2",quality:"medium"}}};
+const OAI_DEF="gpt-image-2.6-sunburst";   // 2026-11-15:預設換成 2.6 Sunburst(使用者試生過,沒跑掉);gpt-image-2 在 2027/02/10 停用以前還可以在選單選回去
+const oai=()=>{try{const o={model:OAI_DEF,quality:"medium",...JSON.parse(localStorage.getItem(OAI_KEY)||"{}")}; if(!OAI_MODELS[o.model]) o.model=OAI_DEF; return o}catch(e){return {model:OAI_DEF,quality:"medium"}}};
 const is26=m=>/^gpt-image-2\.6/.test(m||"");
 const setOai=o=>localStorage.setItem(OAI_KEY,JSON.stringify({...oai(),...o}));
 const OAI_PRICE={low:.02,medium:.06,high:.22};
@@ -477,7 +478,7 @@ function todoList(){ const out=[];
   return out }
 async function runQueue(){
   if(RUNNING) return; RUNNING=true; STOP=false; renderFacility();
-  const o=oai(), model=o.model||"gpt-image-2";   // 用選單選的模型(1.5 的畫風、臉、身材都會跑掉,所以沒有 1.5);失敗就停下來,不自動換模型
+  const o=oai(), model=o.model||OAI_DEF;   // 用選單選的模型(1.5 的畫風、臉、身材都會跑掉,所以沒有 1.5);失敗就停下來,不自動換模型
   while(!STOP){ const job=JOBS.find(j=>j.state==="wait"); if(!job) break; job.state="run"; renderFacility();
     try{ const lk=ITEMS[job.code], base=await baseFor(job.slot,lk.pose);
       if(!base) throw {code:"no_base"};
@@ -681,7 +682,7 @@ function poseBasePrompt(P,mid){ return `Use the attached image as the exact base
 async function genPoseBase(slot,key){
   const P=poseOf(key), m=WMETA.find(x=>x.id===slot); if(!m?.gen){toast2("先設定這位成員的生圖底模");return}
   if(!oai().key){toast2(OAI_ERR.no_key);return} const id=slot+"@"+key; if(PB_BUSY.has(id)) return; PB_BUSY.add(id); renderFacility();
-  try{ const img=await oaiEdit(poseBasePrompt(P,midOf(slot)),await getBlob(m.gen),oai().model||"gpt-image-2");
+  try{ const img=await oaiEdit(poseBasePrompt(P,midOf(slot)),await getBlob(m.gen),oai().model||OAI_DEF);
     m.poses={...(m.poses||{}),[key]:img}; toast2(`${byId(midOf(slot)).n}「${P[1]}」的姿勢底模完成,存到雲端中…`); await saveMetaCloud() }
   catch(e){ toast2((OAI_ERR[e.code]||"生成失敗")+(e.msg?`:${String(e.msg).slice(0,60)}`:"")) }
   finally{ PB_BUSY.delete(id); renderFacility() } }

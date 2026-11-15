@@ -44,7 +44,8 @@ const RIVALS=[
   {n:"CARAT NOIR",note:"2016 年出道的新人,藝瑟以前的同伴在裡面",pw:.96,from:"2016-08-01",song:["Obsidian","Black Carat","Shine Noir"]},
   {n:"GLOW",note:"清新系的人氣團",pw:.95,song:["Neon Jelly","Glow Up","Lemon Light"]},
   {n:"PEACH",note:"可愛系的人氣團",pw:.94,song:["Peach Soda","Pink Parade","Hello Peach"]}];
-const rivalOf=(i,base)=>{ const day=(base??S.promoStart??S.day??0)+Math.floor(i/6)*7, d=window.dateOf?dateOf(day):new Date(2017,0,13), iso=d.toISOString?.().slice(0,10)||"",
+/* 2026-11-15:原本寫 window.dateOf(dateOf 是 game.js 的 const,不在 window 上),所以日期一直是 2017/1/13,PRISM 9 解散後還會出現;改成直接看 dateOf */
+const rivalOf=(i,base)=>{ const day=(base??S.promoStart??S.day??0)+Math.floor(i/6)*7, d=typeof dateOf==="function"?dateOf(day):new Date(2017,0,13), iso=d.toISOString?.().slice(0,10)||"",
     L=RIVALS.filter(r=>(!r.from||iso>=r.from)&&(!r.to||iso<=r.to)), w=Math.floor(i/6), h=Math.abs(((base??0)*31+w*17+(+S.year||0))%L.length), R=L[h]||RIVALS[0];
   return {...R,songName:R.song[(w+(+S.year||0))%R.song.length]} };
 let RIVAL=RIVALS[0];
@@ -303,6 +304,10 @@ function open(){ shell(); loadLinked(); checkToday(); OPEN=true; setPause("tv",t
 function close(){ $("#stageFac").classList.add("hide"); $("#tvRes").classList.add("hide"); setPause("tv",false); OPEN=false }
 window.openStageRoom=open;
 window.STAGE_SHOWS=SHOWS.map(s=>s.n);
+window.stageRivalList=()=>RIVALS;   // 榜單上的女團(chart.js)
+/* 從某一天開始的四週宣傳期,每週同期的對手(企劃室選回歸日時先看得到;和實際打歌用的是同一個算法) */
+window.stageRivalsAt=base=>{ const keep=S.year; S.year=Math.min(2022,Math.max(2016,dateOf(base).getFullYear()));
+  try{ return [0,1,2,3].map(w=>{ const r=rivalOf(w*6,base); return {n:r.n,note:r.note,pw:r.pw||1,song:r.songName} }) }finally{ S.year=keep } };
 /* ---- 宣傳期 ---- */
 let TODAY={state:"test"};
 window.stageNewPromo=P=>{ const y=dateOf(P.start).getFullYear(); S=fresh(); S.year=Math.min(2022,Math.max(2016,y)); S.promoStart=P.start; S.updatedAt=Date.now(); save() };

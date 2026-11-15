@@ -10,6 +10,7 @@ GitHub Actions 每次上傳後、打包 APK 之前跑(.github/workflows/build.ym
 
 檢查什麼(Samsung A55 的兩個畫面尺寸 832×384、784×354 各跑一輪):
   開機      標題畫面出現、可以按開始
+  啟動順序  故意讓 growth.js 晚一點到,開機也要等所有程式檔都載入完
   新遊戲    按開始 → 上任第一天的過場 → 略過 → 第一段對話出現、可以往下點
   地圖      地圖、公司大樓、宿舍、製作中心的剖面圖
   設施      編舞板、錄音台、衣櫃、設計桌、企劃桌、演唱會企劃板、獎盃牆、MV 試映、待機室、製作者模式(每個分頁)
@@ -18,6 +19,7 @@ GitHub Actions 每次上傳後、打包 APK 之前跑(.github/workflows/build.ym
   選單      選單、成員抽屜、日記、相簿
   時間      連續過 3 天(每個時段),途中跳出的視窗都關得掉
   宣傳期    試玩存檔跳到「宣傳期第 2 週」→ 待機室打一場歌 → 看結果 → 結束試玩回到正式存檔
+  榜單      出道後手機主畫面最下面變成名次 → 榜單三頁(音源、專輯、MV)、新聞與粉絲站的句子、獎盃牆的紀錄、企劃室的同期對手
 合格條件:程式錯誤 0、遊戲自己的錯誤紀錄 0、遊戲檔案讀不到 0、文字或按鈕跑出畫面 0、每個畫面都關得掉。
 
 之後每做一包新功能,就在最下面的 GROUPS 加一項。在大腦的工作環境也是跑這一支(不用另外開伺服器)。
@@ -145,6 +147,9 @@ class Run:
     async def audit(self, where, scope="#stage"):
         try:
             a = await self.pg.evaluate("s=>__audit(s)", scope)
+            if a:   # 畫面剛好在轉場(地圖放大縮小、面板滑進來)時會量到半路上的位置:等一下再量一次,還在才算
+                await self.pg.wait_for_timeout(800)
+                a = await self.pg.evaluate("s=>__audit(s)", scope)
         except Exception as e:
             self.problems.append(f"{where}:版面檢查跑不起來({str(e)[:120]})")
             return
@@ -529,8 +534,113 @@ async def g_promo(r):
     r.bad_if(back["sb"] or back["day"] != 40 or back["left"], f"結束試玩以後正式存檔不對({back})")
 
 
+async def g_chart(r):
+    """榜單(第 2 包之一):出道前主畫面那一條是說明;出道後變成名次 → 榜單三頁;新聞、獎盃牆、企劃室的同期對手。"""
+    await r.boot()
+    await r.start()
+    pg = r.pg
+    await pg.evaluate("openPhone()")
+    await pg.wait_for_timeout(500)
+    r.bad_if(await pg.evaluate("!!document.querySelector('#phone .pdock[data-app=chart]')"), "還沒出道,主畫面最下面就出現榜單了")
+    await pg.evaluate("closePhone()")
+    await pg.evaluate("S.stats={fans:30,wins:0,winsByYear:{},firstWin:false,awards:[]}; S.day=40; save(true); openMaker()")
+    await pg.wait_for_timeout(600)
+    await pg.evaluate("document.querySelector('[data-mt=try]')?.click()")
+    await pg.wait_for_timeout(500)
+    try:
+        async with pg.expect_navigation(timeout=20000):
+            await pg.evaluate("[...document.querySelectorAll('.sbxp')].find(b=>b.dataset.sbxn==='宣傳期第 2 週').click()")
+    except Exception:
+        raise Fail("試玩存檔跳不過去")
+    await pg.wait_for_function(READY, timeout=90000)
+    await pg.evaluate("window.introSkip?.()")
+    await pg.wait_for_timeout(600)
+    await pg.evaluate("document.querySelector('#ttStart').click()")
+    await pg.wait_for_timeout(2500)
+    await pg.evaluate("document.querySelector('#welc')?.click(); document.querySelector('#cgView')?.remove(); document.querySelectorAll('.cine,.bigev').forEach(e=>e.remove()); for(const k of [...pausers]) setPause(k,false)")
+    r.bad_if(not await pg.evaluate("typeof chartSync==='function'"), "chart.js 沒有載入")
+    # 假資料:歌的分數 90、每天打歌的音源分數往上(空白存檔的預設歌分數很低,名次會一直在圈外)
+    st = await pg.evaluate("""()=>{ S.promo.title='Chase'; S.promo.release='NOCTURNE'; S.promo.tracks=['Chase','LETTER']; S.promoHist[0]={...S.promo}; delete S.chart; S.pubx=(S.pubx||[]).filter(x=>!chartKinds.includes(x.k));
+        const keep=window.songSummary; window.songSummary=()=>({title:{score:90,name:'Chase'},release:'NOCTURNE',tracks:['Chase','LETTER']});
+        const today=S.day, s0=S.promo.start, dg=[0,58,63,66,70,69,73,76,77,80,82,83,85,86]; S.day=s0; chartSync();
+        for(let i=1;s0+i<=today;i++){ if(dateOf(s0+i-1).getDay()!==1) S.chart.rel[1].show={d:s0+i-1,dg:dg[Math.min(i,dg.length-1)],rd:76,rn:'CARAT NOIR',rs:'Obsidian'}; S.day=s0+i; S.stats.fans+=4; chartSync() }
+        window.songSummary=keep; const x=S.chart.rel[1]; return {n:x.d.length,days:today-s0+1,peak:x.peak,last:x.d[x.d.length-1],fw:x.fw,mv:x.mv,b:(x.b.LETTER||[]).length,kinds:[...new Set((S.pubx||[]).map(p=>p.k))]} }""")
+    r.bad_if(st["n"] != st["days"], f"榜單沒有每天都算到(算了 {st['n']} 天,應該 {st['days']} 天)")
+    r.bad_if(not (0 < st["peak"] <= 10), f"假資料的名次不對(最高 {st['peak']} 位,應該進前十)")
+    r.bad_if(not st["fw"] or not st["mv"] or not st["b"], f"初動、MV 或收錄曲沒有算出來({st})")
+    for k in ["chart10", "sales", "mv"]:
+        r.bad_if(k not in st["kinds"], f"公開紀錄少了「{k}」")
+    news = await pg.evaluate("(S.pubx||[]).filter(x=>chartKinds.includes(x.k)).map(x=>newsOf(x)?.head||'')")
+    r.bad_if(not news or any(not h or "{" in h or "undefined" in h for h in news), f"榜單的新聞標題不對({news[:3]})")
+    fan = await pg.evaluate("fanPosts().map(p=>p.text)")
+    r.bad_if(any((not t) or "undefined" in t or "{" in t for t in fan), "粉絲站有壞掉的句子")
+    await pg.evaluate("openPhone()")
+    await pg.wait_for_timeout(600)
+    r.bad_if(not await pg.evaluate("!!document.querySelector('#phone .pdock[data-app=chart]')"), "出道後主畫面最下面沒有變成榜單")
+    await r.audit("手機主畫面(有榜單)", "#phone")
+    await pg.evaluate("document.querySelector('#phone .pdock[data-app=chart]')?.click()")
+    await pg.wait_for_timeout(600)
+    for t, n in [("dig", "音源"), ("alb", "專輯"), ("mv", "MV")]:
+        await pg.evaluate("t=>document.querySelector(`#phone [data-ctab=${t}]`)?.click()", t)
+        await pg.wait_for_timeout(450)
+        r.bad_if(not await pg.evaluate("!!document.querySelector('#phone .pchart .chero')"), f"榜單「{n}」頁是空的")
+        await r.audit(f"榜單「{n}」", "#phone")
+    rows = await pg.evaluate("(()=>{ document.querySelector('#phone [data-ctab=dig]').click(); return [...document.querySelectorAll('#phone .pchart .crow')].map(e=>({me:e.classList.contains('me'),rk:+e.querySelector('.rk').textContent})) })()")
+    r.bad_if(len(rows) < 6 or not any(x["me"] for x in rows) or [x["rk"] for x in rows] != sorted(x["rk"] for x in rows), f"今日音源榜的排列不對({rows[:8]})")
+    await pg.evaluate("document.querySelector('#phone .pback')?.click()")
+    await pg.wait_for_timeout(300)
+    r.bad_if(not await pg.evaluate("!!document.querySelector('#phone .pgrid')"), "榜單按返回回不到主畫面")
+    await pg.evaluate("closePhone()")
+    await pg.wait_for_timeout(300)
+    await pg.evaluate("openRecords()")
+    await pg.wait_for_timeout(1000)
+    r.bad_if(not await pg.evaluate("/音源榜最高/.test(document.querySelector('#recRoom .tw-ch')?.innerText||'')"), "獎盃牆沒有榜單紀錄")
+    await r.audit("獎盃牆(有榜單紀錄)", "#recRoom")
+    await pg.evaluate("document.querySelector('#recRoom .fac-close')?.click()")
+    await pg.wait_for_timeout(400)
+    # 宣傳期結束後,企劃室選回歸日:看得到那四週同期的對手
+    await pg.evaluate("S.day=S.promo.start+40; S.min=700; S.slot=2; window.timelineOnDayStart()")
+    await pg.wait_for_timeout(1500)
+    await pg.evaluate("document.querySelectorAll('.bigev .cardOk').forEach(b=>b.click())")
+    await pg.wait_for_timeout(800)
+    await pg.evaluate("document.querySelectorAll('.bigev,.cine').forEach(e=>e.remove()); for(const k of [...pausers]) setPause(k,false)")
+    await pg.evaluate("openSongFacility('planning')")
+    await pg.wait_for_timeout(1200)
+    n = await pg.evaluate("document.querySelectorAll('#songFac .cbriv span').length")
+    r.bad_if(n != 4, f"企劃室的同期對手應該有 4 週,現在是 {n}")
+    await pg.evaluate("document.querySelector('#songFac .cbriv')?.scrollIntoView({block:'center'})")
+    await pg.wait_for_timeout(300)
+    await r.audit("企劃室的同期對手", "#songFac")
+    await pg.evaluate("document.querySelector('#sfClose')?.click()")
+    await pg.wait_for_timeout(500)
+    try:
+        async with pg.expect_navigation(timeout=20000):
+            await pg.evaluate("window.sandboxExit(false)")
+    except Exception:
+        raise Fail("結束試玩回不去")
+    await pg.wait_for_function(READY, timeout=90000)
+    r.notes.append(f"最高 {st['peak']} 位、初動 {st['fw']} 萬張")
+
+
+async def g_bootorder(r):
+    """啟動順序:打包後程式檔是 defer 載入,後面的檔案晚一點到時,開機也要等它(2026-11-15 修過一次:growth.js 晚到,養成的初始化被跳過)。"""
+    pg = r.pg
+
+    async def slow(route):
+        await asyncio.sleep(0.4)
+        await route.continue_()
+
+    await r.ctx.route(lambda u: u.startswith(r.base) and "/growth.js" in u, slow)
+    await pg.add_init_script("window.__gi=0; Object.defineProperty(window,'growthInit',{configurable:true,set(f){ Object.defineProperty(window,'growthInit',{configurable:true,writable:true,value:function(){ window.__gi++; return f.apply(this,arguments) }}) },get(){ return undefined }})")
+    await r.boot()
+    n = await pg.evaluate("window.__gi")
+    r.bad_if(n != 1, f"growth.js 晚到的時候,養成的初始化跑了 {n} 次(應該 1 次):開機沒有等所有程式檔載入完")
+    r.bad_if(not await pg.evaluate("typeof window.fmtGameDay==='function'&&typeof window.chartSync==='function'"), "開機完成時還有程式檔沒載入")
+
+
 GROUPS = [
     ("開機", g_boot),
+    ("啟動順序", g_bootorder),
     ("新遊戲", g_newgame),
     ("地圖", g_map),
     ("設施", g_fac),
@@ -539,6 +649,7 @@ GROUPS = [
     ("選單", g_menu),
     ("時間", g_time),
     ("宣傳期", g_promo),
+    ("榜單", g_chart),
 ]
 
 
