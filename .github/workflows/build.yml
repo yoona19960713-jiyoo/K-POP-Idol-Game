@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: "略過自動檢查(只有主體開發說可以略過時才勾)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -54,6 +59,34 @@ jobs:
 
       - name: 壓縮程式(啟動加速;只改這次打包用的檔,倉庫裡的原始檔不變)
         run: node tools/bundle.mjs www "${{ github.run_number }}" || echo "::warning::程式壓縮失敗,這次用原始檔打包(遊戲照常可以玩)"
+
+      # 2.0 第八個大腦(2026-11-15):每次上傳後先自動檢查,沒過就停在這裡——不出 APK、網頁版也維持上一版。
+      # 檢查的內容在 tests/ci_smoke.py(A55 兩個尺寸:開機、新遊戲、地圖、每個設施、每個地點、手機、選單、過 3 天、宣傳期打一場歌)。
+      # 結果看這次執行的 Summary;沒過時的截圖在下面的附件 test-report。之後要加檢查只改 tests/ci_smoke.py,這個檔不用再動。
+      - uses: actions/setup-python@v5
+        if: ${{ !inputs.skip_tests }}
+        with:
+          python-version: "3.12"
+
+      - name: 自動檢查(沒過就不出 APK)
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          if [ ! -f tests/ci_smoke.py ]; then
+            echo "::warning::找不到 tests/ci_smoke.py,這次沒有做自動檢查(請把更新包裡的 tests 資料夾也上傳)"
+            exit 0
+          fi
+          pip install --quiet "playwright==1.63.0"
+          python -m playwright install --with-deps chromium
+          python tests/ci_smoke.py www
+
+      - name: 自動檢查的報告(沒過時有截圖)
+        if: ${{ always() && !inputs.skip_tests }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-report/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: 建立 Android 專案
         run: |
