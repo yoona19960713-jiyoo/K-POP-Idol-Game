@@ -184,10 +184,11 @@ function perform(){ syncSkill();
   const decay=[0,.92,1,.9,.78,.72][Math.min(5,wk)];
   /* 2026-11-10(使用者決定:擬真,但準備得非常好就大爆——怪物新人):知名度(粉絲,420 萬滿)影響銷量;知名度加上這次回歸的話題度(S.hype)決定音源、觀看、話題的觸及。
      話題度只靠「真的準備得好」累積:挑戰流行 +13、舞台 S +2.5、KEY POINT 成功 +1、Ending 瘋傳 +1,每場留 81%。
-     模擬(/tmp/mc.py 的設定):準備普通出道期 0 次一位;準備良好約 1~3 次、第二次回歸約 10 次;準備得非常好出道期約 11~15 次(之後幾乎場場一位) */
+     模擬(2026-11-15 改用 測試腳本/balance.mjs,照這裡的寫法重算、每種 1000 次):出道宣傳期 24 場,準備普通 0 次一位;準備良好約 2 次(0~5);
+     準備得非常好約 12 次(7~17)。多年的走向、粉絲成長與頒獎門檻見 growth.js 的 BALANCE。 */
   const fame=Math.min(1,(window.fansNow?.()||0)/420), reach=Math.min(1,fame+(S.hype||0)/65);
   const us={digital:SONG.score*decay*(.6+.4*reach),sales:21+74*fame,views:Math.min(100,views*(.45+.55*reach)/3.4),social:Math.min(100,social*(.45+.55*reach)*.95),stage};
-  const RV=rivalOf(i,S.promoStart), pw=RV.pw||1;
+  const RV=rivalOf(i,S.promoStart), pw=(RV.pw||1)*(1+(window.BALANCE?.rivalGrow??.01)*Math.max(0,(+S.year||2017)-2017));   // 對手每年變強 1%(2026-11-15 第 2 包之二,growth.js BALANCE)
   const rv={digital:Math.min(100,(79+rnd()*12)*([0,1,.96,.88,.78,.74][Math.min(5,wk)])*pw),sales:Math.min(100,82*pw),views:Math.min(100,(58+rnd()*24)*pw),social:Math.min(100,(52+rnd()*28)*pw),stage:Math.min(100,(70+rnd()*14)*pw)};
   const pts=o=>Math.round(Object.entries(sh.w).reduce((x,[k,w])=>x+o[k]*w,0)*100);
   const up=pts(us), rp=pts(rv), win=up>rp;

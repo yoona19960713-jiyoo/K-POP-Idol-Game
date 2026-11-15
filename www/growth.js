@@ -184,10 +184,19 @@ const yr=()=>dateOf(S.day).getFullYear();
 window.fansNow=()=>+st().fans||0;   // 打歌一位計分用(stage.js)
 window.fansText=()=>{ const f=st().fans; return f>=10000?`${(f/10000).toFixed(1)} 億`:f>=1?`${Math.round(f)} 萬`:"還沒有粉絲" };
 /* 待機室每一場打歌的結果 */
+/* 長期平衡(2026-11-15,2.0 第 2 包之二)。以前不管成績如何,每次回歸都固定多 75~80 萬粉絲(沒拿一位每場也 +1~4 萬),知名度很快到頂,
+   準備普通的團到第三年也會場場一位、年年大賞。現在粉絲跟著成績走:沒拿一位的場次漲得少、結算看一位次數與歌的分數;對手每年變強 1%;頒獎門檻重訂。
+   數字用 測試腳本/balance.mjs 的多年模擬定的(一年發行 2 次、各 400 次):
+     準備普通  2017~2019 幾乎沒有一位,2020 年起本賞,大賞大約在第 4~5 年(一年發行 3 次的話第 3 年)
+     準備良好  2017 年新人獎+本賞(一位約 8 次),2018 年大賞(95%)
+     準備非常好 2017 年一位約 32 次、年底大賞(98%;只發行 1 次的話拿不到,要到 2018~2019 年)
+   這裡沒有懲罰:粉絲只會多不會少,只是多得快或慢。 */
+const BAL={loseBase:.7,loseMax:1.8,loseDiv:200,settleBase:6,bonsang:5,best:12,daesang:20,daesangFans:300,rivalGrow:.01};
+window.BALANCE=BAL;
 window.onShowResult=r=>{ const s=st(), promo=window.promoActive?.(); if(!promo) return null;   // 練習模式不算
   let first=false;
   if(r.win){ window.logEvent?.("win",{show:r.sh?.n||"音樂節目",song:S.promo?.title||""}); s.wins++; s.winsByYear[yr()]=(s.winsByYear[yr()]||0)+1; s.fans+=3+Math.min(6,(r.views||0)/80); if(!s.firstWin){ s.firstWin=true; first=true; window.cgGroupUnlock?.("g_firstwin"); for(const m of M){S.m[m.id].xp+=200; S.m[m.id].mood=Math.min(100,S.m[m.id].mood+20)} addBond(M.map(x=>x.id),4) } }
-  else s.fans+=1+Math.min(3,(r.views||0)/150);
+  else s.fans+=BAL.loseBase+Math.min(BAL.loseMax,(r.views||0)/BAL.loseDiv);
   S.promo.wins=(S.promo.wins||0)+(r.win?1:0); S.promo.shows=(S.promo.shows||0)+1; if(!r.auto) window.spendTime?.(180,"打歌"); save(true);   // 跟去電視台打歌:扣 3 小時(改版 1.0;1.2 重做宣傳期)
   if(first&&r.auto) setTimeout(()=>window.showCard({tag:"FIRST WIN",bg:"assets/bg/ev_stage.webp",title:"第一個一位!",lead:`你不在電視台的那天,${window.groupName?.()||"完美女團"}在《${r.sh?.n||"音樂節目"}》拿下了出道後的第一個一位。一回到宿舍,五個人就衝過來抱住你。`,
     lines:(L0=>(window.feedback?.("l"),window.eventLines?.("first_win",L0)||L0))([["he","代表……我們拿到一位了!","sad"],["hr","代表!!我們是一位!!","laugh"],["tr","……下次,你要在台下看。","shy"]]),ok:"抱緊她們"}),1500);
@@ -206,7 +215,7 @@ function showCardNow(o){ const el=document.createElement("div"); el.className="b
 window.showCard=card;
 /* 宣傳期結算 */
 function settle(P){ const s=st(), w=P.wins||0, n=P.shows||0, sum=window.songSummary?songSummary():null;
-  const gain=Math.round(8+w*4+(sum?.title?.score||60)/10); s.fans+=gain; P.settled=true;
+  const gain=Math.round(BAL.settleBase+w*4+Math.max(0,(sum?.title?.score||60)-70)/4); s.fans+=gain; P.settled=true;
   for(const m of M){ S.m[m.id].xp+=150+w*20; S.m[m.id].stress=Math.max(0,S.m[m.id].stress-15) } addBond(M.map(x=>x.id),2);
   const rank=w>=12?"打歌節目全面制霸":w>=6?"音源與打歌雙雙登頂":w>=1?"拿下了一位":"每一場都留下了好舞台";
   card({tag:`${P.kind==="debut"?"DEBUT":"COMEBACK"} RESULT`,bg:"assets/bg/ev_stage.webp",title:`〈${esc(P.title)}〉宣傳期結算`,
@@ -214,11 +223,11 @@ function settle(P){ const s=st(), w=P.wins||0, n=P.shows||0, sum=window.songSumm
     stats:[["一位",`${w} 次`],["完成打歌",`${n} 場`],["新增粉絲",`+${gain} 萬`],["粉絲總數",fansText()]],ok:"慶功宴乾杯"}) }
 /* 年末:12/2 亞洲音樂大獎、12/31 年末歌謠大祭典 */
 function awards(){ const s=st(), y=yr(), w=s.winsByYear[y]||0, debutYear=dateOf(DEBUT_DAY).getFullYear()===y;
-  const got=[]; if(debutYear) got.push("最佳新人獎"); if(w>=3) got.push("年度本賞"); if(w>=6) got.push("最佳女子團體獎"); if(w>=12&&s.fans>=60) got.push("年度大賞・年度歌手");
+  const got=[]; if(debutYear) got.push("最佳新人獎"); if(w>=BAL.bonsang) got.push("年度本賞"); if(w>=BAL.best) got.push("最佳女子團體獎"); if(w>=BAL.daesang&&s.fans>=BAL.daesangFans) got.push("年度大賞・年度歌手");
   const firstDaesang=got.some(g=>g.includes("大賞"))&&!s.awards.some(a=>(a.got||[]).some(g=>g.includes("大賞")));
   s.awards.push({y,got}); for(const m of M) S.m[m.id].xp+=got.length*80; if(firstDaesang) window.cgGroupUnlock?.("g_daesang");
   card({tag:`ASIA MUSIC AWARDS ・ ${y}`,bg:"assets/bg/ev_awards.webp",title:got.length?`拿下 ${got.length} 個獎`:"第一次站上頒獎典禮",
-    lead:got.length?`今年的${window.groupName?.()||"完美女團"}拿下了:${got.join("、")}。${got.some(g=>g.includes("大賞"))?"出道第一年就拿下大賞,整個會場都在喊她們的名字。":""}`:"這一年雖然沒有拿獎,但能站在這個舞台上表演,已經是很多團體夢寐以求的事。",
+    lead:got.length?`今年的${window.groupName?.()||"完美女團"}拿下了:${got.join("、")}。${got.some(g=>g.includes("大賞"))?(debutYear?"出道第一年就拿下大賞,整個會場都在喊她們的名字。":firstDaesang?"第一次拿下大賞,整個會場都在喊她們的名字。":"又一次站上大賞的舞台,整個會場都在喊她們的名字。"):""}`:"這一年雖然沒有拿獎,但能站在這個舞台上表演,已經是很多團體夢寐以求的事。",
     stats:[["今年一位",`${w} 次`],["粉絲總數",fansText()]],
     lines:got.length?[["ys","代表……這座獎,是我們六個人一起拿的。","sad"],["hr","我要把獎盃帶回濟州給奶奶看!","laugh"]]:[["he","明年,我們一定會拿到。","smile"]],ok:"一起拍張照"}) }
 function festival(){ const y=yr(); window.cgGroupUnlock?.("g_newyear");

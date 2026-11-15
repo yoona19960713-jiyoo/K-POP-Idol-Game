@@ -20,6 +20,7 @@ GitHub Actions 每次上傳後、打包 APK 之前跑(.github/workflows/build.ym
   時間      連續過 3 天(每個時段),途中跳出的視窗都關得掉
   宣傳期    試玩存檔跳到「宣傳期第 2 週」→ 待機室打一場歌 → 看結果 → 結束試玩回到正式存檔
   榜單      出道後手機主畫面最下面變成名次 → 榜單三頁(音源、專輯、MV)、新聞與粉絲站的句子、獎盃牆的紀錄、企劃室的同期對手
+  平衡      每場打歌漲多少粉絲、年末頒獎的門檻(growth.js 的 BALANCE)
 合格條件:程式錯誤 0、遊戲自己的錯誤紀錄 0、遊戲檔案讀不到 0、文字或按鈕跑出畫面 0、每個畫面都關得掉。
 
 之後每做一包新功能,就在最下面的 GROUPS 加一項。在大腦的工作環境也是跑這一支(不用另外開伺服器)。
@@ -638,6 +639,41 @@ async def g_bootorder(r):
     r.bad_if(not await pg.evaluate("typeof window.fmtGameDay==='function'&&typeof window.chartSync==='function'"), "開機完成時還有程式檔沒載入")
 
 
+async def g_balance(r):
+    """長期平衡(第 2 包之二):粉絲跟著成績漲、頒獎門檻。數字改了這裡要跟著改(growth.js 的 BALANCE;怎麼定的看 測試腳本/balance.mjs)。"""
+    await r.boot()
+    await r.start()
+    pg = r.pg
+    await pg.evaluate("S.day=40; save(true); openMaker()")
+    await pg.wait_for_timeout(600)
+    await pg.evaluate("document.querySelector('[data-mt=try]')?.click()")
+    await pg.wait_for_timeout(500)
+    try:
+        async with pg.expect_navigation(timeout=20000):
+            await pg.evaluate("[...document.querySelectorAll('.sbxp')].find(b=>b.dataset.sbxn==='宣傳期第 2 週').click()")
+    except Exception:
+        raise Fail("試玩存檔跳不過去")
+    await pg.wait_for_function(READY, timeout=90000)
+    await pg.evaluate("window.introSkip?.()")
+    await pg.wait_for_timeout(600)
+    await pg.evaluate("document.querySelector('#ttStart').click()")
+    await pg.wait_for_timeout(2500)
+    await pg.evaluate("document.querySelector('#welc')?.click(); document.querySelectorAll('.cine,.bigev,#cgView').forEach(e=>e.remove()); for(const k of [...pausers]) setPause(k,false); window.showCard=()=>{}")
+    fans = await pg.evaluate("""()=>{ const mk=(win,views)=>({win,views,us:{digital:50},rv:{digital:70},rival:{n:'X',song:'Y'},sh:{n:'T'},auto:true}), out=[];
+        for(const [win,v] of [[false,100],[false,300],[false,900],[true,400]]){ const f0=S.stats.fans; onShowResult(mk(win,v)); out.push(+(S.stats.fans-f0).toFixed(2)) } return out }""")
+    r.bad_if(fans != [1.2, 2.2, 2.5, 8], f"每場打歌漲的粉絲不對(沒拿一位觀看 100/300/900、一位觀看 400 應該是 1.2/2.2/2.5/8 萬,現在是 {fans})")
+    aw = await pg.evaluate("""async()=>{ let d=DEBUT_DAY; while(!(dateOf(d).getMonth()===11&&dateOf(d).getDate()===2)) d++; const out=[];
+        for(const [w,f] of [[4,500],[5,50],[12,100],[20,299],[20,300]]){ S.stats.awards=[]; S.stats.winsByYear={[dateOf(d).getFullYear()]:w}; S.stats.fans=f; S.awardYear=null; S.day=d; S.min=360;
+          window.timelineOnDayStart(); await new Promise(q=>setTimeout(q,1400)); out.push((S.stats.awards[0]?.got||[]).length) } return out }""")
+    r.bad_if(aw != [1, 2, 3, 3, 4], f"年末頒獎的門檻不對(一位 4/5/12/20/20 次、粉絲 500/50/100/299/300 萬應該拿 1/2/3/3/4 個獎,現在是 {aw})")
+    try:
+        async with pg.expect_navigation(timeout=20000):
+            await pg.evaluate("window.sandboxExit(false)")
+    except Exception:
+        raise Fail("結束試玩回不去")
+    await pg.wait_for_function(READY, timeout=90000)
+
+
 GROUPS = [
     ("開機", g_boot),
     ("啟動順序", g_bootorder),
@@ -650,6 +686,7 @@ GROUPS = [
     ("時間", g_time),
     ("宣傳期", g_promo),
     ("榜單", g_chart),
+    ("平衡", g_balance),
 ]
 
 
